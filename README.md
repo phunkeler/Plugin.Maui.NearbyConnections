@@ -1,7 +1,4 @@
 # Plugin.Maui.NearbyConnections
-Plugin.Maui.NearbyDevices provides the ability to exchange information with nearby devices regardless of network connectivity
-
-# Plugin.Maui.NearbyConnections
 `Plugin.Maui.NearbyConnections` provides the ability to exchange information with nearby devices regardless of network connectivity
 
 ## Getting Started
