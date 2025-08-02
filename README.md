@@ -1,9 +1,8 @@
+[![codecov](https://codecov.io/github/phunkeler/Plugin.Maui.NearbyConnections/graph/badge.svg?token=UY5YNK57EZ)](https://codecov.io/github/phunkeler/Plugin.Maui.NearbyConnections)
+[![NuGet](https://img.shields.io/nuget/v/Plugin.Maui.Audio.svg?label=NuGet)](https://www.nuget.org/packages/Plugin.Maui.Audio/)
+
 # Plugin.Maui.NearbyConnections
 `Plugin.Maui.NearbyConnections` provides the ability to exchange information with nearby devices regardless of network connectivity
-
-## Getting Started
-
-* Available on NuGet: <http://www.nuget.org/packages/Plugin.Maui.Audio> [![NuGet](https://img.shields.io/nuget/v/Plugin.Maui.Audio.svg?label=NuGet)](https://www.nuget.org/packages/Plugin.Maui.Audio/)
 
 ## API Usage
 
