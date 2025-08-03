@@ -11,24 +11,18 @@
   </p>
 </div>
 
-#
-</br>
-
 <div align="center">
-<a href="https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/LICENSE">
-<img alt="GitHub License" src="https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections">
-</a>
-<a href="https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/LICENSE">
-<img alt="GitHub License" src="https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections">
-</a>
+  <p>
+    <a href="https://www.nuget.org/packages/Plugin.Maui.NearbyConnections">
+      <img alt="NuGet version" src="https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections.svg?style=flat-square&label=nuget">
+    </a>
+    <a href="https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections">
+      <img alt="Code Coverage" src="https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections/graph/badge.svg?token=UY5YNK57EZ">
+    </a>
+    <a href="https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/LICENSE">
+      <img alt="GitHub License" src="https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections?style=flat-square">
+    </a>
+  </p>
 </div>
-
-[![NuGet version (Plugin.Maui.NearbyDevices)](https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections.svg)](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
-[![codecov](https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections/graph/badge.svg?token=UY5YNK57EZ)](https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections)
-![GitHub License](https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections)
-</br>
-
-#
-</br>
 
 # Getting Started
