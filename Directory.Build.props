@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <NetVersion>net9.0</NetVersion>
+    <AndroidPlatform>android</AndroidPlatform>
+    <IosPlatform>ios</IosPlatform>
+    <AndroidTargetFramework>$(NetVersion)-$(AndroidPlatform)</AndroidTargetFramework>
+    <IosTargetFramework>$(NetVersion)-$(IosPlatform)</IosTargetFramework>
+    <SupportedTargetFrameworks>$(NetVersion);$(AndroidTargetFramework);$(IosTargetFramework)</SupportedTargetFrameworks>
+
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

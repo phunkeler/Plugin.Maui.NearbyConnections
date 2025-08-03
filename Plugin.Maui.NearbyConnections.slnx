@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj" />
+  </Folder>
+</Solution>
