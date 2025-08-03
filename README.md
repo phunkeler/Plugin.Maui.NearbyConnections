@@ -14,17 +14,17 @@
 <div align="center">
   <div>
     <a href="https://www.nuget.org/packages/Plugin.Maui.NearbyConnections">
-      <img alt="NuGet version" src="https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections.svg?style=flat-square&label=nuget">
+      <img alt="NuGet Version" src="https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections?style=for-the-badge">
     </a>
   </div>
   <div>
     <a href="https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections">
-      <img alt="Code Coverage" src="https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections/graph/badge.svg?token=UY5YNK57EZ">
+      <img alt="Codecov (with branch)" src="https://img.shields.io/codecov/c/gh/phunkeler/Plugin.Maui.NearbyConnections/main?style=for-the-badge">
     </a>
   </div>
   <div>
     <a href="https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/LICENSE">
-      <img alt="GitHub License" src="https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections?style=flat-square">
+      <img alt="GitHub License" src="https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections?style=for-the-badge">
     </a>
   </div>
   </p>
