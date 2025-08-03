@@ -12,16 +12,21 @@
 </div>
 
 <div align="center">
-  <p>
+  <div>
     <a href="https://www.nuget.org/packages/Plugin.Maui.NearbyConnections">
       <img alt="NuGet version" src="https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections.svg?style=flat-square&label=nuget">
     </a>
+  </div>
+  <div>
     <a href="https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections">
       <img alt="Code Coverage" src="https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections/graph/badge.svg?token=UY5YNK57EZ">
     </a>
+  </div>
+  <div>
     <a href="https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/LICENSE">
       <img alt="GitHub License" src="https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections?style=flat-square">
     </a>
+  </div>
   </p>
 </div>
 
