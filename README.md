@@ -11,13 +11,13 @@
   </p>
   <div>
     <a href="https://www.nuget.org/packages/Plugin.Maui.NearbyDevices" target="_blank">
-      <img src="https://img.shields.io/nuget/v/Plugin.Maui.NearbyDevices.svg?style=flat-square&label=nuget" alt="NuGet">
+      <img src="https://img.shields.io/nuget/v/Plugin.Maui.NearbyDevices.svg?style=flat-square&label=nuget">
     </a>
     <a href="https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections" target="_blank">
-      <img src="https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections/graph/badge.svg?token=UY5YNK57EZ" alt="Code Coverage"/>
+      <img src="https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections/graph/badge.svg?token=UY5YNK57EZ"/>
     </a>
     <a href="https://github.com/phunkeler/Plugin.Maui.NearbyDevices/blob/main/LICENSE" target="_blank">
-      <img src="https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyDevices?style=flat-square" alt="License">
+      <img src="https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyDevices?style=flat-square">
     </a>
   </div>
 </div>
