@@ -34,3 +34,8 @@
 </div>
 
 # Getting Started
+
+# Acknowledgements
+
+-   https://github.com/puguhsudarma/expo-nearby-connections
+-   https://github.com/VNAPNIC/flutter_nearby_connections
