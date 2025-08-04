@@ -7,6 +7,11 @@
     <IosTargetFramework>$(NetVersion)-$(IosPlatform)</IosTargetFramework>
     <SupportedTargetFrameworks>$(NetVersion);$(AndroidTargetFramework);$(IosTargetFramework)</SupportedTargetFrameworks>
 
+    <IsTargetPlatformAndroid>false</IsTargetPlatformAndroid>
+    <IsTargetPlatformAndroid Condition="'$(TargetFramework)' == '$(AndroidTargetFramework)'">true</IsTargetPlatformAndroid>
+    <IsTargetPlatformIos>false</IsTargetPlatformIos>
+    <IsTargetPlatformIos Condition="'$(TargetFramework)' == '$(IosTargetFramework)'">true</IsTargetPlatformIos>
+
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

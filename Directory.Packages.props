@@ -1,5 +1,6 @@
 <Project>
   <ItemGroup>
     <PackageVersion Include="Microsoft.Maui.Controls" Version="9.0.90" />
+    <PackageVersion Include="Xamarin.GooglePlayServices.Nearby" Version="119.3.0.6" />
   </ItemGroup>
 </Project>

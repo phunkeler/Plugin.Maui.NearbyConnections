@@ -9,15 +9,12 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
 
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/phunkeler/MediaToolkit.Maui</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/phunkeler/Plugin.Maui.NearbyConnections</PackageProjectUrl>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>Maui;Controls;Image-Editing;Android;iOS</PackageTags>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/phunkeler/MediaToolkit.Maui</RepositoryUrl>
+    <RepositoryUrl>https://github.com/phunkeler/Plugin.Maui.NearbyConnections</RepositoryUrl>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Include="$(MSBuildThisFileDirectory)..\README.md" Pack="true" PackagePath="" />
-  </ItemGroup>
 </Project>

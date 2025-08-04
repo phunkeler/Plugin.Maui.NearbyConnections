@@ -7,9 +7,6 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" />
-
-    <None Include="../../.assets/nuget.png" PackagePath="icon.png" Pack="true" />
-		<None Include="../../README.md" Pack="true" PackagePath="\"/>
+    <PackageReference Include="Xamarin.GooglePlayServices.Nearby" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
 	</ItemGroup>
-
 </Project>
