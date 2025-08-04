@@ -1,3 +1,5 @@
 {
-    "dotnet.defaultSolution": "Plugin.Maui.NearbyConnections.slnx"
+    "dotnet.defaultSolution": "Plugin.Maui.NearbyConnections.slnx",
+    "editor.formatOnSave": true,
+    "files.autoSave": "onFocusChange"
 }
