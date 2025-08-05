@@ -7,7 +7,7 @@
   </ItemGroup>
 
   <!-- Android -->
-	<ItemGroup Condition="'$(IsTargetPlatformAndroid)' == 'false'">
+	<ItemGroup Condition="$(IsTargetPlatformAndroid) == false">
 		<Compile Remove="**\*.android.cs" />
 		<None Include="**\*.android.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
 		<Compile Remove="**\android\**\*.cs" />
@@ -15,15 +15,21 @@
 	</ItemGroup>
 
   <!-- iOS -->
-	<ItemGroup Condition="'$(IsTargetPlatformIos)' == 'false'">
+	<ItemGroup Condition="$(IsTargetPlatformIos) == false">
 		<Compile Remove="**\*.ios.cs" />
 		<None Include="**\*.ios.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
 		<Compile Remove="**\ios\**\*.cs" />
 		<None Include="**\ios\**\*.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
 	</ItemGroup>
 
+  <!-- .NET (generic) -->
+	<ItemGroup Condition="($(IsTargetPlatformIos) == true OR $(IsTargetPlatformAndroid) == true)">
+		<Compile Remove="**\*.net.cs" />
+		<None Include="**\*.net.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+	</ItemGroup>
 
-  <!-- Global Usings - do this to keep .csproj clean -->
+
+  <!-- Global Usings - do this here to keep .csproj clean -->
   <Target Name="BeforeGenerateGlobalUsings" BeforeTargets="GenerateGlobalUsings">
     <ItemGroup Condition="'$(IsTargetPlatformAndroid)' == 'true'">
       <Using Include="Android.Gms.Common" />

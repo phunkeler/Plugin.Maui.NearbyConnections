@@ -13,8 +13,3 @@ public static class NearbyConnections
     public static INearbyConnections Current =>
         s_currentImplementation ??= new NearbyConnectionsImplementation();
 }
-
-partial class NearbyConnectionsImplementation : INearbyConnections
-{
-
-}
