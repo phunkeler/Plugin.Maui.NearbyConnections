@@ -8,5 +8,5 @@ public interface INearbyConnections
     /// <summary>
     ///     Start discovering nearby peers
     /// </summary>
-    Task StartDiscoveryAsync(DiscoveryOptions options);
+    Task StartDiscoveryAsync();
 }
