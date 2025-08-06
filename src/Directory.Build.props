@@ -2,8 +2,10 @@
   <Import Project="../Directory.Build.props" />
   <PropertyGroup>
 
-    <Authors>phunkeler</Authors>
-    <Copyright>Copyright (c) phunkeler and contributors</Copyright>
+    <Authors>phunkeler and contributors</Authors>
+    <Copyright>Copyright © 2025 phunkeler and contributors</Copyright>
+    <Title>.NET MAUI Nearby Connections Plugin</Title>
+    <Description>A .NET MAUI plugin that faciltates peer-to-peer (P2P) connections between nearby devices by unifying Google's Nearby Connections and Apple's Multipeer Connectivity capabilities.</Description>
     <IsPackable>true</IsPackable>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
