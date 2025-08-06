@@ -15,7 +15,7 @@
     <PackageProjectUrl>https://github.com/phunkeler/Plugin.Maui.NearbyConnections</PackageProjectUrl>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>Maui;Controls;Image-Editing;Android;iOS</PackageTags>
+    <PackageTags>offline-first;peer-to-peer;nearby-devices;cross-platform;android;ios;dotnet-maui;maui;plugin;nearby-connections;multipeer-connectivity;wifi;bluetooth;bluetooth-ble</PackageTags>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/phunkeler/Plugin.Maui.NearbyConnections</RepositoryUrl>
