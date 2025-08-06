@@ -1,13 +1,14 @@
 <Project>
   <Import Project="../Directory.Build.props" />
   <PropertyGroup>
-    <Authors>phunkeler</Authors>
 
+    <Authors>phunkeler</Authors>
+    <Copyright>Copyright (c) phunkeler and contributors</Copyright>
+    <IsPackable>true</IsPackable>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
-
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/phunkeler/Plugin.Maui.NearbyConnections</PackageProjectUrl>
     <PackageIcon>icon.png</PackageIcon>
