@@ -35,5 +35,6 @@
 
 # Acknowledgements
 
+-   https://github.com/jfversluis/Plugin.Maui.Feature
 -   https://github.com/puguhsudarma/expo-nearby-connections
 -   https://github.com/VNAPNIC/flutter_nearby_connections
