@@ -38,7 +38,7 @@
 ### The Problem
 
 _"
-.NET MAUI developers face a significant challenge when implementing peer-to-peer connectivity in their apps. They must either learn and maintain two separate native APIs (Google's Nearby Connections for Android and Apple's Multipeer Connectivity for iOS), develop a custom solution, or avoid implementing offline-first features altogether. This complexity often prevents developers from adding valuable offline capabilities to their MAUI applications."_
+.NET MAUI developers face a significant challenge when implementing peer-to-peer connectivity in their apps. They must either learn and maintain two separate native APIs (Google's Nearby Connections for Android and Apple's Multipeer Connectivity for iOS), develop a custom solution, or avoid implementing offline-first features altogether. This complexity often prevents developers from adding valuable P2P capabilities to their MAUI applications."_
 
 ### The Solution
 
