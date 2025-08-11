@@ -4,12 +4,138 @@ using MultipeerConnectivity;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
+/// Interface for peer ID persistence operations.
+/// </summary>
+public interface IPeerIdStorage
+{
+    /// <summary>
+    /// Gets the stored display name.
+    /// </summary>
+    /// <returns>The stored display name, or null if not found.</returns>
+    string? GetStoredDisplayName();
+
+    /// <summary>
+    /// Gets the stored peer ID data.
+    /// </summary>
+    /// <returns>The stored peer ID data, or null if not found.</returns>
+    NSData? GetStoredPeerIdData();
+
+    /// <summary>
+    /// Stores the display name and peer ID data.
+    /// </summary>
+    /// <param name="displayName"></param>
+    /// <param name="peerIdData"></param>
+    void StorePeerIdData(string displayName, NSData peerIdData);
+}
+
+/// <summary>
+/// Interface for archiving/unarchiving MCPeerID objects.
+/// </summary>
+public interface IPeerIdArchiver
+{
+    /// <summary>
+    /// Unarchives a MCPeerID object from the given NSData.
+    /// </summary>
+    /// <param name="data"></param>
+    /// <returns>The unarchived MCPeerID object, or null if the operation failed.</returns>
+    MCPeerID? UnarchivePeerId(NSData data);
+
+    /// <summary>
+    /// Archives a MCPeerID object to NSData.
+    /// </summary>
+    /// <param name="peerId"></param>
+    /// <returns>The archived NSData, or null if the operation failed.</returns>
+    NSData ArchivePeerId(MCPeerID peerId);
+}
+
+/// <summary>
+/// Default implementation using NSUserDefaults for persistence.
+/// </summary>
+public class NSUserDefaultsPeerIdStorage : IPeerIdStorage
+{
+    /// <inheritdoc/>
+    public string? GetStoredDisplayName()
+    {
+        return NSUserDefaults.StandardUserDefaults.StringForKey("PeerDisplayNameKey");
+    }
+
+    /// <inheritdoc/>
+    public NSData? GetStoredPeerIdData()
+    {
+        return NSUserDefaults.StandardUserDefaults.DataForKey("PeerIdKey");
+    }
+
+    /// <inheritdoc/>
+    public void StorePeerIdData(string displayName, NSData peerIdData)
+    {
+        var defaults = NSUserDefaults.StandardUserDefaults;
+        defaults.SetString(displayName, "PeerDisplayNameKey");
+        defaults.SetValueForKey(peerIdData, new NSString("PeerIdKey"));
+        defaults.Synchronize();
+    }
+}
+
+/// <summary>
+/// Default implementation using NSKeyedArchiver/NSKeyedUnarchiver.
+/// </summary>
+public class NSKeyedPeerIdArchiver : IPeerIdArchiver
+{
+    /// <inheritdoc/>
+    public MCPeerID? UnarchivePeerId(NSData data)
+    {
+        var result = NSKeyedUnarchiver.GetUnarchivedObject(typeof(MCPeerID), data, out var error);
+
+        if (error is not null)
+        {
+            throw new NSErrorException(error);
+        }
+
+        if (result is MCPeerID peerId)
+        {
+            return peerId;
+        }
+
+        throw new InvalidOperationException("Failed to unarchive MCPeerID: Result is null or of wrong type");
+    }
+
+    /// <inheritdoc/>
+    public NSData ArchivePeerId(MCPeerID peerId)
+    {
+        var data = NSKeyedArchiver.GetArchivedData(peerId, true, out var error);
+
+        if (error is not null)
+        {
+            throw new InvalidOperationException($"Failed to archive MCPeerID: {error.LocalizedDescription}");
+        }
+
+        return data ?? throw new InvalidOperationException("Failed to archive MCPeerID: Result is null");
+    }
+}
+
+/// <summary>
 ///     Helper class for archiving and unarchiving objects.
 /// </summary>
 public class NearbyConnectionsManager : IDisposable
 {
+    private readonly IPeerIdStorage _storage;
+    private readonly IPeerIdArchiver _archiver;
     private bool _disposedValue;
-    private MCPeerID? _peerId;
+
+    /// <summary>
+    /// Initializes a new instance with default dependencies.
+    /// </summary>
+    public NearbyConnectionsManager() : this(new NSUserDefaultsPeerIdStorage(), new NSKeyedPeerIdArchiver())
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance with custom dependencies for testing.
+    /// </summary>
+    public NearbyConnectionsManager(IPeerIdStorage storage, IPeerIdArchiver archiver)
+    {
+        _storage = storage ?? throw new ArgumentNullException(nameof(storage));
+        _archiver = archiver ?? throw new ArgumentNullException(nameof(archiver));
+    }
 
     /*
         Consumers will need the following entries in their Info.plist:
@@ -55,54 +181,33 @@ public class NearbyConnectionsManager : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// Gets or creates a peer ID for the specified display name.
+    /// </summary>
+    /// <param name="displayName">The display name for the peer.</param>
+    /// <returns>The peer ID for the specified display name.</returns>
     // https://developer.apple.com/documentation/multipeerconnectivity/mcpeerid
-    private static MCPeerID? GetPeerId(string displayName)
+    public MCPeerID? GetPeerId(string displayName)
     {
-        MCPeerID? result = null;
-        var defaults = NSUserDefaults.StandardUserDefaults;
-        var oldDisplayName = defaults.StringForKey("PeerDisplayNameKey");
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
 
-        if (oldDisplayName?.Equals(displayName, StringComparison.OrdinalIgnoreCase) ?? false)
+        var storedDisplayName = _storage.GetStoredDisplayName();
+
+        if (storedDisplayName?.Equals(displayName, StringComparison.OrdinalIgnoreCase) == true)
         {
             // Try to restore existing peer ID
-            var peerIdData = defaults.DataForKey("PeerIdKey");
-
-            if (peerIdData is NSData data)
+            var peerIdData = _storage.GetStoredPeerIdData();
+            if (peerIdData is not null)
             {
-                var data1 = NSKeyedUnarchiver.GetUnarchivedObject(typeof(MCPeerID), data, out var error);
-
-                if (error is not null)
-                {
-                    throw new NSErrorException(error);
-                }
-                else if (data1 is MCPeerID peerId)
-                {
-                    result = peerId;
-                }
-                else
-                {
-                    throw new InvalidOperationException("Failed to unarchive MCPeerID: Result is null or of wrong type");
-                }
+                return _archiver.UnarchivePeerId(peerIdData);
             }
         }
-        else
-        {
-            // Create new peer ID
-            var peerId = new MCPeerID(displayName);
-            var peerIdData = NSKeyedArchiver.GetArchivedData(peerId, true, out var error);
 
-            if (error is not null)
-            {
-                throw new InvalidOperationException($"Failed to archive MCPeerID: {error.LocalizedDescription}");
-            }
+        // Create new peer ID
+        var peerId = new MCPeerID(displayName);
+        var archivedData = _archiver.ArchivePeerId(peerId);
+        _storage.StorePeerIdData(displayName, archivedData);
 
-            defaults.SetString(displayName, "PeerDisplayNameKey");
-            defaults.SetValueForKey(peerIdData ?? "DEFAULT", new NSString("PeerIdKey"));
-            defaults.Synchronize();
-            result = peerId;
-        }
-
-        return result;
-
+        return peerId;
     }
 }

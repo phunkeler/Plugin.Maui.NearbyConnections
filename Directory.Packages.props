@@ -1,7 +1,25 @@
 <Project>
+
+  <!-- Plugin.Maui.NearbyConnections -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.Maui.Controls" Version="9.0.90" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
     <PackageVersion Include="Xamarin.GooglePlayServices.Nearby" Version="119.3.0.6" />
   </ItemGroup>
+
+  <!-- Tests -->
+  <ItemGroup>
+    <PackageVersion Include="DeviceRunners.VisualRunners.Maui" Version="0.1.0-preview.5" />
+    <PackageVersion Include="DeviceRunners.VisualRunners.Xunit" Version="0.1.0-preview.5" />
+    <PackageVersion Include="DeviceRunners.XHarness.Maui" Version="0.1.0-preview.5" />
+    <PackageVersion Include="DeviceRunners.XHarness.Xunit" Version="0.1.0-preview.5" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="9.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.8" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+
 </Project>
