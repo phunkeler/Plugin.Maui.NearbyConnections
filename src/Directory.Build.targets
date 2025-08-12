@@ -6,6 +6,12 @@
 		<None Include="$(MSBuildThisFileDirectory)../README.md" Pack="true" PackagePath="\"/>
   </ItemGroup>
 
+  <!-- Shared files - always included -->
+  <ItemGroup>
+    <Compile Include="**\*.shared.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+    <Compile Include="**\*.shared.*.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+  </ItemGroup>
+
   <!-- Android -->
 	<ItemGroup Condition="$(IsTargetPlatformAndroid) == false">
 		<Compile Remove="**\*.android.cs" />
@@ -22,8 +28,8 @@
 		<None Include="**\ios\**\*.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
 	</ItemGroup>
 
-  <!-- .NET (generic) -->
-	<ItemGroup Condition="($(IsTargetPlatformIos) == true OR $(IsTargetPlatformAndroid) == true)">
+  <!-- .NET -->
+	<ItemGroup Condition="$(IsTargetPlatformIos) == true OR $(IsTargetPlatformAndroid) == true">
 		<Compile Remove="**\*.net.cs" />
 		<None Include="**\*.net.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
 	</ItemGroup>
