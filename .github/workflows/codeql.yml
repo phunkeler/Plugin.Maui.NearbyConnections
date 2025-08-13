@@ -41,7 +41,7 @@ jobs:
 
     - name: Setup .NET Workloads
       if: matrix.language == 'csharp'
-      run: dotnet workload restore src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -s https://api.nuget.org/v3/index.json 
+      run: dotnet workload install maui
       
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
