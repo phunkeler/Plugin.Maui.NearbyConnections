@@ -1,0 +1,69 @@
+name: CodeQL
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 1 * *' # First of every month
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - language: actions
+          build-mode: none
+        - language: csharp
+          build-mode: manual
+          
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      if: matrix.language == 'csharp'
+      uses: actions/setup-dotnet@v4
+      with:
+        global-json-file: global.json
+
+    - name: Setup .NET Workloads
+      if: matrix.language == 'csharp'
+      run: dotnet workload restore src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -s https://api.nuget.org/v3/index.json 
+      
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        build-mode: ${{ matrix.build-mode }}
+
+    - name: dotnet restore
+      if: matrix.language == 'csharp'
+      run: dotnet build src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj --configfile ./nuget.config  
+        
+    - name: dotnet build
+      if: matrix.language == 'csharp'
+      run: dotnet build src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release --no-restore
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+        
+    - name: Upload Artifact - CodeQL
+      uses: actions/upload-artifact@v4
+      with:
+        name: codeql_databases
+        path: ${{ github.runner_temp }}/codeql_databases
