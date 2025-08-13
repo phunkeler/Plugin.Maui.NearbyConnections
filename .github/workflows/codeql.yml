@@ -33,38 +33,14 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Setup .NET
-      if: matrix.language == 'csharp'
-      uses: actions/setup-dotnet@v4
-      with:
-        global-json-file: global.json
-
-    - name: Setup .NET Workloads
-      if: matrix.language == 'csharp'
-      run: dotnet workload restore src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj --configfile ./nuget.config
-
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
         build-mode: ${{ matrix.build-mode }}
-
-    - name: dotnet restore
-      if: matrix.language == 'csharp'
-      run: dotnet restore src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj --configfile ./nuget.config
-
-    - name: dotnet build
-      if: matrix.language == 'csharp'
-      run: dotnet build src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release --no-restore
+        config-file: ./.github/codeql/codeql-config.yml
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
-        upload-database: true
-
-    - name: Upload Artifact - CodeQL
-      uses: actions/upload-artifact@v4
-      with:
-        name: codeql_databases
-        path: ${{ github.runner_temp }}/codeql_databases
