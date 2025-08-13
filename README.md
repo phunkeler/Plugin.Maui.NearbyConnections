@@ -42,10 +42,26 @@
 - .NET MAUI Developers
 - Open-source community
 
-# Install
-## nuget.config
+# Installation
+[NuGet](http://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
 
- ## 📊 Performance Impact
+<details>
+  <summary>dotnet CLI</summary>
+
+```bash
+dotnet add package Plugin.Maui.NearbyConnections -s https://api.nuget.org/v3/index.json
+```
+
+</details>
+
+# Supported Platforms
+
+| Platform | Minimum Version Supported |
+|----------|---------------------------|
+| iOS      | 11+                       |
+| Android  | 5.0 (API 21)              |
+
+ # 📊 Performance Impact
 
   | Metric | Impact | Notes |
   |--------|--------|-------|
@@ -55,7 +71,16 @@
   | **Battery** | Low impact | Uses platform-optimized networking |
   | **Permissions** | Location (Android), Local Network (iOS) | Required for discovery |
 
-## Option 1:
+
+# 🔗 Dependencies
+
+  ## Android
+  - `Xamarin.GooglePlayServices.Nearby` (19.3MB)
+  - Requires Google Play Services on device
+
+  ## iOS
+  - Native `MultipeerConnectivity` framework
+  - No external dependencies
 
 # Acknowledgementsges
 
