@@ -1,30 +1,27 @@
-using System;
-
 namespace Plugin.Maui.NearbyConnections;
 
-/// <summary>
-/// Manages advertising for nearby connections.
-/// </summary>
-public partial class NearbyConnectionsAdvertiser : IDisposable
+public partial class NearbyConnectionsDiscoverer : IDisposable
 {
     private bool _disposedValue;
 
     /// <summary>
-    /// Starts advertising for nearby connections.
+    /// Starts discovering for nearby connections.
     /// </summary>
+    /// <param name="options"></param>
+    /// <param name="cancellationToken"></param>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    public Task PlatformStartAdvertising(IAdvertisingOptions options, CancellationToken cancellationToken = default)
-        => throw new NotImplementedException("Platform-specific advertising start logic must be implemented.");
+    public Task PlatformStartDiscovering(IDiscoveringOptions options, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException("Platform-specific discovering start logic must be implemented.");
 
     /// <summary>
-    /// Stops advertising for nearby connections.
+    /// Stops discovering for nearby connections.
     /// </summary>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    public Task PlatformStopAdvertising(CancellationToken cancellationToken = default)
-        => throw new NotImplementedException("Platform-specific advertising stop logic must be implemented.");
+    public Task PlatformStopDiscovering(CancellationToken cancellationToken = default)
+        => throw new NotImplementedException("Platform-specific discovering stop logic must be implemented.");
 
     /// <inheritdoc/>
     protected virtual void Dispose(bool disposing)
@@ -42,7 +39,6 @@ public partial class NearbyConnectionsAdvertiser : IDisposable
         }
     }
 
-
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -50,5 +46,4 @@ public partial class NearbyConnectionsAdvertiser : IDisposable
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
-#pragma warning restore CA1822 // Mark members as static
 }

@@ -22,36 +22,50 @@ public partial class NearbyConnectionsAdvertiser : NSObject, IMCNearbyServiceAdv
     /// <exception cref="InvalidOperationException"></exception>
     public async Task PlatformStartAdvertising(IAdvertisingOptions options, CancellationToken cancellationToken = default)
     {
+        Console.WriteLine($"[ADVERTISER] Starting advertising with service: {options.ServiceName}");
+        
         // Get or create peer ID
         _myPeerId = _connectionManager.GetPeerId(options.ServiceName);
 
         if (_myPeerId is null)
         {
+            Console.WriteLine("[ADVERTISER] ERROR: Failed to create or retrieve peer ID");
             throw new InvalidOperationException("Failed to create or retrieve peer ID");
         }
 
-        // Convert discovery info to NSDictionary
-        NSDictionary? discoveryInfo = null;
-        if (options.DiscoveryInfo?.Any() == true)
+        Console.WriteLine($"[ADVERTISER] Using peer ID: {_myPeerId.DisplayName}");
+
+        // Convert advertising info to NSDictionary
+        NSDictionary? advertisingInfo = null;
+        if (options.AdvertisingInfo?.Any() == true)
         {
-            discoveryInfo = NSDictionary.FromObjectsAndKeys(
-                options.DiscoveryInfo.Values.ToArray(),
-                options.DiscoveryInfo.Keys.ToArray()
+            Console.WriteLine($"[ADVERTISER] Adding advertising info with {options.AdvertisingInfo.Count} items");
+            advertisingInfo = NSDictionary.FromObjectsAndKeys(
+                options.AdvertisingInfo.Values.ToArray(),
+                options.AdvertisingInfo.Keys.ToArray()
             );
+        }
+        else
+        {
+            Console.WriteLine("[ADVERTISER] No advertising info provided");
         }
 
         // Create advertiser
+        Console.WriteLine("[ADVERTISER] Creating MCNearbyServiceAdvertiser...");
         _advertiser = new MCNearbyServiceAdvertiser(
             myPeerID: _myPeerId,
-            info: discoveryInfo,
+            info: advertisingInfo,
             serviceType: options.ServiceName
         )
         {
             Delegate = this
         };
 
+        Console.WriteLine("[ADVERTISER] Advertiser created, setting delegate and starting...");
+        
         // Start advertising
         _advertiser.StartAdvertisingPeer();
+        Console.WriteLine("[ADVERTISER] StartAdvertisingPeer() called successfully");
 
         // MCNearbyServiceAdvertiser.StartAdvertisingPeer() is synchronous
         await Task.CompletedTask;
@@ -75,28 +89,17 @@ public partial class NearbyConnectionsAdvertiser : NSObject, IMCNearbyServiceAdv
         await Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Called when the platform is disposing.
-    /// </summary>
-    public void PlatformIsDisposing()
-    {
-
-        if (_advertiser != null)
-        {
-            _advertiser.StopAdvertisingPeer();
-            _advertiser.Delegate = null!;
-            _advertiser.Dispose();
-            _advertiser = null;
-        }
-        base.Dispose(true);
-    }
-
     /// <inheritdoc/>
     public void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
     {
         // Handle advertising start failure
-        // This would typically trigger an exception in StartAdvertisingCore
-        System.Diagnostics.Debug.WriteLine($"Failed to start advertising: {error.LocalizedDescription}");
+        Console.WriteLine($"[ADVERTISER] ERROR: Failed to start advertising: {error.LocalizedDescription}");
+        Console.WriteLine($"[ADVERTISER] Error code: {error.Code}, Domain: {error.Domain}");
+        
+        if (error.UserInfo != null)
+        {
+            Console.WriteLine($"[ADVERTISER] Error details: {error.UserInfo}");
+        }
     }
 
     /// <inheritdoc/>
@@ -107,9 +110,17 @@ public partial class NearbyConnectionsAdvertiser : NSObject, IMCNearbyServiceAdv
         MCNearbyServiceAdvertiserInvitationHandler invitationHandler)
     {
         // Handle incoming connection invitations
-        // This is where you'd fire events to notify the application
-        // For now, auto-reject invitations (implement proper handling as needed)
-        System.Diagnostics.Debug.WriteLine($"Received invitation from: {peerID.DisplayName}");
+        Console.WriteLine($"[ADVERTISER] 🎉 SUCCESS: Received invitation from peer: {peerID.DisplayName}");
+        
+        if (context != null && context.Length > 0)
+        {
+            var contextString = Foundation.NSString.FromData(context, Foundation.NSStringEncoding.UTF8);
+            Console.WriteLine($"[ADVERTISER] Invitation context: {contextString}");
+        }
+        else
+        {
+            Console.WriteLine("[ADVERTISER] No context data in invitation");
+        }
 
         // You would typically:
         // 1. Parse context data
@@ -117,6 +128,7 @@ public partial class NearbyConnectionsAdvertiser : NSObject, IMCNearbyServiceAdv
         // 3. Create MCSession if accepting
         // 4. Call invitationHandler with decision
 
+        Console.WriteLine("[ADVERTISER] Auto-rejecting invitation (implement proper handling as needed)");
         invitationHandler(false, null); // Auto-reject for now
     }
 }

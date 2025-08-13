@@ -189,24 +189,58 @@ public class NearbyConnectionsManager : IDisposable
     // https://developer.apple.com/documentation/multipeerconnectivity/mcpeerid
     public MCPeerID? GetPeerId(string displayName)
     {
+        Console.WriteLine($"[MANAGER] GetPeerId called with displayName: '{displayName}'");
+        
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
 
         var storedDisplayName = _storage.GetStoredDisplayName();
+        Console.WriteLine($"[MANAGER] Stored display name: '{storedDisplayName}'");
 
         if (storedDisplayName?.Equals(displayName, StringComparison.OrdinalIgnoreCase) == true)
         {
+            Console.WriteLine("[MANAGER] Display names match, attempting to restore existing peer ID");
             // Try to restore existing peer ID
             var peerIdData = _storage.GetStoredPeerIdData();
             if (peerIdData is not null)
             {
-                return _archiver.UnarchivePeerId(peerIdData);
+                Console.WriteLine($"[MANAGER] Found stored peer ID data, length: {peerIdData.Length} bytes");
+                try
+                {
+                    var restoredPeerId = _archiver.UnarchivePeerId(peerIdData);
+                    Console.WriteLine($"[MANAGER] Successfully restored peer ID: {restoredPeerId?.DisplayName}");
+                    return restoredPeerId;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[MANAGER] ERROR: Failed to restore peer ID: {ex.Message}");
+                }
             }
+            else
+            {
+                Console.WriteLine("[MANAGER] No stored peer ID data found");
+            }
+        }
+        else
+        {
+            Console.WriteLine("[MANAGER] Display names don't match or no stored name, creating new peer ID");
         }
 
         // Create new peer ID
+        Console.WriteLine($"[MANAGER] Creating new peer ID with display name: '{displayName}'");
         var peerId = new MCPeerID(displayName);
-        var archivedData = _archiver.ArchivePeerId(peerId);
-        _storage.StorePeerIdData(displayName, archivedData);
+        Console.WriteLine($"[MANAGER] New peer ID created: {peerId.DisplayName}");
+        
+        try
+        {
+            var archivedData = _archiver.ArchivePeerId(peerId);
+            Console.WriteLine($"[MANAGER] Peer ID archived to {archivedData.Length} bytes");
+            _storage.StorePeerIdData(displayName, archivedData);
+            Console.WriteLine("[MANAGER] Peer ID data stored successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[MANAGER] ERROR: Failed to archive/store peer ID: {ex.Message}");
+        }
 
         return peerId;
     }

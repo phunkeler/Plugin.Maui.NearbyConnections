@@ -50,7 +50,18 @@ public interface IAdvertisingOptions
     /// <summary>
     /// Gets or sets the discovery info to include in the advertisement.
     /// </summary>
-    IDictionary<string, string> DiscoveryInfo { get; set; }
+    IDictionary<string, string> AdvertisingInfo { get; set; }
+}
+
+/// <summary>
+/// Options for configuring discovering behavior.
+/// </summary>
+public interface IDiscoveringOptions
+{
+    /// <summary>
+    /// Gets or sets the name of the service to discover.
+    /// </summary>
+    string ServiceName { get; set; }
 }
 
 /// <summary>
@@ -62,6 +73,22 @@ public class AdvertisingStateChangedEventArgs : EventArgs
     /// Indicates whether advertising is currently active.
     /// </summary>
     public bool IsAdvertising { get; init; }
+
+    /// <summary>
+    /// Gets the timestamp of the state change.
+    /// </summary>
+    public DateTime Timestamp { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Event arguments for discovering state changes.
+/// </summary>
+public class DiscoveringStateChangedEventArgs : EventArgs
+{
+    /// <summary>
+    /// Indicates whether discovering is currently active.
+    /// </summary>
+    public bool IsDiscovering { get; init; }
 
     /// <summary>
     /// Gets the timestamp of the state change.
