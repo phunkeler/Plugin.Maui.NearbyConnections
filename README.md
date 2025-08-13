@@ -17,22 +17,22 @@
 <div align="center">
   <div>
     <a href="https://www.nuget.org/packages/Plugin.Maui.NearbyConnections">
-      <img alt="NuGet Version" src="https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections?style=for-the-badge">
+      <img alt="NuGet Version" src="https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections">
     </a>
   </div>
   <div>
     <a href="https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections">
-      <img alt="Codecov Report" src="https://img.shields.io/codecov/c/gh/phunkeler/Plugin.Maui.NearbyConnections/main?style=for-the-badge">
+      <img alt="Codecov Report" src="https://img.shields.io/codecov/c/gh/phunkeler/Plugin.Maui.NearbyConnections/main?">
     </a>
   </div>
   <div>
-    <a href="[CODEQL_REPORT_URL]">
-        <img alt="CodeQL Report" src="[CODEQL_BADGE_URL]">
+    <a href="https://github.com/phunkeler/Plugin.Maui.NearbyConnections/actions/workflows/codeql.yml">
+        <img alt="CodeQL Report" src="https://github.com/phunkeler/Plugin.Maui.NearbyConnections/actions/workflows/codeql.yml/badge.svg">
     </a>
   </div>
   <div>
     <a href="https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/LICENSE">
-      <img alt="GitHub License" src="https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections?style=for-the-badge">
+      <img alt="GitHub License" src="https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections">
     </a>
   </div>
   </p>
