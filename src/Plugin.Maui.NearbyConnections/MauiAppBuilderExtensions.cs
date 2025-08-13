@@ -17,7 +17,6 @@ public static class MauiAppBuilderExtensions
     {
         var options = new NearbyConnectionsOptions();
         configureOptions?.Invoke(options);
-        NearbyConnections.Current.
 
         builder.Services.AddSingleton(NearbyConnections.Current);
         return builder;

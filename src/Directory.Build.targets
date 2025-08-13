@@ -4,11 +4,7 @@
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)../.assets/nuget.png" PackagePath="icon.png" Pack="true" />
 		<None Include="$(MSBuildThisFileDirectory)../README.md" Pack="true" PackagePath="\"/>
-  </ItemGroup>
 
-  <!-- Shared files - always included -->
-  <ItemGroup>
-    <None Include="**\*.shared.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
   </ItemGroup>
 
   <!-- Android -->
@@ -28,11 +24,10 @@
 	</ItemGroup>
 
   <!-- .NET -->
-	<ItemGroup Condition="$(IsTargetPlatformIos) == true OR $(IsTargetPlatformAndroid) == true">
+	<ItemGroup Condition="$(IsTargetPlatformNet) == false">
 		<Compile Remove="**\*.net.cs" />
 		<None Include="**\*.net.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
 	</ItemGroup>
-
 
   <!-- Global Usings - do this here to keep .csproj clean -->
   <Target Name="BeforeGenerateGlobalUsings" BeforeTargets="GenerateGlobalUsings">

@@ -7,8 +7,3 @@ public partial class NearbyConnectionsOptions
 {
 
 }
-
-public partial class NearbyConnectionsAdvertiseOptions
-{
-
-}

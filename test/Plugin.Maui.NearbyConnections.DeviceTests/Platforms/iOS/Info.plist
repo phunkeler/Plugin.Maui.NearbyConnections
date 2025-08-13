@@ -28,5 +28,12 @@
 	</array>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_testservice._tcp</string>
+        <string>_testservice._udp</string>
+    </array>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>We are testing the Multipeer Connectivity</string>
 </dict>
 </plist>

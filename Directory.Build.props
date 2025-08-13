@@ -11,6 +11,8 @@
     <IsTargetPlatformAndroid Condition="'$(TargetFramework)' == '$(AndroidTargetFramework)'">true</IsTargetPlatformAndroid>
     <IsTargetPlatformIos>false</IsTargetPlatformIos>
     <IsTargetPlatformIos Condition="'$(TargetFramework)' == '$(IosTargetFramework)'">true</IsTargetPlatformIos>
+    <IsTargetPlatformNet>false</IsTargetPlatformNet>
+    <IsTargetPlatformNet Condition="'$(TargetFramework)' == '$(NetVersion)'">true</IsTargetPlatformNet>
 
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

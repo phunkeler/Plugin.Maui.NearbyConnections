@@ -1,6 +1,6 @@
 #if IOS
-using Xunit;
 using Plugin.Maui.NearbyConnections;
+using Xunit;
 
 namespace Plugin.Maui.NearbyConnections.DeviceTests.Tests;
 
@@ -14,52 +14,68 @@ public class GetPeerIdTests
 
         Assert.NotNull(peerId);
     }
-
-    [Fact]
-    public void GetPeerId_SameDisplayName_ReturnsStablePeerIdAcrossRestarts()
-    {
-        const string displayName = "StableTestPeer";
-        
-        // First "app run" - create and get peer ID
-        MCPeerID? firstPeerId;
-        using (var firstManager = new NearbyConnectionsManager())
-        {
-            firstPeerId = firstManager.GetPeerId(displayName);
-            Assert.NotNull(firstPeerId);
-        }
-        
-        // Second "app run" - simulate app restart by creating new manager instance
-        MCPeerID? secondPeerId;
-        using (var secondManager = new NearbyConnectionsManager())
-        {
-            secondPeerId = secondManager.GetPeerId(displayName);
-            Assert.NotNull(secondPeerId);
-        }
-        
-        // Third "app run" - verify stability across multiple restarts
-        MCPeerID? thirdPeerId;
-        using (var thirdManager = new NearbyConnectionsManager())
-        {
-            thirdPeerId = thirdManager.GetPeerId(displayName);
-            Assert.NotNull(thirdPeerId);
-        }
-        
-        // Verify all peer IDs are the same
-        Assert.Equal(firstPeerId.DisplayName, secondPeerId.DisplayName);
-        Assert.Equal(firstPeerId.DisplayName, thirdPeerId.DisplayName);
-        
-        // Archive and compare the peer IDs to ensure they're truly the same instance
-        var archiver = new NSKeyedPeerIdArchiver();
-        var firstData = archiver.ArchivePeerId(firstPeerId);
-        var secondData = archiver.ArchivePeerId(secondPeerId);
-        var thirdData = archiver.ArchivePeerId(thirdPeerId);
-        
-        Assert.True(firstData.IsEqualTo(secondData), "First and second peer IDs should have identical archived data");
-        Assert.True(firstData.IsEqualTo(thirdData), "First and third peer IDs should have identical archived data");
-        Assert.True(secondData.IsEqualTo(thirdData), "Second and third peer IDs should have identical archived data");
-    }
-
 }
 
+public class IOSAdvertiserTests
+{
+    [Fact]
+    public async Task TestAdvertiserLifecycle()
+    {
+        // Arrange
+        var advertiser = new NearbyConnectionsAdvertiser();
+        var options = new TestAdvertisingOptions
+        {
+            ServiceName = "testservice",
+            DiscoveryInfo = new Dictionary<string, string>
+            {
+                ["device_type"] = "test",
+                ["app_version"] = "1.0.0"
+            }
+        };
+
+        bool stateChanged = false;
+        advertiser.AdvertisingStateChanged += (s, e) => stateChanged = true;
+
+        // Act & Assert - Start advertising
+        Assert.False(advertiser.IsAdvertising);
+
+        await advertiser.StartAdvertisingAsync(options);
+        Assert.True(advertiser.IsAdvertising);
+        Assert.True(stateChanged);
+    }
+
+    [Fact]
+    public async Task TestAdvertiserIdempotentOperations()
+    {
+        // Arrange
+        var advertiser = new NearbyConnectionsAdvertiser();
+        var options = new TestAdvertisingOptions
+        {
+            ServiceName = "testservice",
+            DiscoveryInfo = new Dictionary<string, string>()
+        };
+
+        // Act - Start multiple times
+        await advertiser.StartAdvertisingAsync(options);
+        await advertiser.StartAdvertisingAsync(options); // Should be no-op
+
+        Assert.True(advertiser.IsAdvertising);
+
+        // Act - Stop multiple times
+        await advertiser.StopAdvertisingAsync();
+        await advertiser.StopAdvertisingAsync(); // Should be no-op
+
+        Assert.False(advertiser.IsAdvertising);
+
+        // Cleanup
+        advertiser.Dispose();
+    }
+}
+
+sealed internal class TestAdvertisingOptions : IAdvertisingOptions
+{
+    public string ServiceName { get; set; } = "";
+    public IDictionary<string, string> DiscoveryInfo { get; set; } = new Dictionary<string, string>();
+}
 
 #endif

@@ -22,34 +22,6 @@ public interface INearbyConnections
     Task StartDiscoveryAsync();
 }
 
-internal interface IAdvertisable
-{
-    /// <summary>
-    /// Invoked when an invitation to connect is received from a nearby peer.
-    /// This allows clients to respond.
-    /// On Android, this occurs when "ConnectionLifecycleCallback.onConnectionInitiated" is called.
-    ///     - endpointId
-    ///     - ConnectionInfo
-    /// On iOS, this occurs when "MCNearbyServiceAdvertiserDelegate.didReceiveInvitationFromPeer" is called.
-    ///     - MCPeerID
-    ///     - discoveryInfo
-    ///
-    ///
-    /// </summary>
-    event EventHandler<InvitationReceivedEventArgs> InvitationReceived;
-
-    bool IsAdvertising { get; }
-
-    Task StartAdvertising();
-    Task StopAdvertising();
-}
-
-public class InvitationReceivedEventArgs(string from, IDictionary<string, string> data) : EventArgs
-{
-    public string From { get; } = from;
-    public IDictionary<string, string> Data { get; } = data;
-}
-
 /// <summary>
 ///     This class provides access to the Nearby Connections plugin functionality.
 ///     TODO: Determine if this is really a benefit or does more harm than good to consumers.
@@ -63,4 +35,36 @@ public static class NearbyConnections
     /// </summary>
     public static INearbyConnections Current =>
         s_currentImplementation ??= new NearbyConnectionsImplementation();
+}
+
+/// <summary>
+/// Options for configuring advertising behavior.
+/// </summary>
+public interface IAdvertisingOptions
+{
+    /// <summary>
+    /// Gets or sets the name of the service to advertise.
+    /// </summary>
+    string ServiceName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the discovery info to include in the advertisement.
+    /// </summary>
+    IDictionary<string, string> DiscoveryInfo { get; set; }
+}
+
+/// <summary>
+/// Advertising state change event arguments
+/// </summary>
+public class AdvertisingStateChangedEventArgs : EventArgs
+{
+    /// <summary>
+    /// Indicates whether advertising is currently active.
+    /// </summary>
+    public bool IsAdvertising { get; init; }
+
+    /// <summary>
+    /// Gets the timestamp of the state change.
+    /// </summary>
+    public DateTime Timestamp { get; init; } = DateTime.UtcNow;
 }

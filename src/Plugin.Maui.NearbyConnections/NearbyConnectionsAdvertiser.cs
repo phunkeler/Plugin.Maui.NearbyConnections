@@ -1,0 +1,48 @@
+namespace Plugin.Maui.NearbyConnections;
+
+public partial class NearbyConnectionsAdvertiser : IAdvertisable
+{
+    bool _isAdvertising;
+
+    /// <inheritdoc />
+    public event EventHandler<AdvertisingStateChangedEventArgs>? AdvertisingStateChanged;
+
+    /// <inheritdoc />
+    public bool IsAdvertising
+    {
+        get => _isAdvertising;
+        private set
+        {
+            if (_isAdvertising != value)
+            {
+                _isAdvertising = value;
+                AdvertisingStateChanged?.Invoke(this, new AdvertisingStateChangedEventArgs
+                {
+                    IsAdvertising = value
+                });
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task StartAdvertisingAsync(IAdvertisingOptions options, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (IsAdvertising)
+            return;
+
+        await PlatformStartAdvertising(options, cancellationToken);
+        IsAdvertising = true;
+    }
+
+    /// <inheritdoc />
+    public async Task StopAdvertisingAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsAdvertising)
+            return;
+
+        await PlatformStopAdvertising(cancellationToken);
+        IsAdvertising = false;
+    }
+}
