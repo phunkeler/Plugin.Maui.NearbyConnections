@@ -1,5 +1,3 @@
-using System;
-
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
@@ -19,16 +17,9 @@ public static class MauiAppBuilderExtensions
     {
         var options = new NearbyConnectionsOptions();
         configureOptions?.Invoke(options);
+        NearbyConnections.Current.
 
         builder.Services.AddSingleton(NearbyConnections.Current);
         return builder;
     }
-}
-
-/// <summary>
-/// Options for configuring the Nearby Connections plugin.
-/// </summary>
-public partial class NearbyConnectionsOptions
-{
-
 }

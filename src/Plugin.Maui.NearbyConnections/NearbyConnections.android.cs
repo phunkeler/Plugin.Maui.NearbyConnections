@@ -6,6 +6,8 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
 {
     public Task StartDiscoveryAsync()
     {
+        var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity);
+        client.StartAdvertising();
         return Task.CompletedTask;
     }
 

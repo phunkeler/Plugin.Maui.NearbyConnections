@@ -7,6 +7,9 @@
 #### **Advertise**
 During this activity apps make themselves known to others.
 
+- To accomodate more advanced use cases, consider an "NearbyConnectionsAdvertiserManager" responsible for managing the creation/destruction of the INearbyConnectionsAdvertiser objects
+    - On iOS, this will allow users more control over this activity ("discoveryInfo" in particular)
+
 ##### **Objects**:
 - **MCNearbyServiceAdvertiser (iOS)**: Used to begin advertising
   - Initialization/Config:
