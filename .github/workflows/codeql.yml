@@ -25,7 +25,7 @@ jobs:
         - language: actions
           build-mode: none
         - language: csharp
-          build-mode: manual
+          build-mode: none
 
     steps:
     - name: Checkout repository
