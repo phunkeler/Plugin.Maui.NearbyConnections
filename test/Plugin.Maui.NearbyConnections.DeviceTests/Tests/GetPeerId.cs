@@ -1,4 +1,3 @@
-#if IOS
 using Xunit;
 
 namespace Plugin.Maui.NearbyConnections.DeviceTests.Tests;
@@ -86,11 +85,10 @@ sealed internal class TestAdvertisingOptions : IAdvertisingOptions
 {
     public string ServiceName { get; set; } = "";
     public IDictionary<string, string> AdvertisingInfo { get; set; } = new Dictionary<string, string>();
+    public string DisplayName { get; set; } = "";
 }
 
 sealed internal class TestDiscoveringOptions : IDiscoveringOptions
 {
     public string ServiceName { get; set; } = "";
 }
-
-#endif

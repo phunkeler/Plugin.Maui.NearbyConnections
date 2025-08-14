@@ -43,6 +43,11 @@ public static class NearbyConnections
 public interface IAdvertisingOptions
 {
     /// <summary>
+    /// Gets or sets the display name.
+    /// </summary>
+    string DisplayName { get; set; }
+
+    /// <summary>
     /// Gets or sets the name of the service to advertise.
     /// </summary>
     string ServiceName { get; set; }

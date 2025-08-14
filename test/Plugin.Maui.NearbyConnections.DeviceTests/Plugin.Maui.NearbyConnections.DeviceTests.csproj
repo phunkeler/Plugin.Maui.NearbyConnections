@@ -29,6 +29,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
 		<PackageReference Include="Microsoft.Maui.Controls" />
     <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Xamarin.AndroidX.Activity" Condition="$(IsTargetPlatformAndroid) == true" />
     <PackageReference Include="xunit" />
 	</ItemGroup>
 
