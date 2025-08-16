@@ -1,12 +1,12 @@
 using Foundation;
 using MultipeerConnectivity;
 
-namespace Plugin.Maui.NearbyConnections;
+namespace Plugin.Maui.NearbyConnections.Advertise;
 
 /// <summary>
 /// Manages advertising for nearby connections.
 /// </summary>
-public partial class NearbyConnectionsAdvertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
+public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 {
     readonly NearbyConnectionsManager _connectionManager = new();
 
@@ -23,7 +23,7 @@ public partial class NearbyConnectionsAdvertiser : NSObject, IMCNearbyServiceAdv
     public async Task PlatformStartAdvertising(IAdvertisingOptions options, CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"[ADVERTISER] Starting advertising with service: {options.ServiceName}");
-        
+
         // Get or create peer ID
         _myPeerId = _connectionManager.GetPeerId(options.ServiceName);
 
@@ -62,7 +62,7 @@ public partial class NearbyConnectionsAdvertiser : NSObject, IMCNearbyServiceAdv
         };
 
         Console.WriteLine("[ADVERTISER] Advertiser created, setting delegate and starting...");
-        
+
         // Start advertising
         _advertiser.StartAdvertisingPeer();
         Console.WriteLine("[ADVERTISER] StartAdvertisingPeer() called successfully");
@@ -95,7 +95,7 @@ public partial class NearbyConnectionsAdvertiser : NSObject, IMCNearbyServiceAdv
         // Handle advertising start failure
         Console.WriteLine($"[ADVERTISER] ERROR: Failed to start advertising: {error.LocalizedDescription}");
         Console.WriteLine($"[ADVERTISER] Error code: {error.Code}, Domain: {error.Domain}");
-        
+
         if (error.UserInfo != null)
         {
             Console.WriteLine($"[ADVERTISER] Error details: {error.UserInfo}");
@@ -111,7 +111,7 @@ public partial class NearbyConnectionsAdvertiser : NSObject, IMCNearbyServiceAdv
     {
         // Handle incoming connection invitations
         Console.WriteLine($"[ADVERTISER] 🎉 SUCCESS: Received invitation from peer: {peerID.DisplayName}");
-        
+
         if (context != null && context.Length > 0)
         {
             var contextString = Foundation.NSString.FromData(context, Foundation.NSStringEncoding.UTF8);

@@ -3,7 +3,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <summary>
 /// Manages discovering for nearby connections.
 /// </summary>
-public partial class NearbyConnectionsDiscoverer : IDiscoverable
+public partial class NearbyConnectionsDiscoverer : IDiscoverer
 {
     bool _isDiscovering;
 

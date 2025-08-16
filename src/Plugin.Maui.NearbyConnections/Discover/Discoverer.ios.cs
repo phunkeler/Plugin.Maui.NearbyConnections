@@ -20,7 +20,7 @@ public partial class NearbyConnectionsDiscoverer : NSObject, IMCNearbyServiceBro
     public Task PlatformStartDiscovering(IDiscoveringOptions options, CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"[DISCOVERER] Starting discovery for service: {options.ServiceName}");
-        
+
         // Get or create peer ID
         _myPeerId = _connectionManager.GetPeerId(options.ServiceName);
 
@@ -68,7 +68,7 @@ public partial class NearbyConnectionsDiscoverer : NSObject, IMCNearbyServiceBro
     {
         // Handle found peer
         Console.WriteLine($"[DISCOVERER] 🎉 SUCCESS: Found peer: {peerID.DisplayName}");
-        
+
         if (info != null && info.Count > 0)
         {
             Console.WriteLine($"[DISCOVERER] Peer info contains {info.Count} items:");
@@ -97,7 +97,7 @@ public partial class NearbyConnectionsDiscoverer : NSObject, IMCNearbyServiceBro
         // Handle browsing start failure
         Console.WriteLine($"[DISCOVERER] ERROR: Failed to start browsing: {error.LocalizedDescription}");
         Console.WriteLine($"[DISCOVERER] Error code: {error.Code}, Domain: {error.Domain}");
-        
+
         if (error.UserInfo != null)
         {
             Console.WriteLine($"[DISCOVERER] Error details: {error.UserInfo}");

@@ -1,11 +1,9 @@
-using System;
-
-namespace Plugin.Maui.NearbyConnections;
+namespace Plugin.Maui.NearbyConnections.Advertise;
 
 /// <summary>
 /// Manages advertising for nearby connections.
 /// </summary>
-public partial class NearbyConnectionsAdvertiser : IDisposable
+public partial class Advertiser : IDisposable
 {
     private bool _disposedValue;
 

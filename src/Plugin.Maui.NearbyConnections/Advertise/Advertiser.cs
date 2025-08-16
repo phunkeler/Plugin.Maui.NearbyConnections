@@ -1,6 +1,7 @@
-namespace Plugin.Maui.NearbyConnections;
+namespace Plugin.Maui.NearbyConnections.Advertise;
 
-public partial class NearbyConnectionsAdvertiser : IAdvertisable
+/// <inheritdoc/>
+public partial class Advertiser : IAdvertiser
 {
     bool _isAdvertising;
 

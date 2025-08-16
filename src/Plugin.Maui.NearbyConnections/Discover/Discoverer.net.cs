@@ -7,10 +7,15 @@ public partial class NearbyConnectionsDiscoverer : IDisposable
     /// <summary>
     /// Starts discovering for nearby connections.
     /// </summary>
-    /// <param name="options"></param>
+    /// <param name="options">
+    /// Options that modify discovery behavior.
+    /// </param>
     /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    /// <exception cref="NotImplementedException"></exception>
+    /// <returns>
+    /// ßƒA task representing the asynchronous operation.
+    /// </returns>
+    /// <exception cref="NotImplementedException">
+    /// </exception>
     public Task PlatformStartDiscovering(IDiscoveringOptions options, CancellationToken cancellationToken = default)
         => throw new NotImplementedException("Platform-specific discovering start logic must be implemented.");
 

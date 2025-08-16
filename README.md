@@ -58,24 +58,18 @@ dotnet add package Plugin.Maui.NearbyConnections -s https://api.nuget.org/v3/ind
 
 | Platform | Minimum Version Supported |
 |----------|---------------------------|
-| iOS      | 11+                       |
-| Android  | 5.0 (API 21)              |
+| iOS      | Not set in project.       |
+| Android  | Not set in project        |
 
  # 📊 Performance Impact
 
-  | Metric | Impact | Notes |
-  |--------|--------|-------|
-  | **App Size** | +2.1MB (Android), +800KB (iOS) | Includes native dependencies |
-  | **Startup Time** | <5ms overhead | Lazy initialization |
-  | **Memory** | ~200KB baseline + 50KB per connection | Efficient peer management |
-  | **Battery** | Low impact | Uses platform-optimized networking |
-  | **Permissions** | Location (Android), Local Network (iOS) | Required for discovery |
-
 
 # 🔗 Dependencies
+- This NuGet package is [x MB]](LINK_TO_PROOF)
+- In the case of the sample app (Plugin.Maui.NearbyConnections.Sample) it increased .apk/.ipa size by [X](LINK_TO_PROOF)2
 
   ## Android
-  - `Xamarin.GooglePlayServices.Nearby` (19.3MB)
+  - [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) (1.25 MB)
   - Requires Google Play Services on device
 
   ## iOS

@@ -1,17 +1,19 @@
-namespace Plugin.Maui.NearbyConnections;
+namespace Plugin.Maui.NearbyConnections.Advertise;
 
 /// <summary>
-/// Manages advertising lifecycle state and operations.
+/// Makes the current device discoverable for nearby peer-to-peer connections.
 /// </summary>
-public interface IAdvertisable : IDisposable
+public interface IAdvertiser : IDisposable
 {
     /// <summary>
-    /// Fired when advertising state changes.
+    /// Fired when the advertiser's state changes.
     /// </summary>
     event EventHandler<AdvertisingStateChangedEventArgs> AdvertisingStateChanged;
 
     /// <summary>
-    /// Gets a value indicating whether advertising is currently active.
+    /// Gets a value indicating whether this object is currently advertising.
+    /// Advertising can be started (<see cref="StartAdvertisingAsync"/>)
+    /// and stopped (<see cref="StopAdvertisingAsync"/>).
     /// </summary>
     bool IsAdvertising { get; }
 

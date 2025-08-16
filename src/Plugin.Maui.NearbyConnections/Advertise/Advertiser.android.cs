@@ -1,12 +1,9 @@
-using Android.OS;
-using AndroidX.Core.App;
-
-namespace Plugin.Maui.NearbyConnections;
+namespace Plugin.Maui.NearbyConnections.Advertise;
 
 /// <summary>
 /// Manages advertising for nearby connections.
 /// </summary>
-public partial class NearbyConnectionsAdvertiser : Java.Lang.Object
+public partial class Advertiser : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
@@ -50,10 +47,12 @@ sealed internal class AdvertiseCallback : ConnectionLifecycleCallback
         // Handle connection initiation logic here
     }
 
+    // Is this method called when a nearby device is "discovered"?
     public override void OnConnectionResult(string p0, ConnectionResolution p1)
     {
         Console.WriteLine($"[ADVERTISER] Connection result for endpoint: {p0}, resolution: {p1}");
         // Handle connection result logic here
+        // NearbyConnectionsEventHandler -- Write out in a sample app how you'd like consumers to handle connection results (Cast to our object HERE. )
     }
 
     public override void OnDisconnected(string p0)

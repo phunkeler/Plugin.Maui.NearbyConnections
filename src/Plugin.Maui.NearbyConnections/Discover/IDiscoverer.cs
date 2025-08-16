@@ -1,9 +1,9 @@
-namespace Plugin.Maui.NearbyConnections;
+namespace Plugin.Maui.NearbyConnections.Discover;
 
 /// <summary>
-/// /// Manages discovery lifecycle state and operations.
+/// / discovery lifecycle state and operations.
 /// </summary>
-public interface IDiscoverable : IDisposable
+public interface IDiscoverer : IDisposable
 {
     /// <summary>
     /// Fired when discovering state changes.
