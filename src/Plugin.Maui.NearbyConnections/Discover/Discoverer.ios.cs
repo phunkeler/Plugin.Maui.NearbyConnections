@@ -1,9 +1,12 @@
 using Foundation;
 using MultipeerConnectivity;
 
-namespace Plugin.Maui.NearbyConnections;
+namespace Plugin.Maui.NearbyConnections.Discover;
 
-public partial class NearbyConnectionsDiscoverer : NSObject, IMCNearbyServiceBrowserDelegate
+/// <summary>
+/// Partial class for starting/stopping discovery of nearby devices.
+/// </summary>
+public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
 {
     readonly NearbyConnectionsManager _connectionManager = new();
 
@@ -11,13 +14,18 @@ public partial class NearbyConnectionsDiscoverer : NSObject, IMCNearbyServiceBro
     MCPeerID? _myPeerId;
 
     /// <summary>
-    /// Starts discovering nearby connections.
+    /// Starts discovering nearby devices.
     /// </summary>
-    /// <param name="options"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    /// <exception cref="InvalidOperationException"></exception>
-    public Task PlatformStartDiscovering(IDiscoveringOptions options, CancellationToken cancellationToken = default)
+    /// <param name="options">
+    /// Options that modify discovery behavior.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// A cancellation token to cancel the operation.
+    /// </param>
+    /// <returns>
+    /// A task representing the asynchronous operation.
+    /// </returns>
+    public Task PlatformStartDiscovering(DiscoveringOptions options, CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"[DISCOVERER] Starting discovery for service: {options.ServiceName}");
 
@@ -46,10 +54,14 @@ public partial class NearbyConnectionsDiscoverer : NSObject, IMCNearbyServiceBro
     }
 
     /// <summary>
-    /// Stops discovering nearby connections.
+    /// Stops discovering nearby devices.
     /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <param name="cancellationToken">
+    /// A cancellation token to cancel the operation.
+    /// </param>
+    /// <returns>
+    /// A task representing the asynchronous operation.
+    /// </returns>
     public Task PlatformStopDiscovering(CancellationToken cancellationToken = default)
     {
         if (_browser is not null)
@@ -102,5 +114,27 @@ public partial class NearbyConnectionsDiscoverer : NSObject, IMCNearbyServiceBro
         {
             Console.WriteLine($"[DISCOVERER] Error details: {error.UserInfo}");
         }
+    }
+
+    /// <summary>
+    /// Disposes of resources used by the discoverer.
+    /// </summary>
+    /// <param name="disposing">True if disposing managed resources</param>
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            if (_browser != null)
+            {
+                _browser.StopBrowsingForPeers();
+                _browser.Delegate = null!;
+                _browser.Dispose();
+                _browser = null;
+            }
+
+            _connectionManager?.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 }

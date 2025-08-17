@@ -1,30 +1,36 @@
-namespace Plugin.Maui.NearbyConnections;
+namespace Plugin.Maui.NearbyConnections.Discover;
 
-public partial class NearbyConnectionsDiscoverer : IDisposable
+/// <summary>
+/// Partial class for starting/stopping discovery of nearby devices.
+/// </summary>
+public partial class Discoverer : IDisposable
 {
     private bool _disposedValue;
 
     /// <summary>
-    /// Starts discovering for nearby connections.
+    /// Starts discovering nearby devices.
     /// </summary>
     /// <param name="options">
     /// Options that modify discovery behavior.
     /// </param>
-    /// <param name="cancellationToken"></param>
+    /// <param name="cancellationToken">
+    /// A cancellation token to cancel the operation.
+    /// </param>
     /// <returns>
-    /// ßƒA task representing the asynchronous operation.
+    /// A task representing the asynchronous operation.
     /// </returns>
-    /// <exception cref="NotImplementedException">
-    /// </exception>
-    public Task PlatformStartDiscovering(IDiscoveringOptions options, CancellationToken cancellationToken = default)
+    public Task PlatformStartDiscovering(DiscoveringOptions options, CancellationToken cancellationToken = default)
         => throw new NotImplementedException("Platform-specific discovering start logic must be implemented.");
 
     /// <summary>
-    /// Stops discovering for nearby connections.
+    /// Stops discovering nearby devices.
     /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    /// <exception cref="NotImplementedException"></exception>
+    /// <param name="cancellationToken">
+    /// A cancellation token to cancel the operation.
+    /// </param>
+    /// <returns>
+    /// A task representing the asynchronous operation.
+    /// </returns>
     public Task PlatformStopDiscovering(CancellationToken cancellationToken = default)
         => throw new NotImplementedException("Platform-specific discovering stop logic must be implemented.");
 

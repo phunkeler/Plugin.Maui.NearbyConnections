@@ -12,7 +12,7 @@ public partial class Advertiser : IDisposable
     /// </summary>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    public Task PlatformStartAdvertising(IAdvertisingOptions options, CancellationToken cancellationToken = default)
+    public Task PlatformStartAdvertising(AdvertisingOptions options, CancellationToken cancellationToken = default)
         => throw new NotImplementedException("Platform-specific advertising start logic must be implemented.");
 
     /// <summary>

@@ -1,0 +1,24 @@
+namespace Plugin.Maui.NearbyConnections.Advertise;
+
+/// <summary>
+/// Factory interface for creating <see cref="IAdvertiser"/> instances.
+/// </summary>
+public interface IAdvertiserFactory
+{
+    /// <summary>
+    /// Creates a new instance of <see cref="IAdvertiser"/>.
+    /// </summary>
+    /// <returns>
+    /// A new instance of <see cref="IAdvertiser"/>.
+    /// </returns>
+    IAdvertiser CreateAdvertiser();
+}
+
+/// <summary>
+/// Factory implementation for creating <see cref="IAdvertiser"/> instances.
+/// </summary>
+public class AdvertiserFactory : IAdvertiserFactory
+{
+    /// <inheritdoc/>
+    public IAdvertiser CreateAdvertiser() => new Advertiser();
+}

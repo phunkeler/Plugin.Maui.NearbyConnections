@@ -26,24 +26,24 @@ public partial class Advertiser : IAdvertiser
     }
 
     /// <inheritdoc />
-    public async Task StartAdvertisingAsync(IAdvertisingOptions options, CancellationToken cancellationToken = default)
+    public async Task StartAdvertisingAsync(AdvertisingOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        if (IsAdvertising)
-            return;
-
-        await PlatformStartAdvertising(options, cancellationToken);
-        IsAdvertising = true;
+        if (!IsAdvertising)
+        {
+            await PlatformStartAdvertising(options, cancellationToken);
+            IsAdvertising = true;
+        }
     }
 
     /// <inheritdoc />
     public async Task StopAdvertisingAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsAdvertising)
-            return;
-
-        await PlatformStopAdvertising(cancellationToken);
-        IsAdvertising = false;
+        if (IsAdvertising)
+        {
+            await PlatformStopAdvertising(cancellationToken);
+            IsAdvertising = false;
+        }
     }
 }

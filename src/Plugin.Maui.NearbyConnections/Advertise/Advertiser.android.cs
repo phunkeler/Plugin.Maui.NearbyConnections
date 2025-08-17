@@ -7,7 +7,7 @@ public partial class Advertiser : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
-    public async Task PlatformStartAdvertising(IAdvertisingOptions options, CancellationToken cancellationToken = default)
+    public async Task PlatformStartAdvertising(AdvertisingOptions options, CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"[ADVERTISER] Starting advertising with name: {options.DisplayName}, service: {options.ServiceName}");
 
@@ -17,7 +17,7 @@ public partial class Advertiser : Java.Lang.Object
             options.DisplayName,
             options.ServiceName,
             new AdvertiseCallback(),
-            new AdvertisingOptions.Builder().SetStrategy(Android.Gms.Nearby.Connection.Strategy.P2pPointToPoint).Build());
+            new Android.Gms.Nearby.Connection.AdvertisingOptions.Builder().SetStrategy(Android.Gms.Nearby.Connection.Strategy.P2pCluster).Build());
 
         Console.WriteLine("[ADVERTISER] StartAdvertisingAsync() called successfully");
 
@@ -27,13 +27,18 @@ public partial class Advertiser : Java.Lang.Object
     {
         Console.WriteLine("[ADVERTISER] Stopping advertising...");
 
-        if (_connectionClient is null)
+        if (_connectionClient is not null)
         {
-            Console.WriteLine("[ADVERTISER] ERROR: Connection client is not initialized");
-            return Task.CompletedTask;
+            _connectionClient.StopAdvertising();
+            _connectionClient.StopAllEndpoints(); // Disconnect from all connected peers
+            _connectionClient.Dispose();
+            _connectionClient = null;
+            Console.WriteLine("[ADVERTISER] Advertising stopped and all endpoints disconnected");
         }
-
-        _connectionClient.StopAdvertising();
+        else
+        {
+            Console.WriteLine("[ADVERTISER] Connection client is not initialized");
+        }
 
         return Task.CompletedTask;
     }

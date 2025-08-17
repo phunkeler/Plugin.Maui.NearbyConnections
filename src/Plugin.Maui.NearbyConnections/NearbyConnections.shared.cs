@@ -1,30 +1,67 @@
-﻿namespace Plugin.Maui.NearbyConnections;
+﻿using Plugin.Maui.NearbyConnections.Advertise;
+using Plugin.Maui.NearbyConnections.Discover;
+using AdvertisingOptions = Plugin.Maui.NearbyConnections.Advertise.AdvertisingOptions;
+
+namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-///     Interface for Nearby Connections plugin.
+/// Provides access to the Nearby Connections plugin functionality.
 /// </summary>
 public interface INearbyConnections
 {
     /// <summary>
-    ///     0. Configure advertising behavior
-    ///         0.1.
-    ///     1. Create Advertiser
-    ///     2. Start Advertising
+    /// Starts advertising for nearby devices.
     /// </summary>
-    /// <returns></returns>
-    Task StartAdvertisingAsync();
+    /// <param name="options">
+    /// The <see cref="AdvertisingOptions"/> to use for configuring advertising behavior.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to cancel the operation.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// </returns>
+    Task StartAdvertisingAsync(AdvertisingOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     0. Configure
-    ///     1. Create Advertiser
-    ///     2. Start Advertising
+    /// Stops advertising for nearby devices.
     /// </summary>
-    Task StartDiscoveryAsync();
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to cancel the operation.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// </returns>
+    Task StopAdvertisingAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Starts discovering for nearby devices.
+    /// </summary>
+    /// <param name="options">
+    /// The <see cref="DiscoveringOptions"/> to use for configuring discovery behavior.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken" /> to cancel the operation.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// </returns>
+    Task StartDiscoveryAsync(DiscoveringOptions options, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stops discovering for nearby devices.
+    /// </summary>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken" /> to cancel the operation.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// </returns>
+    Task StopDiscoveryAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
 ///     This class provides access to the Nearby Connections plugin functionality.
-///     TODO: Determine if this is really a benefit or does more harm than good to consumers.
 /// </summary>
 public static class NearbyConnections
 {
@@ -34,39 +71,49 @@ public static class NearbyConnections
     ///     Provides the default implementation for static usage of this API.
     /// </summary>
     public static INearbyConnections Current =>
-        s_currentImplementation ??= new NearbyConnectionsImplementation();
+        s_currentImplementation ??= CreateDefaultImplementation();
+
+    /// <summary>
+    /// Sets the current implementation. This is typically called by the DI container.
+    /// </summary>
+    /// <param name="implementation">The implementation to use</param>
+    public static void SetCurrent(INearbyConnections implementation)
+    {
+        s_currentImplementation = implementation;
+    }
+
+    static NearbyConnectionsImplementation CreateDefaultImplementation()
+    {
+        var advertiserFactory = new AdvertiserFactory();
+        var discovererFactory = new DiscovererFactory();
+        return new NearbyConnectionsImplementation(advertiserFactory, discovererFactory);
+    }
 }
 
-/// <summary>
-/// Options for configuring advertising behavior.
-/// </summary>
-public interface IAdvertisingOptions
+public partial class NearbyConnectionsImplementation : INearbyConnections
 {
-    /// <summary>
-    /// Gets or sets the display name.
-    /// </summary>
-    string DisplayName { get; set; }
+    readonly IAdvertiserFactory _advertiserFactory;
+    readonly IDiscovererFactory _discovererFactory;
 
     /// <summary>
-    /// Gets or sets the name of the service to advertise.
+    /// Initializes a new instance of the <see cref="NearbyConnectionsImplementation"/> class.
     /// </summary>
-    string ServiceName { get; set; }
+    /// <param name="advertiserFactory">
+    /// The factory to create <see cref="IAdvertiser"/> instances.
+    /// </param>
+    /// <param name="discovererFactory">
+    /// The factory to create <see cref="IDiscoverer"/> instances.
+    /// </param>
+    public NearbyConnectionsImplementation(
+        IAdvertiserFactory advertiserFactory,
+        IDiscovererFactory discovererFactory)
+    {
+        ArgumentNullException.ThrowIfNull(advertiserFactory);
+        ArgumentNullException.ThrowIfNull(discovererFactory);
 
-    /// <summary>
-    /// Gets or sets the discovery info to include in the advertisement.
-    /// </summary>
-    IDictionary<string, string> AdvertisingInfo { get; set; }
-}
-
-/// <summary>
-/// Options for configuring discovering behavior.
-/// </summary>
-public interface IDiscoveringOptions
-{
-    /// <summary>
-    /// Gets or sets the name of the service to discover.
-    /// </summary>
-    string ServiceName { get; set; }
+        _advertiserFactory = advertiserFactory;
+        _discovererFactory = discovererFactory;
+    }
 }
 
 /// <summary>

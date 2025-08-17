@@ -1,9 +1,9 @@
-namespace Plugin.Maui.NearbyConnections;
+namespace Plugin.Maui.NearbyConnections.Discover;
 
 /// <summary>
 /// Manages discovering for nearby connections.
 /// </summary>
-public partial class NearbyConnectionsDiscoverer : IDiscoverer
+public partial class Discoverer : IDiscoverer
 {
     bool _isDiscovering;
 
@@ -28,7 +28,7 @@ public partial class NearbyConnectionsDiscoverer : IDiscoverer
     }
 
     /// <inheritdoc />
-    public async Task StartDiscoveringAsync(IDiscoveringOptions options, CancellationToken cancellationToken = default)
+    public async Task StartDiscoveringAsync(DiscoveringOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
 

@@ -11,7 +11,6 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     readonly NearbyConnectionsManager _connectionManager = new();
 
     MCNearbyServiceAdvertiser? _advertiser;
-    MCPeerID? _myPeerId;
 
     /// <summary>
     /// Starts advertising with the specified options.
@@ -20,20 +19,20 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    public async Task PlatformStartAdvertising(IAdvertisingOptions options, CancellationToken cancellationToken = default)
+    public async Task PlatformStartAdvertising(AdvertisingOptions options, CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"[ADVERTISER] Starting advertising with service: {options.ServiceName}");
 
         // Get or create peer ID
-        _myPeerId = _connectionManager.GetPeerId(options.ServiceName);
+        var myPeerId = _connectionManager.GetPeerId(options.ServiceName);
 
-        if (_myPeerId is null)
+        if (myPeerId is null)
         {
             Console.WriteLine("[ADVERTISER] ERROR: Failed to create or retrieve peer ID");
             throw new InvalidOperationException("Failed to create or retrieve peer ID");
         }
 
-        Console.WriteLine($"[ADVERTISER] Using peer ID: {_myPeerId.DisplayName}");
+        Console.WriteLine($"[ADVERTISER] Using peer ID: {myPeerId.DisplayName}");
 
         // Convert advertising info to NSDictionary
         NSDictionary? advertisingInfo = null;
@@ -53,7 +52,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
         // Create advertiser
         Console.WriteLine("[ADVERTISER] Creating MCNearbyServiceAdvertiser...");
         _advertiser = new MCNearbyServiceAdvertiser(
-            myPeerID: _myPeerId,
+            myPeerID: myPeerId,
             info: advertisingInfo,
             serviceType: options.ServiceName
         )
@@ -78,14 +77,13 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     /// <returns></returns>
     public async Task PlatformStopAdvertising(CancellationToken cancellationToken)
     {
-        if (_advertiser != null)
+        if (_advertiser is not null)
         {
             _advertiser.StopAdvertisingPeer();
             _advertiser.Delegate = null!;
             _advertiser.Dispose();
             _advertiser = null;
         }
-
         await Task.CompletedTask;
     }
 
@@ -114,7 +112,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 
         if (context != null && context.Length > 0)
         {
-            var contextString = Foundation.NSString.FromData(context, Foundation.NSStringEncoding.UTF8);
+            var contextString = NSString.FromData(context, NSStringEncoding.UTF8);
             Console.WriteLine($"[ADVERTISER] Invitation context: {contextString}");
         }
         else
@@ -130,5 +128,27 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 
         Console.WriteLine("[ADVERTISER] Auto-rejecting invitation (implement proper handling as needed)");
         invitationHandler(false, null); // Auto-reject for now
+    }
+
+    /// <summary>
+    /// Disposes of resources used by the advertiser.
+    /// </summary>
+    /// <param name="disposing">True if disposing managed resources</param>
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            if (_advertiser is not null)
+            {
+                _advertiser.StopAdvertisingPeer();
+                _advertiser.Delegate = null!;
+                _advertiser.Dispose();
+                _advertiser = null;
+            }
+
+            _connectionManager?.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 }

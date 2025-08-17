@@ -190,7 +190,7 @@ public class NearbyConnectionsManager : IDisposable
     public MCPeerID? GetPeerId(string displayName)
     {
         Console.WriteLine($"[MANAGER] GetPeerId called with displayName: '{displayName}'");
-        
+
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
 
         var storedDisplayName = _storage.GetStoredDisplayName();
@@ -229,7 +229,7 @@ public class NearbyConnectionsManager : IDisposable
         Console.WriteLine($"[MANAGER] Creating new peer ID with display name: '{displayName}'");
         var peerId = new MCPeerID(displayName);
         Console.WriteLine($"[MANAGER] New peer ID created: {peerId.DisplayName}");
-        
+
         try
         {
             var archivedData = _archiver.ArchivePeerId(peerId);

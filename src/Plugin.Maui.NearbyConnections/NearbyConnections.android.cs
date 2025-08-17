@@ -1,14 +1,27 @@
-using Android.Gms.Nearby.Connection;
+using Plugin.Maui.NearbyConnections.Discover;
+using AdvertisingOptions = Plugin.Maui.NearbyConnections.Advertise.AdvertisingOptions;
 
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbyConnectionsImplementation : INearbyConnections
+public partial class NearbyConnectionsImplementation : INearbyConnections
 {
-    public Task StartAdvertisingAsync() => throw new NotImplementedException();
-
-    public Task StartDiscoveryAsync()
+    public Task StartAdvertisingAsync(AdvertisingOptions options, CancellationToken cancellationToken = default)
     {
         return Task.CompletedTask;
     }
 
+    public Task StopAdvertisingAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.CompletedTask;
+    }
+
+    public Task StartDiscoveryAsync(DiscoveringOptions options, CancellationToken cancellationToken = default)
+    {
+        return Task.CompletedTask;
+    }
+
+    public Task StopDiscoveryAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.CompletedTask;
+    }
 }

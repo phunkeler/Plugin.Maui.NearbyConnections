@@ -21,7 +21,7 @@ public interface IDiscoverer : IDisposable
     /// <param name="options">The discovering options.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    Task StartDiscoveringAsync(IDiscoveringOptions options, CancellationToken cancellationToken = default);
+    Task StartDiscoveringAsync(DiscoveringOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops discovering.

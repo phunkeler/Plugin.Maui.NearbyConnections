@@ -12,18 +12,22 @@ public interface IAdvertiser : IDisposable
 
     /// <summary>
     /// Gets a value indicating whether this object is currently advertising.
-    /// Advertising can be started (<see cref="StartAdvertisingAsync"/>)
-    /// and stopped (<see cref="StopAdvertisingAsync"/>).
+    /// Advertising can be started with <see cref="StartAdvertisingAsync"/>
+    /// and stopped by <see cref="StopAdvertisingAsync"/>.
     /// </summary>
     bool IsAdvertising { get; }
 
     /// <summary>
     /// Starts advertising with the specified options.
     /// </summary>
-    /// <param name="options">The advertising options.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <param name="options">
+    /// The <see cref="AdvertisingOptions"/> .
+    /// </param>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to cancel the operation.
+    /// </param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    Task StartAdvertisingAsync(IAdvertisingOptions options, CancellationToken cancellationToken = default);
+    Task StartAdvertisingAsync(AdvertisingOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops advertising.

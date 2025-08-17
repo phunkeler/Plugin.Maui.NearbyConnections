@@ -1,10 +1,22 @@
-namespace Plugin.Maui.NearbyConnections;
+namespace Plugin.Maui.NearbyConnections.Discover;
 
-public partial class NearbyConnectionsDiscoverer : Java.Lang.Object
+public partial class Discoverer : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
-    private async Task PlatformStartDiscovering(IDiscoveringOptions options, CancellationToken cancellationToken)
+    /// <summary>
+    /// Starts discovering nearby devices.
+    /// </summary>
+    /// <param name="options">
+    /// Options that modify discovery behavior.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// A cancellation token to cancel the operation.
+    /// </param>
+    /// <returns>
+    /// A task representing the asynchronous operation.
+    /// </returns>
+    private async Task PlatformStartDiscovering(DiscoveringOptions options, CancellationToken cancellationToken)
     {
         Console.WriteLine($"[DISCOVERER] Starting discovery for service: {options.ServiceName}");
 
@@ -18,6 +30,15 @@ public partial class NearbyConnectionsDiscoverer : Java.Lang.Object
         Console.WriteLine("[DISCOVERER] StartDiscoveryAsync() called successfully");
     }
 
+    /// <summary>
+    /// Stops discovering nearby devices.
+    /// </summary>
+    /// <param name="cancellationToken">
+    /// A cancellation token to cancel the operation.
+    /// </param>
+    /// <returns>
+    /// A task representing the asynchronous operation.
+    /// </returns>
     private Task PlatformStopDiscovering(CancellationToken cancellationToken)
     {
         Console.WriteLine("[DISCOVERER] Stopping discovery...");
