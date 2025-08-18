@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>$(SupportedTargetFrameworks)</TargetFrameworks>
+		<TargetFrameworks>$(MobileTargetFrameworks)</TargetFrameworks>
+    <TargetFrameworks Condition="$(IsTestProject) == true">$(TargetFrameworks);$(NetVersion)</TargetFrameworks>
     <UseMaui>true</UseMaui>
 		<SingleProject>true</SingleProject>
 	</PropertyGroup>

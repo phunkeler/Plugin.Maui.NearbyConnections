@@ -15,6 +15,9 @@ public static class MauiAppBuilderExtensions
     /// <returns>
     /// The <see cref="MauiAppBuilder"/> for chaining
     /// </returns>
+    /// <remarks>
+    /// TODO: Add configurability through entry-point.
+    /// </remarks>
     public static MauiAppBuilder AddNearbyConnections(this MauiAppBuilder builder)
     {
         builder.Services.AddSingleton<IAdvertiserFactory, AdvertiserFactory>();

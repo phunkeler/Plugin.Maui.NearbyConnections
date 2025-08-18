@@ -1,5 +1,7 @@
 # Design
 
+## Follow [Plugin.Maui.Feature](https://github.com/jfversluis/Plugin.Maui.Feature)
+
 ## Architectural Decisions
 
 ### Advertiser/Discoverer Lifecycle Management
@@ -25,6 +27,10 @@
 - ⚠️ **Event handlers**: Lost on disposal (by design for clean state)
 
 **Implementation Note**: This pattern is applied consistently to both `IAdvertiser` and `IDiscoverer` implementations for symmetry.
+
+**Supports Expanded Use Cases**
+- Change name/service between advertising & discovery sessions
+-  `IDictionary<string, string>`
 
 ### Consumer Usage Implications
 

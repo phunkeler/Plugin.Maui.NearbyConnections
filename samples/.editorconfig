@@ -1,0 +1,2 @@
+[*.cs]
+dotnet_code_quality.ca1711.allowed_suffixes = Delegate

@@ -38,21 +38,60 @@
   </p>
 </div>
 
-# Audience
-- .NET MAUI Developers
-- Open-source community
+# Features
+- **Simultaneous Advertising & Discovery**
 
-# Installation
-[NuGet](http://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
+## **Unique Advertising & Discovery Session**s
+```csharp
+// ✅ Advertise with different parameters
+await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
+{
+    DisplayName = "Name1",
+    ServiceName = "chatroom-1"
+});
 
-<details>
-  <summary>dotnet CLI</summary>
+await NearbyConnections.Current.StopAdvertisingAsync();
 
+// ✅ Different parameters - fully supported
+await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
+{
+    DisplayName = "Name2",     // Changed
+    ServiceName = "chatroom-2",        // Changed
+    AdvertisingInfo = { ... }    // Changed
+});
+```
+  - Send arbitrary `IDictionary<string, string>` data with advertisements (Maybe call this "AdvertisementInfo")
+
+# Getting Started
+`Plugin.Maui.NearbyConnections` is available on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
+
+## **dotnet**
 ```bash
 dotnet add package Plugin.Maui.NearbyConnections -s https://api.nuget.org/v3/index.json
 ```
 
+## **nuget.config**
+```xml
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+
+  <packageSourceMapping>
+    <packageSource key="nuget.org">
+      <package pattern="Plugin.Maui.NearbyConnections" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>
+
+```
+
 </details>
+
+# Usage
+`MauiProgram.cs`:
+Following setup patterns established by [Microsoft.Maui.Essentials](https://www.nuget.org/packages/Microsoft.Maui.Essentials) first need to register the Feature with the MauiAppBuilder following the same pattern that the .NET MAUI Essentials libraries follow.
 
 # Supported Platforms
 

@@ -5,7 +5,7 @@
     <IosPlatform>ios</IosPlatform>
     <AndroidTargetFramework>$(NetVersion)-$(AndroidPlatform)</AndroidTargetFramework>
     <IosTargetFramework>$(NetVersion)-$(IosPlatform)</IosTargetFramework>
-    <SupportedTargetFrameworks>$(NetVersion);$(AndroidTargetFramework);$(IosTargetFramework)</SupportedTargetFrameworks>
+    <MobileTargetFrameworks>$(AndroidTargetFramework);$(IosTargetFramework)</MobileTargetFrameworks>
 
     <IsTargetPlatformAndroid>false</IsTargetPlatformAndroid>
     <IsTargetPlatformAndroid Condition="'$(TargetFramework)' == '$(AndroidTargetFramework)'">true</IsTargetPlatformAndroid>
