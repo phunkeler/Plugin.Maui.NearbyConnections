@@ -2,7 +2,9 @@
 using CommunityToolkit.Maui;
 using Indiko.Maui.Controls.Chat;
 using NearbyChat.Pages;
+using NearbyChat.Services;
 using NearbyChat.ViewModels;
+using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat;
 
@@ -13,9 +15,11 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder()
             .UseMauiApp<App>()
             .UseMauiCommunityToolkit()
-            .UseChatView();
+            .UseChatView()
+            .AddNearbyConnections();
 
-
+        builder.Services.AddSingleton<AppShell>();
+        builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
         AddTransientWithShellRoute<MainPage, MainPageViewModel>(builder.Services);
         AddTransientWithShellRoute<ChatPage, ChatPageViewModel>(builder.Services);
 

@@ -98,15 +98,15 @@
                     Grid.Column="0"
                     Text="Start Advertising"
                     BackgroundColor="{StaticResource Tertiary}"
-                    TextColor="Black"
-                    Clicked="OnAdvertiseClicked"/>
+                    TextColor="White"
+                    Command="{Binding StartAdvertisingCommand}"/>
 
             <Button x:Name="DiscoverButton"
                     Grid.Column="1"
                     Text="Start Discovery"
                     BackgroundColor="{StaticResource Tertiary}"
-                    TextColor="Black"
-                    Clicked="OnDiscoverClicked"/>
+                    TextColor="White"
+                    Command="{Binding StartDiscoveryCommand}"/>
         </Grid>
     </Grid>
 

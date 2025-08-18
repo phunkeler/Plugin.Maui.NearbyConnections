@@ -30,5 +30,9 @@
     <PackageReference Include="Microsoft.Maui.Controls" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Plugin.Maui.NearbyConnections\Plugin.Maui.NearbyConnections.csproj" />
+  </ItemGroup>
+
 </Project>
 

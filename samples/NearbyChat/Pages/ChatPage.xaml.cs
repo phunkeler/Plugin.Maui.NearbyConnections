@@ -90,7 +90,7 @@ public partial class ChatPage : BasePage<ChatPageViewModel>
         }
     }
 
-    private void AddMessage(string text, bool isSent)
+    private static void AddMessage(string text, bool isSent)
     {
         var messageFrame = new Border
         {
@@ -121,13 +121,13 @@ public partial class ChatPage : BasePage<ChatPageViewModel>
         };
 
         messageFrame.Content = messageContainer;
-        MessagesContainer.Children.Add(messageFrame);
+        //MessagesContainer.Children.Add(messageFrame);
 
         // Scroll to bottom
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             await Task.Delay(100);
-            await chatView.ScrollToAsync(0, chatView.ContentSize.Height, true);
+            //await chatView.ScrollToAsync(0, chatView.ContentSize.Height, true);
         });
     }
 
@@ -166,7 +166,7 @@ public partial class ChatPage : BasePage<ChatPageViewModel>
         });
     }
 
-    public void OnMessageReceived(string message)
+    public static void OnMessageReceived(string message)
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
