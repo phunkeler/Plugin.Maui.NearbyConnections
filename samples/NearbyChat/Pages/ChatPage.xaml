@@ -1,0 +1,113 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<pages:BasePage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                x:Class="NearbyChat.Pages.ChatPage"
+                xmlns:pages="clr-namespace:NearbyChat.Pages"
+                xmlns:vm="clr-namespace:NearbyChat.ViewModels"
+                xmlns:idk="clr-namespace:Indiko.Maui.Controls.Chat;assembly=Indiko.Maui.Controls.Chat"
+                x:TypeArguments="vm:ChatPageViewModel"
+                x:DataType="vm:ChatPageViewModel"
+                Title="Chat">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+        <!-- Header - Connection Status -->
+        <Border Grid.Row="0"
+                BackgroundColor="{StaticResource Primary}"
+                Padding="15,10">
+            <Grid ColumnDefinitions="*,Auto">
+                <Label x:Name="ConnectionStatusLabel"
+                       Grid.Column="0"
+                       Text="Not Connected"
+                       TextColor="White"
+                       FontSize="16"
+                       VerticalOptions="Center"/>
+
+                <Label x:Name="ConnectionIndicator"
+                       Grid.Column="1"
+                       Text="●"
+                       TextColor="Red"
+                       FontSize="18"
+                       VerticalOptions="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- Messages Area -->
+        <idk:ChatView Grid.Row="1"
+                      x:Name="chatView"
+                      OwnMessageBackgroundColor="{StaticResource Primary}"
+                      OwnMessageTextColor="{StaticResource White}"
+                      OtherMessageBackgroundColor="{StaticResource Secondary}"
+                      OtherMessageTextColor="{StaticResource Black}"
+                      DateTextColor="{StaticResource Gray500}"
+                      DateTextFontSize="14"
+                      MessageTimeTextColor="{StaticResource Gray200}"
+                      NewMessagesSeperatorTextColor="{StaticResource Primary}"
+                      NewMessagesSeperatorFontSize="16"
+                      NewMessagesSeperatorText="New Messages"
+                      AvatarTextColor="{StaticResource White}"
+                      AvatarBackgroundColor="{StaticResource Tertiary}"
+                      Messages="{Binding ChatMessages}"
+                      EmojiReactionFontSize="14"
+                      EmojiReactionTextColor="{StaticResource Primary}"
+                      ReplyMessageBackgroundColor="{StaticResource Tertiary}"
+                      ReplyMessageTextColor="{StaticResource White}"
+                      ScrollToFirstNewMessage="True"
+                      ShowNewMessagesSeperator="True"
+                      SystemMessageBackgroundColor="{StaticResource Yellow300Accent}"
+                      SystemMessageTextColor="{StaticResource Tertiary}"
+                      SystemMessageFontSize="14"
+                      ContextMenuDividerColor="{StaticResource Gray300}"
+                      ContextMenuTextColor="{StaticResource Gray600}"
+                      ContextMenuBackgroundColor="{StaticResource White}"/>
+
+        <!-- Message Input -->
+        <Border Grid.Row="2"
+                BackgroundColor="{StaticResource Secondary}"
+                Padding="10"
+                Margin="10,5">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Entry x:Name="MessageEntry"
+                       Grid.Column="0"
+                       Placeholder="Type a message..."
+                       BackgroundColor="White"
+                       Margin="0,0,10,0"
+                       Completed="OnSendMessage"/>
+
+                <Button x:Name="SendButton"
+                        Grid.Column="1"
+                        Text="Send"
+                        BackgroundColor="{StaticResource Primary}"
+                        TextColor="White"
+                        Clicked="OnSendMessage"
+                        IsEnabled="False"/>
+            </Grid>
+        </Border>
+
+        <!-- Connection Controls -->
+        <Grid Grid.Row="3"
+              Padding="10"
+              ColumnDefinitions="*,*"
+              ColumnSpacing="10">
+
+            <Button x:Name="AdvertiseButton"
+                    Grid.Column="0"
+                    Text="Start Advertising"
+                    BackgroundColor="{StaticResource Tertiary}"
+                    TextColor="Black"
+                    Clicked="OnAdvertiseClicked"/>
+
+            <Button x:Name="DiscoverButton"
+                    Grid.Column="1"
+                    Text="Start Discovery"
+                    BackgroundColor="{StaticResource Tertiary}"
+                    TextColor="Black"
+                    Clicked="OnDiscoverClicked"/>
+        </Grid>
+    </Grid>
+
+</pages:BasePage>

@@ -22,5 +22,12 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 
+  <!-- Samples -->
+  <ItemGroup>
+    <PackageVersion Include="CommunityToolkit.Maui" Version="12.2.0" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageVersion Include="Indiko.Maui.Controls.Chat" Version="1.1.1" />
+  </ItemGroup>
+
 
 </Project>
