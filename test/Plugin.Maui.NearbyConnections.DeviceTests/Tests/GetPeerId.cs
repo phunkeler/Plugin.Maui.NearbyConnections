@@ -1,4 +1,5 @@
-using Xunit;
+using Plugin.Maui.NearbyConnections.Advertise;
+using Plugin.Maui.NearbyConnections.Discover;
 
 namespace Plugin.Maui.NearbyConnections.DeviceTests.Tests;
 
@@ -10,8 +11,8 @@ public class AdvertisingTests
         Console.WriteLine("[TEST] ===== STARTING ADVERTISE TEST =====");
 
         // Arrange
-        var advertiser = new NearbyConnectionsAdvertiser();
-        var options = new TestAdvertisingOptions
+        var advertiser = new Advertiser();
+        var options = new AdvertisingOptions
         {
             ServiceName = "testservice",
             AdvertisingInfo = new Dictionary<string, string>
@@ -59,8 +60,8 @@ public class DiscoveringTests
         Console.WriteLine("[TEST] ===== STARTING DISCOVER TEST =====");
 
         // Arrange
-        var discoverer = new NearbyConnectionsDiscoverer();
-        var options = new TestDiscoveringOptions
+        var discoverer = new Discoverer();
+        var options = new DiscoveringOptions
         {
             ServiceName = "testservice"
         };
@@ -79,16 +80,4 @@ public class DiscoveringTests
         await Task.Delay(20000); // Give time for callbacks
         Console.WriteLine("[TEST] ===== DISCOVER TEST COMPLETED =====");
     }
-}
-
-sealed internal class TestAdvertisingOptions : IAdvertisingOptions
-{
-    public string ServiceName { get; set; } = "";
-    public IDictionary<string, string> AdvertisingInfo { get; set; } = new Dictionary<string, string>();
-    public string DisplayName { get; set; } = "";
-}
-
-sealed internal class TestDiscoveringOptions : IDiscoveringOptions
-{
-    public string ServiceName { get; set; } = "";
 }

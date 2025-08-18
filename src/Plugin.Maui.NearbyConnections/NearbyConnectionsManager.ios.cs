@@ -55,15 +55,11 @@ public class NSUserDefaultsPeerIdStorage : IPeerIdStorage
 {
     /// <inheritdoc/>
     public string? GetStoredDisplayName()
-    {
-        return NSUserDefaults.StandardUserDefaults.StringForKey("PeerDisplayNameKey");
-    }
+        => NSUserDefaults.StandardUserDefaults.StringForKey("PeerDisplayNameKey");
 
     /// <inheritdoc/>
     public NSData? GetStoredPeerIdData()
-    {
-        return NSUserDefaults.StandardUserDefaults.DataForKey("PeerIdKey");
-    }
+        => NSUserDefaults.StandardUserDefaults.DataForKey("PeerIdKey");
 
     /// <inheritdoc/>
     public void StorePeerIdData(string displayName, NSData peerIdData)
@@ -136,20 +132,6 @@ public class NearbyConnectionsManager : IDisposable
         _storage = storage ?? throw new ArgumentNullException(nameof(storage));
         _archiver = archiver ?? throw new ArgumentNullException(nameof(archiver));
     }
-
-    /*
-        Consumers will need the following entries in their Info.plist:
-
-        <key>NSBonjourServices</key>
-        <array>
-        <string>_[YOURSERVICETYPE-HERE]._tcp</string>
-        <string>_[YOURSERVICETYPE-HERE]._udp</string> (OPTIONAL?)
-        </array>
-        <key>NSLocalNetworkUsageDescription</key>
-        <string>[YOURDESCRIPTION-HERE]</string>
-
-        When configuring "NearbyConnections" we need to know the service type.
-    */
 
     private protected virtual void Dispose(bool disposing)
     {

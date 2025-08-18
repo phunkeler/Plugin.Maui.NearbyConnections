@@ -37,4 +37,9 @@
 	  <ProjectReference Include="../../src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj" />
 	</ItemGroup>
 
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="NSubstitute" />
+  </ItemGroup>
+
 </Project>

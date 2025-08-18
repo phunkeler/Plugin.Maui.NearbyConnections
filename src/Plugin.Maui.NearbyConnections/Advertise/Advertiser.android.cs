@@ -44,7 +44,7 @@ public partial class Advertiser : Java.Lang.Object
     }
 }
 
-sealed internal class AdvertiseCallback : ConnectionLifecycleCallback
+internal sealed class AdvertiseCallback : ConnectionLifecycleCallback
 {
     public override void OnConnectionInitiated(string p0, ConnectionInfo p1)
     {

@@ -1,5 +1,86 @@
 # Design
 
+## Architectural Decisions
+
+### Advertiser/Discoverer Lifecycle Management
+
+#### Design Decision: "Dispose and Recreate" Pattern
+
+**Problem**: iOS `MCNearbyServiceAdvertiser` objects are immutable after creation. Once instantiated with specific `myPeerID`, `serviceType`, and `info` parameters, these cannot be modified. Android's `ConnectionsClient` is more flexible and allows parameter changes.
+
+**Solution**: The `NearbyConnectionsImplementation` uses a "dispose and recreate" pattern where:
+
+1. **On Stop**: The advertiser/discoverer is disposed and the reference is nulled
+2. **On Start**: A new advertiser/discoverer instance is always created
+
+**Benefits**:
+- ✅ **Cross-platform consistency**: Both iOS and Android behave identically
+- ✅ **Parameter flexibility**: Consumers can change display name, service type, and advertising info between sessions
+- ✅ **Clean state**: Each advertising session starts with a fresh state
+- ✅ **iOS requirement**: Only way to change `MCNearbyServiceAdvertiser` parameters
+
+**Trade-offs**:
+- ⚠️ **Performance**: Creates new objects for each start/stop cycle
+- ⚠️ **Memory**: Increases GC pressure compared to object reuse
+- ⚠️ **Event handlers**: Lost on disposal (by design for clean state)
+
+**Implementation Note**: This pattern is applied consistently to both `IAdvertiser` and `IDiscoverer` implementations for symmetry.
+
+### Consumer Usage Implications
+
+Due to the "dispose and recreate" pattern, consumers should be aware of the following:
+
+#### ✅ Supported Usage Patterns
+
+<details>
+<summary>Flexible advertising</summary>
+
+```csharp
+// ✅ Advertise with different parameters
+await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
+{
+    DisplayName = "Device1",
+    ServiceName = "game"
+});
+
+await NearbyConnections.Current.StopAdvertisingAsync();
+
+// ✅ Different parameters - fully supported
+await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
+{
+    DisplayName = "Device2",     // Changed
+    ServiceName = "chat",        // Changed
+    AdvertisingInfo = { ... }    // Changed
+});
+```
+
+</details>
+
+<details>
+<summary>Event Consistency</summary>
+
+```csharp
+// ✅ Subscribe once - never need to resubscribe!
+NearbyConnections.Current.AdvertisingStateChanged += OnAdvertisingStateChanged;
+
+// Multiple start/stop cycles work seamlessly
+await NearbyConnections.Current.StartAdvertisingAsync(options1);
+await NearbyConnections.Current.StopAdvertisingAsync();
+
+await NearbyConnections.Current.StartAdvertisingAsync(options2); // Different parameters
+await NearbyConnections.Current.StopAdvertisingAsync();
+
+// All events received despite underlying advertiser dispose/recreate
+```
+
+</details>
+
+#### ⚠️ Considerations
+
+- **State Reset**: Each advertising session starts completely fresh with no carryover state
+- **Performance**: Brief overhead during start/stop cycles due to object creation
+
+
 ## Activities
 
 ### Discovery (iOS) & Pre-Connection (Android)

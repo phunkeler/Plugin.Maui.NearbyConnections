@@ -1,4 +1,5 @@
 using Plugin.Maui.NearbyConnections.Advertise;
+using AdvertisingOptions = Plugin.Maui.NearbyConnections.Advertise.AdvertisingOptions;
 
 namespace Plugin.Maui.NearbyConnections.Discover;
 
