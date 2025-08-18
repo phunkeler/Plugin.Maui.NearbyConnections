@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/NearbyChat/NearbyChat.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj" />
   </Folder>
