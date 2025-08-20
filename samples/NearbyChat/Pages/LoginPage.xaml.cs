@@ -29,4 +29,8 @@ public partial class LoginPage : BasePage<LoginPageViewModel>
         => Application.Current!.UserAppTheme = e.NewIndex == 0
             ? AppTheme.Light
             : AppTheme.Dark;
+
+    private void OnAvatarSelected(object sender, EventArgs e)
+    {
+    }
 }

@@ -25,15 +25,11 @@
 
                     <!-- App Header -->
                     <StackLayout Spacing="{DynamicResource SpacingXL}">
-                        <!-- App Icon with Connection Indicator -->
-                        <Grid HorizontalOptions="Center">
-                            <Border WidthRequest="80"
-                                    HeightRequest="80"
-                                    StrokeShape="RoundRectangle 20"
-                                    Background="{DynamicResource AppIconGradient}"
-                                    Stroke="Transparent">
-                            </Border>
-                        </Grid>
+                        <!-- App Icon -->
+                        <Image Source="nuget.png"
+                               HeightRequest="80"
+                               WidthRequest="80"
+                               HorizontalOptions="Center"/>
 
                         <!-- App Title and Description -->
                         <StackLayout Spacing="{StaticResource SpacingSM}">
@@ -45,7 +41,7 @@
                                    HorizontalTextAlignment="Center">
                                 <Label.FormattedText>
                                     <FormattedString>
-                                        <Span Text="Connect instantly with nearby devices using "/>
+                                        <Span Text="Chat instantly with nearby devices using "/>
                                         <Span Text="Plugin.Maui.NearbyConnections"
                                               FontAttributes="Bold"
                                               TextColor="{StaticResource PrimaryBlue600}"/>
@@ -137,8 +133,7 @@
                             <Button x:Name="LoginButton"
                                     Text="📱 Start Nearby Chat"
                                     Style="{StaticResource PrimaryButton}"
-                                    Clicked="OnLoginClicked"
-                                    IsEnabled="False"/>
+                                    Command="{Binding LoginCommand}"/>
                         </StackLayout>
                     </Border>
 

@@ -9,7 +9,6 @@ public partial class AppShell : Shell
     static readonly ReadOnlyDictionary<Type, Type> s_viewModelMappings = new(
         new KeyValuePair<Type, Type>[]
         {
-            CreateViewModelMapping<MainPage, MainPageViewModel>(),
             CreateViewModelMapping<ChatPage, ChatPageViewModel>(),
             CreateViewModelMapping<LoginPage, LoginPageViewModel>()
         }.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
