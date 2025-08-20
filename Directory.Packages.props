@@ -27,6 +27,7 @@
     <PackageVersion Include="CommunityToolkit.Maui" Version="12.2.0" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageVersion Include="Indiko.Maui.Controls.Chat" Version="1.1.1" />
+    <PackageVersion Include="Syncfusion.Maui.Toolkit" Version="1.0.6" />
   </ItemGroup>
 
 

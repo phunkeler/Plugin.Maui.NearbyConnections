@@ -39,14 +39,13 @@
 </div>
 
 # Features
-## **Simultaneous Advertising & Discovery**
 
-## **Modern Chat Interface**
-- Use [Indiko.Maui.Controls.Chat](https://github.com/0xc3u/Indiko.Maui.Controls.Chat)
+## **Simultaneous Advertising & Discovery**
 
 ##
 
 ## **Unique Advertising & Discovery Sessions**
+
 ```csharp
 await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
 {
@@ -64,17 +63,21 @@ await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
     AdvertisingInfo = { ... }    // Changed
 });
 ```
-  - Send arbitrary `IDictionary<string, string>` data with advertisements (Maybe call this "AdvertisementInfo")
+
+-   Send arbitrary `IDictionary<string, string>` data with advertisements (Maybe call this "AdvertisementInfo")
 
 # Getting Started
+
 `Plugin.Maui.NearbyConnections` is available on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
 
 ## **dotnet**
+
 ```bash
 dotnet add package Plugin.Maui.NearbyConnections -s https://api.nuget.org/v3/index.json
 ```
 
 ## **nuget.config**
+
 ```xml
 <configuration>
   <packageSources>
@@ -94,31 +97,34 @@ dotnet add package Plugin.Maui.NearbyConnections -s https://api.nuget.org/v3/ind
 </details>
 
 # Usage
+
 `MauiProgram.cs`:
 Following setup patterns established by [Microsoft.Maui.Essentials](https://www.nuget.org/packages/Microsoft.Maui.Essentials) first need to register the Feature with the MauiAppBuilder following the same pattern that the .NET MAUI Essentials libraries follow.
 
 # Supported Platforms
 
 | Platform | Minimum Version Supported |
-|----------|---------------------------|
+| -------- | ------------------------- |
 | iOS      | Not set in project.       |
 | Android  | Not set in project        |
 
 # 🔗 Dependencies
-- This NuGet package is [x MB]](LINK_TO_PROOF)
-- In the case of the sample app (Plugin.Maui.NearbyConnections.Sample) it increased .apk/.ipa size by [X](LINK_TO_PROOF)2
 
-  ## Android
-  - [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) (1.25 MB)
-  - Requires Google Play Services on device
+-   This NuGet package is [x MB]](LINK_TO_PROOF)
+-   In the case of the sample app (Plugin.Maui.NearbyConnections.Sample) it increased .apk/.ipa size by [X](LINK_TO_PROOF)2
 
-  ## iOS
-  - Native `MultipeerConnectivity` framework
-  - No external dependencies
+    ## Android
+
+    -   [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) (1.25 MB)
+    -   Requires Google Play Services on device
+
+    ## iOS
+
+    -   Native `MultipeerConnectivity` framework
+    -   No external dependencies
 
 # Acknowledgements
 
-- https://github.com/jfversluis/Plugin.Maui.Feature
-- https://github.com/0xc3u/Indiko.Maui.Controls.Chat
-- https://github.com/puguhsudarma/expo-nearby-connections
-- https://github.com/VNAPNIC/flutter_nearby_connections
+-   https://github.com/jfversluis/Plugin.Maui.Feature
+-   https://github.com/puguhsudarma/expo-nearby-connections
+-   https://github.com/VNAPNIC/flutter_nearby_connections

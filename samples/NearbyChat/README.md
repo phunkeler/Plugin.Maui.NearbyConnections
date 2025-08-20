@@ -1,7 +1,13 @@
 # NearbyChat
-Demonstrates features of `Plugin.Maui.NearbyConnection` through potential use case
+
+Demonstrates features of `Plugin.Maui.NearbyConnection` through a potential use case
 
 ## Features
-- Multichannel
- 1. Advertise OR Discover (1:1)
- 2. Advertise AND Discover (1:*)
+
+### **Modern Chat Interface**
+
+-   Uses [Indiko.Maui.Controls.Chat](https://github.com/0xc3u/Indiko.Maui.Controls.Chat)
+
+# Acknowledgements
+
+-   https://github.com/0xc3u/Indiko.Maui.Controls.Chat
