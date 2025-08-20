@@ -140,19 +140,7 @@
                     <!-- Footer -->
                     <StackLayout Spacing="{StaticResource SpacingSM}">
 
-                        <sf:SfSegmentedControl
-                            VerticalOptions="Center"
-                            HorizontalOptions="Center"
-                            SelectionChanged="SfSegmentedControl_SelectionChanged"
-                            SegmentWidth="40"
-                            SegmentHeight="40">
-                            <sf:SfSegmentedControl.ItemsSource>
-                                <x:Array Type="{x:Type sf:SfSegmentItem}">
-                                    <sf:SfSegmentItem ImageSource="{StaticResource IconLight}"/>
-                                    <sf:SfSegmentItem ImageSource="{StaticResource IconDark}"/>
-                                </x:Array>
-                            </sf:SfSegmentedControl.ItemsSource>
-                        </sf:SfSegmentedControl>
+
                     </StackLayout>
                 </StackLayout>
             </Grid>

@@ -12,7 +12,7 @@
     <Grid RowDefinitions="Auto,*,Auto,Auto">
         <!-- Header - Connection Status -->
         <Border Grid.Row="0"
-                BackgroundColor="{StaticResource Primary}"
+                BackgroundColor="Blue"
                 Padding="15,10">
             <Grid ColumnDefinitions="*,Auto">
                 <Label x:Name="ConnectionStatusLabel"
@@ -63,7 +63,7 @@
         -->
         <!-- Message Input -->
         <Border Grid.Row="2"
-                BackgroundColor="{StaticResource Secondary}"
+                BackgroundColor="Yellow"
                 Padding="10"
                 Margin="10,5">
             <Grid>
@@ -83,7 +83,6 @@
                 <Button x:Name="SendButton"
                         Grid.Column="1"
                         Text="Send"
-                        BackgroundColor="{StaticResource Primary}"
                         TextColor="White"
                         Command="{Binding SendMessageCommand}"
                         IsEnabled="{Binding IsConnected}"/>
@@ -99,15 +98,13 @@
             <Button x:Name="AdvertiseButton"
                     Grid.Column="0"
                     Text="Start Advertising"
-                    BackgroundColor="{StaticResource Tertiary}"
-                    TextColor="White"
+                    TextColor="Blue"
                     Command="{Binding StartAdvertisingCommand}"/>
 
             <Button x:Name="DiscoverButton"
                     Grid.Column="1"
                     Text="Start Discovery"
-                    BackgroundColor="{StaticResource Tertiary}"
-                    TextColor="White"
+                    TextColor="Blue"
                     Command="{Binding StartDiscoveryCommand}"/>
         </Grid>
     </Grid>
