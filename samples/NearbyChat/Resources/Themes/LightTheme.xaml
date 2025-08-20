@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    x:Class="NearbyChat.Resources.Themes.LightTheme">
+
+    <!-- Primary Colors -->
+    <Color x:Key="PrimaryBlue500">#3b82f6</Color>
+    <Color x:Key="PrimaryBlue600">#2563eb</Color>
+    <Color x:Key="PrimaryBlue700">#1d4ed8</Color>
+
+    <Color x:Key="Purple500">#8b5cf6</Color>
+    <Color x:Key="Purple600">#7c3aed</Color>
+    <Color x:Key="Purple700">#6d28d9</Color>
+
+    <!-- Accent Colors -->
+    <Color x:Key="Green500">#10b981</Color>
+    <Color x:Key="Orange500">#f59e0b</Color>
+    <Color x:Key="Pink500">#ec4899</Color>
+    <Color x:Key="Cyan500">#06b6d4</Color>
+
+    <!-- Gray Scale -->
+    <Color x:Key="Gray50">#f8fafc</Color>
+    <Color x:Key="Gray100">#e2e8f0</Color>
+    <Color x:Key="Gray200">#e5e7eb</Color>
+    <Color x:Key="Gray500">#6b7280</Color>
+    <Color x:Key="Gray700">#374151</Color>
+    <Color x:Key="Gray900">#111827</Color>
+
+    <!-- Background Gradients -->
+    <LinearGradientBrush x:Key="AppBackgroundGradient"
+                         StartPoint="0,0"
+                         EndPoint="1,1">
+        <GradientStop Color="{StaticResource Gray50}"
+                      Offset="0.0"/>
+        <GradientStop Color="{StaticResource Gray100}"
+                      Offset="1.0"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="PrimaryButtonGradient"
+                         StartPoint="0,0"
+                         EndPoint="1,0">
+        <GradientStop Color="{StaticResource PrimaryBlue600}"
+                      Offset="0.0"/>
+        <GradientStop Color="{StaticResource Purple700}"
+                      Offset="1.0"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="AppIconGradient"
+                         StartPoint="0,0"
+                         EndPoint="1,0">
+        <GradientStop Color="{StaticResource PrimaryBlue600}"
+                      Offset="0.0"/>
+        <GradientStop Color="{StaticResource Purple600}"
+                      Offset="1.0"/>
+    </LinearGradientBrush>
+
+</ResourceDictionary>

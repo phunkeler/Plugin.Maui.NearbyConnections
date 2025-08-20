@@ -10,7 +10,8 @@ public partial class AppShell : Shell
         new KeyValuePair<Type, Type>[]
         {
             CreateViewModelMapping<MainPage, MainPageViewModel>(),
-            CreateViewModelMapping<ChatPage, ChatPageViewModel>()
+            CreateViewModelMapping<ChatPage, ChatPageViewModel>(),
+            CreateViewModelMapping<LoginPage, LoginPageViewModel>()
         }.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
 
     public AppShell()

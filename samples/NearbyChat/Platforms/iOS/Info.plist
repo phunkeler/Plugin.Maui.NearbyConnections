@@ -28,5 +28,12 @@
 	</array>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_nearbychat._tcp</string>
+		<string>_nearbychat._udp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app uses local network to discover and connect with nearby devices for peer-to-peer chat functionality.</string>
 </dict>
 </plist>

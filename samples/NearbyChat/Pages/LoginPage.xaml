@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<pages:BasePage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                xmlns:vm="clr-namespace:NearbyChat.ViewModels"
+                xmlns:pages="clr-namespace:NearbyChat.Pages"
+                x:Class="NearbyChat.Pages.LoginPage"
+                x:TypeArguments="vm:LoginPageViewModel"
+                x:DataType="vm:LoginPageViewModel">
+    <Grid>
+        <Rectangle Fill="{DynamicResource AppBackgroundGradient}"/>
+
+        <ScrollView>
+            <Grid Padding="{DynamicResource SpacingXL}"
+                  RowSpacing="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <StackLayout Grid.Row="1"
+                             Spacing="{StaticResource Spacing2XL}"
+                             MaximumWidthRequest="400"
+                             HorizontalOptions="Center">
+
+                    <!-- App Header -->
+                    <StackLayout Spacing="{DynamicResource SpacingXL}">
+                        <!-- App Icon with Connection Indicator -->
+                        <Grid HorizontalOptions="Center">
+                            <Border WidthRequest="80"
+                                    HeightRequest="80"
+                                    StrokeShape="RoundRectangle 20"
+                                    Background="{DynamicResource AppIconGradient}"
+                                    Stroke="Transparent">
+
+                                <!-- WiFi Connection Indicator -->
+                                <Border WidthRequest="32"
+                                        HeightRequest="32"
+                                        StrokeShape="RoundRectangle 16"
+                                        BackgroundColor="{DynamicResource Green500}"
+                                        Stroke="Transparent"
+                                        HorizontalOptions="End"
+                                        VerticalOptions="End"
+                                        Margin="0,0,-4,-4">
+                                    <Label Text="📶"
+                                           FontSize="16"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"/>
+                                </Border>
+                            </Border>
+                        </Grid>
+
+                        <!-- App Title and Description -->
+                        <StackLayout Spacing="{StaticResource SpacingSM}">
+                            <Label Text="NearbyChat"
+                                   Style="{StaticResource Display1}"
+                                   HorizontalTextAlignment="Center"/>
+
+                            <Label Style="{StaticResource Body1}"
+                                   HorizontalTextAlignment="Center">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="Connect instantly with nearby devices using "/>
+                                        <Span Text="Plugin.Maui.NearbyConnections"
+                                              FontAttributes="Bold"
+                                              TextColor="{StaticResource PrimaryBlue600}"/>
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </StackLayout>
+                    </StackLayout>
+
+                    <!-- Login Card -->
+                    <Border Style="{StaticResource CardFrame}"
+                            Padding="{DynamicResource SpacingXL}">
+                        <StackLayout Spacing="{DynamicResource SpacingXL}">
+
+                            <!-- Card Header -->
+                            <StackLayout Spacing="{StaticResource SpacingSM}">
+                                <Label Text="Join the Network"
+                                       Style="{StaticResource Headline1}"
+                                       HorizontalTextAlignment="Center"/>
+                                <Label Text="Choose your identity and start chatting"
+                                       Style="{StaticResource Body2}"
+                                       HorizontalTextAlignment="Center"/>
+                            </StackLayout>
+
+                            <!-- Avatar Selection -->
+                            <StackLayout Spacing="{StaticResource SpacingMD}">
+                                <Label Text="Choose Your Avatar"
+                                       Style="{StaticResource LabelMedium}"/>
+
+                                <FlexLayout Direction="Row"
+                                            Wrap="Wrap"
+                                            JustifyContent="Center"
+                                            AlignItems="Center"
+                                            x:Name="AvatarContainer">
+
+                                    <Button x:Name="Avatar1"
+                                            Text="A"
+                                            BackgroundColor="{StaticResource PrimaryBlue500}"
+                                            Style="{StaticResource AvatarButton}"
+                                            Margin="{StaticResource SpacingSM}"
+                                            Clicked="OnAvatarSelected"/>
+                                    <Button x:Name="Avatar2"
+                                            Text="B"
+                                            BackgroundColor="{StaticResource Green500}"
+                                            Style="{StaticResource AvatarButton}"
+                                            Margin="{StaticResource SpacingSM}"
+                                            Clicked="OnAvatarSelected"/>
+                                    <Button x:Name="Avatar3"
+                                            Text="C"
+                                            BackgroundColor="{StaticResource Purple500}"
+                                            Style="{StaticResource AvatarButton}"
+                                            Margin="{StaticResource SpacingSM}"
+                                            Clicked="OnAvatarSelected"/>
+                                    <Button x:Name="Avatar4"
+                                            Text="D"
+                                            BackgroundColor="{StaticResource Orange500}"
+                                            Style="{StaticResource AvatarButton}"
+                                            Margin="{StaticResource SpacingSM}"
+                                            Clicked="OnAvatarSelected"/>
+                                    <Button x:Name="Avatar5"
+                                            Text="E"
+                                            BackgroundColor="{StaticResource Pink500}"
+                                            Style="{StaticResource AvatarButton}"
+                                            Margin="{StaticResource SpacingSM}"
+                                            Clicked="OnAvatarSelected"/>
+                                    <Button x:Name="Avatar6"
+                                            Text="F"
+                                            BackgroundColor="{StaticResource Cyan500}"
+                                            Style="{StaticResource AvatarButton}"
+                                            Margin="{StaticResource SpacingSM}"
+                                            Clicked="OnAvatarSelected"/>
+                                </FlexLayout>
+                            </StackLayout>
+
+                            <!-- Username Input -->
+                            <StackLayout Spacing="{StaticResource SpacingSM}">
+                                <Label Text="Display Name"
+                                       Style="{StaticResource LabelMedium}"/>
+                                <Border Style="{StaticResource InputFrame}">
+                                    <Entry x:Name="UsernameEntry"
+                                           Placeholder="Enter your name"
+                                           Style="{StaticResource TextInput}"
+                                           TextChanged="UsernameEntry_TextChanged"
+                                           MaxLength="20"/>
+                                </Border>
+                            </StackLayout>
+
+                            <!-- Login Button -->
+                            <Button x:Name="LoginButton"
+                                    Text="📱 Start Nearby Chat"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Clicked="OnLoginClicked"
+                                    IsEnabled="False"/>
+                        </StackLayout>
+                    </Border>
+
+                    <!-- Footer -->
+                    <StackLayout Spacing="{StaticResource SpacingSM}">
+                        <Label Text="Powered by .NET MAUI &amp; NearbyConnections"
+                               Style="{StaticResource Body2}"
+                               HorizontalTextAlignment="Center"/>
+
+                        <!-- Status Indicator -->
+                        <StackLayout Orientation="Horizontal"
+                                     HorizontalOptions="Center"
+                                     Spacing="{StaticResource SpacingSM}">
+                            <Border WidthRequest="8"
+                                    HeightRequest="8"
+                                    StrokeShape="RoundRectangle 4"
+                                    BackgroundColor="{StaticResource Green500}"
+                                    Stroke="Transparent"
+                                    x:Name="StatusIndicator"/>
+                            <Label Text="Scanning for nearby devices..."
+                                   Style="{StaticResource Caption}"/>
+                        </StackLayout>
+                    </StackLayout>
+                </StackLayout>
+            </Grid>
+        </ScrollView>
+    </Grid>
+</pages:BasePage>

@@ -7,9 +7,9 @@
     Title="NearbyChat">
 
     <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate pages:MainPage}"
-        Route="MainPage"/>
+        Title="Login"
+        ContentTemplate="{DataTemplate pages:LoginPage}"
+        Route="LoginPage"/>
 
     <ShellContent
         Title="Chat"

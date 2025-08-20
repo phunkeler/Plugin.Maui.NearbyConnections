@@ -39,11 +39,15 @@
 </div>
 
 # Features
-- **Simultaneous Advertising & Discovery**
+## **Simultaneous Advertising & Discovery**
 
-## **Unique Advertising & Discovery Session**s
+## **Modern Chat Interface**
+- Use [Indiko.Maui.Controls.Chat](https://github.com/0xc3u/Indiko.Maui.Controls.Chat)
+
+##
+
+## **Unique Advertising & Discovery Sessions**
 ```csharp
-// ✅ Advertise with different parameters
 await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
 {
     DisplayName = "Name1",
@@ -100,9 +104,6 @@ Following setup patterns established by [Microsoft.Maui.Essentials](https://www.
 | iOS      | Not set in project.       |
 | Android  | Not set in project        |
 
- # 📊 Performance Impact
-
-
 # 🔗 Dependencies
 - This NuGet package is [x MB]](LINK_TO_PROOF)
 - In the case of the sample app (Plugin.Maui.NearbyConnections.Sample) it increased .apk/.ipa size by [X](LINK_TO_PROOF)2
@@ -115,8 +116,9 @@ Following setup patterns established by [Microsoft.Maui.Essentials](https://www.
   - Native `MultipeerConnectivity` framework
   - No external dependencies
 
-# Acknowledgementsges
+# Acknowledgements
 
--   https://github.com/jfversluis/Plugin.Maui.Feature
--   https://github.com/puguhsudarma/expo-nearby-connections
--   https://github.com/VNAPNIC/flutter_nearby_connections
+- https://github.com/jfversluis/Plugin.Maui.Feature
+- https://github.com/0xc3u/Indiko.Maui.Controls.Chat
+- https://github.com/puguhsudarma/expo-nearby-connections
+- https://github.com/VNAPNIC/flutter_nearby_connections

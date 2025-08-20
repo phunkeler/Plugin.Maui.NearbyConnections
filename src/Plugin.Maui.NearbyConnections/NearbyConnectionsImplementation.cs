@@ -1,5 +1,7 @@
 using Plugin.Maui.NearbyConnections.Advertise;
 using Plugin.Maui.NearbyConnections.Discover;
+using Plugin.Maui.NearbyConnections.Events;
+using Plugin.Maui.NearbyConnections.Models;
 using AdvertisingOptions = Plugin.Maui.NearbyConnections.Advertise.AdvertisingOptions;
 
 namespace Plugin.Maui.NearbyConnections;
@@ -7,7 +9,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <summary>
 /// Implementation of the <see cref="INearbyConnections"/> interface.
 /// </summary>
-public class NearbyConnectionsImplementation : INearbyConnections, IDisposable
+public partial class NearbyConnectionsImplementation : INearbyConnections, IDisposable
 {
     readonly IAdvertiserFactory _advertiserFactory;
     readonly IDiscovererFactory _discovererFactory;
@@ -28,6 +30,21 @@ public class NearbyConnectionsImplementation : INearbyConnections, IDisposable
     public event EventHandler<DiscoveringStateChangedEventArgs>? DiscoveringStateChanged;
 
     /// <summary>
+    /// Fired when a peer is discovered during the discovery process.
+    /// </summary>
+    public event EventHandler<PeerDiscoveredEventArgs>? PeerDiscovered;
+
+    /// <summary>
+    /// Fired when a peer's connection state changes.
+    /// </summary>
+    public event EventHandler<PeerConnectionChangedEventArgs>? PeerConnectionChanged;
+
+    /// <summary>
+    /// Fired when a message is received from a connected peer.
+    /// </summary>
+    public event EventHandler<PeerMessageReceivedEventArgs>? MessageReceived;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="NearbyConnectionsImplementation"/> class.
     /// </summary>
     /// <param name="advertiserFactory">
@@ -45,6 +62,8 @@ public class NearbyConnectionsImplementation : INearbyConnections, IDisposable
 
         _advertiserFactory = advertiserFactory;
         _discovererFactory = discovererFactory;
+
+        InitializePlatform();
     }
 
     /// <inheritdoc/>
@@ -116,6 +135,7 @@ public class NearbyConnectionsImplementation : INearbyConnections, IDisposable
             _discoverer = null;
         }
 
+        DisposePlatform();
         GC.SuppressFinalize(this);
     }
 
@@ -134,4 +154,117 @@ public class NearbyConnectionsImplementation : INearbyConnections, IDisposable
     /// <param name="e">The event arguments</param>
     private void OnDiscovererStateChanged(object? sender, DiscoveringStateChangedEventArgs e)
         => DiscoveringStateChanged?.Invoke(this, e);
+
+    /// <inheritdoc/>
+    public Task ConnectToPeerAsync(string peerId, CancellationToken cancellationToken = default)
+    {
+        return ConnectToPeerAsyncImpl(peerId, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public Task DisconnectFromPeerAsync(string peerId, CancellationToken cancellationToken = default)
+    {
+        return DisconnectFromPeerAsyncImpl(peerId, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public Task SendMessageAsync(string message, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+
+        var data = System.Text.Encoding.UTF8.GetBytes(message);
+        return SendDataAsync(data, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public Task SendDataAsync(byte[] data, CancellationToken cancellationToken = default)
+    {
+        return SendDataAsyncImpl(data, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<PeerDevice> GetConnectedPeers()
+    {
+        return GetConnectedPeersImpl();
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<PeerDevice> GetDiscoveredPeers()
+    {
+        return GetDiscoveredPeersImpl();
+    }
+
+    /// <summary>
+    /// Platform-specific implementation for connecting to a peer.
+    /// </summary>
+    private partial Task ConnectToPeerAsyncImpl(string peerId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Platform-specific implementation for disconnecting from a peer.
+    /// </summary>
+    private partial Task DisconnectFromPeerAsyncImpl(string peerId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Platform-specific implementation for sending data.
+    /// </summary>
+    private partial Task SendDataAsyncImpl(byte[] data, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Platform-specific implementation for getting connected peers.
+    /// </summary>
+    private partial IReadOnlyList<PeerDevice> GetConnectedPeersImpl();
+
+    /// <summary>
+    /// Platform-specific implementation for getting discovered peers.
+    /// </summary>
+    private partial IReadOnlyList<PeerDevice> GetDiscoveredPeersImpl();
+
+    /// <summary>
+    /// Platform-specific initialization logic.
+    /// </summary>
+    partial void InitializePlatform();
+
+    /// <summary>
+    /// Platform-specific disposal logic.
+    /// </summary>
+    partial void DisposePlatform();
+
+    /// <summary>
+    ///
+    /// </summary>
+    /// <param name="payload"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    /// <exception cref="NotImplementedException"></exception>
+    public Task SendDataAsync(DataPayload payload, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+    /// <summary>
+    ///
+    /// </summary>
+    /// <param name="filePath"></param>
+    /// <param name="fileName"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    /// <exception cref="NotImplementedException"></exception>
+    public Task SendFileAsync(string filePath, string? fileName = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+
+    /// <summary>
+    ///
+    /// </summary>
+    /// <param name="stream"></param>
+    /// <param name="streamName"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    /// <exception cref="NotImplementedException"></exception>
+    public Task SendStreamAsync(Stream stream, string streamName, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+    void OnPeerDiscovered(object? sender, PeerDiscoveredEventArgs e)
+        => PeerDiscovered?.Invoke(this, e);
+
+    void OnPeerConnectionChanged(object? sender, PeerConnectionChangedEventArgs e)
+        => PeerConnectionChanged?.Invoke(this, e);
+
+    void OnMessageReceived(object? sender, PeerMessageReceivedEventArgs e)
+        => MessageReceived?.Invoke(this, e);
 }

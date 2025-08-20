@@ -17,7 +17,7 @@
             <Grid ColumnDefinitions="*,Auto">
                 <Label x:Name="ConnectionStatusLabel"
                        Grid.Column="0"
-                       Text="Not Connected"
+                       Text="{Binding ConnectionStatus}"
                        TextColor="White"
                        FontSize="16"
                        VerticalOptions="Center"/>
@@ -25,13 +25,14 @@
                 <Label x:Name="ConnectionIndicator"
                        Grid.Column="1"
                        Text="●"
-                       TextColor="Red"
+                       TextColor="{Binding IsConnected, Converter={StaticResource BoolToConnectionColorConverter}}"
                        FontSize="18"
                        VerticalOptions="Center"/>
             </Grid>
         </Border>
 
         <!-- Messages Area -->
+        <!--
         <idk:ChatView Grid.Row="1"
                       x:Name="chatView"
                       OwnMessageBackgroundColor="{StaticResource Primary}"
@@ -59,7 +60,7 @@
                       ContextMenuDividerColor="{StaticResource Gray300}"
                       ContextMenuTextColor="{StaticResource Gray600}"
                       ContextMenuBackgroundColor="{StaticResource White}"/>
-
+        -->
         <!-- Message Input -->
         <Border Grid.Row="2"
                 BackgroundColor="{StaticResource Secondary}"
@@ -73,18 +74,19 @@
 
                 <Entry x:Name="MessageEntry"
                        Grid.Column="0"
+                       Text="{Binding CurrentMessage}"
                        Placeholder="Type a message..."
                        BackgroundColor="White"
                        Margin="0,0,10,0"
-                       Completed="OnSendMessage"/>
+                       ReturnCommand="{Binding SendMessageCommand}"/>
 
                 <Button x:Name="SendButton"
                         Grid.Column="1"
                         Text="Send"
                         BackgroundColor="{StaticResource Primary}"
                         TextColor="White"
-                        Clicked="OnSendMessage"
-                        IsEnabled="False"/>
+                        Command="{Binding SendMessageCommand}"
+                        IsEnabled="{Binding IsConnected}"/>
             </Grid>
         </Border>
 

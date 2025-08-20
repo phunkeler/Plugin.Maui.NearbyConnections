@@ -5,8 +5,7 @@
                 xmlns:pages="clr-namespace:NearbyChat.Pages"
                 xmlns:vm="clr-namespace:NearbyChat.ViewModels"
                 x:TypeArguments="vm:MainPageViewModel"
-                x:DataType="vm:MainPageViewModel"
-                Title="Nearby Chat">
+                x:DataType="vm:MainPageViewModel">
 
     <ScrollView>
         <VerticalStackLayout
