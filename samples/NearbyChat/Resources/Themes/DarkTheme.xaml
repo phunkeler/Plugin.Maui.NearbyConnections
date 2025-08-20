@@ -3,6 +3,9 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
                     x:Class="NearbyChat.Resources.Themes.DarkTheme">
 
+    <!-- Layout -->
+    <Color x:Key="surface-base">#1C1B1F</Color>
+
     <!-- Primary Colors (Dark Theme Variants) -->
     <Color x:Key="PrimaryBlue500">#60a5fa</Color>
     <Color x:Key="PrimaryBlue600">#3b82f6</Color>
@@ -18,13 +21,19 @@
     <Color x:Key="Pink500">#f472b6</Color>
     <Color x:Key="Cyan500">#22d3ee</Color>
 
-    <!-- Gray Scale (Inverted Hierarchy) -->
-    <Color x:Key="Gray50">#0f172a</Color>
-    <Color x:Key="Gray100">#1e293b</Color>
-    <Color x:Key="Gray200">#334155</Color>
-    <Color x:Key="Gray500">#94a3b8</Color>
-    <Color x:Key="Gray700">#cbd5e1</Color>
-    <Color x:Key="Gray900">#f1f5f9</Color>
+    <!-- Gray Scale -->
+    <Color x:Key="Gray50">#121212</Color>
+    <Color x:Key="Gray100">#424242</Color>
+    <Color x:Key="Gray200">#616161</Color>
+    <Color x:Key="Gray300">#757575</Color>
+    <Color x:Key="Gray400">#9E9E9E</Color>
+    <Color x:Key="Gray500">#BDBDBD</Color>
+    <Color x:Key="Gray600">#E0E0E0</Color>
+    <Color x:Key="Gray700">#EEEEEE</Color>
+    <Color x:Key="Gray800">#F5F5F5</Color>
+    <Color x:Key="Gray900">#FAFAFA</Color>
+
+
 
     <!-- Background Gradients (Dark Theme) -->
     <LinearGradientBrush x:Key="AppBackgroundGradient"

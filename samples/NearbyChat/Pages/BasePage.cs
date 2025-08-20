@@ -13,7 +13,6 @@ public abstract class BasePage : ContentPage
     protected BasePage(object? viewModel = null)
     {
         BindingContext = viewModel;
-        Padding = 12;
 
         if (string.IsNullOrWhiteSpace(Title))
         {

@@ -21,6 +21,7 @@
     <MauiImage Include="Resources\Images\*" />
     <MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />
     <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    <MauiFont Include="Resources\Fonts\*" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +29,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Indiko.Maui.Controls.Chat" />
     <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="Syncfusion.Maui.Toolkit" />
   </ItemGroup>
 
   <ItemGroup>

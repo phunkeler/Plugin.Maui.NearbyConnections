@@ -1,8 +1,28 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
-<?xaml-comp compile="true" ?>
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:fonts="clr-namespace:Fonts"
+    x:Class="NearbyChat.Resources.Styles.MainStyle">
+
+    <Style TargetType="Page"
+           ApplyToDerivedTypes="True">
+        <Setter Property="Padding"
+                Value="0"/>
+        <Setter Property="BackgroundColor"
+                Value="{DynamicResource surface-base}"/>
+    </Style>
+
+    <FontImageSource x:Key="IconLight"
+                     Glyph="{x:Static fonts:FluentUi.weather_sunny_28_regular}"
+                     FontFamily="{x:Static fonts:FluentUi.FontFamily}"
+                     Color="{DynamicResource Gray700}"
+                     Size="{DynamicResource SpacingXL}"/>
+    <FontImageSource x:Key="IconDark"
+                     Glyph="{x:Static fonts:FluentUi.weather_moon_28_regular}"
+                     FontFamily="{x:Static fonts:FluentUi.FontFamily}"
+                     Color="{DynamicResource Gray700}"
+                     Size="{DynamicResource SpacingXL}"/>
 
     <!-- Typography Styles -->
     <Style x:Key="Display1"
@@ -24,7 +44,8 @@
         <Setter Property="FontAttributes"
                 Value="Bold"/>
         <Setter Property="TextColor"
-                Value="{DynamicResource Gray900}"/>
+                Value="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray500}}"/>
+
     </Style>
 
     <Style x:Key="Body1"
@@ -108,8 +129,8 @@
 
     <Style x:Key="CardFrame"
            TargetType="Border">
-        <Setter Property="BackgroundColor"
-                Value="White"/>
+        <Setter Property="Background"
+                Value="{DynamicResource Gray100}"/>
         <Setter Property="Stroke"
                 Value="Transparent"/>
         <Setter Property="Shadow">
@@ -142,9 +163,9 @@
         <Setter Property="BackgroundColor"
                 Value="Transparent"/>
         <Setter Property="TextColor"
-                Value="{StaticResource Gray900}"/>
+                Value="{DynamicResource Gray900}"/>
         <Setter Property="PlaceholderColor"
-                Value="{StaticResource Gray500}"/>
+                Value="{DynamicResource Gray500}"/>
         <Setter Property="HeightRequest"
                 Value="48"/>
     </Style>

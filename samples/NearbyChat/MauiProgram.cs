@@ -5,6 +5,7 @@ using NearbyChat.Pages;
 using NearbyChat.Services;
 using NearbyChat.ViewModels;
 using Plugin.Maui.NearbyConnections;
+using Syncfusion.Maui.Toolkit.Hosting;
 
 namespace NearbyChat;
 
@@ -16,7 +17,12 @@ public static class MauiProgram
             .UseMauiApp<App>()
             .UseMauiCommunityToolkit()
             .UseChatView()
-            .AddNearbyConnections();
+            .ConfigureSyncfusionToolkit()
+            .AddNearbyConnections()
+            .ConfigureFonts(fonts =>
+            {
+                fonts.AddFont("FluentSystemIcons-Regular.ttf", FluentUi.FontFamily);
+            });
 
         builder.Services.AddSingleton<AppShell>();
         builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
