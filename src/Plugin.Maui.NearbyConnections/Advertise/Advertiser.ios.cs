@@ -11,6 +11,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     readonly NearbyConnectionsManager _connectionManager = new();
 
     MCNearbyServiceAdvertiser? _advertiser;
+    string? _serviceName;
 
     /// <summary>
     /// Starts advertising with the specified options.
@@ -22,6 +23,8 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     public async Task PlatformStartAdvertising(AdvertisingOptions options, CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"[ADVERTISER] Starting advertising with service: {options.ServiceName}");
+        
+        _serviceName = options.ServiceName;
 
         // Get or create peer ID
         var myPeerId = _connectionManager.GetPeerId(options.ServiceName);
@@ -84,6 +87,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
             _advertiser.Dispose();
             _advertiser = null;
         }
+        _serviceName = null;
         await Task.CompletedTask;
     }
 
@@ -126,8 +130,21 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
         // 3. Create MCSession if accepting
         // 4. Call invitationHandler with decision
 
-        Console.WriteLine("[ADVERTISER] Auto-rejecting invitation (implement proper handling as needed)");
-        invitationHandler(false, null); // Auto-reject for now
+        // Fire event and use response
+        var eventArgs = OnInvitationReceived(peerID.ToString(), peerID.DisplayName);
+        
+        MCSession? session = null;
+        if (eventArgs.ShouldAccept)
+        {
+            var myPeerId = _connectionManager.GetPeerId(_serviceName ?? "DefaultService");
+            if (myPeerId != null)
+            {
+                session = new MCSession(myPeerId);
+            }
+        }
+        
+        Console.WriteLine($"[ADVERTISER] {(eventArgs.ShouldAccept ? "Accepting" : "Rejecting")} invitation");
+        invitationHandler(eventArgs.ShouldAccept, session);
     }
 
     /// <summary>

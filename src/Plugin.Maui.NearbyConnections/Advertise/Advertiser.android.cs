@@ -16,7 +16,7 @@ public partial class Advertiser : Java.Lang.Object
         await _connectionClient.StartAdvertisingAsync(
             options.DisplayName,
             options.ServiceName,
-            new AdvertiseCallback(),
+            new AdvertiseCallback(this),
             new Android.Gms.Nearby.Connection.AdvertisingOptions.Builder().SetStrategy(Android.Gms.Nearby.Connection.Strategy.P2pCluster).Build());
 
         Console.WriteLine("[ADVERTISER] StartAdvertisingAsync() called successfully");
@@ -46,23 +46,29 @@ public partial class Advertiser : Java.Lang.Object
 
 internal sealed class AdvertiseCallback : ConnectionLifecycleCallback
 {
-    public override void OnConnectionInitiated(string p0, ConnectionInfo p1)
+    readonly Advertiser? _advertiser;
+
+    public AdvertiseCallback(Advertiser? advertiser)
     {
-        Console.WriteLine($"[ADVERTISER] Connection initiated with endpoint: {p0}");
-        // Handle connection initiation logic here
+        _advertiser = advertiser;
     }
 
-    // Is this method called when a nearby device is "discovered"?
-    public override void OnConnectionResult(string p0, ConnectionResolution p1)
+    public override void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
-        Console.WriteLine($"[ADVERTISER] Connection result for endpoint: {p0}, resolution: {p1}");
-        // Handle connection result logic here
-        // NearbyConnectionsEventHandler -- Write out in a sample app how you'd like consumers to handle connection results (Cast to our object HERE. )
+        Console.WriteLine($"[ADVERTISER] Connection initiated with endpoint: {endpointId}");
+        _advertiser?.OnConnectionInitiated(endpointId, connectionInfo.EndpointName);
     }
 
-    public override void OnDisconnected(string p0)
+    public override void OnConnectionResult(string endpointId, ConnectionResolution resolution)
     {
-        Console.WriteLine($"[ADVERTISER] Disconnected from endpoint: {p0}");
-        // Handle disconnection logic here
+        Console.WriteLine($"[ADVERTISER] Connection result for endpoint: {endpointId}, resolution: {resolution}");
+        var success = resolution.Status.StatusCode == ConnectionsStatusCodes.StatusOk;
+        _advertiser?.OnConnectionResult(endpointId, success);
+    }
+
+    public override void OnDisconnected(string endpointId)
+    {
+        Console.WriteLine($"[ADVERTISER] Disconnected from endpoint: {endpointId}");
+        _advertiser?.OnDisconnected(endpointId);
     }
 }

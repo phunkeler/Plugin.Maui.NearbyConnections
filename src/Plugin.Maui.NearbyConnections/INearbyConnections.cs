@@ -113,14 +113,6 @@ public interface INearbyConnections
     Task SendMessageAsync(string message, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sends data to all connected peers.
-    /// </summary>
-    /// <param name="data">The data to send as a byte array.</param>
-    /// <param name="cancellationToken">A <see cref="CancellationToken"/> to cancel the operation.</param>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task SendDataAsync(byte[] data, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Sends a data payload to all connected peers.
     /// </summary>
     /// <param name="payload">The data payload to send (bytes, file, or stream).</param>
