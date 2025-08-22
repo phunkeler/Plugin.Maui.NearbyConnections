@@ -3,12 +3,35 @@
                 xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
                 xmlns:vm="clr-namespace:NearbyChat.ViewModels"
                 xmlns:pages="clr-namespace:NearbyChat.Pages"
+                xmlns:models="clr-namespace:NearbyChat.Models"
                 xmlns:sf="clr-namespace:Syncfusion.Maui.Toolkit.SegmentedControl;assembly=Syncfusion.Maui.Toolkit"
+                xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
                 x:Class="NearbyChat.Pages.LoginPage"
+                x:Name="login"
                 x:TypeArguments="vm:LoginPageViewModel"
                 x:DataType="vm:LoginPageViewModel">
-    <Grid>
+    <pages:BasePage.Resources>
+        <ResourceDictionary>
+            <toolkit:IsNotNullConverter x:Key="IsNotNullConverter"/>
+        </ResourceDictionary>
+    </pages:BasePage.Resources>
 
+    <pages:BasePage.Behaviors>
+        <toolkit:EventToCommandBehavior
+            BindingContext="{Binding Path=BindingContext, Source={x:Reference login}, x:DataType=pages:BasePage}"
+            EventName="NavigatedTo"
+            Command="{Binding NavigatedToCommand}"/>
+        <toolkit:EventToCommandBehavior
+            BindingContext="{Binding Path=BindingContext, Source={x:Reference login}, x:DataType=pages:BasePage}"
+            EventName="NavigatedFrom"
+            Command="{Binding NavigatedFromCommand}"/>
+        <toolkit:EventToCommandBehavior
+            BindingContext="{Binding Path=BindingContext, Source={x:Reference login}, x:DataType=pages:BasePage}"
+            EventName="Appearing"
+            Command="{Binding AppearingCommand}"/>
+    </pages:BasePage.Behaviors>
+
+    <Grid>
         <ScrollView>
             <Grid Padding="{DynamicResource SpacingXL}"
                   RowSpacing="0">
@@ -57,64 +80,54 @@
                         <StackLayout Spacing="{DynamicResource SpacingXL}">
 
                             <!-- Card Header -->
-                            <StackLayout Spacing="{StaticResource SpacingSM}">
-                                <Label Text="Join the Network"
-                                       Style="{StaticResource Headline1}"
-                                       HorizontalTextAlignment="Center"/>
-                                <Label Text="Choose your identity and start chatting"
-                                       Style="{StaticResource Body2}"
-                                       HorizontalTextAlignment="Center"/>
-                            </StackLayout>
+                            <Label Text="Create Identity"
+                                   Style="{StaticResource Headline1}"
+                                   HorizontalTextAlignment="Center"/>
 
                             <!-- Avatar Selection -->
-                            <StackLayout Spacing="{StaticResource SpacingXS}">
-                                <Label Text="Choose Your Avatar"
+                            <Grid RowDefinitions="Auto,*"
+                                  RowSpacing="{StaticResource SpacingLG}">
+
+                                <Label Text="Choose Avatar"
                                        Style="{StaticResource LabelMedium}"/>
 
-                                <FlexLayout Direction="Row"
-                                            Wrap="Wrap"
-                                            JustifyContent="Center"
-                                            AlignItems="Center"
-                                            x:Name="AvatarContainer">
-
-                                    <Button x:Name="Avatar1"
-                                            Text="A"
-                                            BackgroundColor="{StaticResource PrimaryBlue500}"
-                                            Style="{StaticResource AvatarButton}"
-                                            Margin="{StaticResource SpacingXS}"
-                                            Clicked="OnAvatarSelected"/>
-                                    <Button x:Name="Avatar2"
-                                            Text="B"
-                                            BackgroundColor="{StaticResource Green500}"
-                                            Style="{StaticResource AvatarButton}"
-                                            Margin="{StaticResource SpacingXS}"
-                                            Clicked="OnAvatarSelected"/>
-                                    <Button x:Name="Avatar3"
-                                            Text="C"
-                                            BackgroundColor="{StaticResource Purple500}"
-                                            Style="{StaticResource AvatarButton}"
-                                            Margin="{StaticResource SpacingXS}"
-                                            Clicked="OnAvatarSelected"/>
-                                    <Button x:Name="Avatar4"
-                                            Text="D"
-                                            BackgroundColor="{StaticResource Orange500}"
-                                            Style="{StaticResource AvatarButton}"
-                                            Margin="{StaticResource SpacingXS}"
-                                            Clicked="OnAvatarSelected"/>
-                                    <Button x:Name="Avatar5"
-                                            Text="E"
-                                            BackgroundColor="{StaticResource Pink500}"
-                                            Style="{StaticResource AvatarButton}"
-                                            Margin="{StaticResource SpacingXS}"
-                                            Clicked="OnAvatarSelected"/>
-                                    <Button x:Name="Avatar6"
-                                            Text="F"
-                                            BackgroundColor="{StaticResource Cyan500}"
-                                            Style="{StaticResource AvatarButton}"
-                                            Margin="{StaticResource SpacingXS}"
-                                            Clicked="OnAvatarSelected"/>
-                                </FlexLayout>
-                            </StackLayout>
+                                <CollectionView Grid.Row="1"
+                                                HorizontalScrollBarVisibility="Never"
+                                                x:Name="AvatarList"
+                                                ItemsSource="{Binding Avatars}"
+                                                SelectionMode="Single"
+                                                SelectedItem="{Binding SelectedAvatar}">
+                                    <CollectionView.Behaviors>
+                                        <toolkit:EventToCommandBehavior
+                                            x:TypeArguments="SelectionChangedEventArgs"
+                                            BindingContext="{Binding Path=BindingContext, Source={x:Reference AvatarList}, x:DataType=CollectionView}"
+                                            EventName="SelectionChanged"
+                                            Command="{Binding AvatarSelectionChangedCommand}"/>
+                                    </CollectionView.Behaviors>
+                                    <CollectionView.ItemsLayout>
+                                        <LinearItemsLayout Orientation="Horizontal"
+                                                           ItemSpacing="{StaticResource SpacingMD}"/>
+                                    </CollectionView.ItemsLayout>
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate x:DataType="models:Avatar">
+                                            <!-- Wrap AvatarView so we can control CollectionView's default selected item color -->
+                                            <ContentView BackgroundColor="Transparent"
+                                                         Style="{StaticResource AvatarList-Container}"
+                                                         Padding="0">
+                                                <toolkit:AvatarView
+                                                    Style="{StaticResource AvatarList-Selected}"
+                                                    BackgroundColor="{Binding BackgroundColor}"
+                                                    BorderColor="{Binding BorderColor}"
+                                                    BorderWidth="{Binding BorderWidth}"
+                                                    ImageSource="{Binding ImageSource}"
+                                                    Padding="{Binding Padding}"
+                                                    Text="{Binding Text}"
+                                                    TextColor="{Binding TextColor}"/>
+                                            </ContentView>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                </CollectionView>
+                            </Grid>
 
                             <!-- Username Input -->
                             <StackLayout Spacing="{StaticResource SpacingSM}">

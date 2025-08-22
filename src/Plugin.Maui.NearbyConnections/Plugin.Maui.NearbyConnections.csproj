@@ -12,3 +12,4 @@
     <PackageReference Include="Xamarin.GooglePlayServices.Nearby" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
 	</ItemGroup>
 </Project>
+ 

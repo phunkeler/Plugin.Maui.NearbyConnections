@@ -5,10 +5,6 @@ namespace NearbyChat;
 
 public class MainWindow : Window
 {
-    public MainWindow() : base()
-    {
-    }
-
     public MainWindow(Page page) : base(page)
     {
     }

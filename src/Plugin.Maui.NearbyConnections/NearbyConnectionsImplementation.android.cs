@@ -11,9 +11,11 @@ public partial class NearbyConnectionsImplementation
     /// <summary>
     /// Platform-specific initialization logic for Android.
     /// </summary>
+#pragma warning disable CA1822 // Mark members as static
     partial void InitializePlatform()
+#pragma warning restore CA1822 // Mark members as static
     {
-        throw new NotImplementedException("Android Nearby Connections implementation not yet available.");
+
     }
 
     /// <summary>

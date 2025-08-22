@@ -3,7 +3,7 @@ using NearbyChat.Models;
 
 namespace NearbyChat.Data;
 
-[JsonSerializable(typeof(User))]
+[JsonSerializable(typeof(AvatarsJson))]
 public partial class JsonContext : JsonSerializerContext
 {
 

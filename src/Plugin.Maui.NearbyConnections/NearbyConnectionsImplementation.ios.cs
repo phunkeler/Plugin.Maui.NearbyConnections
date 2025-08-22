@@ -5,6 +5,9 @@ using Plugin.Maui.NearbyConnections.Session;
 
 namespace Plugin.Maui.NearbyConnections;
 
+// All things that need to start once, when MAUI does, should go in a DI-registered implementation of IMauiInitializer
+//
+
 /// <summary>
 /// iOS-specific implementation that adds session management and messaging support.
 /// </summary>

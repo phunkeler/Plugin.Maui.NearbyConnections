@@ -9,12 +9,6 @@ public partial class LoginPage : BasePage<LoginPageViewModel>
         InitializeComponent();
     }
 
-    private void OnUsernameChanged(object sender, TextChangedEventArgs e)
-    {
-        // Enable/disable login button based on username input
-        LoginButton.IsEnabled = !string.IsNullOrWhiteSpace(e.NewTextValue);
-    }
-
     protected override void OnAppearing()
     {
         base.OnAppearing();

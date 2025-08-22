@@ -9,7 +9,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests;
 // This abstraction was chosen because;
 //  - It doesn't collide w/ Apple or Google
 //  - It is a common term in the context of nearby connections
-internal class NearbyConnection
+//internal class NearbyConnection
 
 /// <summary>
 /// Tests for the <see cref="Advertiser"/> class.

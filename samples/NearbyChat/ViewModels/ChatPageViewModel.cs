@@ -42,8 +42,8 @@ public partial class ChatPageViewModel : BaseViewModel
 
         // Subscribe to nearby connections events
         _nearbyConnections.PeerDiscovered += OnPeerDiscovered;
-        _nearbyConnections.PeerConnectionChanged += OnPeerConnectionChanged;
-        _nearbyConnections.MessageReceived += OnMessageReceived;
+        //_nearbyConnections.PeerConnectionChanged += OnPeerConnectionChanged;
+        //_nearbyConnections.MessageReceived += OnMessageReceived;
     }
 
     public override async Task OnAppearing(object param)

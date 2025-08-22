@@ -7,7 +7,7 @@
     <PackageVersion Include="Xamarin.GooglePlayServices.Nearby" Version="119.3.0.6" />
   </ItemGroup>
 
-  <!-- Tests -->
+  <!-- Device Tests -->
   <ItemGroup>
     <PackageVersion Include="DeviceRunners.VisualRunners.Maui" Version="0.1.0-preview.5" />
     <PackageVersion Include="DeviceRunners.VisualRunners.Xunit" Version="0.1.0-preview.5" />
@@ -27,6 +27,7 @@
     <PackageVersion Include="CommunityToolkit.Maui" Version="12.2.0" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageVersion Include="Indiko.Maui.Controls.Chat" Version="1.1.1" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="9.0.8" />
     <PackageVersion Include="Syncfusion.Maui.Toolkit" Version="1.0.6" />
   </ItemGroup>
 

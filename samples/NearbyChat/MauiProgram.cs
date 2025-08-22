@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Maui;
 using Indiko.Maui.Controls.Chat;
+using NearbyChat.Data;
 using NearbyChat.Pages;
 using NearbyChat.Services;
 using NearbyChat.ViewModels;
@@ -26,6 +27,8 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<AppShell>();
         builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
+        builder.Services.AddSingleton<AvatarRepository>();
+        builder.Services.AddSingleton<ISeedDataService, SeedDataService>();
         AddTransientWithShellRoute<LoginPage, LoginPageViewModel>(builder.Services);
         AddTransientWithShellRoute<ChatPage, ChatPageViewModel>(builder.Services);
 
