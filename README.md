@@ -38,7 +38,13 @@
   </p>
 </div>
 
-# Features
+## Features
+
+-   Create identity
+    -   Choose Avatar
+    -   Create Name
+-   Select Chat Mode
+    -   Open (_Simultaneous advertise/discovery_)
 
 ## **Simultaneous Advertising & Discovery**
 

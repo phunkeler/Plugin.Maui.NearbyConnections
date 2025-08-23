@@ -119,6 +119,34 @@ public partial class LoginPageViewModel : BaseViewModel
         }
     }
 
+    [RelayCommand]
+    async Task OpenGitHub()
+    {
+        try
+        {
+            var githubUrl = "https://github.com/phunkeler/Plugin.Maui.NearbyConnections";
+
+            // Try to open in GitHub app first using the app scheme
+            var githubAppUrl = $"github://phunkeler/Plugin.Maui.NearbyConnections";
+            var canOpenInApp = await Launcher.CanOpenAsync(githubAppUrl);
+
+            if (canOpenInApp)
+            {
+                await Launcher.OpenAsync(githubAppUrl);
+            }
+            else
+            {
+                // Fallback to browser if GitHub app is not installed
+                await Launcher.OpenAsync(new Uri(githubUrl));
+            }
+        }
+        catch (Exception ex)
+        {
+            // Silently handle any errors that might occur when trying to open the URL
+            Console.WriteLine($"Error opening GitHub URL: {ex.Message}");
+        }
+    }
+
     bool CanLogin()
         => !string.IsNullOrWhiteSpace(DisplayName) && SelectedAvatar != null;
 

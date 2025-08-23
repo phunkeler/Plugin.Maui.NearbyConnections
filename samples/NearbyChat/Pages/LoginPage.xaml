@@ -11,11 +11,6 @@
                 x:Name="login"
                 x:TypeArguments="vm:LoginPageViewModel"
                 x:DataType="vm:LoginPageViewModel">
-    <pages:BasePage.Resources>
-        <ResourceDictionary>
-            <toolkit:IsNotNullConverter x:Key="IsNotNullConverter"/>
-        </ResourceDictionary>
-    </pages:BasePage.Resources>
 
     <pages:BasePage.Behaviors>
         <toolkit:EventToCommandBehavior
@@ -37,9 +32,9 @@
             <Grid Padding="{DynamicResource SpacingXL}"
                   RowSpacing="0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <StackLayout Grid.Row="1"
@@ -49,7 +44,8 @@
 
                     <!-- App Header -->
                     <StackLayout Spacing="{DynamicResource SpacingXL}">
-                        <!-- App Icon -->
+
+                        <!-- App/Plugin Icon -->
                         <Image Source="nuget.png"
                                HeightRequest="80"
                                WidthRequest="80"
@@ -65,7 +61,7 @@
                                    HorizontalTextAlignment="Center">
                                 <Label.FormattedText>
                                     <FormattedString>
-                                        <Span Text="Chat instantly with nearby devices using "/>
+                                        <Span Text="Powered By:  "/>
                                         <Span Text="Plugin.Maui.NearbyConnections"
                                               FontAttributes="Bold"
                                               TextColor="{StaticResource PrimaryBlue600}"/>
@@ -140,7 +136,7 @@
                                     <Entry x:Name="DisplayNameEntry"
                                            Text="{Binding DisplayName}"
                                            TextColor="{DynamicResource Gray800}"
-                                           MaxLength="20"
+                                           MaxLength="32"
                                            FontSize="Medium"/>
                                 </sfInputLayout:SfTextInputLayout>
                             </StackLayout>
@@ -154,9 +150,23 @@
                     </Border>
 
                     <!-- Footer -->
-                    <StackLayout Spacing="{StaticResource SpacingSM}">
-
-
+                    <StackLayout Spacing="{StaticResource SpacingSM}"
+                                 HorizontalOptions="Center">
+                        <Label HorizontalOptions="Center">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="Visit the "/>
+                                    <Span Text="GitHub Repository"
+                                          TextColor="{StaticResource PrimaryBlue600}"
+                                          TextDecorations="Underline">
+                                        <Span.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding OpenGitHubCommand}"/>
+                                        </Span.GestureRecognizers>
+                                    </Span>
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
                     </StackLayout>
                 </StackLayout>
             </Grid>

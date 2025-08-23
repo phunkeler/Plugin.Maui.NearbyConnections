@@ -5,14 +5,15 @@
                 xmlns:pages="clr-namespace:NearbyChat.Pages"
                 xmlns:vm="clr-namespace:NearbyChat.ViewModels"
                 xmlns:idk="clr-namespace:Indiko.Maui.Controls.Chat;assembly=Indiko.Maui.Controls.Chat"
+                xmlns:sfBottomSheet="clr-namespace:Syncfusion.Maui.Toolkit.BottomSheet;assembly=Syncfusion.Maui.Toolkit"
                 xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
                 x:TypeArguments="vm:ChatPageViewModel"
                 x:DataType="vm:ChatPageViewModel"
-                Title="Chat">
+                x:Name="chat">
 
     <pages:BasePage.Behaviors>
         <toolkit:EventToCommandBehavior
-            BindingContext="{Binding Path=BindingContext, Source={x:Reference login}, x:DataType=pages:BasePage}"
+            BindingContext="{Binding Path=BindingContext, Source={x:Reference chat}, x:DataType=pages:BasePage}"
             EventName="Appearing"
             Command="{Binding AppearingCommand}"/>
     </pages:BasePage.Behaviors>
@@ -28,13 +29,6 @@
                        Text="{Binding ConnectionStatus}"
                        TextColor="White"
                        FontSize="16"
-                       VerticalOptions="Center"/>
-
-                <Label x:Name="ConnectionIndicator"
-                       Grid.Column="1"
-                       Text="●"
-                       TextColor="{Binding IsConnected, Converter={StaticResource BoolToConnectionColorConverter}}"
-                       FontSize="18"
                        VerticalOptions="Center"/>
             </Grid>
         </Border>
@@ -94,23 +88,32 @@
             </Grid>
         </Border>
 
-        <!-- Connection Controls -->
-        <Grid Grid.Row="3"
-              Padding="10"
-              ColumnDefinitions="*,*"
-              ColumnSpacing="10">
+        <sfBottomSheet:SfBottomSheet x:Name="bottomSheet"
+                                     Grid.RowSpan="3"
+                                     CornerRadius="15, 15, 0, 0"
+                                     HalfExpandedRatio="0.35"
+                                     ContentPadding="10"
+                                     State="HalfExpanded">
+            <sfBottomSheet:SfBottomSheet.BottomSheetContent>
+                <!-- Connection Controls -->
+                <Grid
+                    Padding="10"
+                    ColumnDefinitions="*,*"
+                    ColumnSpacing="10">
 
-            <Button x:Name="AdvertiseButton"
-                    Text="Advertise"
-                    Style="{StaticResource PrimaryButton}"
-                    Command="{Binding StartAdvertisingCommand}"/>
+                    <Button x:Name="AdvertiseButton"
+                            Text="Advertise"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding StartAdvertisingCommand}"/>
 
-            <Button x:Name="DiscoverButton"
-                    Grid.Column="1"
-                    Text="Discover"
-                    Style="{StaticResource PrimaryButton}"
-                    Command="{Binding StartDiscoveryCommand}"/>
-        </Grid>
+                    <Button x:Name="DiscoverButton"
+                            Grid.Column="1"
+                            Text="Discover"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding StartDiscoveryCommand}"/>
+                </Grid>
+            </sfBottomSheet:SfBottomSheet.BottomSheetContent>
+        </sfBottomSheet:SfBottomSheet>
     </Grid>
 
 </pages:BasePage>

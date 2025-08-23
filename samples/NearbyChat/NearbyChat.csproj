@@ -13,7 +13,9 @@
 
     <SupportedOSPlatformVersion Condition="$(IsTargetPlatformIos) == true">15.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$(IsTargetPlatformAndroid) == true">21.0</SupportedOSPlatformVersion>
+
     <NoWarn>CA1822</NoWarn>
+    <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
   </PropertyGroup>
 
   <ItemGroup>
