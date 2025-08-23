@@ -52,7 +52,7 @@ public class SeedDataService : ISeedDataService
                         continue;
                     }
 
-                    await _avatarRepository.SaveItemAsync(avatar, cancellationToken);
+                    await _avatarRepository.SaveAsync(avatar, cancellationToken);
                 }
             }
         }

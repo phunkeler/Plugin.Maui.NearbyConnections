@@ -5,6 +5,7 @@
                 xmlns:pages="clr-namespace:NearbyChat.Pages"
                 xmlns:models="clr-namespace:NearbyChat.Models"
                 xmlns:sf="clr-namespace:Syncfusion.Maui.Toolkit.SegmentedControl;assembly=Syncfusion.Maui.Toolkit"
+                xmlns:sfInputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
                 xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
                 x:Class="NearbyChat.Pages.LoginPage"
                 x:Name="login"
@@ -133,13 +134,15 @@
                             <StackLayout Spacing="{StaticResource SpacingSM}">
                                 <Label Text="Display Name"
                                        Style="{StaticResource LabelMedium}"/>
-                                <Border Style="{StaticResource InputFrame}">
-                                    <Entry x:Name="UsernameEntry"
-                                           Placeholder="Enter your name"
-                                           Style="{StaticResource TextInput}"
-                                           TextChanged="UsernameEntry_TextChanged"
-                                           MaxLength="20"/>
-                                </Border>
+                                <sfInputLayout:SfTextInputLayout ContainerType="Outlined"
+                                                                 Stroke="{DynamicResource Gray500}"
+                                                                 OutlineCornerRadius="8">
+                                    <Entry x:Name="DisplayNameEntry"
+                                           Text="{Binding DisplayName}"
+                                           TextColor="{DynamicResource Gray800}"
+                                           MaxLength="20"
+                                           FontSize="Medium"/>
+                                </sfInputLayout:SfTextInputLayout>
                             </StackLayout>
 
                             <!-- Login Button -->

@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Indiko.Maui.Controls.Chat.Models;
+using NearbyChat.Data;
+using NearbyChat.Models;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
 using Plugin.Maui.NearbyConnections.Events;
@@ -12,6 +14,13 @@ public partial class ChatPageViewModel : BaseViewModel
 {
     readonly IChatMessageService _chatMessageService;
     readonly INearbyConnections _nearbyConnections;
+    readonly UserRepository _userRepository;
+
+    [ObservableProperty]
+    User? _currentUser;
+
+    [ObservableProperty]
+    bool _isRefreshing;
 
     [ObservableProperty]
     ObservableRangeCollection<ChatMessage> _chatMessages = [];
@@ -31,14 +40,18 @@ public partial class ChatPageViewModel : BaseViewModel
     [ObservableProperty]
     string _currentMessage = "";
 
-    public ChatPageViewModel(IChatMessageService chatMessageService,
-        INearbyConnections nearbyConnections)
+    public ChatPageViewModel(
+        IChatMessageService chatMessageService,
+        INearbyConnections nearbyConnections,
+        UserRepository userRepository)
     {
         ArgumentNullException.ThrowIfNull(chatMessageService);
         ArgumentNullException.ThrowIfNull(nearbyConnections);
+        ArgumentNullException.ThrowIfNull(userRepository);
 
         _chatMessageService = chatMessageService;
         _nearbyConnections = nearbyConnections;
+        _userRepository = userRepository;
 
         // Subscribe to nearby connections events
         _nearbyConnections.PeerDiscovered += OnPeerDiscovered;
@@ -46,21 +59,11 @@ public partial class ChatPageViewModel : BaseViewModel
         //_nearbyConnections.MessageReceived += OnMessageReceived;
     }
 
-    public override async Task OnAppearing(object param)
-    {
-        var messages = await _chatMessageService.GetMessagesAsync(null, null);
-        ChatMessages = new ObservableRangeCollection<ChatMessage>(messages);
-
-        // Refresh peer lists
-        RefreshPeerLists();
-    }
-
     [RelayCommand]
     async Task StartAdvertising(CancellationToken cancellationToken)
     {
         var advertiseOptions = new Plugin.Maui.NearbyConnections.Advertise.AdvertisingOptions
         {
-            ServiceName = "NearbyChat",
             DisplayName = "MyDisplayName",
         };
 
@@ -131,17 +134,27 @@ public partial class ChatPageViewModel : BaseViewModel
     }
 
     [RelayCommand]
-    private void ScrolledToLastMessage()
+    async Task Refresh()
     {
-        // mark all existing messages as read
-        for (var n = 0; n < ChatMessages.Count; n++)
+        try
         {
-            if (ChatMessages[n].ReadState == MessageReadState.New)
-            {
-                ChatMessages[n].ReadState = MessageReadState.Read;
-            }
+            IsRefreshing = true;
+            await LoadData();
+        }
+        catch
+        {
+            // Handle exceptions, e.g., show an error message
+            Console.WriteLine("Failed to refresh avatars.");
+        }
+        finally
+        {
+            IsRefreshing = false;
         }
     }
+
+    [RelayCommand]
+    async Task Appearing()
+        => await Refresh();
 
     private void OnPeerDiscovered(object? sender, PeerDiscoveredEventArgs e)
     {
@@ -209,4 +222,22 @@ public partial class ChatPageViewModel : BaseViewModel
         PeerConnectionState.NotConnected => "disconnected",
         _ => "unknown status"
     };
+
+    private async Task LoadData()
+    {
+        try
+        {
+            IsBusy = true;
+            CurrentUser = await _userRepository.GetCurrentUserAsync();
+        }
+        catch (Exception ex)
+        {
+            // Handle exceptions, e.g., log the error or show a message
+            Console.WriteLine($"Error loading avatars: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 }

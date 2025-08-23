@@ -5,9 +5,17 @@
                 xmlns:pages="clr-namespace:NearbyChat.Pages"
                 xmlns:vm="clr-namespace:NearbyChat.ViewModels"
                 xmlns:idk="clr-namespace:Indiko.Maui.Controls.Chat;assembly=Indiko.Maui.Controls.Chat"
+                xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
                 x:TypeArguments="vm:ChatPageViewModel"
                 x:DataType="vm:ChatPageViewModel"
                 Title="Chat">
+
+    <pages:BasePage.Behaviors>
+        <toolkit:EventToCommandBehavior
+            BindingContext="{Binding Path=BindingContext, Source={x:Reference login}, x:DataType=pages:BasePage}"
+            EventName="Appearing"
+            Command="{Binding AppearingCommand}"/>
+    </pages:BasePage.Behaviors>
 
     <Grid RowDefinitions="Auto,*,Auto,Auto">
         <!-- Header - Connection Status -->
@@ -63,7 +71,6 @@
         -->
         <!-- Message Input -->
         <Border Grid.Row="2"
-                BackgroundColor="Yellow"
                 Padding="10"
                 Margin="10,5">
             <Grid>
@@ -72,12 +79,10 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Entry x:Name="MessageEntry"
-                       Grid.Column="0"
+                <Entry x:Name="UsernameEntry"
+                       Style="{StaticResource TextInput}"
                        Text="{Binding CurrentMessage}"
                        Placeholder="Type a message..."
-                       BackgroundColor="White"
-                       Margin="0,0,10,0"
                        ReturnCommand="{Binding SendMessageCommand}"/>
 
                 <Button x:Name="SendButton"
@@ -96,15 +101,14 @@
               ColumnSpacing="10">
 
             <Button x:Name="AdvertiseButton"
-                    Grid.Column="0"
-                    Text="Start Advertising"
-                    TextColor="Blue"
+                    Text="Advertise"
+                    Style="{StaticResource PrimaryButton}"
                     Command="{Binding StartAdvertisingCommand}"/>
 
             <Button x:Name="DiscoverButton"
                     Grid.Column="1"
-                    Text="Start Discovery"
-                    TextColor="Blue"
+                    Text="Discover"
+                    Style="{StaticResource PrimaryButton}"
                     Command="{Binding StartDiscoveryCommand}"/>
         </Grid>
     </Grid>

@@ -28,6 +28,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<AppShell>();
         builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
         builder.Services.AddSingleton<AvatarRepository>();
+        builder.Services.AddSingleton<UserRepository>();
         builder.Services.AddSingleton<ISeedDataService, SeedDataService>();
         AddTransientWithShellRoute<LoginPage, LoginPageViewModel>(builder.Services);
         AddTransientWithShellRoute<ChatPage, ChatPageViewModel>(builder.Services);

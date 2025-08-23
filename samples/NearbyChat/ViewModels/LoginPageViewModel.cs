@@ -10,6 +10,7 @@ public partial class LoginPageViewModel : BaseViewModel
 {
     readonly AvatarRepository _avatarRepository;
     readonly ISeedDataService _seedDataService;
+    readonly UserRepository _userRepository;
 
     bool _dataLoaded;
     bool _navigatedTo;
@@ -18,6 +19,11 @@ public partial class LoginPageViewModel : BaseViewModel
     private List<Avatar> _avatars = [];
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoginCommand))]
+    string? _displayName;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoginCommand))]
     Avatar? _selectedAvatar;
 
     [ObservableProperty]
@@ -28,13 +34,16 @@ public partial class LoginPageViewModel : BaseViewModel
 
     public LoginPageViewModel(
         AvatarRepository avatarRepository,
-        ISeedDataService seedDataService)
+        ISeedDataService seedDataService,
+        UserRepository userRepository)
     {
         ArgumentNullException.ThrowIfNull(avatarRepository);
         ArgumentNullException.ThrowIfNull(seedDataService);
+        ArgumentNullException.ThrowIfNull(userRepository);
 
         _avatarRepository = avatarRepository;
         _seedDataService = seedDataService;
+        _userRepository = userRepository;
     }
 
     [RelayCommand]
@@ -75,10 +84,21 @@ public partial class LoginPageViewModel : BaseViewModel
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanLogin), IncludeCancelCommand = true)]
+    async Task Login(CancellationToken cancellationToken = default)
+    {
+        // Save user info
+        await _userRepository.SaveUserAsync(new User
+        {
+            Id = Guid.NewGuid().ToString(),
+            DisplayName = DisplayName!,
+            AvatarId = SelectedAvatar!.Id,
+            CreatedOn = DateTime.UtcNow.ToString("o")
+        }, cancellationToken);
 
-    [RelayCommand]
-    async Task Login() =>
+        // Navigate to chat page
         await Shell.Current.GoToAsync($"//{nameof(ChatPage)}");
+    }
 
     [RelayCommand]
     async Task Refresh()
@@ -99,7 +119,8 @@ public partial class LoginPageViewModel : BaseViewModel
         }
     }
 
-    public override Task OnAppearing(object param) => Task.CompletedTask;
+    bool CanLogin()
+        => !string.IsNullOrWhiteSpace(DisplayName) && SelectedAvatar != null;
 
     private async Task InitData()
     {

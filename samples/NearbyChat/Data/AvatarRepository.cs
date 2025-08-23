@@ -11,6 +11,36 @@ public class AvatarRepository
 {
     bool _isInitialized;
 
+    public async Task<Avatar?> GetAsync(int id, CancellationToken cancellationToken = default)
+    {
+        await Initialize(cancellationToken);
+        await using var connection = new SqliteConnection(Constants.DatabasePath);
+        await connection.OpenAsync(cancellationToken);
+
+        var selectCommand = connection.CreateCommand();
+        selectCommand.CommandText = $"SELECT * FROM {nameof(Avatar)} WHERE Id = @Id";
+        selectCommand.Parameters.AddWithValue("@Id", id);
+
+        await using var reader = await selectCommand.ExecuteReaderAsync(cancellationToken);
+
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            return new Avatar
+            {
+                Id = reader.GetInt32(0),
+                BackgroundColor = reader.GetString(1),
+                BorderColor = reader.GetString(2),
+                BorderWidth = reader.GetDouble(3),
+                ImageSource = reader.IsDBNull(4) ? [] : (byte[])reader.GetValue(4),
+                Padding = reader.GetInt32(5),
+                Text = reader.GetString(6),
+                TextColor = reader.GetString(7)
+            };
+        }
+
+        return null;
+    }
+
     public async Task<List<Avatar>> ListAsync(CancellationToken cancellationToken = default)
     {
         await Initialize(cancellationToken);
@@ -71,7 +101,7 @@ public class AvatarRepository
 	/// </summary>
 	/// <param name="avatar">The <see cref="Avatar"/> to save.</param>
 	/// <returns>The Id of the saved avatar.</returns>
-	public async Task<int> SaveItemAsync(Avatar avatar, CancellationToken cancellationToken = default)
+	public async Task<int> SaveAsync(Avatar avatar, CancellationToken cancellationToken = default)
     {
         await Initialize(cancellationToken);
         await using var connection = new SqliteConnection(Constants.DatabasePath);

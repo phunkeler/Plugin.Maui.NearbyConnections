@@ -6,6 +6,9 @@ namespace NearbyChat.Models;
 /// <summary>
 /// An image that represents an app user.
 /// </summary>
+/// <remarks>
+/// This favors "System.Text.Json serialization" source generation over "ObservableProperty" because the two don't play nicely together.
+/// </remarks>
 public partial class Avatar : ObservableObject
 {
     [JsonIgnore]
@@ -16,7 +19,6 @@ public partial class Avatar : ObservableObject
 
 
     // INT
-    [JsonPropertyName("Id")]
     int _id;
     public int Id
     {
@@ -25,7 +27,6 @@ public partial class Avatar : ObservableObject
     }
 
     // TEXT
-    [JsonPropertyName("BackgroundColor")]
     string _backgroundColor = string.Empty;
     public string BackgroundColor
     {
@@ -34,7 +35,6 @@ public partial class Avatar : ObservableObject
     }
 
     // TEXT
-    [JsonPropertyName("BorderColor")]
     string _borderColor = string.Empty;
     public string BorderColor
     {
@@ -43,7 +43,6 @@ public partial class Avatar : ObservableObject
     }
 
     // REAL
-    [JsonPropertyName("BorderWidth")]
     double _borderWidth;
     public double BorderWidth
     {
@@ -52,7 +51,6 @@ public partial class Avatar : ObservableObject
     }
 
     // BLOB
-    [JsonPropertyName("ImageSource")]
     byte[] _imageSource = [];
     public byte[] ImageSource
     {
@@ -61,7 +59,6 @@ public partial class Avatar : ObservableObject
     }
 
     // INT
-    [JsonPropertyName("Padding")]
     int _padding;
     public int Padding
     {
@@ -70,7 +67,6 @@ public partial class Avatar : ObservableObject
     }
 
     // TEXT
-    [JsonPropertyName("Text")]
     string _text = string.Empty;
     public string Text
     {
@@ -79,7 +75,6 @@ public partial class Avatar : ObservableObject
     }
 
     // TEXT
-    [JsonPropertyName("TextColor")]
     string _textColor = string.Empty;
     public string TextColor
     {

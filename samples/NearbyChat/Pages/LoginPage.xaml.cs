@@ -9,16 +9,6 @@ public partial class LoginPage : BasePage<LoginPageViewModel>
         InitializeComponent();
     }
 
-    protected override void OnAppearing()
-    {
-        base.OnAppearing();
-    }
-
-
-    private void UsernameEntry_TextChanged(object sender, TextChangedEventArgs e)
-    {
-    }
-
     private void SfSegmentedControl_SelectionChanged(object sender, Syncfusion.Maui.Toolkit.SegmentedControl.SelectionChangedEventArgs e)
         => Application.Current!.UserAppTheme = e.NewIndex == 0
             ? AppTheme.Light

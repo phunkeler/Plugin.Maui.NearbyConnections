@@ -123,6 +123,10 @@ Following setup patterns established by [Microsoft.Maui.Essentials](https://www.
     -   Native `MultipeerConnectivity` framework
     -   No external dependencies
 
+# DEBUGGING
+
+-   adb exec-out run-as com.companyname.nearbychat cat "/data/data/com.companyname.nearbychat/files/NearbyChat.db3" > %userprofile%\Downloads\NearbyChat.db3
+
 # Acknowledgements
 
 -   https://github.com/jfversluis/Plugin.Maui.Feature
