@@ -40,15 +40,8 @@
 
 ## Features
 
--   Create identity
-    -   Choose Avatar
-    -   Create Name
--   Select Chat Mode
-    -   Open (_Simultaneous advertise/discovery_)
-
-## **Simultaneous Advertising & Discovery**
-
-##
+-   **Advertisement**
+-   **Discovery**
 
 ## **Unique Advertising & Discovery Sessions**
 
