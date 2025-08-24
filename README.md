@@ -40,16 +40,13 @@
 
 ## Features
 
--   **Advertisement**
--   **Discovery**
-
 ## **Unique Advertising & Discovery Sessions**
 
 ```csharp
 await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
 {
     DisplayName = "Name1",
-    ServiceName = "chatroom-1"
+    ServiceName = "service-1"
 });
 
 await NearbyConnections.Current.StopAdvertisingAsync();
@@ -58,8 +55,8 @@ await NearbyConnections.Current.StopAdvertisingAsync();
 await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
 {
     DisplayName = "Name2",     // Changed
-    ServiceName = "chatroom-2",        // Changed
-    AdvertisingInfo = { ... }    // Changed
+    ServiceName = "service-2", // Changed
+    AdvertisingInfo = { ... }  // Changed
 });
 ```
 
@@ -73,24 +70,6 @@ await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
 
 ```bash
 dotnet add package Plugin.Maui.NearbyConnections -s https://api.nuget.org/v3/index.json
-```
-
-## **nuget.config**
-
-```xml
-<configuration>
-  <packageSources>
-    <clear />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-  </packageSources>
-
-  <packageSourceMapping>
-    <packageSource key="nuget.org">
-      <package pattern="Plugin.Maui.NearbyConnections" />
-    </packageSource>
-  </packageSourceMapping>
-</configuration>
-
 ```
 
 </details>
