@@ -18,53 +18,37 @@
             Command="{Binding AppearingCommand}"/>
     </pages:BasePage.Behaviors>
 
-    <Grid RowDefinitions="Auto,*,Auto,Auto">
-        <!-- Header - Connection Status -->
-        <Border Grid.Row="0"
-                BackgroundColor="Blue"
-                Padding="15,10">
-            <Grid ColumnDefinitions="*,Auto">
-                <Label x:Name="ConnectionStatusLabel"
-                       Grid.Column="0"
-                       Text="{Binding ConnectionStatus}"
-                       TextColor="White"
-                       FontSize="16"
-                       VerticalOptions="Center"/>
-            </Grid>
-        </Border>
+    <Grid RowDefinitions="*,Auto">
 
         <!-- Messages Area -->
-        <!--
-        <idk:ChatView Grid.Row="1"
+        <idk:ChatView Grid.Row="0"
                       x:Name="chatView"
-                      OwnMessageBackgroundColor="{StaticResource Primary}"
-                      OwnMessageTextColor="{StaticResource White}"
-                      OtherMessageBackgroundColor="{StaticResource Secondary}"
-                      OtherMessageTextColor="{StaticResource Black}"
+                      OwnMessageBackgroundColor="Blue"
+                      SendIcon="{DynamicResource SendIcon}"
+                      OwnMessageTextColor="White"
+                      OtherMessageBackgroundColor="Green"
+                      OtherMessageTextColor="White"
                       DateTextColor="{StaticResource Gray500}"
+                      Messages="{Binding ChatMessages}"
                       DateTextFontSize="14"
                       MessageTimeTextColor="{StaticResource Gray200}"
                       NewMessagesSeperatorTextColor="{StaticResource Primary}"
                       NewMessagesSeperatorFontSize="16"
                       NewMessagesSeperatorText="New Messages"
-                      AvatarTextColor="{StaticResource White}"
-                      AvatarBackgroundColor="{StaticResource Tertiary}"
-                      Messages="{Binding ChatMessages}"
                       EmojiReactionFontSize="14"
-                      EmojiReactionTextColor="{StaticResource Primary}"
-                      ReplyMessageBackgroundColor="{StaticResource Tertiary}"
-                      ReplyMessageTextColor="{StaticResource White}"
-                      ScrollToFirstNewMessage="True"
+                      EmojiReactionTextColor="Green"
+                      ReplyMessageBackgroundColor="Blue"
+                      ReplyMessageTextColor="White"
                       ShowNewMessagesSeperator="True"
-                      SystemMessageBackgroundColor="{StaticResource Yellow300Accent}"
-                      SystemMessageTextColor="{StaticResource Tertiary}"
+                      SystemMessageBackgroundColor="Yellow"
+                      SystemMessageTextColor="White"
                       SystemMessageFontSize="14"
                       ContextMenuDividerColor="{StaticResource Gray300}"
-                      ContextMenuTextColor="{StaticResource Gray600}"
-                      ContextMenuBackgroundColor="{StaticResource White}"/>
-        -->
+                      ContextMenuTextColor="{StaticResource Gray200}"
+                      ContextMenuBackgroundColor="{StaticResource Gray700}"/>
+
         <!-- Message Input -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="1"
                 Padding="10"
                 Margin="10,5">
             <Grid>
@@ -87,33 +71,6 @@
                         IsEnabled="{Binding IsConnected}"/>
             </Grid>
         </Border>
-
-        <sfBottomSheet:SfBottomSheet x:Name="bottomSheet"
-                                     Grid.RowSpan="3"
-                                     CornerRadius="15, 15, 0, 0"
-                                     HalfExpandedRatio="0.35"
-                                     ContentPadding="10"
-                                     State="HalfExpanded">
-            <sfBottomSheet:SfBottomSheet.BottomSheetContent>
-                <!-- Connection Controls -->
-                <Grid
-                    Padding="10"
-                    ColumnDefinitions="*,*"
-                    ColumnSpacing="10">
-
-                    <Button x:Name="AdvertiseButton"
-                            Text="Advertise"
-                            Style="{StaticResource PrimaryButton}"
-                            Command="{Binding StartAdvertisingCommand}"/>
-
-                    <Button x:Name="DiscoverButton"
-                            Grid.Column="1"
-                            Text="Discover"
-                            Style="{StaticResource PrimaryButton}"
-                            Command="{Binding StartDiscoveryCommand}"/>
-                </Grid>
-            </sfBottomSheet:SfBottomSheet.BottomSheetContent>
-        </sfBottomSheet:SfBottomSheet>
     </Grid>
 
 </pages:BasePage>
