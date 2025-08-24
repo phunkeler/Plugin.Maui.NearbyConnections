@@ -30,17 +30,16 @@
     <Grid>
         <ScrollView>
             <Grid Padding="{DynamicResource SpacingXL}"
-                  RowSpacing="0">
+                  RowSpacing="{DynamicResource SpacingSM}">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <StackLayout Grid.Row="1"
-                             Spacing="{StaticResource Spacing2XL}"
-                             MaximumWidthRequest="400"
-                             HorizontalOptions="Center">
+                <Grid RowDefinitions="Auto,*"
+                      RowSpacing="{StaticResource Spacing2XL}"
+                      MaximumWidthRequest="400"
+                      HorizontalOptions="Center">
 
                     <!-- App Header -->
                     <StackLayout Spacing="{DynamicResource SpacingXL}">
@@ -72,7 +71,8 @@
                     </StackLayout>
 
                     <!-- Login Card -->
-                    <Border Style="{StaticResource CardFrame}"
+                    <Border Grid.Row="1"
+                            Style="{StaticResource CardFrame}"
                             Padding="{DynamicResource SpacingXL}">
                         <StackLayout Spacing="{DynamicResource SpacingXL}">
 
@@ -93,7 +93,8 @@
                                                 x:Name="AvatarList"
                                                 ItemsSource="{Binding Avatars}"
                                                 SelectionMode="Single"
-                                                SelectedItem="{Binding SelectedAvatar}">
+                                                SelectedItem="{Binding SelectedAvatar}"
+                                                HeightRequest="48">
                                     <CollectionView.Behaviors>
                                         <toolkit:EventToCommandBehavior
                                             x:TypeArguments="SelectionChangedEventArgs"
@@ -148,27 +149,27 @@
                                     Command="{Binding LoginCommand}"/>
                         </StackLayout>
                     </Border>
+                </Grid>
 
-                    <!-- Footer -->
-                    <StackLayout Spacing="{StaticResource SpacingSM}"
-                                 HorizontalOptions="Center">
-                        <Label HorizontalOptions="Center">
-                            <Label.FormattedText>
-                                <FormattedString>
-                                    <Span Text="Visit the "/>
-                                    <Span Text="GitHub Repository"
-                                          TextColor="{StaticResource PrimaryBlue600}"
-                                          TextDecorations="Underline">
-                                        <Span.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding OpenGitHubCommand}"/>
-                                        </Span.GestureRecognizers>
-                                    </Span>
-                                </FormattedString>
-                            </Label.FormattedText>
-                        </Label>
-                    </StackLayout>
-                </StackLayout>
+                <!-- Footer -->
+                <Grid
+                    Grid.Row="1"
+                    HorizontalOptions="Center">
+                    <Label HorizontalOptions="Center">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="GitHub"
+                                      TextColor="{StaticResource PrimaryBlue600}"
+                                      TextDecorations="Underline">
+                                    <Span.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding OpenGitHubCommand}"/>
+                                    </Span.GestureRecognizers>
+                                </Span>
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                </Grid>
             </Grid>
         </ScrollView>
     </Grid>
