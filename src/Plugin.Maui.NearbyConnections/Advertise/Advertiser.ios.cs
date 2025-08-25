@@ -23,7 +23,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     public async Task PlatformStartAdvertising(AdvertisingOptions options, CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"[ADVERTISER] Starting advertising with service: {options.ServiceName}");
-        
+
         _serviceName = options.ServiceName;
 
         // Get or create peer ID
@@ -132,7 +132,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 
         // Fire event and use response
         var eventArgs = OnInvitationReceived(peerID.ToString(), peerID.DisplayName);
-        
+
         MCSession? session = null;
         if (eventArgs.ShouldAccept)
         {
@@ -142,7 +142,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
                 session = new MCSession(myPeerId);
             }
         }
-        
+
         Console.WriteLine($"[ADVERTISER] {(eventArgs.ShouldAccept ? "Accepting" : "Rejecting")} invitation");
         invitationHandler(eventArgs.ShouldAccept, session);
     }

@@ -17,6 +17,12 @@ public partial class NearbyConnectionsImplementation : INearbyConnections, IDisp
     IAdvertiser? _advertiser;
     IDiscoverer? _discoverer;
 
+    /// <inheritdoc/>
+    public IAdvertiser Advertiser => _advertiser ?? _advertiserFactory.CreateAdvertiser();
+
+    /// <inheritdoc/>
+    public IDiscoverer Discoverer => _discoverer ?? _discovererFactory.CreateDiscoverer();
+
     /// <summary>
     /// Fired when the advertising state changes.
     /// This event remains active across advertiser dispose/recreate cycles.

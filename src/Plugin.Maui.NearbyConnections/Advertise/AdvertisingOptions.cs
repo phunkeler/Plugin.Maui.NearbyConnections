@@ -1,54 +1,31 @@
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
 /// <summary>
-/// Options for configuring advertising behavior.
+/// Options that describe "how" to advertise.
 /// </summary>
 public class AdvertisingOptions
 {
     /// <summary>
-    /// Gets or sets a user-friendly name for this device that appears on nearby devices upon discovery.
+    /// Gets or sets the name displayed to nearby devices during discovery.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Android:
-    /// <a href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionsClient#public-abstract-taskvoid-startadvertising-string-name,-string-serviceid,-connectionlifecyclecallback-connectionlifecyclecallback,-advertisingoptions-options">
-    ///     name:
-    /// </a>
-    /// A human readable name for this endpoint, to appear on the remote device. Defined by client/application.
-    /// </para>
-    /// <para>
-    /// iOS:
-    /// <a href="https://developer.apple.com/documentation/multipeerconnectivity/mcpeerid/displayname">
-    ///     displayName:
-    /// </a>
-    /// The display name for this peer.
-    /// </para>
+    /// Reference: <see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionsClient#public-abstract-taskvoid-startadvertising-byte[]-endpointinfo,-string-serviceid,-connectionlifecyclecallback-connectionlifecyclecallback,-advertisingoptions-options">Android</see>,
+    /// <see href="https://developer.apple.com/documentation/multipeerconnectivity/mcpeerid/displayname">iOS</see>
     /// </remarks>
-    public string DisplayName { get; set; } = DeviceInfo.Name;
+    public string DisplayName { get; set; } = DeviceInfo.Current.Name;
 
     /// <summary>
-    /// Gets or sets the name of the service to advertise.
+    /// Gets or sets the name of the service being advertised.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Android:
-    /// <a href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionsClient#public-abstract-taskvoid-startadvertising-string-name,-string-serviceid,-connectionlifecyclecallback-connectionlifecyclecallback,-advertisingoptions-options">
-    ///     serviceId:
-    /// </a>
-    /// An identifier to advertise your app to other endpoints. This can be an arbitrary string, so long as it uniquely identifies your service. A good default is to use your app's package name.
-    /// </para>
-    /// <para>
-    /// iOS:
-    /// <a href="https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiser/servicetype">
-    ///     serviceType:
-    /// </a>
-    /// A short text string that describes the app’s networking protocol, in the same format as a Bonjour service type (<i>without the transport protocol</i>).
-    /// </para>
+    /// Reference: <see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionsClient#public-abstract-taskvoid-startadvertising-byte[]-endpointinfo,-string-serviceid,-connectionlifecyclecallback-connectionlifecyclecallback,-advertisingoptions-options">Android</see>,
+    /// <see href="https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiser/init(peer:discoveryinfo:servicetype:)">iOS</see>
     /// </remarks>
-    public string ServiceName { get; set; } = "Plugin.Maui.NearbyConnections";
+    public string ServiceName { get; set; } = AppInfo.Current.PackageName;
 
     /// <summary>
     /// Gets or sets additional information to include in the advertisement.
+    /// TODO: If
     /// </summary>
     /// <remarks>
     /// <para>

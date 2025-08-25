@@ -7,6 +7,7 @@ using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
 using Plugin.Maui.NearbyConnections.Events;
 using Plugin.Maui.NearbyConnections.Models;
+using Plugin.Maui.NearbyConnections.Session;
 
 namespace NearbyChat.ViewModels;
 
@@ -90,19 +91,17 @@ public partial class ChatPageViewModel : BaseViewModel
                 DisplayName = "Mara Mc.Kellogs",
             }
         ];
-
-
     }
 
     [RelayCommand]
-    async Task StartAdvertising(CancellationToken cancellationToken)
+    async Task<IAdvertisingSession> StartAdvertising(CancellationToken cancellationToken)
     {
         var advertiseOptions = new Plugin.Maui.NearbyConnections.Advertise.AdvertisingOptions
         {
             DisplayName = "MyDisplayName",
         };
 
-        await _nearbyConnections.StartAdvertisingAsync(advertiseOptions, cancellationToken);
+        return await _nearbyConnections.StartAdvertisingAsync(advertiseOptions, cancellationToken);
     }
 
     [RelayCommand]

@@ -6,12 +6,12 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 public class AdvertisingStateChangedEventArgs : EventArgs
 {
     /// <summary>
-    /// Indicates whether advertising is currently active.
+    /// Indicates the current advertising state (After the internal state change )
     /// </summary>
-    public bool IsAdvertising { get; init; }
+    public IAdvertisingState CurrentState { get; init; }
 
     /// <summary>
-    /// Gets the timestamp of the state change.
+    /// Gets the previous advertising state.
     /// </summary>
-    public DateTime Timestamp { get; init; } = DateTime.UtcNow;
+    public IAdvertisingState PreviousState { get; init; }
 }
