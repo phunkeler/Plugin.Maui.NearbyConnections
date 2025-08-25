@@ -32,7 +32,7 @@
                       Messages="{Binding ChatMessages}"
                       DateTextFontSize="14"
                       MessageTimeTextColor="{StaticResource Gray200}"
-                      NewMessagesSeperatorTextColor="{StaticResource Primary}"
+                      NewMessagesSeperatorTextColor="{StaticResource Gray300}"
                       NewMessagesSeperatorFontSize="16"
                       NewMessagesSeperatorText="New Messages"
                       EmojiReactionFontSize="14"

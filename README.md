@@ -38,7 +38,21 @@
   </p>
 </div>
 
+## Class Diagram
+
+-   IAdvertiser
+    -   StartAdvertising(AdvertisingOptions options)
+    -   StopAdvertising();
+    -   TODO: Define interface for registering callback(s)/responding to events
+    -   Android:
+        -   User-defined implementation of [ConnectionLifecycleCallback](https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback)
+    -   iOS:
+        -   User-defined implementation of [IMCNearbyServiceAdvertiserDelegate](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiser)
+-   IDiscoverer
+
 ## Features
+
+-   Configurable
 
 ## **Unique Advertising & Discovery Sessions**
 
@@ -104,6 +118,13 @@ Following setup patterns established by [Microsoft.Maui.Essentials](https://www.
 # DEBUGGING
 
 -   adb exec-out run-as com.companyname.nearbychat cat "/data/data/com.companyname.nearbychat/files/NearbyChat.db3" > %userprofile%\Downloads\NearbyChat.db3
+
+# Dev Todo:
+
+-   Keep "Advertise" and "Discovery" boundaries clear but connected via I
+-   Expose everything through IAdvertiser & IDiscoverer
+-   "INearbyConnections" stays clean +
+-   Allow consumers
 
 # Acknowledgements
 

@@ -46,29 +46,42 @@ public partial class Advertiser : Java.Lang.Object
 
 internal sealed class AdvertiseCallback : ConnectionLifecycleCallback
 {
-    readonly Advertiser? _advertiser;
+    readonly WeakReference<Advertiser> _advertiserRef;
 
-    public AdvertiseCallback(Advertiser? advertiser)
+    public AdvertiseCallback(Advertiser advertiser)
     {
-        _advertiser = advertiser;
+        _advertiserRef = new WeakReference<Advertiser>(advertiser);
     }
 
     public override void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
         Console.WriteLine($"[ADVERTISER] Connection initiated with endpoint: {endpointId}");
-        _advertiser?.OnConnectionInitiated(endpointId, connectionInfo.EndpointName);
+
+        if (_advertiserRef.TryGetTarget(out var advertiser))
+        {
+            advertiser.OnConnectionInitiated(endpointId, connectionInfo.EndpointName);
+        }
     }
 
     public override void OnConnectionResult(string endpointId, ConnectionResolution resolution)
     {
         Console.WriteLine($"[ADVERTISER] Connection result for endpoint: {endpointId}, resolution: {resolution}");
+
         var success = resolution.Status.StatusCode == ConnectionsStatusCodes.StatusOk;
-        _advertiser?.OnConnectionResult(endpointId, success);
+
+        if (_advertiserRef.TryGetTarget(out var advertiser))
+        {
+            advertiser.OnConnectionResult(endpointId, success);
+        }
     }
 
     public override void OnDisconnected(string endpointId)
     {
         Console.WriteLine($"[ADVERTISER] Disconnected from endpoint: {endpointId}");
-        _advertiser?.OnDisconnected(endpointId);
+
+        if (_advertiserRef.TryGetTarget(out var advertiser))
+        {
+            advertiser.OnDisconnected(endpointId);
+        }
     }
 }
