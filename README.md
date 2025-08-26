@@ -38,21 +38,27 @@
   </p>
 </div>
 
-## Class Diagram
+## Platform-Specific Callback/Delegate Methods to _Expose/Unify_:
+### Android
+- **IConnectionsClient.X** (_[Google](), [Micrososft]()_)
 
--   IAdvertiser
-    -   StartAdvertising(AdvertisingOptions options)
-    -   StopAdvertising();
-    -   TODO: Define interface for registering callback(s)/responding to events
-    -   Android:
-        -   User-defined implementation of [ConnectionLifecycleCallback](https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback)
-    -   iOS:
-        -   User-defined implementation of [IMCNearbyServiceAdvertiserDelegate](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiser)
--   IDiscoverer
+### iOS
+- **MCNearbyServiceAdvertiserDelegate** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiserdelegate), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L402-L424)_)
+    - **DidNotStartAdvertisingPeer** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiserdelegate/advertiser(_:didnotstartadvertisingpeer:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L418-L423)_)
+    - **DidReceiveInvitationFromPeer** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiserdelegate/advertiser(_:didreceiveinvitationfrompeer:withcontext:invitationhandler:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L413-L416C8)_)
+- **MCNearbyServiceBrowserDelegate** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyservicebrowserdelegate), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L503-L541)_)
+    - **DidNotStartBrowsingForPeers** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyservicebrowserdelegate/browser(_:didnotstartbrowsingforpeers:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L535-L540)_)
+    - **FoundPeer** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyservicebrowserdelegate/browser(_:foundpeer:withdiscoveryinfo:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L515-L525)_)
+    - **LostPeer** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyservicebrowserdelegate/browser(_:lostpeer:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L527-L533)_)
+- **MCSessionDelegate** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L240-L320)_)
+    - **DidChangeState** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate/session(_:peer:didchange:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L250-L257)_)
+    - **DidReceiveData** (_[Apple](), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L259-L266)_)
+    - **DidStartReceivingResource** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate/session(_:didstartreceivingresourcewithname:frompeer:with:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L268-L276)_)
+    - **DidFinishReceivingResource** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate/session(_:didfinishreceivingresourcewithname:frompeer:at:witherror:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L278-L293)_)
+    - **DidReceiveStream** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate/session(_:didreceive:withname:frompeer:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L295-L303)_)
 
 ## Features
-
--   Configurable
+- Highle-configurable (_Exposes as much of the native API's, as possible_)
 
 ## **Unique Advertising & Discovery Sessions**
 
@@ -101,7 +107,6 @@ Following setup patterns established by [Microsoft.Maui.Essentials](https://www.
 | Android  | Not set in project        |
 
 # 🔗 Dependencies
-
 -   This NuGet package is [x MB]](LINK_TO_PROOF)
 -   In the case of the sample app (Plugin.Maui.NearbyConnections.Sample) it increased .apk/.ipa size by [X](LINK_TO_PROOF)2
 
@@ -114,6 +119,9 @@ Following setup patterns established by [Microsoft.Maui.Essentials](https://www.
 
     -   Native `MultipeerConnectivity` framework
     -   No external dependencies
+
+    ## Shared
+    - [Microsoft.Maui.Controls]()
 
 # DEBUGGING
 
