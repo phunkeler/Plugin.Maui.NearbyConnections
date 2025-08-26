@@ -17,7 +17,7 @@ public partial class Advertiser : Java.Lang.Object
             options.DisplayName,
             options.ServiceName,
             new AdvertiseCallback(this),
-            new Android.Gms.Nearby.Connection.AdvertisingOptions.Builder().SetStrategy(Android.Gms.Nearby.Connection.Strategy.P2pCluster).Build());
+            new Android.Gms.Nearby.Connection.AdvertisingOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
 
         Console.WriteLine("[ADVERTISER] StartAdvertisingAsync() called successfully");
 

@@ -29,16 +29,12 @@
 		<None Include="**\*.net.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
 	</ItemGroup>
 
-  <!-- Global Usings - do this here to keep .csproj clean -->
+  <!-- This goes against convention but keeps our project clean -->
   <Target Name="BeforeGenerateGlobalUsings" BeforeTargets="GenerateGlobalUsings">
     <ItemGroup Condition="'$(IsTargetPlatformAndroid)' == 'true'">
       <Using Include="Android.Gms.Common" />
       <Using Include="Android.Gms.Nearby" />
       <Using Include="Android.Gms.Nearby.Connection" />
-      <Using Include="Android.Gms.Nearby.FastPair" />
-      <Using Include="Android.Gms.Nearby.Messages" />
-      <Using Include="Android.Gms.Nearby.Messages.Audio" />
-      <Using Include="Android.Gms.Nearby.Uwb" />
     </ItemGroup>
   </Target>
 </Project>

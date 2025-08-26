@@ -25,7 +25,7 @@ public partial class Discoverer : Java.Lang.Object
         await _connectionClient.StartDiscoveryAsync(
             options.ServiceName,
             new DiscoveryCallback(),
-            new DiscoveryOptions.Builder().SetStrategy(Android.Gms.Nearby.Connection.Strategy.P2pPointToPoint).Build());
+            new DiscoveryOptions.Builder().SetStrategy(Strategy.P2pPointToPoint).Build());
 
         Console.WriteLine("[DISCOVERER] StartDiscoveryAsync() called successfully");
     }
