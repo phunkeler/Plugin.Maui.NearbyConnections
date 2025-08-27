@@ -38,6 +38,30 @@
   </p>
 </div>
 
+## Architecture
+
+### Phased
+#### **Pre-Connection** (_`Advertise/Discover` --> `Invite` --> `Accept/Decline`_)
+During the pre-connection phase, nearby devices; make themselves known (`Start/Stop Advertising`), find out about others (`Start/Stop Discovering`), request to connect (`SendInvitation`), choose to accept/decline (`Accept/Decline Invitation`), and then submit their response (`SubmitInvitationResponse`).
+
+The following table shows how we've mapped the native API.
+
+| Plugin.Maui.NearbyConnections.Events | Android               | iOS                          |
+|:------------------------------------:|:---------------------:|:----------------------------:|
+| InvitationReceived                   | OnConnectionInitiated (_[dotnet](https://github.com/dotnet/android-libraries/blob/eb048f14d0ac1fd66144572cbca3cc476b353cb5/docs/artifact-list.md)_) | DidReceiveInvitationFromPeer (_[dotnet](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiserdelegate/advertiser(_:didreceiveinvitationfrompeer:withcontext:invitationhandler:))_) |
+|                                       |                       |                              |
+
+#### **Connection** (`Communicate`)
+
+#### **Post-Connection (`Cleanup`)
+
+### Event-Driven
+- Events
+- EventProcessors
+
+####
+
+
 ## Platform-Specific Callback/Delegate Methods to _Expose/Unify_:
 ### Android
 - **IConnectionsClient.X** (_[Google](), [Micrososft]()_)

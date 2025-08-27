@@ -11,5 +11,12 @@
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
     <PackageReference Include="Xamarin.GooglePlayServices.Nearby" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Connection/" />
+	  <Folder Include="PreConnection/" />
+	  <Folder Include="PreConnection/Events/" />
+	  <Folder Include="PreConnection/Processors/" />
+	</ItemGroup>
 </Project>
  

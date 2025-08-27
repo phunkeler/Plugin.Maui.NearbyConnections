@@ -1,22 +1,18 @@
-using Plugin.Maui.NearbyConnections.Advertise;
-using Plugin.Maui.NearbyConnections.Discover;
-using Plugin.Maui.NearbyConnections.Session;
-
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Provides access to the Nearby Connections plugin functionality.
+/// The main interface for interacting with the Nearby Connections plugin.
 /// </summary>
 public interface INearbyConnections
 {
-    /// <summary>
-    /// Gets the current <see cref="IAdvertisingSession"/> instance.
-    /// </summary>
-    IAdvertiser Advertiser { get; }
+    // High-level session management (orchestrator handles advertising/discovery internally)
+    Task<INearbyConnection> StartAsync(NearbyConnectionOptions options, CancellationToken cancellationToken = default);
+    Task StopAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Gets the current <see cref="IDiscoverer"/> instance.
-    /// </summary>
-    IDiscoverer Discoverer { get; }
+    // Connection management
+    Task<INearbyConnection> BeginConnectionAsync(string peerId, CancellationToken cancellationToken = default);
+    Task CancelConnectionAsync(string peerId, CancellationToken cancellationToken = default);
+
+    // Advertising/Discovery are NOT exposed - handled via options
 
 }
