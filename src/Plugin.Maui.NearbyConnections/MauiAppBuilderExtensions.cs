@@ -10,12 +10,13 @@ namespace Plugin.Maui.NearbyConnections;
 public static class MauiAppBuilderExtensions
 {
     /// <summary>
-    /// Adds the Nearby Connections plugin to the MAUI app with default configuration.
+    /// Configures the <see cref="MauiAppBuilder"/> with the Nearby Connections plugin commponents.
+    /// This represents the default configuration.
     /// </summary>
     /// <param name="builder">The MAUI app builder</param>
     /// <returns>The <see cref="MauiAppBuilder"/> for chaining</returns>
-    public static MauiAppBuilder AddNearbyConnections(this MauiAppBuilder builder)
-        => builder.AddNearbyConnections(_ => { });
+    public static MauiAppBuilder ConfigureNearbyConnections(this MauiAppBuilder builder)
+        => builder.ConfigureNearbyConnections(_ => { });
 
     /// <summary>
     /// Adds the Nearby Connections plugin to the MAUI app with configuration options.
@@ -23,10 +24,11 @@ public static class MauiAppBuilderExtensions
     /// <param name="builder">The MAUI app builder</param>
     /// <param name="configure">Configuration delegate for nearby connections</param>
     /// <returns>The <see cref="MauiAppBuilder"/> for chaining</returns>
-    public static MauiAppBuilder AddNearbyConnections(
-        this MauiAppBuilder builder, 
+    public static MauiAppBuilder ConfigureNearbyConnections(
+        this MauiAppBuilder builder,
         Action<NearbyConnectionsBuilder> configure)
     {
+        // If any of our types were registered before HERE, they will be overwritten NOW
         var nearbyBuilder = new NearbyConnectionsBuilder(builder.Services);
         configure(nearbyBuilder);
         nearbyBuilder.Build();
@@ -54,9 +56,8 @@ public class NearbyConnectionsBuilder
     /// <summary>
     /// Configures a custom advertiser factory.
     /// </summary>
-    /// <param name="factory">Custom advertiser factory</param>
     /// <returns>The builder for chaining</returns>
-    public NearbyConnectionsBuilder WithAdvertiserFactory<TFactory>() 
+    public NearbyConnectionsBuilder WithAdvertiserFactory<TFactory>()
         where TFactory : class, IAdvertiserFactory
     {
         _services.AddSingleton<IAdvertiserFactory, TFactory>();
@@ -68,7 +69,7 @@ public class NearbyConnectionsBuilder
     /// </summary>
     /// <param name="factory">Custom discoverer factory</param>
     /// <returns>The builder for chaining</returns>
-    public NearbyConnectionsBuilder WithDiscovererFactory<TFactory>() 
+    public NearbyConnectionsBuilder WithDiscovererFactory<TFactory>()
         where TFactory : class, IDiscovererFactory
     {
         _services.AddSingleton<IDiscovererFactory, TFactory>();

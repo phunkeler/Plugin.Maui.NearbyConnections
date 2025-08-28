@@ -19,7 +19,27 @@ public static class MauiProgram
             .UseMauiCommunityToolkit()
             .UseChatView()
             .ConfigureSyncfusionToolkit()
-            .AddNearbyConnections()
+            .ConfigureNearbyConnections(builder =>
+            {
+
+
+                builder.Options = new NearbyConnectionsOptions
+                {
+                    AdvertisingOptions = new()
+                    {
+                        DisplayName = "NearbyChat",
+                        ServiceName = "com.nearbychat.app",
+                        ManualAdvertising = false,
+                    },
+                    DiscovererOptions = new()
+                    {
+                        ServiceName = "com.nearbychat.app",
+                        ManualDiscovery = false,
+                    },
+                    ConnectionOptions = ConnectionOptions.Auto,
+                    AutoAcceptConnections = true
+                };
+            })
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("FluentSystemIcons-Regular.ttf", FluentUi.FontFamily);

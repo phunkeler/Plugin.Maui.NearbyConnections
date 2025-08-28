@@ -1,16 +1,11 @@
-using Plugin.Maui.NearbyConnections.Session;
-
 namespace Plugin.Maui.NearbyConnections.Advertise;
-
 /// <summary>
 /// Makes the current device discoverable for nearby peer-to-peer connections.
 /// </summary>
 public interface IAdvertiser : IDisposable
 {
     /// <summary>
-    /// Gets a value indicating whether this object is currently advertising.
-    /// Advertising can be started with <see cref="StartAdvertisingAsync"/>
-    /// and stopped by <see cref="StopAdvertisingAsync"/>.
+    /// REMOVE THIS. Consumers will react through a mediator
     /// </summary>
     bool IsAdvertising { get; }
 

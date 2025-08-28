@@ -38,7 +38,21 @@
   </p>
 </div>
 
+## Options (Advertising + Discovery + Connection)
+### AdvertisingOptions
+These options can be set at; `MauiProgram.cs` (_simple_) or per `StartAdvertisingAsync` call (_advanced_).
+- DisplayName
+- ServiceName
+
 ## Architecture
+
+### `ObservableCollection` for State
+```csharp
+    // Use ObservableCollection to facilitate UI binding
+      ObservableCollection<DiscoveredPeer> DiscoveredPeers { get; }
+      ObservableCollection<ActiveConnection> ActiveConnections { get; }
+      ObservableCollection<PendingInvitation> PendingInvitations { get; }
+```
 
 ### Phased
 #### **Pre-Connection** (_`Advertise/Discover` --> `Invite` --> `Accept/Decline`_)
