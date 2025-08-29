@@ -38,23 +38,64 @@
   </p>
 </div>
 
-## Options (Advertising + Discovery + Connection)
+# Supported Platforms
+
+| Platform | Minimum Version Supported |
+| -------- | ------------------------- |
+| iOS      | Not set in project.       |
+| Android  | Not set in project        |
+|||
+
+# 🔗 Dependencies
+- [Microsoft.Maui.Controls]()
+- [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/)
+
+# Getting Started
+
+`Plugin.Maui.NearbyConnections` is ~~available~~ on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
+
+## **dotnet**
+
+```bash
+dotnet add package Plugin.Maui.NearbyConnections -s https://api.nuget.org/v3/index.json
+```
+
+</details>
+
+# Usage
+
+## MauiProgram.cs
+```csharp
+public static MauiApp CreateMauiApp()
+    => MauiApp.CreateBuilder()
+        .UseMauiApp<App>()
+        .ConfigureNearbyConnections() // Defaults
+        .Build();
+
+```
+
+```csharp
+public static MauiApp CreateMauiApp()
+    => MauiApp.CreateBuilder()
+        .UseMauiApp<App>()
+        .ConfigureNearbyConnections(builder => // Custom Config
+        {
+
+        })
+        .Build();
+
+```
+
+## Options
 ### AdvertisingOptions
 These options can be set at; `MauiProgram.cs` (_simple_) or per `StartAdvertisingAsync` call (_advanced_).
 - DisplayName
 - ServiceName
+- Limited amount of Arbitrary key/value pairs
 
 ## Architecture
 
-### `ObservableCollection` for State
-```csharp
-    // Use ObservableCollection to facilitate UI binding
-      ObservableCollection<DiscoveredPeer> DiscoveredPeers { get; }
-      ObservableCollection<ActiveConnection> ActiveConnections { get; }
-      ObservableCollection<PendingInvitation> PendingInvitations { get; }
-```
-
-### Phased
+### Phases
 #### **Pre-Connection** (_`Advertise/Discover` --> `Invite` --> `Accept/Decline`_)
 During the pre-connection phase, nearby devices; make themselves known (`Start/Stop Advertising`), find out about others (`Start/Stop Discovering`), request to connect (`SendInvitation`), choose to accept/decline (`Accept/Decline Invitation`), and then submit their response (`AnswerInvitation`).
 
@@ -83,104 +124,9 @@ The following table shows how critical native callback/delegate methods map to p
 - Events
 - EventProcessors
 
-####
-
-
-## Platform-Specific Callback/Delegate Methods to _Expose/Unify_:
-### Android
-- **IConnectionsClient.X** (_[Google](), [Micrososft]()_)
-
-### iOS
-- **MCNearbyServiceAdvertiserDelegate** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiserdelegate), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L402-L424)_)
-    - **DidNotStartAdvertisingPeer** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiserdelegate/advertiser(_:didnotstartadvertisingpeer:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L418-L423)_)
-    - **DidReceiveInvitationFromPeer** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiserdelegate/advertiser(_:didreceiveinvitationfrompeer:withcontext:invitationhandler:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L413-L416C8)_)
-- **MCNearbyServiceBrowserDelegate** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyservicebrowserdelegate), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L503-L541)_)
-    - **DidNotStartBrowsingForPeers** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyservicebrowserdelegate/browser(_:didnotstartbrowsingforpeers:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L535-L540)_)
-    - **FoundPeer** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyservicebrowserdelegate/browser(_:foundpeer:withdiscoveryinfo:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L515-L525)_)
-    - **LostPeer** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyservicebrowserdelegate/browser(_:lostpeer:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L527-L533)_)
-- **MCSessionDelegate** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L240-L320)_)
-    - **DidChangeState** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate/session(_:peer:didchange:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L250-L257)_)
-    - **DidReceiveData** (_[Apple](), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L259-L266)_)
-    - **DidStartReceivingResource** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate/session(_:didstartreceivingresourcewithname:frompeer:with:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L268-L276)_)
-    - **DidFinishReceivingResource** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate/session(_:didfinishreceivingresourcewithname:frompeer:at:witherror:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L278-L293)_)
-    - **DidReceiveStream** (_[Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate/session(_:didreceive:withname:frompeer:)), [Microsoft](https://github.com/dotnet/macios/blob/943e406c8aabc9904c58404e94af00c80062f5a8/src/multipeerconnectivity.cs#L295-L303)_)
-
-## Features
-- Highle-configurable (_Exposes as much of the native API's, as possible_)
-
-## **Unique Advertising & Discovery Sessions**
-
-```csharp
-await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
-{
-    DisplayName = "Name1",
-    ServiceName = "service-1"
-});
-
-await NearbyConnections.Current.StopAdvertisingAsync();
-
-// ✅ Different parameters - fully supported
-await NearbyConnections.Current.StartAdvertisingAsync(new AdvertisingOptions
-{
-    DisplayName = "Name2",     // Changed
-    ServiceName = "service-2", // Changed
-    AdvertisingInfo = { ... }  // Changed
-});
-```
-
--   Send arbitrary `IDictionary<string, string>` data with advertisements (Maybe call this "AdvertisementInfo")
-
-# Getting Started
-
-`Plugin.Maui.NearbyConnections` is available on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
-
-## **dotnet**
-
-```bash
-dotnet add package Plugin.Maui.NearbyConnections -s https://api.nuget.org/v3/index.json
-```
-
-</details>
-
-# Usage
-
-`MauiProgram.cs`:
-Following setup patterns established by [Microsoft.Maui.Essentials](https://www.nuget.org/packages/Microsoft.Maui.Essentials) first need to register the Feature with the MauiAppBuilder following the same pattern that the .NET MAUI Essentials libraries follow.
-
-# Supported Platforms
-
-| Platform | Minimum Version Supported |
-| -------- | ------------------------- |
-| iOS      | Not set in project.       |
-| Android  | Not set in project        |
-
-# 🔗 Dependencies
--   This NuGet package is [x MB]](LINK_TO_PROOF)
--   In the case of the sample app (Plugin.Maui.NearbyConnections.Sample) it increased .apk/.ipa size by [X](LINK_TO_PROOF)2
-
-    ## Android
-
-    -   [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) (1.25 MB)
-    -   Requires Google Play Services on device
-
-    ## iOS
-
-    -   Native `MultipeerConnectivity` framework
-    -   No external dependencies
-
-    ## Shared
-    - [Microsoft.Maui.Controls]()
-
 # DEBUGGING
 
 -   adb exec-out run-as com.companyname.nearbychat cat "/data/data/com.companyname.nearbychat/files/NearbyChat.db3" > %userprofile%\Downloads\NearbyChat.db3
-
-# Dev Todo:
-
--   Keep "Advertise" and "Discovery" boundaries clear but connected via I
--   Expose everything through IAdvertiser & IDiscoverer
--   "INearbyConnections" stays clean +
--   Allow consumers
 
 # Acknowledgements
 

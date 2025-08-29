@@ -118,17 +118,14 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
         // Transform
 
         // Publish
-        Task.Run(async () =>
+        _eventProducer.PublishAsync(new InvitationReceived
         {
-            await _eventProducer.PublishAsync(new InvitationReceived
+            ConnectionEndpoint = peerID.DisplayName,
+            InvitingPeer = new Models.PeerDevice
             {
-                ConnectionEndpoint = peerID.DisplayName,
-                InvitingPeer = new Models.PeerDevice
-                {
-                    Id = peerID.DisplayName,
-                    DisplayName = peerID.DisplayName,
-                },
-            });
+                Id = peerID.DisplayName,
+                DisplayName = peerID.DisplayName,
+            },
         });
     }
 

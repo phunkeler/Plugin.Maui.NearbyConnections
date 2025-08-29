@@ -10,15 +10,6 @@ public interface IAdvertiser : IDisposable
     bool IsAdvertising { get; }
 
     /// <summary>
-    /// The general interface for advertising state changes.
-    /// </summary>
-    /// <remarks>
-    /// This event is fired whenever the advertising state changes, providing the previous
-    /// and current state.
-    /// </remarks>
-    event EventHandler<AdvertisingStateChangedEventArgs> StateChanged;
-
-    /// <summary>
     /// Starts advertising with the specified options.
     /// </summary>
     /// <param name="options">

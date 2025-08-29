@@ -1,5 +1,6 @@
 using Plugin.Maui.NearbyConnections.Advertise;
 using Plugin.Maui.NearbyConnections.Discover;
+using AdvertisingOptions = Plugin.Maui.NearbyConnections.Advertise.AdvertisingOptions;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -24,7 +25,7 @@ public class NearbyConnectionsOptions
     /// <summary>
     /// Options for connection handling.
     /// </summary>
-    public ConnectionOptions ConnectionOptions { get; init; } = ConnectionOptions.Auto;
+    //public ConnectionOptions ConnectionOptions { get; init; } = new();
 
 
     // Examples of different sets of options in a consumer app:
@@ -51,28 +52,10 @@ public class NearbyConnectionsOptions
 
     */
 
-    public bool ManualAdvertising { get; init; }
-    public bool ManualDiscovery { get; init; }
     public bool AutoAcceptConnections { get; init; } = true;
 }
 
-/// <summary>
-/// Represents the bridge from platform-code to  handler interface for Nearby Connections events.
-/// </summary>
-public interface IPlatform
-{
-
-}
-
-/// <summary>
-/// A unique identifier for activation of the Nearby Connections plugin.
-/// </summary>
-internal class ActivationId
-{
-    // For those that want to know about how this feature gets used.
-}
-
-internal class NearbyConnectionsId
+sealed internal class NearbyConnectionsId
 {
     private string _id = Guid.NewGuid().ToString();
     public string Id

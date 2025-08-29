@@ -3,6 +3,9 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 /// <summary>
 /// Options that describe "how" to advertise.
 /// </summary>
+/// <remarks>
+/// These options can be set at; `MauiProgram.cs` (_simple_) or per `StartAdvertisingAsync` call (_advanced_).
+/// </remarks>
 public class AdvertisingOptions
 {
     /// <summary>

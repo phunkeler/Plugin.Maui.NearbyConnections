@@ -1,3 +1,5 @@
+using Plugin.Maui.NearbyConnections.Events;
+
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
 /// <summary>
@@ -16,7 +18,7 @@ public partial class Advertiser : Java.Lang.Object
         await _connectionClient.StartAdvertisingAsync(
             options.DisplayName,
             options.ServiceName,
-            new AdvertiseCallback(this),
+            new AdvertiseCallback(_eventProducer),
             new Android.Gms.Nearby.Connection.AdvertisingOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
 
         Console.WriteLine("[ADVERTISER] StartAdvertisingAsync() called successfully");
@@ -45,42 +47,60 @@ public partial class Advertiser : Java.Lang.Object
 
 internal sealed class AdvertiseCallback : ConnectionLifecycleCallback
 {
-    readonly WeakReference<Advertiser> _advertiserRef;
+    readonly INearbyConnectionsEventProducer _eventProducer;
 
-    public AdvertiseCallback(Advertiser advertiser)
+    public AdvertiseCallback(INearbyConnectionsEventProducer eventProducer)
     {
-        _advertiserRef = new WeakReference<Advertiser>(advertiser);
+        _eventProducer = eventProducer;
     }
 
     public override void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
         Console.WriteLine($"[ADVERTISER] Connection initiated with endpoint: {endpointId}");
 
-        if (_advertiserRef.TryGetTarget(out var advertiser))
+        _eventProducer.PublishAsync(new InvitationReceived
         {
-            advertiser.OnConnectionInitiated(endpointId, connectionInfo.EndpointName);
-        }
+            ConnectionEndpoint = "",
+            InvitingPeer = new Models.PeerDevice
+            {
+                Id = "",
+                DisplayName = "",
+            },
+        });
     }
 
+    // NOT USING YET
     public override void OnConnectionResult(string endpointId, ConnectionResolution resolution)
     {
         Console.WriteLine($"[ADVERTISER] Connection result for endpoint: {endpointId}, resolution: {resolution}");
 
-        var success = resolution.Status.StatusCode == ConnectionsStatusCodes.StatusOk;
-
-        if (_advertiserRef.TryGetTarget(out var advertiser))
-        {
-            advertiser.OnConnectionResult(endpointId, success);
-        }
+        /* TODO
+                _eventProducer.PublishAsync([?]
+                {
+                    ConnectionEndpoint = "",
+                    InvitingPeer = new Models.PeerDevice
+                    {
+                        Id = "",
+                        DisplayName = "",
+                    },
+                });
+        */
     }
 
     public override void OnDisconnected(string endpointId)
     {
         Console.WriteLine($"[ADVERTISER] Disconnected from endpoint: {endpointId}");
 
-        if (_advertiserRef.TryGetTarget(out var advertiser))
-        {
-            advertiser.OnDisconnected(endpointId);
-        }
+        /* TODO
+                _eventProducer.PublishAsync([?]
+                {
+                    ConnectionEndpoint = "",
+                    InvitingPeer = new Models.PeerDevice
+                    {
+                        Id = "",
+                        DisplayName = "",
+                    },
+                });
+        */
     }
 }

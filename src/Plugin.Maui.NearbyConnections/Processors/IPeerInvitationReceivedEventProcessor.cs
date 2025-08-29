@@ -14,7 +14,7 @@ public interface IPeerInvitationReceivedEventProcessor : INearbyConnectionsEvent
     /// <param name="invitationEvent">The invitation event to process.</param>
     /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>Task that completes when the invitation has been processed.</returns>
-    Task ProcessInvitationAsync(PeerInvitationReceivedEvent invitationEvent, CancellationToken cancellationToken = default);
+    Task ProcessInvitationAsync(InvitationReceived invitationEvent, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Accepts a peer invitation.

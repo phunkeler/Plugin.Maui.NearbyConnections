@@ -7,27 +7,8 @@ public partial class Advertiser : IAdvertiser
 {
     readonly INearbyConnectionsEventProducer _eventProducer;
 
-    bool _isAdvertising;
-
     /// <inheritdoc />
-    public event EventHandler<AdvertisingStateChangedEventArgs>? StateChanged;
-
-    /// <inheritdoc />
-    public bool IsAdvertising
-    {
-        get => _isAdvertising;
-        private set
-        {
-            if (_isAdvertising != value)
-            {
-                _isAdvertising = value;
-                StateChanged?.Invoke(this, new AdvertisingStateChangedEventArgs
-                {
-                    IsAdvertising = value
-                });
-            }
-        }
-    }
+    public bool IsAdvertising { get; private set; }
 
     /// <summary>
     /// The event producer for nearby connections events.

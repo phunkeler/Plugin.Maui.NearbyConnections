@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Plugin.Maui.NearbyConnections.Advertise;
 using Plugin.Maui.NearbyConnections.Discover;
+using AdvertisingOptions = Plugin.Maui.NearbyConnections.Advertise.AdvertisingOptions;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -67,7 +69,6 @@ public class NearbyConnectionsBuilder
     /// <summary>
     /// Configures a custom discoverer factory.
     /// </summary>
-    /// <param name="factory">Custom discoverer factory</param>
     /// <returns>The builder for chaining</returns>
     public NearbyConnectionsBuilder WithDiscovererFactory<TFactory>()
         where TFactory : class, IDiscovererFactory
@@ -89,25 +90,45 @@ public class NearbyConnectionsBuilder
     }
 
     /// <summary>
+    /// Configures the NearbyConnections options.
+    /// </summary>
+    /// <param name="configure">Configuration delegate for nearby connections options</param>
+    /// <returns>The builder for chaining</returns>
+    public NearbyConnectionsBuilder Configure(Action<NearbyConnectionsOptions> configure)
+    {
+        _services.Configure(configure);
+        return this;
+    }
+
+    /// <summary>
+    /// Configures the advertising options.
+    /// </summary>
+    /// <param name="configure">Configuration delegate for advertising options</param>
+    /// <returns>The builder for chaining</returns>
+    public NearbyConnectionsBuilder ConfigureAdvertising(Action<AdvertisingOptions> configure)
+    {
+        _services.Configure(configure);
+        return this;
+    }
+
+    /// <summary>
+    /// Configures the discovery options.
+    /// </summary>
+    /// <param name="configure">Configuration delegate for discovery options</param>
+    /// <returns>The builder for chaining</returns>
+    public NearbyConnectionsBuilder ConfigureDiscovery(Action<DiscoveringOptions> configure)
+    {
+        _services.Configure(configure);
+        return this;
+    }
+
+    /// <summary>
     /// Builds and registers the Nearby Connections services.
     /// </summary>
     internal void Build()
     {
-        // Register default factories if not already registered
         _services.TryAddSingleton<IAdvertiserFactory, AdvertiserFactory>();
         _services.TryAddSingleton<IDiscovererFactory, DiscovererFactory>();
-
-        // Register the main implementation if not already registered
-        _services.TryAddSingleton<INearbyConnections>(serviceProvider =>
-        {
-            var implementation = new NearbyConnectionsImplementation(
-                serviceProvider.GetRequiredService<IAdvertiserFactory>(),
-                serviceProvider.GetRequiredService<IDiscovererFactory>());
-
-            // Set the static instance for consumers using the static pattern
-            NearbyConnections.SetCurrent(implementation);
-
-            return implementation;
-        });
+        _services.TryAddSingleton<INearbyConnections, NearbyConnectionsImplementation>();
     }
 }
