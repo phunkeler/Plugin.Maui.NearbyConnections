@@ -7,6 +7,7 @@ public interface INearbyConnectionsEvent
 {
     /// <summary>
     /// A unique identifier for the event.
+    /// Should we use "InstallationId" here?
     /// </summary>
     string EventId { get; }
 

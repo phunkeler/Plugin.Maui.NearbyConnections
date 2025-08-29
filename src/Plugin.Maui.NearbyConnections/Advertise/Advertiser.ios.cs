@@ -21,7 +21,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    public async Task PlatformStartAdvertising(AdvertisingOptions options, CancellationToken cancellationToken = default)
+    public async Task PlatformStartAdvertising(AdvertiseOptions options, CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"[ADVERTISER] Starting advertising with service: {options.ServiceName}");
 

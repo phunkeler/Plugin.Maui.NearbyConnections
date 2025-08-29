@@ -9,11 +9,11 @@ public partial class Advertiser : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
-    public async Task PlatformStartAdvertising(AdvertisingOptions options, CancellationToken cancellationToken = default)
+    public async Task PlatformStartAdvertising(AdvertiseOptions options, CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"[ADVERTISER] Starting advertising with name: {options.DisplayName}, service: {options.ServiceName}");
 
-        _connectionClient ??= NearbyClass.GetConnectionsClient(Android.App.Application.Context);
+        _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity);
 
         await _connectionClient.StartAdvertisingAsync(
             options.DisplayName,
@@ -43,6 +43,28 @@ public partial class Advertiser : Java.Lang.Object
 
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Disposes of resources used by the advertiser.
+    /// </summary>
+    /// <param name="disposing">True if disposing managed resources</param>
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            if (_advertiser is not null)
+            {
+                _advertiser.StopAdvertisingPeer();
+                _advertiser.Delegate = null!;
+                _advertiser.Dispose();
+                _advertiser = null;
+            }
+
+            _connectionManager?.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
 }
 
 internal sealed class AdvertiseCallback : ConnectionLifecycleCallback
@@ -60,11 +82,11 @@ internal sealed class AdvertiseCallback : ConnectionLifecycleCallback
 
         _eventProducer.PublishAsync(new InvitationReceived
         {
-            ConnectionEndpoint = "",
+            ConnectionEndpoint = endpointId,
             InvitingPeer = new Models.PeerDevice
             {
                 Id = "",
-                DisplayName = "",
+                DisplayName = connectionInfo.EndpointName,
             },
         });
     }

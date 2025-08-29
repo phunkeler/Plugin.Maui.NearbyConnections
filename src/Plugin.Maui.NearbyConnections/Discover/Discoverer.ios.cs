@@ -25,7 +25,7 @@ public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
     /// <returns>
     /// A task representing the asynchronous operation.
     /// </returns>
-    public Task PlatformStartDiscovering(DiscoveringOptions options, CancellationToken cancellationToken = default)
+    public Task PlatformStartDiscovering(DiscoverOptions options, CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"[DISCOVERER] Starting discovery for service: {options.ServiceName}");
 

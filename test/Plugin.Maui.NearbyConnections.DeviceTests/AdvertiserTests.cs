@@ -44,7 +44,7 @@ public class AdvertiserTests
     {
         // Arrange
         var advertiser = new Advertiser();
-        var options = new AdvertisingOptions
+        var options = new AdvertiseOptions
         {
             DisplayName = "Test Device",
             ServiceName = "test-service"
@@ -62,7 +62,7 @@ public class AdvertiserTests
     {
         // Arrange
         var advertiser = new Advertiser();
-        var options = new AdvertisingOptions
+        var options = new AdvertiseOptions
         {
             DisplayName = "Test Device",
             ServiceName = "test-service"
@@ -85,7 +85,7 @@ public class AdvertiserTests
     {
         // Arrange
         var advertiser = new Advertiser();
-        var options = new AdvertisingOptions
+        var options = new AdvertiseOptions
         {
             DisplayName = "Test Device",
             ServiceName = "test-service"
@@ -105,7 +105,7 @@ public class AdvertiserTests
     {
         // Arrange
         var advertiser = new Advertiser();
-        var options = new AdvertisingOptions
+        var options = new AdvertiseOptions
         {
             DisplayName = "Test Device",
             ServiceName = "test-service"
@@ -160,7 +160,7 @@ public class AdvertiserTests
     {
         // Arrange
         var advertiser = new TestableAdvertiser();
-        var options = new AdvertisingOptions
+        var options = new AdvertiseOptions
         {
             DisplayName = "Test Device",
             ServiceName = "test-service"
@@ -191,7 +191,7 @@ public class AdvertiserTests
 
         // Arrange
         var advertiser = new TestableAdvertiser();
-        var options = new AdvertisingOptions
+        var options = new AdvertiseOptions
         {
             DisplayName = "Test Device",
             ServiceName = "test-service"
@@ -231,7 +231,7 @@ public class AdvertiserTests
     {
         // Arrange
         var advertiser = new TestableAdvertiser();
-        var options = new AdvertisingOptions
+        var options = new AdvertiseOptions
         {
             DisplayName = "Test Device",
             ServiceName = "test-service"
@@ -295,7 +295,7 @@ public class AdvertiserTests
     {
         // Arrange
         var advertiser = new TestableAdvertiser();
-        var options = new AdvertisingOptions
+        var options = new AdvertiseOptions
         {
             DisplayName = "Test Device",
             ServiceName = "test-service"
@@ -326,7 +326,7 @@ public class AdvertiserTests
 
         // Arrange
         var advertiser = new TestableAdvertiser();
-        var options = new AdvertisingOptions
+        var options = new AdvertiseOptions
         {
             DisplayName = "Test Device",
             ServiceName = "test-service"
@@ -739,12 +739,12 @@ public class TestableAdvertiser : Advertiser
 {
     public int PlatformStartCallCount { get; private set; }
     public int PlatformStopCallCount { get; private set; }
-    public AdvertisingOptions? LastStartOptions { get; private set; }
+    public AdvertiseOptions? LastStartOptions { get; private set; }
     public CancellationToken LastStartCancellationToken { get; private set; }
     public CancellationToken LastStopCancellationToken { get; private set; }
     public bool WasDisposed { get; private set; }
 
-    public new Task PlatformStartAdvertising(AdvertisingOptions options, CancellationToken cancellationToken = default)
+    public new Task PlatformStartAdvertising(AdvertiseOptions options, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
         PlatformStartCallCount++;

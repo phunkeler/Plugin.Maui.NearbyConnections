@@ -28,7 +28,7 @@ public partial class Discoverer : IDiscoverer
     }
 
     /// <inheritdoc />
-    public async Task StartDiscoveringAsync(DiscoveringOptions options, CancellationToken cancellationToken = default)
+    public async Task StartDiscoveringAsync(DiscoverOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
 

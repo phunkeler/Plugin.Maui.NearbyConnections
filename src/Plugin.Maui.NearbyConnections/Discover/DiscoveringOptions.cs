@@ -1,12 +1,12 @@
 using Plugin.Maui.NearbyConnections.Advertise;
-using AdvertisingOptions = Plugin.Maui.NearbyConnections.Advertise.AdvertisingOptions;
+using AdvertiseOptions = Plugin.Maui.NearbyConnections.Advertise.AdvertiseOptions;
 
 namespace Plugin.Maui.NearbyConnections.Discover;
 
 /// <summary>
 /// Options for configuring discovery behavior.
 /// </summary>
-public class DiscoveringOptions
+public class DiscoverOptions
 {
     /// <summary>
     /// Gets or sets the name of the service to discover.
@@ -17,7 +17,7 @@ public class DiscoveringOptions
     /// <a href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionsClient#public-abstract-taskvoid-startadvertising-string-name,-string-serviceid,-connectionlifecyclecallback-connectionlifecyclecallback,-advertisingoptions-options">
     ///     serviceId:
     /// </a>
-    /// The ID for the service to be discovered, as specified in the corresponding call to <see cref="IAdvertiser.StartAdvertisingAsync(AdvertisingOptions, CancellationToken)"/>
+    /// The ID for the service to be discovered, as specified in the corresponding call to <see cref="IAdvertiser.StartAdvertisingAsync(AdvertiseOptions, CancellationToken)"/>
     /// </para>
     /// <para>
     /// iOS:

@@ -5,9 +5,7 @@ using NearbyChat.Data;
 using NearbyChat.Models;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
-using Plugin.Maui.NearbyConnections.Events;
 using Plugin.Maui.NearbyConnections.Models;
-using Plugin.Maui.NearbyConnections.Session;
 
 namespace NearbyChat.ViewModels;
 
@@ -61,7 +59,7 @@ public partial class ChatPageViewModel : BaseViewModel
         _userRepository = userRepository;
 
         // Subscribe to nearby connections events
-        _nearbyConnections.PeerDiscovered += OnPeerDiscovered;
+        //_nearbyConnections.PeerDiscovered += OnPeerDiscovered;
         //_nearbyConnections.PeerConnectionChanged += OnPeerConnectionChanged;
         //_nearbyConnections.MessageReceived += OnMessageReceived;
 
@@ -94,37 +92,37 @@ public partial class ChatPageViewModel : BaseViewModel
     }
 
     [RelayCommand]
-    async Task<IAdvertisingSession> StartAdvertising(CancellationToken cancellationToken)
+    async Task StartAdvertising(CancellationToken cancellationToken)
     {
-        var advertiseOptions = new Plugin.Maui.NearbyConnections.Advertise.AdvertisingOptions
+        var advertiseOptions = new Plugin.Maui.NearbyConnections.Advertise.AdvertiseOptions
         {
             DisplayName = "MyDisplayName",
         };
 
-        return await _nearbyConnections.StartAdvertisingAsync(advertiseOptions, cancellationToken);
+        await _nearbyConnections.Advertise.StartAdvertisingAsync(advertiseOptions, cancellationToken);
     }
 
     [RelayCommand]
     async Task StopAdvertising(CancellationToken cancellationToken)
     {
-        await _nearbyConnections.StopAdvertisingAsync(cancellationToken);
+        await _nearbyConnections.Advertise.StopAdvertisingAsync(cancellationToken);
     }
 
     [RelayCommand]
     async Task StartDiscovery(CancellationToken cancellationToken)
     {
-        var discoveryOptions = new Plugin.Maui.NearbyConnections.Discover.DiscoveringOptions
+        var discoveryOptions = new Plugin.Maui.NearbyConnections.Discover.DiscoverOptions
         {
             ServiceName = "NearbyChat",
         };
 
-        await _nearbyConnections.StartDiscoveryAsync(discoveryOptions, cancellationToken);
+        await _nearbyConnections.Discover.StartDiscoveringAsync(discoveryOptions, cancellationToken);
     }
 
     [RelayCommand]
     async Task StopDiscovery(CancellationToken cancellationToken)
     {
-        await _nearbyConnections.StopDiscoveryAsync(cancellationToken);
+        await _nearbyConnections.Discover.StopDiscoveringAsync(cancellationToken);
     }
 
     [RelayCommand]
@@ -136,7 +134,7 @@ public partial class ChatPageViewModel : BaseViewModel
         try
         {
             // Send message to connected peers
-            await _nearbyConnections.SendMessageAsync(CurrentMessage);
+            await Task.CompletedTask;//_nearbyConnections.SendMessageAsync(CurrentMessage);
 
             // Add message to local chat
             var message = new ChatMessage();
@@ -160,7 +158,7 @@ public partial class ChatPageViewModel : BaseViewModel
     {
         try
         {
-            await _nearbyConnections.ConnectToPeerAsync(peer.Id);
+            await Task.CompletedTask;//_nearbyConnections.ConnectToPeerAsync(peer.Id);
         }
         catch (Exception)
         {
@@ -190,75 +188,14 @@ public partial class ChatPageViewModel : BaseViewModel
     }
 
     [RelayCommand]
-    async Task Appearing()
-        => await Refresh();
-
-    private void OnPeerDiscovered(object? sender, PeerDiscoveredEventArgs e)
+    async Task Appearing(CancellationToken cancellationToken)
     {
-        MainThread.BeginInvokeOnMainThread(() =>
-        {
-            var existingPeer = DiscoveredPeers.FirstOrDefault(p => p.Id == e.Peer.Id);
-            if (existingPeer is null)
-            {
-                DiscoveredPeers.Add(e.Peer);
-            }
-        });
+        await Refresh();
+
+        // EARLY TESTING -- Don't auto-start. Ask user to configure first
+        await StartAdvertising(cancellationToken);
+        await StartDiscovery(cancellationToken);
     }
-
-    private void OnPeerConnectionChanged(object? sender, PeerConnectionChangedEventArgs e)
-    {
-        MainThread.BeginInvokeOnMainThread(() =>
-        {
-            RefreshPeerLists();
-            UpdateConnectionStatus();
-
-            // Add system message about connection change
-            var message = new ChatMessage();
-            ChatMessages.Add(message);
-        });
-    }
-
-    private void OnMessageReceived(object? sender, PeerMessageReceivedEventArgs e)
-    {
-        MainThread.BeginInvokeOnMainThread(() =>
-        {
-            var message = new ChatMessage();
-            ChatMessages.Add(message);
-        });
-    }
-
-    private void RefreshPeerLists()
-    {
-        var discovered = _nearbyConnections.GetDiscoveredPeers();
-        var connected = _nearbyConnections.GetConnectedPeers();
-
-        DiscoveredPeers.Clear();
-        DiscoveredPeers.AddRange(discovered);
-
-        ConnectedPeers.Clear();
-        ConnectedPeers.AddRange(connected);
-    }
-
-    private void UpdateConnectionStatus()
-    {
-        var connectedCount = ConnectedPeers.Count;
-        IsConnected = connectedCount > 0;
-        ConnectionStatus = connectedCount switch
-        {
-            0 => "Not Connected",
-            1 => "Connected to 1 peer",
-            _ => $"Connected to {connectedCount} peers"
-        };
-    }
-
-    private static string GetConnectionStatusText(PeerConnectionState state) => state switch
-    {
-        PeerConnectionState.Connecting => "is connecting...",
-        PeerConnectionState.Connected => "connected",
-        PeerConnectionState.Disconnecting => "is disconnecting...",
-        PeerConnectionState.NotConnected => "disconnected",
-        _ => "unknown status"
-    };
 
     private async Task LoadData()
     {

@@ -12,7 +12,7 @@ public class AdvertisingTests
 
         // Arrange
         var advertiser = new Advertiser();
-        var options = new AdvertisingOptions
+        var options = new AdvertiseOptions
         {
             ServiceName = "testservice",
             AdvertisingInfo = new Dictionary<string, string>
@@ -61,7 +61,7 @@ public class DiscoveringTests
 
         // Arrange
         var discoverer = new Discoverer();
-        var options = new DiscoveringOptions
+        var options = new DiscoverOptions
         {
             ServiceName = "testservice"
         };

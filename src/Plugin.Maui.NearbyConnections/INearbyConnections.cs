@@ -1,3 +1,6 @@
+using Plugin.Maui.NearbyConnections.Advertise;
+using Plugin.Maui.NearbyConnections.Discover;
+
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
@@ -5,5 +8,13 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 public interface INearbyConnections
 {
+    /// <summary>
+    /// Gets the advertiser manager to handle advertising operations.
+    /// </summary>
+    IAdvertiserManager Advertise { get; }
 
+    /// <summary>
+    /// Gets the discoverer manager to handle discovery operations.
+    /// </summary>
+    IDiscovererManager Discover { get; }
 }

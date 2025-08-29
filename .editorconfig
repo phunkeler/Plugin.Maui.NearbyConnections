@@ -4,13 +4,12 @@
 root = true
 
 # Default settings:
-# A newline ending every file
-# Use 4 spaces as indentation
 [*]
 insert_final_newline = false
 indent_style = space
 indent_size = 4
 trim_trailing_whitespace = true
+end_of_line = lf
 
 # Generated code
 [*{_AssemblyInfo.cs,.notsupported.cs,AsmOffsets.cs}]
@@ -181,3 +180,8 @@ indent_size = 2
 end_of_line = lf
 [*.{cmd,bat}]
 end_of_line = crlf
+
+# Markdown files
+[*.md]
+indent_size = 2
+end_of_line = lf

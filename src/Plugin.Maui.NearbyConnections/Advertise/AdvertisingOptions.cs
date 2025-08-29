@@ -1,3 +1,5 @@
+using Android.App;
+
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
 /// <summary>
@@ -6,7 +8,7 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 /// <remarks>
 /// These options can be set at; `MauiProgram.cs` (_simple_) or per `StartAdvertisingAsync` call (_advanced_).
 /// </remarks>
-public class AdvertisingOptions
+public class AdvertiseOptions
 {
     /// <summary>
     /// Gets or sets the name displayed to nearby devices during discovery.
@@ -48,4 +50,8 @@ public class AdvertisingOptions
     /// </para>
     /// </remarks>
     public IDictionary<string, string> AdvertisingInfo { get; set; } = new Dictionary<string, string>();
+
+#if ANDROID
+    public required Activity Activity { get; init; }
+#endif
 }

@@ -16,7 +16,7 @@ public partial class Discoverer : Java.Lang.Object
     /// <returns>
     /// A task representing the asynchronous operation.
     /// </returns>
-    private async Task PlatformStartDiscovering(DiscoveringOptions options, CancellationToken cancellationToken)
+    private async Task PlatformStartDiscovering(DiscoverOptions options, CancellationToken cancellationToken)
     {
         Console.WriteLine($"[DISCOVERER] Starting discovery for service: {options.ServiceName}");
 
@@ -25,7 +25,7 @@ public partial class Discoverer : Java.Lang.Object
         await _connectionClient.StartDiscoveryAsync(
             options.ServiceName,
             new DiscoveryCallback(),
-            new DiscoveryOptions.Builder().SetStrategy(Strategy.P2pPointToPoint).Build());
+            new DiscoveryOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
 
         Console.WriteLine("[DISCOVERER] StartDiscoveryAsync() called successfully");
     }

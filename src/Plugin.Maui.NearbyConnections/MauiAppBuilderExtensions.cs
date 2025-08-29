@@ -2,7 +2,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Plugin.Maui.NearbyConnections.Advertise;
 using Plugin.Maui.NearbyConnections.Discover;
-using AdvertisingOptions = Plugin.Maui.NearbyConnections.Advertise.AdvertisingOptions;
+using Plugin.Maui.NearbyConnections.Events;
+using AdvertiseOptions = Plugin.Maui.NearbyConnections.Advertise.AdvertiseOptions;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -105,7 +106,7 @@ public class NearbyConnectionsBuilder
     /// </summary>
     /// <param name="configure">Configuration delegate for advertising options</param>
     /// <returns>The builder for chaining</returns>
-    public NearbyConnectionsBuilder ConfigureAdvertising(Action<AdvertisingOptions> configure)
+    public NearbyConnectionsBuilder ConfigureAdvertising(Action<AdvertiseOptions> configure)
     {
         _services.Configure(configure);
         return this;
@@ -116,7 +117,7 @@ public class NearbyConnectionsBuilder
     /// </summary>
     /// <param name="configure">Configuration delegate for discovery options</param>
     /// <returns>The builder for chaining</returns>
-    public NearbyConnectionsBuilder ConfigureDiscovery(Action<DiscoveringOptions> configure)
+    public NearbyConnectionsBuilder ConfigureDiscovery(Action<DiscoverOptions> configure)
     {
         _services.Configure(configure);
         return this;
@@ -129,6 +130,9 @@ public class NearbyConnectionsBuilder
     {
         _services.TryAddSingleton<IAdvertiserFactory, AdvertiserFactory>();
         _services.TryAddSingleton<IDiscovererFactory, DiscovererFactory>();
+        _services.TryAddSingleton<IAdvertiserManager, AdvertiserManager>();
+        _services.TryAddSingleton<IDiscovererManager, DiscovererManager>();
         _services.TryAddSingleton<INearbyConnections, NearbyConnectionsImplementation>();
+        _services.TryAddSingleton<INearbyConnectionsEventProducer, NearbyConnectionsEventProducer>();
     }
 }

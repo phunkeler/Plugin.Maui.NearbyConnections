@@ -22,7 +22,7 @@ public partial class Advertiser : IAdvertiser
     }
 
     /// <inheritdoc />
-    public async Task StartAdvertisingAsync(AdvertisingOptions options, CancellationToken cancellationToken = default)
+    public async Task StartAdvertisingAsync(AdvertiseOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
 
