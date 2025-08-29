@@ -28,7 +28,7 @@ public interface IAdvertiser : IDisposable
     /// A <see cref="CancellationToken"/> to cancel the operation.
     /// </param>
     /// <returns> A task representing the asynchronous operation.</returns>
-    Task<IAdvertisingSession> StartAdvertisingAsync(AdvertisingOptions options, CancellationToken cancellationToken = default);
+    Task StartAdvertisingAsync(AdvertisingOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops advertising for this session.

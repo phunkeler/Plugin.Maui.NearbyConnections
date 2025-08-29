@@ -1,5 +1,6 @@
 using Foundation;
 using MultipeerConnectivity;
+using Plugin.Maui.NearbyConnections.Events;
 
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
@@ -114,37 +115,21 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
         // Handle incoming connection invitations
         Console.WriteLine($"[ADVERTISER] 🎉 SUCCESS: Received invitation from peer: {peerID.DisplayName}");
 
-        if (context != null && context.Length > 0)
-        {
-            var contextString = NSString.FromData(context, NSStringEncoding.UTF8);
-            Console.WriteLine($"[ADVERTISER] Invitation context: {contextString}");
-        }
-        else
-        {
-            Console.WriteLine("[ADVERTISER] No context data in invitation");
-        }
+        // Transform
 
-        // You would typically:
-        // 1. Parse context data
-        // 2. Fire an event to let the app decide
-        // 3. Create MCSession if accepting
-        // 4. Call invitationHandler with decision
-
-        // Fire event and use response
-        var eventArgs = OnInvitationReceived(peerID.ToString(), peerID.DisplayName);
-
-        MCSession? session = null;
-        if (eventArgs.ShouldAccept)
+        // Publish
+        Task.Run(async () =>
         {
-            var myPeerId = _connectionManager.GetPeerId(_serviceName ?? "DefaultService");
-            if (myPeerId != null)
+            await _eventProducer.PublishAsync(new InvitationReceived
             {
-                session = new MCSession(myPeerId);
-            }
-        }
-
-        Console.WriteLine($"[ADVERTISER] {(eventArgs.ShouldAccept ? "Accepting" : "Rejecting")} invitation");
-        invitationHandler(eventArgs.ShouldAccept, session);
+                ConnectionEndpoint = peerID.DisplayName,
+                InvitingPeer = new Models.PeerDevice
+                {
+                    Id = peerID.DisplayName,
+                    DisplayName = peerID.DisplayName,
+                },
+            });
+        });
     }
 
     /// <summary>

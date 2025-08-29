@@ -30,7 +30,6 @@ public partial class Advertiser : Java.Lang.Object
         if (_connectionClient is not null)
         {
             _connectionClient.StopAdvertising();
-            _connectionClient.StopAllEndpoints(); // Disconnect from all connected peers
             _connectionClient.Dispose();
             _connectionClient = null;
             Console.WriteLine("[ADVERTISER] Advertising stopped and all endpoints disconnected");

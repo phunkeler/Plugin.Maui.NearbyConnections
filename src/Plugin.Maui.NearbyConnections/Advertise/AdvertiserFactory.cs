@@ -1,3 +1,5 @@
+using Plugin.Maui.NearbyConnections.Events;
+
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
 /// <summary>

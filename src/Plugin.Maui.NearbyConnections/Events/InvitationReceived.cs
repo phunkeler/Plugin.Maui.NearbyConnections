@@ -48,4 +48,9 @@ public class InvitationReceived : INearbyConnectionsEvent
     /// On iOS: MCPeerID.DisplayName
     /// </summary>
     public required string ConnectionEndpoint { get; init; }
+
+    /// <summary>
+    /// The timestamp when the event was created.
+    /// </summary>
+    public DateTimeOffset Created => throw new NotImplementedException();
 }

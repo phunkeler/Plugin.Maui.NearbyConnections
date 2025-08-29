@@ -1,8 +1,12 @@
+using Plugin.Maui.NearbyConnections.Events;
+
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
 /// <inheritdoc/>
 public partial class Advertiser : IAdvertiser
 {
+    readonly INearbyConnectionsEventProducer _eventProducer;
+
     bool _isAdvertising;
 
     /// <inheritdoc />
@@ -23,6 +27,17 @@ public partial class Advertiser : IAdvertiser
                 });
             }
         }
+    }
+
+    /// <summary>
+    /// The event producer for nearby connections events.
+    /// </summary>
+    /// <param name="eventProducer"></param>
+    public Advertiser(INearbyConnectionsEventProducer eventProducer)
+    {
+        ArgumentNullException.ThrowIfNull(eventProducer);
+
+        _eventProducer = eventProducer;
     }
 
     /// <inheritdoc />
