@@ -13,13 +13,13 @@ public partial class Advertiser : Java.Lang.Object
     {
         Console.WriteLine($"[ADVERTISER] Starting advertising with name: {options.DisplayName}, service: {options.ServiceName}");
 
-        _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity);
+        _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
 
         await _connectionClient.StartAdvertisingAsync(
             options.DisplayName,
             options.ServiceName,
             new AdvertiseCallback(_eventProducer),
-            new Android.Gms.Nearby.Connection.AdvertisingOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
+            new AdvertisingOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
 
         Console.WriteLine("[ADVERTISER] StartAdvertisingAsync() called successfully");
 
@@ -52,15 +52,15 @@ public partial class Advertiser : Java.Lang.Object
     {
         if (disposing)
         {
-            if (_advertiser is not null)
+            if (_connectionClient is not null)
             {
-                _advertiser.StopAdvertisingPeer();
-                _advertiser.Delegate = null!;
-                _advertiser.Dispose();
-                _advertiser = null;
+                _connectionClient.StopAdvertising();
+                _connectionClient.StopAllEndpoints();
+                _connectionClient.Dispose();
+                _connectionClient = null;
             }
 
-            _connectionManager?.Dispose();
+            _connectionClient?.Dispose();
         }
 
         base.Dispose(disposing);

@@ -6,6 +6,11 @@ namespace NearbyChat.Models;
 /// <summary>
 /// Represents a local user (the current device's user)
 /// </summary>
+/// <remarks>
+/// We're not using "ObservableProperty" source generation
+/// because it interfers with System.Text.Json source genereation.
+/// Favor JSON's source generator for now.
+/// </remarks>
 public partial class User : ObservableObject
 {
     // TEXT PRIMARY KEY
@@ -14,6 +19,15 @@ public partial class User : ObservableObject
     {
         get => _id;
         set => SetProperty(ref _id, value);
+    }
+
+    // INTEGER (0 or 1) NOT NULL
+    // CREATE TABLE foo(mycolumn INTEGER NOT NULL CHECK (mycolumn IN (0, 1)));
+    bool _isActive;
+    public bool IsActive
+    {
+        get => _isActive;
+        set => SetProperty(ref _isActive, value);
     }
 
     // TEXT NOT NULL

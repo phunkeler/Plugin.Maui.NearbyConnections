@@ -21,7 +21,6 @@ public class NearbyConnectionsEventProducer : INearbyConnectionsEventProducer
         {
             SingleReader = false,
             SingleWriter = true,
-
         });
     }
 

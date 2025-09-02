@@ -1,6 +1,5 @@
-using Plugin.Maui.NearbyConnections.Advertise;
 using Plugin.Maui.NearbyConnections.Discover;
-using AdvertiseOptions = Plugin.Maui.NearbyConnections.Advertise.AdvertiseOptions;
+using Plugin.Maui.NearbyConnections.Advertise;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -21,11 +20,6 @@ public class NearbyConnectionsOptions
     /// This can differ from <see cref="AdvertiseOptions.ServiceName" /> in more complex use cases.
     /// </remarks>
     public DiscoverOptions DiscovererOptions { get; init; } = new();
-
-    /// <summary>
-    /// Options for connection handling.
-    /// </summary>
-    //public ConnectionOptions ConnectionOptions { get; init; } = new();
 
 
     // Examples of different sets of options in a consumer app:
@@ -52,6 +46,9 @@ public class NearbyConnectionsOptions
 
     */
 
+    /// <summary>
+    /// When a nearby
+    /// </summary>
     public bool AutoAcceptConnections { get; init; } = true;
 }
 

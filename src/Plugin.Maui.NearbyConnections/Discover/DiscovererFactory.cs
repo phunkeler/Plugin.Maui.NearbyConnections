@@ -1,3 +1,5 @@
+using Plugin.Maui.NearbyConnections.Events;
+
 namespace Plugin.Maui.NearbyConnections.Discover;
 
 /// <summary>
@@ -19,6 +21,18 @@ public interface IDiscovererFactory
 /// </summary>
 public class DiscovererFactory : IDiscovererFactory
 {
+    readonly INearbyConnectionsEventProducer _eventProducer;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DiscovererFactory"/> class.
+    /// </summary>
+    public DiscovererFactory(INearbyConnectionsEventProducer eventProducer)
+    {
+        ArgumentNullException.ThrowIfNull(eventProducer);
+
+        _eventProducer = eventProducer;
+    }
+
     /// <inheritdoc/>
-    public IDiscoverer CreateDiscoverer() => new Discoverer();
+    public IDiscoverer CreateDiscoverer() => new Discoverer(_eventProducer);
 }

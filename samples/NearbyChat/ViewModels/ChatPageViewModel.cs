@@ -5,18 +5,21 @@ using NearbyChat.Data;
 using NearbyChat.Models;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
+using Plugin.Maui.NearbyConnections.Advertise;
 using Plugin.Maui.NearbyConnections.Models;
 
 namespace NearbyChat.ViewModels;
 
-public partial class ChatPageViewModel : BaseViewModel
+public partial class ChatPageViewModel : BaseViewModel, IDisposable
 {
-    private readonly List<User> _userList;
-
     readonly AvatarRepository _avatarRepository;
     readonly IChatMessageService _chatMessageService;
     readonly INearbyConnections _nearbyConnections;
-    readonly UserRepository _userRepository;
+    readonly IUserService _userService;
+
+    readonly List<User> _userList;
+
+    CancellationTokenSource? _eventConsumptionCts;
 
     [ObservableProperty]
     User? _currentUser;
@@ -46,17 +49,17 @@ public partial class ChatPageViewModel : BaseViewModel
         AvatarRepository avatarRepository,
         IChatMessageService chatMessageService,
         INearbyConnections nearbyConnections,
-        UserRepository userRepository)
+        IUserService userService)
     {
         ArgumentNullException.ThrowIfNull(avatarRepository);
         ArgumentNullException.ThrowIfNull(chatMessageService);
         ArgumentNullException.ThrowIfNull(nearbyConnections);
-        ArgumentNullException.ThrowIfNull(userRepository);
+        ArgumentNullException.ThrowIfNull(userService);
 
         _avatarRepository = avatarRepository;
         _chatMessageService = chatMessageService;
         _nearbyConnections = nearbyConnections;
-        _userRepository = userRepository;
+        _userService = userService;
 
         // Subscribe to nearby connections events
         //_nearbyConnections.PeerDiscovered += OnPeerDiscovered;
@@ -94,9 +97,8 @@ public partial class ChatPageViewModel : BaseViewModel
     [RelayCommand]
     async Task StartAdvertising(CancellationToken cancellationToken)
     {
-        var advertiseOptions = new Plugin.Maui.NearbyConnections.Advertise.AdvertiseOptions
+        var advertiseOptions = new AdvertiseOptions
         {
-            DisplayName = "MyDisplayName",
         };
 
         await _nearbyConnections.Advertise.StartAdvertisingAsync(advertiseOptions, cancellationToken);
@@ -111,9 +113,9 @@ public partial class ChatPageViewModel : BaseViewModel
     [RelayCommand]
     async Task StartDiscovery(CancellationToken cancellationToken)
     {
+        // Attach to Discovery events
         var discoveryOptions = new Plugin.Maui.NearbyConnections.Discover.DiscoverOptions
         {
-            ServiceName = "NearbyChat",
         };
 
         await _nearbyConnections.Discover.StartDiscoveringAsync(discoveryOptions, cancellationToken);
@@ -169,12 +171,12 @@ public partial class ChatPageViewModel : BaseViewModel
     }
 
     [RelayCommand]
-    async Task Refresh()
+    async Task Refresh(CancellationToken cancellationToken)
     {
         try
         {
             IsRefreshing = true;
-            await LoadData();
+            await LoadData(cancellationToken);
         }
         catch
         {
@@ -190,19 +192,79 @@ public partial class ChatPageViewModel : BaseViewModel
     [RelayCommand]
     async Task Appearing(CancellationToken cancellationToken)
     {
-        await Refresh();
+        await Refresh(cancellationToken);
+
+        StartEventConsumption();
 
         // EARLY TESTING -- Don't auto-start. Ask user to configure first
         await StartAdvertising(cancellationToken);
         await StartDiscovery(cancellationToken);
     }
 
-    private async Task LoadData()
+    [RelayCommand]
+    void Disappearing()
+    {
+        StopEventConsumption();
+    }
+
+    private void StartEventConsumption()
+    {
+        _eventConsumptionCts?.Cancel();
+        _eventConsumptionCts = new CancellationTokenSource();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (var eventData in _nearbyConnections.Events.ReadAllAsync(_eventConsumptionCts.Token))
+                {
+                    await MainThread.InvokeOnMainThreadAsync(() => HandleNearbyEvent(eventData));
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancellation is requested
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Event consumption error: {ex}");
+            }
+        }, _eventConsumptionCts.Token);
+    }
+
+    private void StopEventConsumption()
+    {
+        _eventConsumptionCts?.Cancel();
+        _eventConsumptionCts?.Dispose();
+        _eventConsumptionCts = null;
+    }
+
+    private void HandleNearbyEvent(object eventData)
+    {
+        // Handle different event types
+        switch (eventData)
+        {
+            case Plugin.Maui.NearbyConnections.Events.NearbyConnectionFound foundEvent:
+                var newPeer = new PeerDevice
+                {
+                    Id = foundEvent.EndpointId,
+                    DisplayName = foundEvent.EndpointName
+                };
+                if (!DiscoveredPeers.Any(p => p.Id == newPeer.Id))
+                {
+                    DiscoveredPeers.Add(newPeer);
+                }
+                break;
+                // Handle other event types as needed
+        }
+    }
+
+    private async Task LoadData(CancellationToken cancellationToken = default)
     {
         try
         {
             IsBusy = true;
-            CurrentUser = await _userRepository.GetCurrentUserAsync();
+            CurrentUser = await _userService.GetActiveUserAsync(cancellationToken);
             var messages = await GetMessagesAsync(DateTime.Now.AddHours(-2), DateTime.Now);
             ChatMessages = new ObservableRangeCollection<ChatMessage>(messages);
         }
@@ -421,5 +483,10 @@ public partial class ChatPageViewModel : BaseViewModel
         return Task.FromResult(messages);
     }
 
+    public void Dispose()
+    {
+        _eventConsumptionCts?.Dispose();
 
+        GC.SuppressFinalize(this);
+    }
 }

@@ -1,5 +1,7 @@
+using System.Threading.Channels;
 using Plugin.Maui.NearbyConnections.Advertise;
 using Plugin.Maui.NearbyConnections.Discover;
+using Plugin.Maui.NearbyConnections.Events;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -17,4 +19,9 @@ public interface INearbyConnections
     /// Gets the discoverer manager to handle discovery operations.
     /// </summary>
     IDiscovererManager Discover { get; }
+
+    /// <summary>
+    /// Gets the channel reader to consume nearby connections events.
+    /// </summary>
+    ChannelReader<INearbyConnectionsEvent> Events { get; }
 }

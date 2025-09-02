@@ -16,6 +16,10 @@
             BindingContext="{Binding Path=BindingContext, Source={x:Reference chat}, x:DataType=pages:BasePage}"
             EventName="Appearing"
             Command="{Binding AppearingCommand}"/>
+        <toolkit:EventToCommandBehavior
+            BindingContext="{Binding Path=BindingContext, Source={x:Reference chat}, x:DataType=pages:BasePage}"
+            EventName="Disappearing"
+            Command="{Binding DisappearingCommand}"/>
     </pages:BasePage.Behaviors>
 
     <Grid RowDefinitions="*,Auto">
@@ -24,7 +28,6 @@
         <idk:ChatView Grid.Row="0"
                       x:Name="chatView"
                       OwnMessageBackgroundColor="Blue"
-                      SendIcon="{DynamicResource SendIcon}"
                       OwnMessageTextColor="White"
                       OtherMessageBackgroundColor="Green"
                       OtherMessageTextColor="White"

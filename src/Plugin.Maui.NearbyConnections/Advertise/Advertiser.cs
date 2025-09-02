@@ -11,7 +11,7 @@ public partial class Advertiser : IAdvertiser
     public bool IsAdvertising { get; private set; }
 
     /// <summary>
-    /// The event producer for nearby connections events.
+    /// Initializes a new instance of <see cref="Advertiser"/> .
     /// </summary>
     /// <param name="eventProducer"></param>
     public Advertiser(INearbyConnectionsEventProducer eventProducer)

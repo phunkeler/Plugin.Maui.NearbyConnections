@@ -1,3 +1,5 @@
+using Plugin.Maui.NearbyConnections.Events;
+
 namespace Plugin.Maui.NearbyConnections.Discover;
 
 /// <summary>
@@ -5,26 +7,20 @@ namespace Plugin.Maui.NearbyConnections.Discover;
 /// </summary>
 public partial class Discoverer : IDiscoverer
 {
-    bool _isDiscovering;
+    readonly INearbyConnectionsEventProducer _eventProducer;
 
     /// <inheritdoc />
-    public event EventHandler<DiscoveringStateChangedEventArgs>? DiscoveringStateChanged;
+    public bool IsDiscovering { get; private set; }
 
-    /// <inheritdoc />
-    public bool IsDiscovering
+    /// <summary>
+    /// Initializes a new instance of <see cref="Discoverer"/> .
+    /// </summary>
+    /// <param name="eventProducer"></param>
+    public Discoverer(INearbyConnectionsEventProducer eventProducer)
     {
-        get => _isDiscovering;
-        private set
-        {
-            if (_isDiscovering != value)
-            {
-                _isDiscovering = value;
-                DiscoveringStateChanged?.Invoke(this, new DiscoveringStateChangedEventArgs
-                {
-                    IsDiscovering = value
-                });
-            }
-        }
+        ArgumentNullException.ThrowIfNull(eventProducer);
+
+        _eventProducer = eventProducer;
     }
 
     /// <inheritdoc />
@@ -32,20 +28,20 @@ public partial class Discoverer : IDiscoverer
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        if (_isDiscovering)
-            return;
-
-        await PlatformStartDiscovering(options, cancellationToken);
-        _isDiscovering = true;
+        if (!IsDiscovering)
+        {
+            await PlatformStartDiscovering(options, cancellationToken);
+            IsDiscovering = true;
+        }
     }
 
     /// <inheritdoc />
     public async Task StopDiscoveringAsync(CancellationToken cancellationToken = default)
     {
-        if (!_isDiscovering)
-            return;
-
-        await PlatformStopDiscovering(cancellationToken);
-        _isDiscovering = false;
+        if (IsDiscovering)
+        {
+            await PlatformStopDiscovering(cancellationToken);
+            IsDiscovering = false;
+        }
     }
 }

@@ -1,16 +1,20 @@
-# NearbyChat
+<div align="center">
+  <picture>
+    <img src="../../.assets/nuget.svg" width="180">
+  </picture>
 
-Demonstrates features of `Plugin.Maui.NearbyConnection` through a potential use case
+  <h1>
+    NearbyChat
+  </h1>
+  <p>
+    A showcase app demonstrating the peer-to-peer capabilities of <a href="../NearbyChat/README.md" target="_blank">Plugin.Maui.NearbyConnections</a> in a practical chat application scenario.
+  </p>
+</div>
 
-## Features
-
--   Create identity
-    -   Choose Avatar
-    -   Create Name
--   Select Chat Mode
-    -   Default (_Simultaneous advertise/discovery + Auto-Connect_)
-    -
+# Features
+- Create identity
+- Choose Experience
+- Control pre-connection setup (_Advertise & Discover_)
 
 # Acknowledgements
-
--   https://github.com/0xc3u/Indiko.Maui.Controls.Chat
+- [0xc3u](https://github.com/0xc3u): Thanks for the the awesome [ChatView](https://github.com/0xc3u/Indiko.Maui.Controls.Chat)

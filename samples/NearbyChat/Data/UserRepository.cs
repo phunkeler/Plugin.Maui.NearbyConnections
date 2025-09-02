@@ -19,7 +19,7 @@ public class UserRepository
         _avatarRepository = avatarRepository;
     }
 
-    public async Task<User?> GetCurrentUserAsync(CancellationToken cancellationToken = default)
+    public async Task<User?> GetActiveUserAsync(CancellationToken cancellationToken = default)
     {
         await Initialize(cancellationToken);
         await using var connection = new SqliteConnection(Constants.DatabasePath);
@@ -29,6 +29,7 @@ public class UserRepository
         command.CommandText = @$"
             SELECT
                 {nameof(User.Id)},
+                {nameof(User.IsActive)},
                 {nameof(User.DisplayName)},
                 {nameof(User.AvatarId)},
                 {nameof(User.CreatedOn)}
@@ -38,14 +39,16 @@ public class UserRepository
         try
         {
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
             if (await reader.ReadAsync(cancellationToken))
             {
                 var user = new User
                 {
                     Id = reader.GetString(0),
-                    DisplayName = reader.GetString(1),
-                    AvatarId = reader.GetInt32(2),
-                    CreatedOn = reader.GetString(3)
+                    IsActive = reader.GetBoolean(1),
+                    DisplayName = reader.GetString(2),
+                    AvatarId = reader.GetInt32(3),
+                    CreatedOn = reader.GetString(4)
                 };
 
                 // Load the associated avatar
@@ -73,18 +76,21 @@ public class UserRepository
         saveCommand.CommandText = @$"
             INSERT OR REPLACE INTO User (
                 {nameof(User.Id)},
+                {nameof(User.IsActive)},
                 {nameof(User.DisplayName)},
                 {nameof(User.AvatarId)},
                 {nameof(User.CreatedOn)}
             )
             VALUES (
                 @{nameof(User.Id)},
+                @{nameof(User.IsActive)},
                 @{nameof(User.DisplayName)},
                 @{nameof(User.AvatarId)},
                 @{nameof(User.CreatedOn)}
             );";
 
         saveCommand.Parameters.AddWithValue($"@{nameof(User.Id)}", user.Id);
+        saveCommand.Parameters.AddWithValue($"@{nameof(User.IsActive)}", user.IsActive);
         saveCommand.Parameters.AddWithValue($"@{nameof(User.DisplayName)}", user.DisplayName);
         saveCommand.Parameters.AddWithValue($"@{nameof(User.AvatarId)}", user.AvatarId);
         saveCommand.Parameters.AddWithValue($"@{nameof(User.CreatedOn)}", user.CreatedOn);
@@ -149,6 +155,7 @@ public class UserRepository
             createTableCommand.CommandText = @$"
                 CREATE TABLE IF NOT EXISTS {nameof(User)} (
                     {nameof(User.Id)} TEXT PRIMARY KEY,
+                    {nameof(User.IsActive)} BOOLEAN NOT NULL,
                     {nameof(User.DisplayName)} TEXT NOT NULL,
                     {nameof(User.AvatarId)} INTEGER,
                     {nameof(User.CreatedOn)} TEXT,

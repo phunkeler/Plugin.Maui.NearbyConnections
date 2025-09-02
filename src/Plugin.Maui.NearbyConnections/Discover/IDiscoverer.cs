@@ -1,17 +1,12 @@
 namespace Plugin.Maui.NearbyConnections.Discover;
 
 /// <summary>
-/// / discovery lifecycle state and operations.
+/// Discovery lifecycle state and operations.
 /// </summary>
 public interface IDiscoverer : IDisposable
 {
     /// <summary>
-    /// Fired when discovering state changes.
-    /// </summary>
-    event EventHandler<DiscoveringStateChangedEventArgs> DiscoveringStateChanged;
-
-    /// <summary>
-    /// Gets a value indicating whether discovering is currently active.
+    /// Gets a value indicating whether the device is actively discovering nearby advertisers.
     /// </summary>
     bool IsDiscovering { get; }
 

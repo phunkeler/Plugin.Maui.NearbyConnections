@@ -27,5 +27,20 @@ public class DiscoverOptions
     /// The type of service to search for. This should be a short text string that describes the app's networking protocol, in the same format as a Bonjour service type (without the transport protocol).
     /// </para>
     /// </remarks>
-    public string ServiceName { get; set; } = "Plugin.Maui.NearbyConnections";
+    public string ServiceName { get; set; } = AppInfo.Current.PackageName;
+
+#if ANDROID
+
+    Android.App.Activity? _activity;
+
+    /// <summary>
+    /// The <see cref="Android.App.Activity"/> used for automatically prompting resolvable connection error.
+    /// </summary>
+    public Android.App.Activity? Activity
+    {
+        get => _activity ?? Platform.CurrentActivity;
+        set => _activity = value;
+    }
+
+#endif
 }

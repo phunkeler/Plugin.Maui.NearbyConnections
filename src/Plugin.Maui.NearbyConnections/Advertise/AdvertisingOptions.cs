@@ -1,5 +1,3 @@
-using Android.App;
-
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
 /// <summary>
@@ -52,6 +50,16 @@ public class AdvertiseOptions
     public IDictionary<string, string> AdvertisingInfo { get; set; } = new Dictionary<string, string>();
 
 #if ANDROID
-    public required Activity Activity { get; init; }
+
+    Android.App.Activity? _activity;
+
+    /// <summary>
+    /// The <see cref="Android.App.Activity"/> used for automatically prompting resolvable connection error.
+    /// </summary>
+    public Android.App.Activity? Activity
+    {
+        get => _activity ?? Platform.CurrentActivity;
+        set => _activity = value;
+    }
 #endif
 }

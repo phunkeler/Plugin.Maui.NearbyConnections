@@ -38,12 +38,6 @@
   </p>
 </div>
 
-# Features
-
-1.Sensible defaults
-2.Configurable processes, from start-to-finish (pre-connection -> connection -> post-connection)
-2.Reusable processes (Change identity )
-
 # Supported Platforms
 
 | Platform | Minimum Version Supported |
@@ -52,13 +46,11 @@
 | Android  | Not set in project        |
 |          |                           |
 
-# 🔗 Dependencies
-
+# Dependencies
 -   [Microsoft.Maui.Controls]()
 -   [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/)
 
 # Getting Started
-
 `Plugin.Maui.NearbyConnections` is ~~available~~ on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
 
 ## **dotnet**
@@ -141,7 +133,7 @@ The following table shows how critical native callback/delegate methods map to p
 
 # DEBUGGING
 
--   adb exec-out run-as com.companyname.nearbychat cat "/data/data/com.companyname.nearbychat/files/NearbyChat.db3" > %userprofile%\Downloads\NearbyChat.db3
+-   adb -s R3CR609PX6W exec-out run-as com.companyname.nearbychat cat "/data/data/com.companyname.nearbychat/files/NearbyChat.db3" > %userprofile%\Downloads\NearbyChat.db3
 
 # Acknowledgements
 

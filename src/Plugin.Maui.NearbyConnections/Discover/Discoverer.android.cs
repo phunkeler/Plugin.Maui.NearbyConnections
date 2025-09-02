@@ -1,3 +1,5 @@
+using Plugin.Maui.NearbyConnections.Events;
+
 namespace Plugin.Maui.NearbyConnections.Discover;
 
 public partial class Discoverer : Java.Lang.Object
@@ -20,11 +22,11 @@ public partial class Discoverer : Java.Lang.Object
     {
         Console.WriteLine($"[DISCOVERER] Starting discovery for service: {options.ServiceName}");
 
-        _connectionClient ??= NearbyClass.GetConnectionsClient(Android.App.Application.Context);
+        _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
 
         await _connectionClient.StartDiscoveryAsync(
             options.ServiceName,
-            new DiscoveryCallback(),
+            new DiscoveryCallback(new WeakReference<INearbyConnectionsEventProducer>(_eventProducer)),
             new DiscoveryOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
 
         Console.WriteLine("[DISCOVERER] StartDiscoveryAsync() called successfully");
@@ -53,19 +55,23 @@ public partial class Discoverer : Java.Lang.Object
 
         return Task.CompletedTask;
     }
-}
 
-sealed internal class DiscoveryCallback : EndpointDiscoveryCallback
-{
-    public override void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
+    private sealed class DiscoveryCallback(WeakReference<INearbyConnectionsEventProducer> eventProducerRef) : EndpointDiscoveryCallback
     {
-        Console.WriteLine($"[DISCOVERER] Endpoint found: {endpointId}, Info: {info}");
-        // Handle endpoint discovery logic here
-    }
+        public override void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
+        {
+            Console.WriteLine($"[DISCOVERER] Endpoint found: {endpointId}, Info: {info}");
 
-    public override void OnEndpointLost(string endpointId)
-    {
-        Console.WriteLine($"[DISCOVERER] Endpoint lost: {endpointId}");
-        // Handle endpoint loss logic here
+            if (eventProducerRef.TryGetTarget(out var eventProducer))
+            {
+                eventProducer.PublishAsync(new NearbyConnectionFound(TimeProvider.System, endpointId, info.EndpointName));
+            }
+        }
+
+        public override void OnEndpointLost(string endpointId)
+        {
+            Console.WriteLine($"[DISCOVERER] Endpoint lost: {endpointId}");
+            // Handle endpoint loss logic here
+        }
     }
 }

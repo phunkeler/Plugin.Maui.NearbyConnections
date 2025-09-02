@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 public interface IAdvertiser : IDisposable
 {
     /// <summary>
-    /// REMOVE THIS. Consumers will react through a mediator
+    /// Gets a value indicating whether the device is currently advertising to nearby discoverers.
     /// </summary>
     bool IsAdvertising { get; }
 

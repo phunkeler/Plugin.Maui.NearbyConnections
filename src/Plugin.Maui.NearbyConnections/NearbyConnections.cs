@@ -5,7 +5,7 @@ using Plugin.Maui.NearbyConnections.Events;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// This class provides access to the Nearby Connections plugin functionality.
+/// Focus on DI now, then wory about static access later.
 /// </summary>
 public static class NearbyConnections
 {
