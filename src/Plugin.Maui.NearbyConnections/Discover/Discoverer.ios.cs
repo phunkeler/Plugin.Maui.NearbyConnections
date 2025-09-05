@@ -81,13 +81,18 @@ public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
         // Handle found peer
         Console.WriteLine($"[DISCOVERER] 🎉 SUCCESS: Found peer: {peerID.DisplayName}");
 
+        // I hope this works!
+        using var serializedPeerId = _connectionManager.ArchivePeerId(peerID);
+        var bytes = serializedPeerId.ToArray();
+        var id = Convert.ToBase64String(bytes);
+
         if (info != null && info.Count > 0)
         {
             Console.WriteLine($"[DISCOVERER] Peer info contains {info.Count} items:");
             foreach (var key in info.Keys)
             {
                 var value = info[key];
-                Console.WriteLine($"[DISCOVERER]   {key}: {value}");
+                Console.WriteLine($"[DISCOVERER] {key}: {value}");
             }
         }
         else

@@ -101,7 +101,7 @@ public class NSKeyedPeerIdArchiver : IPeerIdArchiver
 
         if (error is not null)
         {
-            throw new InvalidOperationException($"Failed to archive MCPeerID: {error.LocalizedDescription}");
+            throw new NSErrorException(error);
         }
 
         return data ?? throw new InvalidOperationException("Failed to archive MCPeerID: Result is null");
@@ -219,4 +219,12 @@ public class NearbyConnectionsManager : IDisposable
 
         return peerId;
     }
+
+    /// <summary>
+    /// Serialize an MCPEerID object.
+    /// </summary>
+    /// <param name="mCPeerID"></param>
+    /// <returns></returns>
+    public NSData ArchivePeerId(MCPeerID mCPeerID)
+        => _archiver.ArchivePeerId(mCPeerID);
 }

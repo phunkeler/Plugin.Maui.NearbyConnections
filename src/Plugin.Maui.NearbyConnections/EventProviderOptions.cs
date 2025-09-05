@@ -5,6 +5,7 @@ namespace Plugin.Maui.NearbyConnections;
 
 public class EventProviderOptions
 {
+    #region Channel options
     /// <summary>
     /// Gets or sets the maximum capacity of the internal event buffer.
     /// Default is -1, which is unbounded.
@@ -30,4 +31,6 @@ public class EventProviderOptions
     /// Whether to complete the channel on first error.
     /// </summary>
     public bool CompleteOnError { get; set; }
+
+    #endregion Channel options
 }
