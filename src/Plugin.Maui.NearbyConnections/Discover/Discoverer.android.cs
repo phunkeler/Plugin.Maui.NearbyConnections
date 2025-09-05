@@ -56,7 +56,7 @@ public partial class Discoverer : Java.Lang.Object
         return Task.CompletedTask;
     }
 
-    private sealed class DiscoveryCallback(WeakReference<INearbyConnectionsEventProducer> eventProducerRef) : EndpointDiscoveryCallback
+    sealed class DiscoveryCallback(WeakReference<INearbyConnectionsEventProducer> eventProducerRef) : EndpointDiscoveryCallback
     {
         public override void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
         {
@@ -71,7 +71,11 @@ public partial class Discoverer : Java.Lang.Object
         public override void OnEndpointLost(string endpointId)
         {
             Console.WriteLine($"[DISCOVERER] Endpoint lost: {endpointId}");
-            // Handle endpoint loss logic here
+
+            if (eventProducerRef.TryGetTarget(out var eventProducer))
+            {
+                eventProducer.PublishAsync(new NearbyConnectionLost(TimeProvider.System, endpointId));
+            }
         }
     }
 }

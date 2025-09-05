@@ -91,7 +91,6 @@ public partial class LoginPageViewModel : BaseViewModel
         await _userRepository.SaveUserAsync(new User
         {
             Id = Guid.NewGuid().ToString(),
-            IsActive = true,
             DisplayName = DisplayName!,
             AvatarId = SelectedAvatar!.Id,
             CreatedOn = DateTime.UtcNow.ToString("o")

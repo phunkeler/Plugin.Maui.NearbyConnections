@@ -40,7 +40,6 @@ public partial class Advertiser : IDisposable
         }
     }
 
-
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -48,5 +47,4 @@ public partial class Advertiser : IDisposable
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
-#pragma warning restore CA1822 // Mark members as static
 }

@@ -5,6 +5,9 @@ namespace Plugin.Maui.NearbyConnections.Events;
 /// <summary>
 /// The default implementation of "INearbyConnectionsEventProducer"/>.
 /// </summary>
+/// <remarks>
+/// TODO: Take this to the plugin options and allow consumers to configure channel behavior.
+/// </remarks>
 public class NearbyConnectionsEventProducer : INearbyConnectionsEventProducer
 {
     readonly Channel<INearbyConnectionsEvent> _channel;

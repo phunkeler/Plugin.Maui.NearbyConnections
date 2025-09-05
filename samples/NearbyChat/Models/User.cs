@@ -21,15 +21,6 @@ public partial class User : ObservableObject
         set => SetProperty(ref _id, value);
     }
 
-    // INTEGER (0 or 1) NOT NULL
-    // CREATE TABLE foo(mycolumn INTEGER NOT NULL CHECK (mycolumn IN (0, 1)));
-    bool _isActive;
-    public bool IsActive
-    {
-        get => _isActive;
-        set => SetProperty(ref _isActive, value);
-    }
-
     // TEXT NOT NULL
     string _displayName = string.Empty;
     public string DisplayName

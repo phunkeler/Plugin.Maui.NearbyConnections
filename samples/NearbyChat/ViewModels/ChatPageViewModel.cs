@@ -95,10 +95,23 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     }
 
     [RelayCommand]
+    private void OnMessageTapped(ChatMessage message)
+    {
+        Console.WriteLine($"Message tapped for message: {message.MessageId}");
+    }
+
+    [RelayCommand]
+    private void LongPressed(ContextAction contextAction)
+    {
+        Console.WriteLine($"Message long pressed Id: {contextAction.Message.MessageId}");
+    }
+
+    [RelayCommand]
     async Task StartAdvertising(CancellationToken cancellationToken)
     {
         var advertiseOptions = new AdvertiseOptions
         {
+            DisplayName = CurrentUser?.DisplayName ?? DeviceInfo.Current.Name,
         };
 
         await _nearbyConnections.Advertise.StartAdvertisingAsync(advertiseOptions, cancellationToken);
@@ -116,6 +129,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         // Attach to Discovery events
         var discoveryOptions = new Plugin.Maui.NearbyConnections.Discover.DiscoverOptions
         {
+            Activity = Platform.CurrentActivity
         };
 
         await _nearbyConnections.Discover.StartDiscoveringAsync(discoveryOptions, cancellationToken);
@@ -194,9 +208,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     {
         await Refresh(cancellationToken);
 
-        StartEventConsumption();
-
-        // EARLY TESTING -- Don't auto-start. Ask user to configure first
+        SubscribeToNearbyConnectionsEventChannel();
         await StartAdvertising(cancellationToken);
         await StartDiscovery(cancellationToken);
     }
@@ -207,7 +219,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         StopEventConsumption();
     }
 
-    private void StartEventConsumption()
+    private void SubscribeToNearbyConnectionsEventChannel()
     {
         _eventConsumptionCts?.Cancel();
         _eventConsumptionCts = new CancellationTokenSource();
@@ -254,8 +266,41 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
                 {
                     DiscoveredPeers.Add(newPeer);
                 }
+
+                var discoveryMsg = new ChatMessage()
+                {
+                    DeliveryState = MessageDeliveryState.Delivered,
+                    IsOwnMessage = false,
+                    MessageId = Guid.NewGuid().ToString("N"),
+                    MessageType = MessageType.System,
+                    Reactions = [],
+                    TextContent = $"Discovered {newPeer.DisplayName} nearby."
+                };
+
+                ChatMessages.Add(discoveryMsg);
                 break;
-                // Handle other event types as needed
+
+            case Plugin.Maui.NearbyConnections.Events.NearbyConnectionLost lostEvent:
+                var existingPeer = DiscoveredPeers.FirstOrDefault(p => p.Id == lostEvent.EndpointId);
+
+                if (existingPeer is not null)
+                {
+                    DiscoveredPeers.Remove(existingPeer);
+                }
+
+                var lostMsg = new ChatMessage()
+                {
+                    DeliveryState = MessageDeliveryState.Delivered,
+                    IsOwnMessage = false,
+                    MessageId = Guid.NewGuid().ToString("N"),
+                    MessageType = MessageType.System,
+                    Reactions = [],
+                    TextContent = $"Lost {existingPeer?.DisplayName ?? lostEvent.EndpointId}."
+                };
+
+                ChatMessages.Add(lostMsg);
+
+                break;
         }
     }
 

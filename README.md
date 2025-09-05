@@ -89,12 +89,11 @@ public static MauiApp CreateMauiApp()
 ## Options
 
 ### AdvertisingOptions
-
-These options can be set at; `MauiProgram.cs` (_simple_) or per `StartAdvertisingAsync` call (_advanced_).
+These options can be set once or per advertising session.
 
 -   DisplayName
 -   ServiceName
--   Limited amount of Arbitrary key/value pairs
+-   Limited amount of arbitrary key/value pairs (_iOS only_)
 
 ## Architecture
 

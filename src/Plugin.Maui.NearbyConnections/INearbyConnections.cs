@@ -23,5 +23,8 @@ public interface INearbyConnections
     /// <summary>
     /// Gets the channel reader to consume nearby connections events.
     /// </summary>
+    /// <remarks>
+    /// TODO: Need way to manage channel lifecycle. What happens when/if this completes.
+    /// </remarks>
     ChannelReader<INearbyConnectionsEvent> Events { get; }
 }
