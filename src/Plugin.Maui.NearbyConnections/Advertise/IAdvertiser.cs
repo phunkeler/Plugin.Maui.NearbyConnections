@@ -15,16 +15,11 @@ public interface IAdvertiser : IDisposable
     /// <param name="options">
     /// The <see cref="AdvertiseOptions"/> to configure advertising behavior.
     /// </param>
-    /// <param name="cancellationToken">
-    /// A <see cref="CancellationToken"/> to cancel the operation.
-    /// </param>
     /// <returns> A task representing the asynchronous operation.</returns>
-    Task StartAdvertisingAsync(AdvertiseOptions options, CancellationToken cancellationToken = default);
+    Task StartAdvertisingAsync(AdvertiseOptions options);
 
     /// <summary>
-    /// Stops advertising for this session.
+    /// Stops advertising this device to nearby discoverers.
     /// </summary>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    Task StopAdvertisingAsync(CancellationToken cancellationToken = default);
+    void StopAdvertising();
 }
