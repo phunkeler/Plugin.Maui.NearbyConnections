@@ -1,8 +1,8 @@
 namespace Plugin.Maui.NearbyConnections.Device;
 
-public sealed partial class NearbyDevice : INearbyDevice
+public sealed partial class NearbyDevice(string id, string displayName) : INearbyDevice
 {
-    public string Id { get; } = Guid.NewGuid().ToString();
+    public string Id { get; } = id;
 
-    public string DisplayName { get; } = "Unknown";
+    public string DisplayName { get; } = displayName;
 }

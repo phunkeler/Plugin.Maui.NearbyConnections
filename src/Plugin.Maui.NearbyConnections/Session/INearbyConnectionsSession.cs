@@ -31,7 +31,7 @@ public interface INearbyConnectionsSession : IDisposable
     /// Stop discovering nearby devices.
     /// </summary>
     /// <returns></returns>
-    Task StopDiscovery();
+    void StopDiscovery();
 
     /// <summary>
     /// A provider for pushed-based notifications.
@@ -97,7 +97,7 @@ public class NearbyConnectionsSession : INearbyConnectionsSession
     {
         discoverOptions ??= _options.DiscoverOptions;
 
-        await StopDiscovery();
+        StopDiscovery();
 
         _discoverer = _discovererFactory.CreateDiscoverer();
 
@@ -116,11 +116,11 @@ public class NearbyConnectionsSession : INearbyConnectionsSession
     }
 
     /// <inheritdoc/>
-    public async Task StopDiscovery()
+    public void StopDiscovery()
     {
-        if (_discoverer?.IsDiscovering ?? false)
+        if (_discoverer?.IsDiscovering == true)
         {
-            await _discoverer.StopDiscoveringAsync();
+            _discoverer.StopDiscovering();
             _discoverer.Dispose();
             _discoverer = null;
         }

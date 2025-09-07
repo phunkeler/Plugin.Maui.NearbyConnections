@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.Events;
 /// Maps to Android's IConnectionLifecycleCallback.OnConnectionInitiated and
 /// iOS's MCNearbyServiceAdvertiserDelegate.DidReceiveInvitationFromPeer.
 /// </summary>
-public class InvitationReceived(
+public class InvitationAnswered(
     string eventId,
     DateTimeOffset timestamp,
     INearbyDevice from) : INearbyConnectionsEvent

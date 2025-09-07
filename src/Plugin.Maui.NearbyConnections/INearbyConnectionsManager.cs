@@ -1,12 +1,12 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// The main interface for interacting with the Nearby Connections plugin.
+/// The primary interface for interacting with the Nearby Connections plugin.
 /// </summary>
 public interface INearbyConnectionsManager : IDisposable
 {
     /// <summary>
-    /// Createa a new
+    /// Createa a new <see cref="INearbyConnectionsSession"/>
     /// </summary>
     /// <param name="options"></param>
     /// <returns></returns>

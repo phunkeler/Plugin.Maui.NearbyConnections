@@ -22,23 +22,23 @@ public partial class Advertiser : IAdvertiser
     }
 
     /// <inheritdoc />
-    public async Task StartAdvertisingAsync(AdvertiseOptions options, CancellationToken cancellationToken = default)
+    public async Task StartAdvertisingAsync(AdvertiseOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
         if (!IsAdvertising)
         {
-            await PlatformStartAdvertising(options, cancellationToken);
+            await PlatformStartAdvertising(options);
             IsAdvertising = true;
         }
     }
 
     /// <inheritdoc />
-    public async Task StopAdvertisingAsync(CancellationToken cancellationToken = default)
+    public void StopAdvertising()
     {
         if (IsAdvertising)
         {
-            await PlatformStopAdvertising(cancellationToken);
+            PlatformStopAdvertising();
             IsAdvertising = false;
         }
     }

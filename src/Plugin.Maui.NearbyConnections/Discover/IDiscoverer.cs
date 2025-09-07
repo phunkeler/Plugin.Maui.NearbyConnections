@@ -1,7 +1,7 @@
 namespace Plugin.Maui.NearbyConnections.Discover;
 
 /// <summary>
-/// Discovery lifecycle state and operations.
+/// Provides operations for discovering nearby advertising devices.
 /// </summary>
 public interface IDiscoverer : IDisposable
 {
@@ -11,9 +11,9 @@ public interface IDiscoverer : IDisposable
     bool IsDiscovering { get; }
 
     /// <summary>
-    /// Starts discovering with the specified options.
+    /// Start discovering nearby advertising devices.
     /// </summary>
-    /// <param name="options">The discovering options.</param>
+    /// <param name="options">The options controlling discovery.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     Task StartDiscoveringAsync(DiscoverOptions options, CancellationToken cancellationToken = default);
@@ -21,7 +21,5 @@ public interface IDiscoverer : IDisposable
     /// <summary>
     /// Stops discovering.
     /// </summary>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    Task StopDiscoveringAsync(CancellationToken cancellationToken = default);
+    void StopDiscovering();
 }

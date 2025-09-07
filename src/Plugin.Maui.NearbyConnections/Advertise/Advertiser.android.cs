@@ -1,3 +1,4 @@
+using Plugin.Maui.NearbyConnections.Device;
 using Plugin.Maui.NearbyConnections.Events;
 
 namespace Plugin.Maui.NearbyConnections.Advertise;
@@ -18,7 +19,7 @@ public partial class Advertiser : Java.Lang.Object
         await _connectionClient.StartAdvertisingAsync(
             options.DisplayName,
             options.ServiceName,
-            new AdvertiseCallback(_eventProducer),
+            new AdvertiseCallback(x => { }, y => { }),
             new AdvertisingOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
 
         Console.WriteLine("[ADVERTISER] StartAdvertisingAsync() called successfully");
@@ -34,6 +35,7 @@ public partial class Advertiser : Java.Lang.Object
             _connectionClient.StopAdvertising();
             _connectionClient.Dispose();
             _connectionClient = null;
+
             Console.WriteLine("[ADVERTISER] Advertising stopped and all endpoints disconnected");
         }
         else
@@ -69,44 +71,51 @@ public partial class Advertiser : Java.Lang.Object
 
 internal sealed class AdvertiseCallback : ConnectionLifecycleCallback
 {
-    readonly INearbyConnectionsEventProducer _eventProducer;
+    readonly Action<InvitationAnswered> _invitationAnswered;
+    readonly Action<InvitationReceived> _invitationReceived;
 
-    public AdvertiseCallback(INearbyConnectionsEventProducer eventProducer)
+    public AdvertiseCallback(
+        Action<InvitationAnswered> invitationAnswered,
+        Action<InvitationReceived> invitationReceived)
     {
-        _eventProducer = eventProducer;
+        _invitationAnswered = invitationAnswered;
+        _invitationReceived = invitationReceived;
     }
 
     public override void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
         Console.WriteLine($"[ADVERTISER] Connection initiated with endpoint: {endpointId}");
 
-        _eventProducer.PublishAsync(new InvitationReceived
-        {
-            ConnectionEndpoint = endpointId,
-            InvitingPeer = new Models.PeerDevice
-            {
-                Id = "",
-                DisplayName = connectionInfo.EndpointName,
-            },
-        });
+        var invitationReceived = new InvitationReceived
+        (
+            Guid.NewGuid().ToString(),
+            DateTimeOffset.UtcNow,
+            new NearbyDevice(endpointId, connectionInfo.EndpointName)
+        );
+
+        _invitationReceived(invitationReceived);
     }
 
-    // NOT USING YET
     public override void OnConnectionResult(string endpointId, ConnectionResolution resolution)
     {
         Console.WriteLine($"[ADVERTISER] Connection result for endpoint: {endpointId}, resolution: {resolution}");
 
-        /* TODO
-                _eventProducer.PublishAsync([?]
-                {
-                    ConnectionEndpoint = "",
-                    InvitingPeer = new Models.PeerDevice
-                    {
-                        Id = "",
-                        DisplayName = "",
-                    },
-                });
-        */
+        if (!resolution.Status.IsSuccess)
+        {
+            return;
+        }
+
+        // Get INearbyDevice from "Pending" registry
+        var device = new NearbyDevice(endpointId, "");
+
+        var invitationAnswered = new InvitationAnswered
+        (
+            Guid.NewGuid().ToString(),
+            DateTimeOffset.UtcNow,
+            device
+        );
+
+        _invitationAnswered(invitationAnswered);
     }
 
     public override void OnDisconnected(string endpointId)

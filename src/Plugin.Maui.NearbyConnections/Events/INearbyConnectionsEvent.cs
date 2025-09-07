@@ -6,13 +6,12 @@ namespace Plugin.Maui.NearbyConnections.Events;
 public interface INearbyConnectionsEvent
 {
     /// <summary>
-    /// A unique identifier for the event.
-    /// Should we use "InstallationId" here?
+    /// Unique identifier for this event instance.
     /// </summary>
     string EventId { get; }
 
     /// <summary>
-    /// The timestamp when the event was created.
+    /// When this event occurred.
     /// </summary>
-    DateTimeOffset Created { get; }
+    DateTimeOffset Timestamp { get; }
 }

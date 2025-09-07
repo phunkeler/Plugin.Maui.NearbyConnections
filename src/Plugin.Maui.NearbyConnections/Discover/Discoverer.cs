@@ -36,11 +36,11 @@ public partial class Discoverer : IDiscoverer
     }
 
     /// <inheritdoc />
-    public async Task StopDiscoveringAsync(CancellationToken cancellationToken = default)
+    public void StopDiscovering()
     {
         if (IsDiscovering)
         {
-            await PlatformStopDiscovering(cancellationToken);
+            PlatformStopDiscovering();
             IsDiscovering = false;
         }
     }

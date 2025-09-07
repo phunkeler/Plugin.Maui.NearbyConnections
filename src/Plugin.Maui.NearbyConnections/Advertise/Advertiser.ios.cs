@@ -9,7 +9,7 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 /// </summary>
 public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 {
-    readonly NearbyConnectionsManager _connectionManager = new();
+    readonly MyPeerIdManager _myMCPeerIDManager = new();
 
     MCNearbyServiceAdvertiser? _advertiser;
     string? _serviceName;
@@ -28,7 +28,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
         _serviceName = options.ServiceName;
 
         // Get or create peer ID
-        var myPeerId = _connectionManager.GetPeerId(options.ServiceName);
+        var myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName);
 
         if (myPeerId is null)
         {
@@ -145,7 +145,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
                 _advertiser = null;
             }
 
-            _connectionManager?.Dispose();
+            _myMCPeerIDManager?.Dispose();
         }
 
         base.Dispose(disposing);

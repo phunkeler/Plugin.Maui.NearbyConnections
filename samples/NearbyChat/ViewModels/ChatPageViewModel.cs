@@ -256,7 +256,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         // Handle different event types
         switch (eventData)
         {
-            case Plugin.Maui.NearbyConnections.Events.NearbyConnectionFound foundEvent:
+            case Plugin.Maui.NearbyConnections.Events.NearbyDeviceFound foundEvent:
                 var newPeer = new PeerDevice
                 {
                     Id = foundEvent.EndpointId,
@@ -280,7 +280,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
                 ChatMessages.Add(discoveryMsg);
                 break;
 
-            case Plugin.Maui.NearbyConnections.Events.NearbyConnectionLost lostEvent:
+            case Plugin.Maui.NearbyConnections.Events.NearbyDeviceLost lostEvent:
                 var existingPeer = DiscoveredPeers.FirstOrDefault(p => p.Id == lostEvent.EndpointId);
 
                 if (existingPeer is not null)

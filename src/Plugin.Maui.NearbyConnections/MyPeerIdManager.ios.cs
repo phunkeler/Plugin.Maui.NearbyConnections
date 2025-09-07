@@ -53,20 +53,23 @@ public interface IPeerIdArchiver
 /// </summary>
 public class NSUserDefaultsPeerIdStorage : IPeerIdStorage
 {
+    const string MY_MCPEERID_DISPLAYNAME_KEY = nameof(MY_MCPEERID_DISPLAYNAME_KEY);
+    const string MY_MCPEERID_KEY = nameof(MY_MCPEERID_KEY);
+
     /// <inheritdoc/>
     public string? GetStoredDisplayName()
-        => NSUserDefaults.StandardUserDefaults.StringForKey("PeerDisplayNameKey");
+        => NSUserDefaults.StandardUserDefaults.StringForKey(MY_MCPEERID_DISPLAYNAME_KEY);
 
     /// <inheritdoc/>
     public NSData? GetStoredPeerIdData()
-        => NSUserDefaults.StandardUserDefaults.DataForKey("PeerIdKey");
+        => NSUserDefaults.StandardUserDefaults.DataForKey(MY_MCPEERID_KEY);
 
     /// <inheritdoc/>
     public void StorePeerIdData(string displayName, NSData peerIdData)
     {
         var defaults = NSUserDefaults.StandardUserDefaults;
-        defaults.SetString(displayName, "PeerDisplayNameKey");
-        defaults.SetValueForKey(peerIdData, new NSString("PeerIdKey"));
+        defaults.SetString(displayName, MY_MCPEERID_DISPLAYNAME_KEY);
+        defaults.SetValueForKey(peerIdData, new NSString(MY_MCPEERID_KEY));
         defaults.Synchronize();
     }
 }
@@ -109,9 +112,9 @@ public class NSKeyedPeerIdArchiver : IPeerIdArchiver
 }
 
 /// <summary>
-///     Helper class for archiving and unarchiving objects.
+/// Helper class for archiving and unarchiving objects.
 /// </summary>
-public class NearbyConnectionsManager : IDisposable
+public class MyPeerIdManager : IDisposable
 {
     private readonly IPeerIdStorage _storage;
     private readonly IPeerIdArchiver _archiver;
@@ -120,14 +123,14 @@ public class NearbyConnectionsManager : IDisposable
     /// <summary>
     /// Initializes a new instance with default dependencies.
     /// </summary>
-    public NearbyConnectionsManager() : this(new NSUserDefaultsPeerIdStorage(), new NSKeyedPeerIdArchiver())
+    public MyPeerIdManager() : this(new NSUserDefaultsPeerIdStorage(), new NSKeyedPeerIdArchiver())
     {
     }
 
     /// <summary>
     /// Initializes a new instance with custom dependencies for testing.
     /// </summary>
-    public NearbyConnectionsManager(IPeerIdStorage storage, IPeerIdArchiver archiver)
+    public MyPeerIdManager(IPeerIdStorage storage, IPeerIdArchiver archiver)
     {
         _storage = storage ?? throw new ArgumentNullException(nameof(storage));
         _archiver = archiver ?? throw new ArgumentNullException(nameof(archiver));

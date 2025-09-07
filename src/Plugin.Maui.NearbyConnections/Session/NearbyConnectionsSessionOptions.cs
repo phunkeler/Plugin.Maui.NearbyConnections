@@ -17,9 +17,4 @@ public class NearbyConnectionsSessionOptions
     /// The options that control discovery.
     /// </summary>
     public DiscoverOptions DiscoverOptions { get; } = new();
-
-    /// <summary>
-    /// The options that control a session's internal event pipeline.
-    /// </summary>
-    public EventProviderOptions EventProviderOptions { get; } = new();
 }

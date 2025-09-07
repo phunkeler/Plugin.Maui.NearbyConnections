@@ -13,6 +13,7 @@ public interface INearbyDevice
 {
     /// <summary>
     /// Gets a unique identifier for the device, valid within the current session.
+    /// This is a hash of the "endpointId" (Android) or the serialized MCPeerID (iOS).
     /// </summary>
     string Id { get; }
 

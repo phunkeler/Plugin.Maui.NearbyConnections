@@ -31,7 +31,7 @@ public partial class Discoverer : IDisposable
     /// <returns>
     /// A task representing the asynchronous operation.
     /// </returns>
-    public Task PlatformStopDiscovering(CancellationToken cancellationToken = default)
+    public void PlatformStopDiscovering()
         => throw new NotImplementedException("Platform-specific discovering stop logic must be implemented.");
 
     /// <inheritdoc/>

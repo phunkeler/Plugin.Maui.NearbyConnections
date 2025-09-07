@@ -35,25 +35,13 @@ public partial class Discoverer : Java.Lang.Object
     /// <summary>
     /// Stops discovering nearby devices.
     /// </summary>
-    /// <param name="cancellationToken">
-    /// A cancellation token to cancel the operation.
-    /// </param>
     /// <returns>
     /// A task representing the asynchronous operation.
     /// </returns>
-    private Task PlatformStopDiscovering(CancellationToken cancellationToken)
+    private void PlatformStopDiscovering()
     {
         Console.WriteLine("[DISCOVERER] Stopping discovery...");
-
-        if (_connectionClient is null)
-        {
-            Console.WriteLine("[DISCOVERER] ERROR: Connection client is not initialized");
-            return Task.CompletedTask;
-        }
-
-        _connectionClient.StopDiscovery();
-
-        return Task.CompletedTask;
+        _connectionClient?.StopDiscovery();
     }
 
     sealed class DiscoveryCallback(WeakReference<INearbyConnectionsEventProducer> eventProducerRef) : EndpointDiscoveryCallback

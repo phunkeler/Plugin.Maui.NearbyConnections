@@ -8,7 +8,7 @@ namespace Plugin.Maui.NearbyConnections.Discover;
 /// </summary>
 public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
 {
-    readonly NearbyConnectionsManager _connectionManager = new();
+    readonly MyPeerIdManager _myMCPeerIDManager = new();
 
     MCNearbyServiceBrowser? _browser;
     MCPeerID? _myPeerId;
@@ -30,7 +30,7 @@ public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
         Console.WriteLine($"[DISCOVERER] Starting discovery for service: {options.ServiceName}");
 
         // Get or create peer ID
-        _myPeerId = _connectionManager.GetPeerId(options.ServiceName);
+        _myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName);
 
         if (_myPeerId is null)
         {
@@ -56,13 +56,10 @@ public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
     /// <summary>
     /// Stops discovering nearby devices.
     /// </summary>
-    /// <param name="cancellationToken">
-    /// A cancellation token to cancel the operation.
-    /// </param>
     /// <returns>
     /// A task representing the asynchronous operation.
     /// </returns>
-    public Task PlatformStopDiscovering(CancellationToken cancellationToken = default)
+    public void PlatformStopDiscovering()
     {
         if (_browser is not null)
         {
@@ -71,8 +68,6 @@ public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
             _browser.Dispose();
             _browser = null;
         }
-
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
@@ -82,7 +77,7 @@ public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
         Console.WriteLine($"[DISCOVERER] 🎉 SUCCESS: Found peer: {peerID.DisplayName}");
 
         // I hope this works!
-        using var serializedPeerId = _connectionManager.ArchivePeerId(peerID);
+        using var serializedPeerId = _myMCPeerIDManager.ArchivePeerId(peerID);
         var bytes = serializedPeerId.ToArray();
         var id = Convert.ToBase64String(bytes);
 
@@ -137,7 +132,7 @@ public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
                 _browser = null;
             }
 
-            _connectionManager?.Dispose();
+            _myMCPeerIDManager?.Dispose();
         }
 
         base.Dispose(disposing);
