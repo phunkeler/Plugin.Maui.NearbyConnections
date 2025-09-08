@@ -1,3 +1,4 @@
+using Plugin.Maui.NearbyConnections.Device;
 using Plugin.Maui.NearbyConnections.Events;
 
 namespace Plugin.Maui.NearbyConnections.Discover;
@@ -6,19 +7,7 @@ public partial class Discoverer : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
-    /// <summary>
-    /// Starts discovering nearby devices.
-    /// </summary>
-    /// <param name="options">
-    /// Options that modify discovery behavior.
-    /// </param>
-    /// <param name="cancellationToken">
-    /// A cancellation token to cancel the operation.
-    /// </param>
-    /// <returns>
-    /// A task representing the asynchronous operation.
-    /// </returns>
-    private async Task PlatformStartDiscovering(DiscoverOptions options, CancellationToken cancellationToken)
+    async Task PlatformStartDiscovering(DiscoverOptions options)
     {
         Console.WriteLine($"[DISCOVERER] Starting discovery for service: {options.ServiceName}");
 
@@ -26,10 +15,20 @@ public partial class Discoverer : Java.Lang.Object
 
         await _connectionClient.StartDiscoveryAsync(
             options.ServiceName,
-            new DiscoveryCallback(new WeakReference<INearbyConnectionsEventProducer>(_eventProducer)),
+            new DiscoveryCallback(OnNearbyDeviceFound, OnNearbyDeviceLost),
             new DiscoveryOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
 
         Console.WriteLine("[DISCOVERER] StartDiscoveryAsync() called successfully");
+    }
+
+    void OnNearbyDeviceFound(NearbyDeviceFound nearbyDeviceFound)
+    {
+        _eventPublisher.Publish(nearbyDeviceFound);
+    }
+
+    void OnNearbyDeviceLost(NearbyDeviceLost nearbyDeviceLost)
+    {
+        _eventPublisher.Publish(nearbyDeviceLost);
     }
 
     /// <summary>
@@ -38,32 +37,41 @@ public partial class Discoverer : Java.Lang.Object
     /// <returns>
     /// A task representing the asynchronous operation.
     /// </returns>
-    private void PlatformStopDiscovering()
+    void PlatformStopDiscovering()
     {
         Console.WriteLine("[DISCOVERER] Stopping discovery...");
         _connectionClient?.StopDiscovery();
     }
 
-    sealed class DiscoveryCallback(WeakReference<INearbyConnectionsEventProducer> eventProducerRef) : EndpointDiscoveryCallback
+    sealed class DiscoveryCallback(Action<NearbyDeviceFound> nearbyDeviceFound,
+        Action<NearbyDeviceLost> nearbyDeviceLost) : EndpointDiscoveryCallback
     {
+        readonly Action<NearbyDeviceFound> _nearbyDeviceFound = nearbyDeviceFound;
+        readonly Action<NearbyDeviceLost> _nearbyDeviceLost = nearbyDeviceLost;
+
         public override void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
         {
             Console.WriteLine($"[DISCOVERER] Endpoint found: {endpointId}, Info: {info}");
 
-            if (eventProducerRef.TryGetTarget(out var eventProducer))
-            {
-                eventProducer.PublishAsync(new NearbyConnectionFound(TimeProvider.System, endpointId, info.EndpointName));
-            }
+            var evt = new NearbyDeviceFound(
+                Guid.NewGuid().ToString(),
+                DateTimeOffset.UtcNow,
+                new NearbyDevice(endpointId, info.EndpointName));
+
+            _nearbyDeviceFound(evt);
         }
 
         public override void OnEndpointLost(string endpointId)
         {
             Console.WriteLine($"[DISCOVERER] Endpoint lost: {endpointId}");
 
-            if (eventProducerRef.TryGetTarget(out var eventProducer))
-            {
-                eventProducer.PublishAsync(new NearbyConnectionLost(TimeProvider.System, endpointId));
-            }
+            // TODO: Get NearbyDevice from discovered list
+            var evt = new NearbyDeviceLost(
+                Guid.NewGuid().ToString(),
+                DateTimeOffset.UtcNow,
+                new NearbyDevice(endpointId, ""));
+
+            _nearbyDeviceLost(evt);
         }
     }
 }

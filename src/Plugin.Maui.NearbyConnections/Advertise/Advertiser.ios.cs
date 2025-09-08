@@ -77,9 +77,8 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     /// <summary>
     /// Stops advertising with the specified options.
     /// </summary>
-    /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public async Task PlatformStopAdvertising(CancellationToken cancellationToken)
+    public void PlatformStopAdvertising()
     {
         if (_advertiser is not null)
         {
@@ -89,7 +88,6 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
             _advertiser = null;
         }
         _serviceName = null;
-        await Task.CompletedTask;
     }
 
     /// <inheritdoc/>
@@ -118,7 +116,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
         // Transform
 
         // Publish
-        _eventProducer.PublishAsync(new InvitationReceived
+        _eventPublisher.Publish(new InvitationReceived
         {
             ConnectionEndpoint = peerID.DisplayName,
             InvitingPeer = new Models.PeerDevice

@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 /// <inheritdoc/>
 public partial class Advertiser : IAdvertiser
 {
-    readonly INearbyConnectionsEventProducer _eventProducer;
+    readonly INearbyConnectionsEventPublisher _eventPublisher;
 
     /// <inheritdoc />
     public bool IsAdvertising { get; private set; }
@@ -13,12 +13,12 @@ public partial class Advertiser : IAdvertiser
     /// <summary>
     /// Initializes a new instance of <see cref="Advertiser"/> .
     /// </summary>
-    /// <param name="eventProducer"></param>
-    public Advertiser(INearbyConnectionsEventProducer eventProducer)
+    /// <param name="eventPublisher"></param>
+    public Advertiser(INearbyConnectionsEventPublisher eventPublisher)
     {
-        ArgumentNullException.ThrowIfNull(eventProducer);
+        ArgumentNullException.ThrowIfNull(eventPublisher);
 
-        _eventProducer = eventProducer;
+        _eventPublisher = eventPublisher;
     }
 
     /// <inheritdoc />

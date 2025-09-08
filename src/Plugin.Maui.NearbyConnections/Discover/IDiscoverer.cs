@@ -14,9 +14,8 @@ public interface IDiscoverer : IDisposable
     /// Start discovering nearby advertising devices.
     /// </summary>
     /// <param name="options">The options controlling discovery.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    Task StartDiscoveringAsync(DiscoverOptions options, CancellationToken cancellationToken = default);
+    Task StartDiscoveringAsync(DiscoverOptions options);
 
     /// <summary>
     /// Stops discovering.

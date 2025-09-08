@@ -26,7 +26,7 @@ public partial class Advertiser : Java.Lang.Object
 
     }
 
-    public Task PlatformStopAdvertising(CancellationToken cancellationToken = default)
+    public Task PlatformStopAdvertising()
     {
         Console.WriteLine("[ADVERTISER] Stopping advertising...");
 

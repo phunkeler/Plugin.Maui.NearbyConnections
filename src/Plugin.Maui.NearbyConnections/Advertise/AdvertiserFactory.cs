@@ -21,18 +21,18 @@ public interface IAdvertiserFactory
 /// </summary>
 public class AdvertiserFactory : IAdvertiserFactory
 {
-    readonly INearbyConnectionsEventProducer _eventProducer;
+    readonly INearbyConnectionsEventPublisher _eventPublisher;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AdvertiserFactory"/> class.
     /// </summary>
-    public AdvertiserFactory(INearbyConnectionsEventProducer eventProducer)
+    public AdvertiserFactory(INearbyConnectionsEventPublisher eventPublisher)
     {
-        ArgumentNullException.ThrowIfNull(eventProducer);
+        ArgumentNullException.ThrowIfNull(eventPublisher);
 
-        _eventProducer = eventProducer;
+        _eventPublisher = eventPublisher;
     }
 
     /// <inheritdoc/>
-    public IAdvertiser CreateAdvertiser() => new Advertiser(_eventProducer);
+    public IAdvertiser CreateAdvertiser() => new Advertiser(_eventPublisher);
 }

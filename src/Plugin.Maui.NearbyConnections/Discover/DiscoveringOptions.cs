@@ -17,7 +17,7 @@ public class DiscoverOptions
     /// <a href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionsClient#public-abstract-taskvoid-startadvertising-string-name,-string-serviceid,-connectionlifecyclecallback-connectionlifecyclecallback,-advertisingoptions-options">
     ///     serviceId:
     /// </a>
-    /// The ID for the service to be discovered, as specified in the corresponding call to <see cref="IAdvertiser.StartAdvertisingAsync(AdvertiseOptions, CancellationToken)"/>
+    /// The ID for the service to be discovered, as specified in the corresponding call to <see cref="IAdvertiser.StartAdvertisingAsync(AdvertiseOptions)"/>
     /// </para>
     /// <para>
     /// iOS:

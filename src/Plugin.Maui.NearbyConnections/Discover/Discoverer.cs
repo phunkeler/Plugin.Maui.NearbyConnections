@@ -7,7 +7,7 @@ namespace Plugin.Maui.NearbyConnections.Discover;
 /// </summary>
 public partial class Discoverer : IDiscoverer
 {
-    readonly INearbyConnectionsEventProducer _eventProducer;
+    readonly INearbyConnectionsEventPublisher _eventPublisher;
 
     /// <inheritdoc />
     public bool IsDiscovering { get; private set; }
@@ -15,22 +15,22 @@ public partial class Discoverer : IDiscoverer
     /// <summary>
     /// Initializes a new instance of <see cref="Discoverer"/> .
     /// </summary>
-    /// <param name="eventProducer"></param>
-    public Discoverer(INearbyConnectionsEventProducer eventProducer)
+    /// <param name="eventPublisher"></param>
+    public Discoverer(INearbyConnectionsEventPublisher eventPublisher)
     {
-        ArgumentNullException.ThrowIfNull(eventProducer);
+        ArgumentNullException.ThrowIfNull(eventPublisher);
 
-        _eventProducer = eventProducer;
+        _eventPublisher = eventPublisher;
     }
 
     /// <inheritdoc />
-    public async Task StartDiscoveringAsync(DiscoverOptions options, CancellationToken cancellationToken = default)
+    public async Task StartDiscoveringAsync(DiscoverOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
         if (!IsDiscovering)
         {
-            await PlatformStartDiscovering(options, cancellationToken);
+            await PlatformStartDiscovering(options);
             IsDiscovering = true;
         }
     }

@@ -21,18 +21,18 @@ public interface IDiscovererFactory
 /// </summary>
 public class DiscovererFactory : IDiscovererFactory
 {
-    readonly INearbyConnectionsEventProducer _eventProducer;
+    readonly INearbyConnectionsEventPublisher _eventPublisher;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscovererFactory"/> class.
     /// </summary>
-    public DiscovererFactory(INearbyConnectionsEventProducer eventProducer)
+    public DiscovererFactory(INearbyConnectionsEventPublisher eventPublisher)
     {
-        ArgumentNullException.ThrowIfNull(eventProducer);
+        ArgumentNullException.ThrowIfNull(eventPublisher);
 
-        _eventProducer = eventProducer;
+        _eventPublisher = eventPublisher;
     }
 
     /// <inheritdoc/>
-    public IDiscoverer CreateDiscoverer() => new Discoverer(_eventProducer);
+    public IDiscoverer CreateDiscoverer() => new Discoverer(_eventPublisher);
 }
