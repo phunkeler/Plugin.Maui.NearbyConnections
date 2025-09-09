@@ -19,7 +19,7 @@ public static class MauiProgram
             .UseMauiCommunityToolkit()
             .UseChatView()
             .ConfigureSyncfusionToolkit()
-            .ConfigureNearbyConnections()
+            .AddNearbyConnections()
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("FluentSystemIcons-Regular.ttf", FluentUi.FontFamily);

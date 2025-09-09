@@ -1,5 +1,6 @@
 using Plugin.Maui.NearbyConnections.Device;
 using Plugin.Maui.NearbyConnections.Events;
+using Plugin.Maui.NearbyConnections.Events.Adapters;
 
 namespace Plugin.Maui.NearbyConnections.Discover;
 
@@ -21,9 +22,9 @@ public partial class Discoverer : Java.Lang.Object
         Console.WriteLine("[DISCOVERER] StartDiscoveryAsync() called successfully");
     }
 
-    void OnNearbyDeviceFound(NearbyDeviceFound nearbyDeviceFound)
+    void OnNearbyDeviceFound(OnEndpointFound onEndpointFound)
     {
-        _eventPublisher.Publish(nearbyDeviceFound);
+        _eventPublisher.PublishPlatformEvent(onEndpointFound);
     }
 
     void OnNearbyDeviceLost(NearbyDeviceLost nearbyDeviceLost)
@@ -43,22 +44,16 @@ public partial class Discoverer : Java.Lang.Object
         _connectionClient?.StopDiscovery();
     }
 
-    sealed class DiscoveryCallback(Action<NearbyDeviceFound> nearbyDeviceFound,
+    sealed class DiscoveryCallback(Action<OnEndpointFound> onEndpointFound,
         Action<NearbyDeviceLost> nearbyDeviceLost) : EndpointDiscoveryCallback
     {
-        readonly Action<NearbyDeviceFound> _nearbyDeviceFound = nearbyDeviceFound;
+        readonly Action<OnEndpointFound> _onEndpointFound = onEndpointFound;
         readonly Action<NearbyDeviceLost> _nearbyDeviceLost = nearbyDeviceLost;
 
         public override void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
         {
-            Console.WriteLine($"[DISCOVERER] Endpoint found: {endpointId}, Info: {info}");
-
-            var evt = new NearbyDeviceFound(
-                Guid.NewGuid().ToString(),
-                DateTimeOffset.UtcNow,
-                new NearbyDevice(endpointId, info.EndpointName));
-
-            _nearbyDeviceFound(evt);
+            var onEndpointFound = new OnEndpointFound(endpointId, info);
+            _onEndpointFound(onEndpointFound);
         }
 
         public override void OnEndpointLost(string endpointId)

@@ -1,5 +1,6 @@
 using Foundation;
 using MultipeerConnectivity;
+using Plugin.Maui.NearbyConnections.Events.Adapters;
 
 namespace Plugin.Maui.NearbyConnections.Discover;
 
@@ -73,27 +74,10 @@ public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
     /// <inheritdoc/>
     public void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
     {
-        // Handle found peer
         Console.WriteLine($"[DISCOVERER] 🎉 SUCCESS: Found peer: {peerID.DisplayName}");
 
-        // I hope this works!
-        using var serializedPeerId = _myMCPeerIDManager.ArchivePeerId(peerID);
-        var bytes = serializedPeerId.ToArray();
-        var id = Convert.ToBase64String(bytes);
-
-        if (info != null && info.Count > 0)
-        {
-            Console.WriteLine($"[DISCOVERER] Peer info contains {info.Count} items:");
-            foreach (var key in info.Keys)
-            {
-                var value = info[key];
-                Console.WriteLine($"[DISCOVERER] {key}: {value}");
-            }
-        }
-        else
-        {
-            Console.WriteLine("[DISCOVERER] No additional peer info available");
-        }
+        var foundPeer = new FoundPeer(browser, peerID, info);
+        _eventPublisher.PublishPlatformEvent(foundPeer);
     }
 
     /// <inheritdoc/>

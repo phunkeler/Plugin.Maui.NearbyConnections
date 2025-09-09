@@ -25,6 +25,7 @@ public sealed class NearbyConnectionsEventPipeline<TEvent> : INearbyConnectionsE
 {
     readonly List<INearbyConnectionsEventProcessor<TEvent>> _processors = [];
 
+    /// <inheritdoc/>
     public TEvent? Process(TEvent eventItem)
     {
         var current = eventItem;
@@ -49,6 +50,7 @@ public sealed class NearbyConnectionsEventPipeline<TEvent> : INearbyConnectionsE
         return current;
     }
 
+    /// <inheritdoc/>
     public INearbyConnectionsEventPipeline<TEvent> AddProcessor(INearbyConnectionsEventProcessor<TEvent> processor)
     {
         ArgumentNullException.ThrowIfNull(processor);

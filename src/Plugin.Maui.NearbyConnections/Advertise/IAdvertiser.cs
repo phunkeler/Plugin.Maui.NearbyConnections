@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections.Advertise;
 /// <summary>
-/// Makes the current device discoverable for nearby peer-to-peer connections.
+/// Manages advertising for this device.
 /// </summary>
 public interface IAdvertiser : IDisposable
 {

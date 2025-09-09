@@ -149,7 +149,7 @@ namespace Plugin.Maui.NearbyConnections.Events.Adapters;
 
 /// <summary>
 /// Transforms platform-specific arguments into cross-platform events.
-/// </summary>  
+/// </summary>
 public interface IEventAdapter<in TPlatformArgs, out TEvent>
     where TEvent : INearbyConnectionsEvent
 {

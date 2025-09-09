@@ -4,11 +4,36 @@ using Plugin.Maui.NearbyConnections.Events.Pipeline;
 
 namespace Plugin.Maui.NearbyConnections.Events;
 
+/// <summary>
+/// Internal event aggregator.
+/// </summary>
 public interface INearbyConnectionsEventPublisher : IDisposable
 {
+    /// <summary>
+    /// Gets an <see cref="System.IObservable{T}"/>.
+    /// </summary>
     IObservable<INearbyConnectionsEvent> Events { get; }
+
+    /// <summary>
+    /// Publish a plugin event.
+    /// </summary>
+    /// <typeparam name="TEvent"></typeparam>
+    /// <param name="eventItem"></param>
     void Publish<TEvent>(TEvent eventItem) where TEvent : INearbyConnectionsEvent;
+
+    /// <summary>
+    /// Publish a platform-specific event to be transformed by an adapter.
+    /// </summary>
+    /// <typeparam name="TPlatformArgs"></typeparam>
+    /// <param name="platformArgs"></param>
     void PublishPlatformEvent<TPlatformArgs>(TPlatformArgs platformArgs);
+
+    /// <summary>
+    /// Register a transformer.
+    /// </summary>
+    /// <typeparam name="TPlatformArgs"></typeparam>
+    /// <typeparam name="TEvent"></typeparam>
+    /// <param name="adapter"></param>
     void RegisterAdapter<TPlatformArgs, TEvent>(IEventAdapter<TPlatformArgs, TEvent> adapter) where TEvent : INearbyConnectionsEvent;
 }
 

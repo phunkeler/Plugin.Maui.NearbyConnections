@@ -13,4 +13,8 @@
     <PackageReference Include="Xamarin.GooglePlayServices.Nearby" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Events/Adapters/NearbyDeviceLost/" />
+	</ItemGroup>
+
 </Project>

@@ -113,18 +113,6 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
         // Handle incoming connection invitations
         Console.WriteLine($"[ADVERTISER] 🎉 SUCCESS: Received invitation from peer: {peerID.DisplayName}");
 
-        // Transform
-
-        // Publish
-        _eventPublisher.Publish(new InvitationReceived
-        {
-            ConnectionEndpoint = peerID.DisplayName,
-            InvitingPeer = new Models.PeerDevice
-            {
-                Id = peerID.DisplayName,
-                DisplayName = peerID.DisplayName,
-            },
-        });
     }
 
     /// <summary>
