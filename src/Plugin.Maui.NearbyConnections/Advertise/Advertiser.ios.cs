@@ -1,6 +1,5 @@
 using Foundation;
 using MultipeerConnectivity;
-using Plugin.Maui.NearbyConnections.Events;
 
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
@@ -12,33 +11,11 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     readonly MyPeerIdManager _myMCPeerIDManager = new();
 
     MCNearbyServiceAdvertiser? _advertiser;
-    string? _serviceName;
 
-    /// <summary>
-    /// Starts advertising with the specified options.
-    /// </summary>
-    /// <param name="options"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    /// <exception cref="InvalidOperationException"></exception>
-    public async Task PlatformStartAdvertising(AdvertiseOptions options, CancellationToken cancellationToken = default)
+    Task PlatformStartAdvertising(AdvertiseOptions options)
     {
-        Console.WriteLine($"[ADVERTISER] Starting advertising with service: {options.ServiceName}");
+        var myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName) ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
-        _serviceName = options.ServiceName;
-
-        // Get or create peer ID
-        var myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName);
-
-        if (myPeerId is null)
-        {
-            Console.WriteLine("[ADVERTISER] ERROR: Failed to create or retrieve peer ID");
-            throw new InvalidOperationException("Failed to create or retrieve peer ID");
-        }
-
-        Console.WriteLine($"[ADVERTISER] Using peer ID: {myPeerId.DisplayName}");
-
-        // Convert advertising info to NSDictionary
         NSDictionary? advertisingInfo = null;
         if (options.AdvertisingInfo?.Any() == true)
         {
@@ -48,13 +25,7 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
                 options.AdvertisingInfo.Keys.ToArray()
             );
         }
-        else
-        {
-            Console.WriteLine("[ADVERTISER] No advertising info provided");
-        }
 
-        // Create advertiser
-        Console.WriteLine("[ADVERTISER] Creating MCNearbyServiceAdvertiser...");
         _advertiser = new MCNearbyServiceAdvertiser(
             myPeerID: myPeerId,
             info: advertisingInfo,
@@ -64,31 +35,13 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
             Delegate = this
         };
 
-        Console.WriteLine("[ADVERTISER] Advertiser created, setting delegate and starting...");
-
-        // Start advertising
         _advertiser.StartAdvertisingPeer();
-        Console.WriteLine("[ADVERTISER] StartAdvertisingPeer() called successfully");
 
-        // MCNearbyServiceAdvertiser.StartAdvertisingPeer() is synchronous
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Stops advertising with the specified options.
-    /// </summary>
-    /// <returns></returns>
-    public void PlatformStopAdvertising()
-    {
-        if (_advertiser is not null)
-        {
-            _advertiser.StopAdvertisingPeer();
-            _advertiser.Delegate = null!;
-            _advertiser.Dispose();
-            _advertiser = null;
-        }
-        _serviceName = null;
-    }
+    void PlatformStopAdvertising()
+        => _advertiser?.StopAdvertisingPeer();
 
     /// <inheritdoc/>
     public void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
@@ -112,28 +65,5 @@ public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     {
         // Handle incoming connection invitations
         Console.WriteLine($"[ADVERTISER] 🎉 SUCCESS: Received invitation from peer: {peerID.DisplayName}");
-
-    }
-
-    /// <summary>
-    /// Disposes of resources used by the advertiser.
-    /// </summary>
-    /// <param name="disposing">True if disposing managed resources</param>
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            if (_advertiser is not null)
-            {
-                _advertiser.StopAdvertisingPeer();
-                _advertiser.Delegate = null!;
-                _advertiser.Dispose();
-                _advertiser = null;
-            }
-
-            _myMCPeerIDManager?.Dispose();
-        }
-
-        base.Dispose(disposing);
     }
 }

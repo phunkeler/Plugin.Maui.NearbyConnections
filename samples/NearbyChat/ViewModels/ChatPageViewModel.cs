@@ -6,7 +6,7 @@ using NearbyChat.Models;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
 using Plugin.Maui.NearbyConnections.Advertise;
-using Plugin.Maui.NearbyConnections.Models;
+using Plugin.Maui.NearbyConnections.Events;
 
 namespace NearbyChat.ViewModels;
 
@@ -31,10 +31,10 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     ObservableRangeCollection<ChatMessage> _chatMessages = [];
 
     [ObservableProperty]
-    ObservableRangeCollection<PeerDevice> _discoveredPeers = [];
+    ObservableRangeCollection<INearbyDevice> _discoveredPeers = [];
 
     [ObservableProperty]
-    ObservableRangeCollection<PeerDevice> _connectedPeers = [];
+    ObservableRangeCollection<INearbyDevice> _connectedPeers = [];
 
     [ObservableProperty]
     string _connectionStatus = "Not Connected";
@@ -114,13 +114,13 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
             DisplayName = CurrentUser?.DisplayName ?? DeviceInfo.Current.Name,
         };
 
-        await _nearbyConnections.Advertise.StartAdvertisingAsync(advertiseOptions, cancellationToken);
+        await _nearbyConnections.StartAdvertisingAsync(advertiseOptions, cancellationToken);
     }
 
     [RelayCommand]
-    async Task StopAdvertising(CancellationToken cancellationToken)
+    async Task StopAdvertising()
     {
-        await _nearbyConnections.Advertise.StopAdvertisingAsync(cancellationToken);
+        await _nearbyConnections.StopAdvertisingAsync();
     }
 
     [RelayCommand]

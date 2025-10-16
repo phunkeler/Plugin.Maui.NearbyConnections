@@ -3,70 +3,23 @@ using Plugin.Maui.NearbyConnections.Events;
 
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
-/// <summary>
-/// Manages advertising for nearby connections.
-/// </summary>
 public partial class Advertiser : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
-    public async Task PlatformStartAdvertising(AdvertiseOptions options, CancellationToken cancellationToken = default)
+    public Task PlatformStartAdvertising(AdvertiseOptions options)
     {
-        Console.WriteLine($"[ADVERTISER] Starting advertising with name: {options.DisplayName}, service: {options.ServiceName}");
-
         _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
 
-        await _connectionClient.StartAdvertisingAsync(
+        return _connectionClient.StartAdvertisingAsync(
             options.DisplayName,
             options.ServiceName,
             new AdvertiseCallback(x => { }, y => { }),
             new AdvertisingOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
-
-        Console.WriteLine("[ADVERTISER] StartAdvertisingAsync() called successfully");
-
     }
 
-    public Task PlatformStopAdvertising()
-    {
-        Console.WriteLine("[ADVERTISER] Stopping advertising...");
-
-        if (_connectionClient is not null)
-        {
-            _connectionClient.StopAdvertising();
-            _connectionClient.Dispose();
-            _connectionClient = null;
-
-            Console.WriteLine("[ADVERTISER] Advertising stopped and all endpoints disconnected");
-        }
-        else
-        {
-            Console.WriteLine("[ADVERTISER] Connection client is not initialized");
-        }
-
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Disposes of resources used by the advertiser.
-    /// </summary>
-    /// <param name="disposing">True if disposing managed resources</param>
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            if (_connectionClient is not null)
-            {
-                _connectionClient.StopAdvertising();
-                _connectionClient.StopAllEndpoints();
-                _connectionClient.Dispose();
-                _connectionClient = null;
-            }
-
-            _connectionClient?.Dispose();
-        }
-
-        base.Dispose(disposing);
-    }
+    public void PlatformStopAdvertising()
+        => _connectionClient?.StopAdvertising();
 }
 
 internal sealed class AdvertiseCallback : ConnectionLifecycleCallback
@@ -121,17 +74,5 @@ internal sealed class AdvertiseCallback : ConnectionLifecycleCallback
     public override void OnDisconnected(string endpointId)
     {
         Console.WriteLine($"[ADVERTISER] Disconnected from endpoint: {endpointId}");
-
-        /* TODO
-                _eventProducer.PublishAsync([?]
-                {
-                    ConnectionEndpoint = "",
-                    InvitingPeer = new Models.PeerDevice
-                    {
-                        Id = "",
-                        DisplayName = "",
-                    },
-                });
-        */
     }
 }

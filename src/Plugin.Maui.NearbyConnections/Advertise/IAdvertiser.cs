@@ -5,11 +5,6 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 public interface IAdvertiser : IDisposable
 {
     /// <summary>
-    /// Gets a value indicating whether this device is currently advertising to nearby discoverers.
-    /// </summary>
-    bool IsAdvertising { get; }
-
-    /// <summary>
     /// Starts advertising with the specified options.
     /// </summary>
     /// <param name="options">

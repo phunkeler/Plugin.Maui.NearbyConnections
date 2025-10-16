@@ -1,45 +1,23 @@
-using Plugin.Maui.NearbyConnections.Events;
+using System.Threading;
 
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
-/// <inheritdoc/>
+/// <summary>
+/// Manages advertising for this device.
+/// </summary>
 public partial class Advertiser : IAdvertiser
 {
-    readonly INearbyConnectionsEventPublisher _eventPublisher;
+    readonly NearbyConnectionsImplementation _nearbyConnections;
 
-    /// <inheritdoc />
-    public bool IsAdvertising { get; private set; }
-
-    /// <summary>
-    /// Initializes a new instance of <see cref="Advertiser"/> .
-    /// </summary>
-    /// <param name="eventPublisher"></param>
-    public Advertiser(INearbyConnectionsEventPublisher eventPublisher)
+    internal Advertiser(NearbyConnectionsImplementation nearbyConnections)
     {
-        ArgumentNullException.ThrowIfNull(eventPublisher);
-
-        _eventPublisher = eventPublisher;
+        _nearbyConnections = nearbyConnections;
     }
 
-    /// <inheritdoc />
     public async Task StartAdvertisingAsync(AdvertiseOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(options);
+        => await PlatformStartAdvertising(options);
 
-        if (!IsAdvertising)
-        {
-            await PlatformStartAdvertising(options);
-            IsAdvertising = true;
-        }
-    }
 
-    /// <inheritdoc />
     public void StopAdvertising()
-    {
-        if (IsAdvertising)
-        {
-            PlatformStopAdvertising();
-            IsAdvertising = false;
-        }
-    }
+        => PlatformStopAdvertising();
 }

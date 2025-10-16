@@ -1,47 +1,20 @@
-using Plugin.Maui.NearbyConnections.Events;
-
 namespace Plugin.Maui.NearbyConnections.Discover;
 
 /// <summary>
-/// Manages discovering for nearby connections.
+/// Provides operations for discovering nearby advertising devices.
 /// </summary>
 public partial class Discoverer : IDiscoverer
 {
-    readonly INearbyConnectionsEventPublisher _eventPublisher;
+    readonly NearbyConnectionsImplementation _nearbyConnections;
 
-    /// <inheritdoc />
-    public bool IsDiscovering { get; private set; }
-
-    /// <summary>
-    /// Initializes a new instance of <see cref="Discoverer"/> .
-    /// </summary>
-    /// <param name="eventPublisher"></param>
-    public Discoverer(INearbyConnectionsEventPublisher eventPublisher)
+    internal Discoverer(NearbyConnectionsImplementation nearbyConnections)
     {
-        ArgumentNullException.ThrowIfNull(eventPublisher);
-
-        _eventPublisher = eventPublisher;
+        _nearbyConnections = nearbyConnections;
     }
 
-    /// <inheritdoc />
-    public async Task StartDiscoveringAsync(DiscoverOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(options);
+    public Task StartDiscoveringAsync(DiscoverOptions options)
+        => PlatformStartDiscovering(options);
 
-        if (!IsDiscovering)
-        {
-            await PlatformStartDiscovering(options);
-            IsDiscovering = true;
-        }
-    }
-
-    /// <inheritdoc />
     public void StopDiscovering()
-    {
-        if (IsDiscovering)
-        {
-            PlatformStopDiscovering();
-            IsDiscovering = false;
-        }
-    }
+        => PlatformStopDiscovering();
 }

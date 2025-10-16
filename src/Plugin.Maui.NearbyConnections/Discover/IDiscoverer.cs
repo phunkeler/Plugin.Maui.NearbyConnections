@@ -6,11 +6,6 @@ namespace Plugin.Maui.NearbyConnections.Discover;
 public interface IDiscoverer : IDisposable
 {
     /// <summary>
-    /// Gets a value indicating whether the device is actively discovering nearby advertisers.
-    /// </summary>
-    bool IsDiscovering { get; }
-
-    /// <summary>
     /// Start discovering nearby advertising devices.
     /// </summary>
     /// <param name="options">The options controlling discovery.</param>

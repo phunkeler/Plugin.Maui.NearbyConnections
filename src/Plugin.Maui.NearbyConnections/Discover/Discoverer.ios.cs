@@ -1,90 +1,54 @@
 using Foundation;
 using MultipeerConnectivity;
-using Plugin.Maui.NearbyConnections.Events.Adapters;
+using Plugin.Maui.NearbyConnections.Device;
 
 namespace Plugin.Maui.NearbyConnections.Discover;
 
-/// <summary>
-/// Partial class for starting/stopping discovery of nearby devices.
-/// </summary>
 public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
 {
     readonly MyPeerIdManager _myMCPeerIDManager = new();
 
     MCNearbyServiceBrowser? _browser;
-    MCPeerID? _myPeerId;
 
-    /// <summary>
-    /// Starts discovering nearby devices.
-    /// </summary>
-    /// <param name="options">
-    /// Options that modify discovery behavior.
-    /// </param>
-    /// <param name="cancellationToken">
-    /// A cancellation token to cancel the operation.
-    /// </param>
-    /// <returns>
-    /// A task representing the asynchronous operation.
-    /// </returns>
-    public Task PlatformStartDiscovering(DiscoverOptions options, CancellationToken cancellationToken = default)
+    Task PlatformStartDiscovering(DiscoverOptions options)
     {
-        Console.WriteLine($"[DISCOVERER] Starting discovery for service: {options.ServiceName}");
+        var _myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName) ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
-        // Get or create peer ID
-        _myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName);
-
-        if (_myPeerId is null)
-        {
-            Console.WriteLine("[DISCOVERER] ERROR: Failed to create or retrieve peer ID");
-            throw new InvalidOperationException("Failed to create or retrieve my peer ID");
-        }
-
-        Console.WriteLine($"[DISCOVERER] Using peer ID: {_myPeerId.DisplayName}");
-
-        Console.WriteLine("[DISCOVERER] Creating MCNearbyServiceBrowser...");
         _browser = new MCNearbyServiceBrowser(_myPeerId, options.ServiceName)
         {
             Delegate = this
         };
 
-        Console.WriteLine("[DISCOVERER] Browser created, setting delegate and starting...");
         _browser.StartBrowsingForPeers();
-        Console.WriteLine("[DISCOVERER] StartBrowsingForPeers() called successfully");
 
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Stops discovering nearby devices.
-    /// </summary>
-    /// <returns>
-    /// A task representing the asynchronous operation.
-    /// </returns>
-    public void PlatformStopDiscovering()
-    {
-        if (_browser is not null)
-        {
-            _browser.StopBrowsingForPeers();
-            _browser.Delegate = null!;
-            _browser.Dispose();
-            _browser = null;
-        }
-    }
+    void PlatformStopDiscovering()
+        => _browser?.StopBrowsingForPeers();
 
     /// <inheritdoc/>
     public void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
     {
-        Console.WriteLine($"[DISCOVERER] 🎉 SUCCESS: Found peer: {peerID.DisplayName}");
+        // Serialize the MCPeerID to get a unique identifier
+        using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
+        var key = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        var foundPeer = new FoundPeer(browser, peerID, info);
-        _eventPublisher.PublishPlatformEvent(foundPeer);
+        var device = new NearbyDevice(key, peerID.DisplayName);
+        _nearbyConnections._discoveredDevices.TryAdd(key, device);
     }
 
     /// <inheritdoc/>
     public void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
     {
-        // Handle lost peer
-        Console.WriteLine($"[DISCOVERER] ❌ Lost peer: {peerID.DisplayName}");
+        // Serialize the MCPeerID to get a unique identifier
+        using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
+        var key = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+
+        if (!_discoveredDevices.TryRemove(key, out var nearbyDeviceLost))
+            return;
+
+        Console.WriteLine($"[DISCOVERER] Lost device: {nearbyDeviceLost}");
     }
 
     /// <inheritdoc/>
@@ -98,27 +62,5 @@ public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
         {
             Console.WriteLine($"[DISCOVERER] Error details: {error.UserInfo}");
         }
-    }
-
-    /// <summary>
-    /// Disposes of resources used by the discoverer.
-    /// </summary>
-    /// <param name="disposing">True if disposing managed resources</param>
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            if (_browser != null)
-            {
-                _browser.StopBrowsingForPeers();
-                _browser.Delegate = null!;
-                _browser.Dispose();
-                _browser = null;
-            }
-
-            _myMCPeerIDManager?.Dispose();
-        }
-
-        base.Dispose(disposing);
     }
 }
