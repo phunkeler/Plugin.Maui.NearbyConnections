@@ -6,7 +6,7 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 /// <summary>
 /// Manages advertising for nearby connections.
 /// </summary>
-public partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
+internal partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 {
     readonly MyPeerIdManager _myMCPeerIDManager = new();
 

@@ -1,31 +1,44 @@
+using Foundation;
+using MultipeerConnectivity;
+using Plugin.Maui.NearbyConnections.Device;
+
 namespace Plugin.Maui.NearbyConnections;
 
-partial class NearbyConnectionsImplementation : INearbyConnections
+sealed partial class NearbyConnectionsImplementation
 {
-    /// <summary>
-    /// iOS-specific implementation for sending data to a connected device.
-    /// </summary>
-    private Task PlatformSendDataAsync(string deviceId, byte[] data)
+    readonly MyPeerIdManager _myMCPeerIDManager = new();
+
+    internal void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
     {
-        // TODO: Implement iOS Multipeer Connectivity data sending
-        throw new NotImplementedException("iOS data sending not yet implemented");
+        using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
+        var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+        var device = new NearbyDevice(id, peerID.DisplayName);
+
+        _discoveredDevices.TryAdd(id, device);
+
+        var evt = new Events.NearbyDeviceFound(
+            Guid.NewGuid().ToString(),
+            DateTimeOffset.UtcNow,
+            device);
+
+        ProcessEvent(evt);
     }
 
-    /// <summary>
-    /// iOS-specific implementation for accepting a connection.
-    /// </summary>
-    private Task PlatformAcceptConnectionAsync(string deviceId)
+    internal void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
     {
-        // TODO: Implement iOS connection acceptance
-        throw new NotImplementedException("iOS connection acceptance not yet implemented");
-    }
+        using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
+        var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-    /// <summary>
-    /// iOS-specific implementation for rejecting a connection.
-    /// </summary>
-    private Task PlatformRejectConnectionAsync(string deviceId)
-    {
-        // TODO: Implement iOS connection rejection
-        throw new NotImplementedException("iOS connection rejection not yet implemented");
+        if (!_discoveredDevices.TryRemove(id, out var device))
+        {
+            return;
+        }
+
+        var evt = new Events.NearbyDeviceLost(
+            Guid.NewGuid().ToString(),
+            DateTimeOffset.UtcNow,
+            device);
+
+        ProcessEvent(evt);
     }
 }

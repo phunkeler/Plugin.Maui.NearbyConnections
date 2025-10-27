@@ -3,7 +3,7 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 /// <summary>
 /// Manages advertising for nearby connections.
 /// </summary>
-public partial class Advertiser
+internal partial class Advertiser
 {
     /// <summary>
     /// Starts advertising for nearby connections.

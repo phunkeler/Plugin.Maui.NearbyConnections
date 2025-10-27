@@ -1,10 +1,9 @@
 using Foundation;
 using MultipeerConnectivity;
-using Plugin.Maui.NearbyConnections.Device;
 
 namespace Plugin.Maui.NearbyConnections.Discover;
 
-public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
+internal partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
 {
     readonly MyPeerIdManager _myMCPeerIDManager = new();
 
@@ -12,7 +11,8 @@ public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
 
     Task PlatformStartDiscovering(DiscoverOptions options)
     {
-        var _myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName) ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
+        var _myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName)
+            ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
         _browser = new MCNearbyServiceBrowser(_myPeerId, options.ServiceName)
         {
@@ -29,27 +29,11 @@ public partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
 
     /// <inheritdoc/>
     public void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
-    {
-        // Serialize the MCPeerID to get a unique identifier
-        using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
-        var key = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-
-        var device = new NearbyDevice(key, peerID.DisplayName);
-        _nearbyConnections._discoveredDevices.TryAdd(key, device);
-    }
+        => _nearbyConnections.FoundPeer(browser, peerID, info);
 
     /// <inheritdoc/>
     public void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
-    {
-        // Serialize the MCPeerID to get a unique identifier
-        using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
-        var key = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-
-        if (!_discoveredDevices.TryRemove(key, out var nearbyDeviceLost))
-            return;
-
-        Console.WriteLine($"[DISCOVERER] Lost device: {nearbyDeviceLost}");
-    }
+        => _nearbyConnections.LostPeer(browser, peerID);
 
     /// <inheritdoc/>
     public void DidNotStartBrowsingForPeers(MCNearbyServiceBrowser browser, NSError error)

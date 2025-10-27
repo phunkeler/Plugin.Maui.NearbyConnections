@@ -1,11 +1,6 @@
-using System.Threading;
-
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
-/// <summary>
-/// Manages advertising for this device.
-/// </summary>
-public partial class Advertiser : IAdvertiser
+internal sealed partial class Advertiser
 {
     readonly NearbyConnectionsImplementation _nearbyConnections;
 
@@ -14,10 +9,9 @@ public partial class Advertiser : IAdvertiser
         _nearbyConnections = nearbyConnections;
     }
 
-    public async Task StartAdvertisingAsync(AdvertiseOptions options)
-        => await PlatformStartAdvertising(options);
+    internal Task StartAdvertisingAsync(AdvertiseOptions options)
+        => PlatformStartAdvertising(options);
 
-
-    public void StopAdvertising()
+    internal void StopAdvertising()
         => PlatformStopAdvertising();
 }

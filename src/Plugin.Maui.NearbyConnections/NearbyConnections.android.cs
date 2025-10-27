@@ -1,31 +1,35 @@
+using Plugin.Maui.NearbyConnections.Device;
+
 namespace Plugin.Maui.NearbyConnections;
 
-partial class NearbyConnectionsImplementation : INearbyConnections
+sealed partial class NearbyConnectionsImplementation
 {
-    /// <summary>
-    /// Android-specific implementation for sending data to a connected device.
-    /// </summary>
-    private partial Task PlatformSendDataAsync(string deviceId, byte[] data)
+    internal void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
-        // TODO: Implement Android Nearby Connections data sending
-        throw new NotImplementedException("Android data sending not yet implemented");
+        var device = new NearbyDevice(endpointId, info.EndpointName);
+
+        _discoveredDevices.TryAdd(endpointId, device);
+
+        var evt = new Events.NearbyDeviceFound(
+            Guid.NewGuid().ToString(),
+            DateTimeOffset.UtcNow,
+            device);
+
+        ProcessEvent(evt);
     }
 
-    /// <summary>
-    /// Android-specific implementation for accepting a connection.
-    /// </summary>
-    private partial Task PlatformAcceptConnectionAsync(string deviceId)
+    internal void OnEndpointLost(string endpointId)
     {
-        // TODO: Implement Android connection acceptance
-        throw new NotImplementedException("Android connection acceptance not yet implemented");
-    }
+        if (!_discoveredDevices.TryRemove(endpointId, out var device))
+        {
+            return;
+        }
 
-    /// <summary>
-    /// Android-specific implementation for rejecting a connection.
-    /// </summary>
-    private partial Task PlatformRejectConnectionAsync(string deviceId)
-    {
-        // TODO: Implement Android connection rejection
-        throw new NotImplementedException("Android connection rejection not yet implemented");
+        var evt = new Events.NearbyDeviceLost(
+            Guid.NewGuid().ToString(),
+            DateTimeOffset.UtcNow,
+            device);
+
+        ProcessEvent(evt);
     }
 }

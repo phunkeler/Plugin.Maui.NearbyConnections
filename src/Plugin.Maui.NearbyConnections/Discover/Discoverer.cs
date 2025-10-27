@@ -1,9 +1,6 @@
 namespace Plugin.Maui.NearbyConnections.Discover;
 
-/// <summary>
-/// Provides operations for discovering nearby advertising devices.
-/// </summary>
-public partial class Discoverer : IDiscoverer
+internal sealed partial class Discoverer
 {
     readonly NearbyConnectionsImplementation _nearbyConnections;
 
@@ -12,9 +9,9 @@ public partial class Discoverer : IDiscoverer
         _nearbyConnections = nearbyConnections;
     }
 
-    public Task StartDiscoveringAsync(DiscoverOptions options)
+    internal Task StartDiscoveringAsync(DiscoverOptions options)
         => PlatformStartDiscovering(options);
 
-    public void StopDiscovering()
+    internal void StopDiscovering()
         => PlatformStopDiscovering();
 }

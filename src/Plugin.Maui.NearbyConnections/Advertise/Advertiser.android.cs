@@ -3,7 +3,7 @@ using Plugin.Maui.NearbyConnections.Events;
 
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
-public partial class Advertiser : Java.Lang.Object
+internal sealed partial class Advertiser : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 

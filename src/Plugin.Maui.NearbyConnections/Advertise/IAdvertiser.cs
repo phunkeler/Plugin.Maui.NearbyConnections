@@ -1,7 +1,16 @@
 namespace Plugin.Maui.NearbyConnections.Advertise;
+
 /// <summary>
-/// Manages advertising for this device.
+/// Represents the advertising capability that makes this device discoverable to nearby devices.
 /// </summary>
+/// <remarks>
+/// Advertising broadcasts this device's presence to nearby discoverers, allowing them to initiate
+/// connections. This is one half of the peer-to-peer discovery process - devices must either
+/// advertise or discover (or both) to establish connections.
+/// <para>
+/// The advertiser should be disposed when no longer needed to stop broadcasting and release resources.
+/// </para>
+/// </remarks>
 public interface IAdvertiser : IDisposable
 {
     /// <summary>

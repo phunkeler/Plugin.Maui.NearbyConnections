@@ -11,10 +11,10 @@ public class NearbyDeviceLost(
     DateTimeOffset timestamp,
     INearbyDevice device) : INearbyConnectionsEvent
 {
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public string EventId { get; } = eventId;
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     public DateTimeOffset Timestamp { get; } = timestamp;
 
     /// <summary>

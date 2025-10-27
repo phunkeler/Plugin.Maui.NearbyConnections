@@ -1,14 +1,8 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Represents a nearby peer device that is discoverable or connected via
-/// native P2P networking tech.
+/// Represents a nearby device discovered or connected via the Nearby Connections API.
 /// </summary>
-/// <remarks>
-/// This abstraction provides a consistent cross-platform representation of
-/// a nearby device (peer/endpoint), enabling discovery, connection, and
-/// identification operations without exposing platform-specific details.
-/// </remarks>
 public interface INearbyDevice
 {
     /// <summary>

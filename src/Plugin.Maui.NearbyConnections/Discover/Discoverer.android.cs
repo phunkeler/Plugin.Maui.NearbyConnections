@@ -1,23 +1,17 @@
-using Plugin.Maui.NearbyConnections.Device;
-
 namespace Plugin.Maui.NearbyConnections.Discover;
 
-public partial class Discoverer : Java.Lang.Object
+internal sealed partial class Discoverer : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
-    void OnNearbyDeviceFound(string endpointId, DiscoveredEndpointInfo info)
+    void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
-        var device = new NearbyDevice(endpointId, info.EndpointName);
-        _discoveredDevices.TryAdd(endpointId, device);
+        _nearbyConnections.OnEndpointFound(endpointId, info);
     }
 
-    void OnNearbyDeviceLost(string endpointId)
+    void OnEndpointLost(string endpointId)
     {
-        if (!_discoveredDevices.TryRemove(endpointId, out var nearbyDeviceLost))
-            return;
-
-        Console.WriteLine($"[DISCOVERER] Lost device: {nearbyDeviceLost}");
+        _nearbyConnections.OnEndpointLost(endpointId);
     }
 
     Task PlatformStartDiscovering(DiscoverOptions options)
@@ -27,7 +21,7 @@ public partial class Discoverer : Java.Lang.Object
 
         return _connectionClient.StartDiscoveryAsync(
             options.ServiceName,
-            new DiscoveryCallback(OnNearbyDeviceFound, OnNearbyDeviceLost),
+            new DiscoveryCallback(OnEndpointFound, OnEndpointLost),
             new DiscoveryOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
     }
 
@@ -36,19 +30,15 @@ public partial class Discoverer : Java.Lang.Object
 
     sealed class DiscoveryCallback(
         Action<string, DiscoveredEndpointInfo> onEndpointFound,
-        Action<string> nearbyDeviceLost) : EndpointDiscoveryCallback
+        Action<string> onEndpointLost) : EndpointDiscoveryCallback
     {
         readonly Action<string, DiscoveredEndpointInfo> _onEndpointFound = onEndpointFound;
-        readonly Action<string> _nearbyDeviceLost = nearbyDeviceLost;
+        readonly Action<string> _onEndpointLost = onEndpointLost;
 
         public override void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
-        {
-            _onEndpointFound(endpointId, info);
-        }
+            => _onEndpointFound(endpointId, info);
 
         public override void OnEndpointLost(string endpointId)
-        {
-            _nearbyDeviceLost(endpointId);
-        }
+            => _onEndpointLost(endpointId);
     }
 }
