@@ -3,9 +3,6 @@ using MultipeerConnectivity;
 
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
-/// <summary>
-/// Manages advertising for nearby connections.
-/// </summary>
 internal partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 {
     readonly MyPeerIdManager _myMCPeerIDManager = new();
@@ -14,7 +11,8 @@ internal partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 
     Task PlatformStartAdvertising(AdvertiseOptions options)
     {
-        var myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName) ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
+        var myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName)
+            ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
         NSDictionary? advertisingInfo = null;
         if (options.AdvertisingInfo?.Any() == true)
@@ -43,27 +41,18 @@ internal partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     void PlatformStopAdvertising()
         => _advertiser?.StopAdvertisingPeer();
 
-    /// <inheritdoc/>
     public void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
     {
-        // Handle advertising start failure
-        Console.WriteLine($"[ADVERTISER] ERROR: Failed to start advertising: {error.LocalizedDescription}");
-        Console.WriteLine($"[ADVERTISER] Error code: {error.Code}, Domain: {error.Domain}");
-
         if (error.UserInfo != null)
         {
             Console.WriteLine($"[ADVERTISER] Error details: {error.UserInfo}");
         }
     }
 
-    /// <inheritdoc/>
     public void DidReceiveInvitationFromPeer(
         MCNearbyServiceAdvertiser advertiser,
         MCPeerID peerID,
         NSData? context,
         MCNearbyServiceAdvertiserInvitationHandler invitationHandler)
-    {
-        // Handle incoming connection invitations
-        Console.WriteLine($"[ADVERTISER] 🎉 SUCCESS: Received invitation from peer: {peerID.DisplayName}");
-    }
+        => _nearbyConnections.DidReceiveInvitationFromPeer(advertiser, peerID, context, invitationHandler);
 }

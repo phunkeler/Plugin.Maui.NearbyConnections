@@ -1,78 +1,54 @@
-using Plugin.Maui.NearbyConnections.Device;
-using Plugin.Maui.NearbyConnections.Events;
-
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
 internal sealed partial class Advertiser : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
-    public Task PlatformStartAdvertising(AdvertiseOptions options)
+    void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
+    {
+        _nearbyConnections.OnConnectionInitiated(endpointId, connectionInfo);
+    }
+
+    void OnConnectionResult(string endpointId, ConnectionResolution resolution)
+    {
+        _nearbyConnections.OnConnectionResult(endpointId, resolution);
+    }
+
+    void OnDisconnected(string endpointId)
+    {
+        _nearbyConnections.OnDisconnected(endpointId);
+    }
+
+    Task PlatformStartAdvertising(AdvertiseOptions options)
     {
         _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
 
         return _connectionClient.StartAdvertisingAsync(
             options.DisplayName,
             options.ServiceName,
-            new AdvertiseCallback(x => { }, y => { }),
+            new AdvertiseCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected),
             new AdvertisingOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
     }
 
-    public void PlatformStopAdvertising()
+    void PlatformStopAdvertising()
         => _connectionClient?.StopAdvertising();
-}
 
-internal sealed class AdvertiseCallback : ConnectionLifecycleCallback
-{
-    readonly Action<InvitationAnswered> _invitationAnswered;
-    readonly Action<InvitationReceived> _invitationReceived;
-
-    public AdvertiseCallback(
-        Action<InvitationAnswered> invitationAnswered,
-        Action<InvitationReceived> invitationReceived)
+    sealed class AdvertiseCallback(
+        Action<string, ConnectionInfo> onConnectionInitiated,
+        Action<string, ConnectionResolution> onConnectionResult,
+        Action<string> onDisconnected) : ConnectionLifecycleCallback
     {
-        _invitationAnswered = invitationAnswered;
-        _invitationReceived = invitationReceived;
-    }
+        readonly Action<string, ConnectionInfo> _onConnectionInitiated = onConnectionInitiated;
+        readonly Action<string, ConnectionResolution> _onConnectionResult = onConnectionResult;
+        readonly Action<string> _onDisconnected = onDisconnected;
 
-    public override void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
-    {
-        Console.WriteLine($"[ADVERTISER] Connection initiated with endpoint: {endpointId}");
+        public override void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
+            => _onConnectionInitiated(endpointId, connectionInfo);
 
-        var invitationReceived = new InvitationReceived
-        (
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow,
-            new NearbyDevice(endpointId, connectionInfo.EndpointName)
-        );
+        public override void OnConnectionResult(string endpointId, ConnectionResolution resolution)
+            => _onConnectionResult(endpointId, resolution);
 
-        _invitationReceived(invitationReceived);
-    }
-
-    public override void OnConnectionResult(string endpointId, ConnectionResolution resolution)
-    {
-        Console.WriteLine($"[ADVERTISER] Connection result for endpoint: {endpointId}, resolution: {resolution}");
-
-        if (!resolution.Status.IsSuccess)
-        {
-            return;
-        }
-
-        // Get INearbyDevice from "Pending" registry
-        var device = new NearbyDevice(endpointId, "");
-
-        var invitationAnswered = new InvitationAnswered
-        (
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow,
-            device
-        );
-
-        _invitationAnswered(invitationAnswered);
-    }
-
-    public override void OnDisconnected(string endpointId)
-    {
-        Console.WriteLine($"[ADVERTISER] Disconnected from endpoint: {endpointId}");
+        public override void OnDisconnected(string endpointId)
+            => _onDisconnected(endpointId);
     }
 }

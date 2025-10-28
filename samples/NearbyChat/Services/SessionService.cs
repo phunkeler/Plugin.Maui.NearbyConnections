@@ -11,8 +11,3 @@ public interface ISessionService
 
     Task StartSession();
 }
-
-public class SessionService : ISessionService
-{
-
-}

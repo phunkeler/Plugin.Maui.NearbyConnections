@@ -6,12 +6,12 @@ internal sealed partial class Discoverer : Java.Lang.Object
 
     void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
-        _nearbyConnections.OnEndpointFound(endpointId, info);
+        _nearbyConnections?.OnEndpointFound(endpointId, info);
     }
 
     void OnEndpointLost(string endpointId)
     {
-        _nearbyConnections.OnEndpointLost(endpointId);
+        _nearbyConnections?.OnEndpointLost(endpointId);
     }
 
     Task PlatformStartDiscovering(DiscoverOptions options)

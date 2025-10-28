@@ -11,10 +11,12 @@ internal partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
 
     Task PlatformStartDiscovering(DiscoverOptions options)
     {
-        var _myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName)
+        var myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName)
             ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
-        _browser = new MCNearbyServiceBrowser(_myPeerId, options.ServiceName)
+        _browser = new MCNearbyServiceBrowser(
+            myPeerID: myPeerId,
+            serviceType: options.ServiceName)
         {
             Delegate = this
         };

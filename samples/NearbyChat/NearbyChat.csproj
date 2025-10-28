@@ -9,7 +9,7 @@
     <SingleProject>true</SingleProject>
 
     <ApplicationTitle>NearbyChat</ApplicationTitle>
-    <ApplicationId>com.companyname.nearbychat</ApplicationId>
+    <ApplicationId>com.phunkeler.app</ApplicationId>
 
     <SupportedOSPlatformVersion Condition="$(IsTargetPlatformIos) == true">15.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$(IsTargetPlatformAndroid) == true">21.0</SupportedOSPlatformVersion>

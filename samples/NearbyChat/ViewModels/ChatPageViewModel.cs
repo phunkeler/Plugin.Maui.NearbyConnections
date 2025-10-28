@@ -6,6 +6,7 @@ using NearbyChat.Models;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
 using Plugin.Maui.NearbyConnections.Advertise;
+using Plugin.Maui.NearbyConnections.Device;
 using Plugin.Maui.NearbyConnections.Events;
 
 namespace NearbyChat.ViewModels;
@@ -19,7 +20,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
 
     readonly List<User> _userList;
 
-    CancellationTokenSource? _eventConsumptionCts;
+    IDisposable? _eventSubscription;
 
     [ObservableProperty]
     User? _currentUser;
@@ -61,13 +62,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         _nearbyConnections = nearbyConnections;
         _userService = userService;
 
-        // Subscribe to nearby connections events
-        //_nearbyConnections.PeerDiscovered += OnPeerDiscovered;
-        //_nearbyConnections.PeerConnectionChanged += OnPeerConnectionChanged;
-        //_nearbyConnections.MessageReceived += OnMessageReceived;
-
         var avatars = _avatarRepository.ListAsync().GetAwaiter().GetResult();
-
 
         _userList =
         [
@@ -129,16 +124,18 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         // Attach to Discovery events
         var discoveryOptions = new Plugin.Maui.NearbyConnections.Discover.DiscoverOptions
         {
+#if ANDROID
             Activity = Platform.CurrentActivity
+#endif
         };
 
-        await _nearbyConnections.Discover.StartDiscoveringAsync(discoveryOptions, cancellationToken);
+        await _nearbyConnections.StartDiscoveryAsync(discoveryOptions, cancellationToken);
     }
 
     [RelayCommand]
-    async Task StopDiscovery(CancellationToken cancellationToken)
+    async Task StopDiscovery()
     {
-        await _nearbyConnections.Discover.StopDiscoveringAsync(cancellationToken);
+        await _nearbyConnections.StopDiscoveryAsync();
     }
 
     [RelayCommand]
@@ -170,7 +167,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     }
 
     [RelayCommand]
-    async Task ConnectToPeer(PeerDevice peer)
+    async Task ConnectToPeer(INearbyDevice nearbyDevice)
     {
         try
         {
@@ -221,34 +218,28 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
 
     private void SubscribeToNearbyConnectionsEventChannel()
     {
-        _eventConsumptionCts?.Cancel();
-        _eventConsumptionCts = new CancellationTokenSource();
+        _eventSubscription?.Dispose();
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await foreach (var eventData in _nearbyConnections.Events.ReadAllAsync(_eventConsumptionCts.Token))
+        _eventSubscription = _nearbyConnections.Events
+            .Subscribe(
+                onNext: eventData =>
                 {
-                    await MainThread.InvokeOnMainThreadAsync(() => HandleNearbyEvent(eventData));
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected when cancellation is requested
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Event consumption error: {ex}");
-            }
-        }, _eventConsumptionCts.Token);
+                    MainThread.BeginInvokeOnMainThread(() => HandleNearbyEvent(eventData));
+                },
+                onError: ex =>
+                {
+                    Console.WriteLine($"Event consumption error: {ex}");
+                },
+                onCompleted: () =>
+                {
+                    Console.WriteLine("Event stream completed");
+                });
     }
 
     private void StopEventConsumption()
     {
-        _eventConsumptionCts?.Cancel();
-        _eventConsumptionCts?.Dispose();
-        _eventConsumptionCts = null;
+        _eventSubscription?.Dispose();
+        _eventSubscription = null;
     }
 
     private void HandleNearbyEvent(object eventData)
@@ -256,15 +247,10 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         // Handle different event types
         switch (eventData)
         {
-            case Plugin.Maui.NearbyConnections.Events.NearbyDeviceFound foundEvent:
-                var newPeer = new PeerDevice
+            case NearbyDeviceFound foundEvent:
+                if (!DiscoveredPeers.Any(p => p.Id == foundEvent.Device.Id))
                 {
-                    Id = foundEvent.EndpointId,
-                    DisplayName = foundEvent.EndpointName
-                };
-                if (!DiscoveredPeers.Any(p => p.Id == newPeer.Id))
-                {
-                    DiscoveredPeers.Add(newPeer);
+                    DiscoveredPeers.Add(foundEvent.Device);
                 }
 
                 var discoveryMsg = new ChatMessage()
@@ -274,14 +260,14 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
                     MessageId = Guid.NewGuid().ToString("N"),
                     MessageType = MessageType.System,
                     Reactions = [],
-                    TextContent = $"Discovered {newPeer.DisplayName} nearby."
+                    TextContent = $"Discovered {foundEvent.Device.DisplayName} nearby."
                 };
 
                 ChatMessages.Add(discoveryMsg);
                 break;
 
-            case Plugin.Maui.NearbyConnections.Events.NearbyDeviceLost lostEvent:
-                var existingPeer = DiscoveredPeers.FirstOrDefault(p => p.Id == lostEvent.EndpointId);
+            case NearbyDeviceLost lostEvent:
+                var existingPeer = DiscoveredPeers.FirstOrDefault(p => p.Id == lostEvent.Device.Id);
 
                 if (existingPeer is not null)
                 {
@@ -295,13 +281,81 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
                     MessageId = Guid.NewGuid().ToString("N"),
                     MessageType = MessageType.System,
                     Reactions = [],
-                    TextContent = $"Lost {existingPeer?.DisplayName ?? lostEvent.EndpointId}."
+                    TextContent = $"Lost {lostEvent.Device.DisplayName}."
                 };
 
                 ChatMessages.Add(lostMsg);
+                break;
 
+            case InvitationReceived invitationEvent:
+                var invitationMsg = new ChatMessage()
+                {
+                    DeliveryState = MessageDeliveryState.Delivered,
+                    IsOwnMessage = false,
+                    MessageId = Guid.NewGuid().ToString("N"),
+                    MessageType = MessageType.System,
+                    Reactions = [],
+                    TextContent = $"Received connection invitation from {invitationEvent.From.DisplayName}."
+                };
+
+                ChatMessages.Add(invitationMsg);
+                break;
+
+            case InvitationAnswered answeredEvent:
+                // Check if connection was successful and add to connected peers
+                if (!ConnectedPeers.Any(p => p.Id == answeredEvent.From.Id))
+                {
+                    ConnectedPeers.Add(answeredEvent.From);
+                }
+
+                var connectedMsg = new ChatMessage()
+                {
+                    DeliveryState = MessageDeliveryState.Delivered,
+                    IsOwnMessage = false,
+                    MessageId = Guid.NewGuid().ToString("N"),
+                    MessageType = MessageType.System,
+                    Reactions = [],
+                    TextContent = $"Connected to {answeredEvent.From.DisplayName}."
+                };
+
+                ChatMessages.Add(connectedMsg);
+
+                // Update connection status
+                UpdateConnectionStatus();
+                break;
+
+            case NearbyDeviceDisconnected disconnectedEvent:
+                var disconnectedPeer = ConnectedPeers.FirstOrDefault(p => p.Id == disconnectedEvent.Device.Id);
+
+                if (disconnectedPeer is not null)
+                {
+                    ConnectedPeers.Remove(disconnectedPeer);
+                }
+
+                var disconnectedMsg = new ChatMessage()
+                {
+                    DeliveryState = MessageDeliveryState.Delivered,
+                    IsOwnMessage = false,
+                    MessageId = Guid.NewGuid().ToString("N"),
+                    MessageType = MessageType.System,
+                    Reactions = [],
+                    TextContent = $"{disconnectedEvent.Device.DisplayName} disconnected."
+                };
+
+                ChatMessages.Add(disconnectedMsg);
+
+                // Update connection status
+                UpdateConnectionStatus();
                 break;
         }
+    }
+
+    private void UpdateConnectionStatus()
+    {
+        IsConnected = ConnectedPeers.Count > 0;
+        ConnectionStatus = IsConnected
+            ? $"Connected to {ConnectedPeers.Count} peer(s)"
+            : "Not Connected";
     }
 
     private async Task LoadData(CancellationToken cancellationToken = default)
@@ -530,7 +584,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
 
     public void Dispose()
     {
-        _eventConsumptionCts?.Dispose();
+        _eventSubscription?.Dispose();
 
         GC.SuppressFinalize(this);
     }
