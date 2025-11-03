@@ -125,8 +125,6 @@ public partial class LoginPageViewModel : BaseViewModel
         try
         {
             var githubUrl = "https://github.com/phunkeler/Plugin.Maui.NearbyConnections";
-
-            // Try to open in GitHub app first using the app scheme
             var githubAppUrl = $"github://phunkeler/Plugin.Maui.NearbyConnections";
             var canOpenInApp = await Launcher.CanOpenAsync(githubAppUrl);
 

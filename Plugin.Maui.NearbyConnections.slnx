@@ -5,7 +5,5 @@
   <Folder Name="/src/">
     <Project Path="src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj" />
   </Folder>
-  <Folder Name="/test/">
-    <Project Path="test/Plugin.Maui.NearbyConnections.DeviceTests/Plugin.Maui.NearbyConnections.DeviceTests.csproj" />
-  </Folder>
+  <Folder Name="/test/" />
 </Solution>

@@ -1,3 +1,5 @@
+using Plugin.Maui.NearbyConnections.Logging;
+
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
 internal sealed partial class Advertiser : Java.Lang.Object

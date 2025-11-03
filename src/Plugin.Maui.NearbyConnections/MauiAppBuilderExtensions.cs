@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Plugin.Maui.NearbyConnections;
@@ -25,11 +27,12 @@ public static class MauiAppBuilderExtensions
             builder.Services.Configure(configureOptions);
         }
 
-        // Register the main plugin interface with factory that resolves options and service provider
+        // Register the main plugin interface with factory that resolves options, logger factory, and service provider
         builder.Services.AddSingleton<INearbyConnections>(sp =>
         {
             var options = sp.GetService<IOptions<NearbyConnectionsOptions>>()?.Value ?? new NearbyConnectionsOptions();
-            return new NearbyConnectionsImplementation(options, sp);
+            var loggerFactory = sp.GetService<ILoggerFactory>() ?? NullLoggerFactory.Instance;
+            return new NearbyConnectionsImplementation(options, loggerFactory);
         });
 
         return builder;

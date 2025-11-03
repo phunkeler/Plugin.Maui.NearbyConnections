@@ -11,7 +11,7 @@ internal partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 
     Task PlatformStartAdvertising(AdvertiseOptions options)
     {
-        var myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName)
+        var myPeerId = _myMCPeerIDManager.GetPeerId(options.DisplayName)
             ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
         NSDictionary? advertisingInfo = null;
@@ -42,12 +42,7 @@ internal partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
         => _advertiser?.StopAdvertisingPeer();
 
     public void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
-    {
-        if (error.UserInfo != null)
-        {
-            Console.WriteLine($"[ADVERTISER] Error details: {error.UserInfo}");
-        }
-    }
+        => _nearbyConnections.DidNotStartAdvertisingPeer(advertiser, error);
 
     public void DidReceiveInvitationFromPeer(
         MCNearbyServiceAdvertiser advertiser,

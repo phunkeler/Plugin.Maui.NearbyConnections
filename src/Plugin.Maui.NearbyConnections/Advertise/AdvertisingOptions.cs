@@ -21,7 +21,7 @@ public class AdvertiseOptions
     /// Reference: <see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionsClient#public-abstract-taskvoid-startadvertising-string-name,-string-serviceid,-connectionlifecyclecallback-connectionlifecyclecallback,-advertisingoptions-options">Android</see>,
     /// <see href="https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiser/init(peer:discoveryinfo:servicetype:)">iOS</see>
     /// </remarks>
-    public string ServiceName { get; set; } = AppInfo.Current.PackageName;
+    public string ServiceName { get; set; } = AppInfo.Current.Name;
 
     /// <summary>
     /// Gets or sets additional information to include in the advertisement.

@@ -27,7 +27,7 @@ public class DiscoverOptions
     /// The type of service to search for. This should be a short text string that describes the app's networking protocol, in the same format as a Bonjour service type (without the transport protocol).
     /// </para>
     /// </remarks>
-    public string ServiceName { get; set; } = AppInfo.Current.PackageName;
+    public string ServiceName { get; set; } = AppInfo.Current.Name;
 
 #if ANDROID
 

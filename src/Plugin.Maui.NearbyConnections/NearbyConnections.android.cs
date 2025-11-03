@@ -1,17 +1,22 @@
 using Plugin.Maui.NearbyConnections.Device;
 using Plugin.Maui.NearbyConnections.Events;
+using Plugin.Maui.NearbyConnections.Logging;
 
 namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
 {
-    #region Discoverer
+    #region Discovery
 
     internal void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
+        _logger.EndpointFound(endpointId, info.EndpointName);
+
         var device = new NearbyDevice(endpointId, info.EndpointName);
 
-        _discoveredDevices.TryAdd(endpointId, device);
+        if (_discoveredDevices.TryAdd(endpointId, device))
+        {
+        }
 
         var evt = new NearbyDeviceFound(
             Guid.NewGuid().ToString(),
@@ -23,6 +28,8 @@ sealed partial class NearbyConnectionsImplementation
 
     internal void OnEndpointLost(string endpointId)
     {
+        _logger.EndpointLost(endpointId);
+
         if (!_discoveredDevices.TryRemove(endpointId, out var device))
         {
             return;
@@ -36,12 +43,17 @@ sealed partial class NearbyConnectionsImplementation
         ProcessEvent(evt);
     }
 
-    #endregion Discoverer
+    #endregion Discovery
 
-    #region Advertiser
+    #region Advertising
 
     internal void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
+        _logger.ConnectionInitiated(
+            endpointId,
+            connectionInfo.EndpointName,
+            connectionInfo.IsIncomingConnection);
+
         if (!_discoveredDevices.TryGetValue(endpointId, out var device))
         {
             return;
@@ -58,6 +70,12 @@ sealed partial class NearbyConnectionsImplementation
 
     internal void OnConnectionResult(string endpointId, ConnectionResolution resolution)
     {
+        _logger.OnConnectionResult(
+            endpointId,
+            resolution.Status.StatusCode,
+            resolution.Status.StatusMessage ?? string.Empty,
+            resolution.Status.IsSuccess);
+
         // Try to get device from discovered devices, or create a new one
         if (!_discoveredDevices.TryGetValue(endpointId, out var device))
         {
@@ -67,7 +85,12 @@ sealed partial class NearbyConnectionsImplementation
         // If connection was successful, add to connected devices
         if (resolution.Status.IsSuccess)
         {
-            _connectedDevices.TryAdd(endpointId, device);
+            if (_connectedDevices.TryAdd(endpointId, device))
+            {
+            }
+        }
+        else
+        {
         }
 
         var evt = new InvitationAnswered(
@@ -80,10 +103,13 @@ sealed partial class NearbyConnectionsImplementation
 
     internal void OnDisconnected(string endpointId)
     {
+        _logger.Disconnected(endpointId);
+
         if (!_connectedDevices.TryRemove(endpointId, out var device))
         {
             return;
         }
+
 
         var evt = new NearbyDeviceDisconnected(
             Guid.NewGuid().ToString(),
@@ -93,5 +119,5 @@ sealed partial class NearbyConnectionsImplementation
         ProcessEvent(evt);
     }
 
-    #endregion Advertiser
+    #endregion Advertising
 }

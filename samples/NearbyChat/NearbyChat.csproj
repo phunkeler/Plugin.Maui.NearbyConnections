@@ -33,6 +33,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Indiko.Maui.Controls.Chat" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
     <PackageReference Include="Microsoft.Maui.Controls" />
     <PackageReference Include="Syncfusion.Maui.Toolkit" />
   </ItemGroup>

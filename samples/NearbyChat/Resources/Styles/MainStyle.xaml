@@ -14,23 +14,6 @@
                 Value="{DynamicResource surface-base}"/>
     </Style>
 
-    <FontImageSource x:Key="ChatRegular"
-                     Glyph="{x:Static fonts:FluentUi.chat_48_regular}"
-                     FontFamily="{x:Static fonts:FluentUi.FontFamily}"
-                     Color="{DynamicResource Gray700}"
-                     Size="{DynamicResource SpacingXL}"/>
-
-    <FontImageSource x:Key="IconLight"
-                     Glyph="{x:Static fonts:FluentUi.weather_sunny_28_regular}"
-                     FontFamily="{x:Static fonts:FluentUi.FontFamily}"
-                     Color="{DynamicResource Gray700}"
-                     Size="{DynamicResource SpacingXL}"/>
-    <FontImageSource x:Key="IconDark"
-                     Glyph="{x:Static fonts:FluentUi.weather_moon_28_regular}"
-                     FontFamily="{x:Static fonts:FluentUi.FontFamily}"
-                     Color="{DynamicResource Gray700}"
-                     Size="{DynamicResource SpacingXL}"/>
-
     <!-- Typography Styles -->
     <Style x:Key="Display1"
            TargetType="Label">

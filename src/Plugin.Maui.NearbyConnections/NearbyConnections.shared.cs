@@ -1,9 +1,12 @@
 using System.Collections.Concurrent;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Plugin.Maui.NearbyConnections.Advertise;
 using Plugin.Maui.NearbyConnections.Discover;
 using Plugin.Maui.NearbyConnections.Events;
+using Plugin.Maui.NearbyConnections.Logging;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -55,7 +58,7 @@ public static class NearbyConnections
                 {
                     s_defaultImplementation ??= new NearbyConnectionsImplementation(
                         s_defaultOptions ?? new NearbyConnectionsOptions(),
-                        serviceProvider: null);
+                        loggerFactory: NullLoggerFactory.Instance);
                 }
             }
             return s_defaultImplementation;
@@ -76,6 +79,8 @@ partial class NearbyConnectionsImplementation : INearbyConnections
     readonly ConcurrentDictionary<string, INearbyDevice> _discoveredDevices = new();
     readonly ConcurrentDictionary<string, INearbyDevice> _connectedDevices = new();
     readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingConnections = new();
+    readonly ILoggerFactory _loggerFactory;
+    readonly ILogger _logger;
     bool _isDisposed;
 
     Advertiser? _advertiser;
@@ -95,7 +100,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
     /// Creates a new instance with default options (for static API usage).
     /// </summary>
     public NearbyConnectionsImplementation()
-        : this(new NearbyConnectionsOptions(), serviceProvider: null)
+        : this(new NearbyConnectionsOptions(), NullLoggerFactory.Instance)
     {
     }
 
@@ -103,12 +108,17 @@ partial class NearbyConnectionsImplementation : INearbyConnections
     /// Creates a new instance with specified options (for DI usage).
     /// </summary>
     /// <param name="options">Configuration options</param>
-    /// <param name="serviceProvider">Optional service provider for resolving processors</param>
-    public NearbyConnectionsImplementation(NearbyConnectionsOptions options, IServiceProvider? serviceProvider)
+    /// <param name="loggerFactory">Logger factory for creating loggers (uses NullLoggerFactory if not provided)</param>
+    public NearbyConnectionsImplementation(
+        NearbyConnectionsOptions options,
+        ILoggerFactory loggerFactory)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
 
         DefaultOptions = options;
+        _loggerFactory = loggerFactory;
+        _logger = loggerFactory.CreateLogger<NearbyConnectionsImplementation>();
         _events = new Subject<INearbyConnectionsEvent>();
     }
 
@@ -130,8 +140,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine(
-                $"[NEARBY CONNECTIONS] Exception in event subscriber for event {evt.EventId}: {ex.Message}");
+            _logger.EventSubscriberException(evt.EventId, ex);
         }
     }
 
@@ -143,15 +152,22 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         {
             if (IsAdvertising)
             {
-                throw new InvalidOperationException($"Already advertising. Call {nameof(StopAdvertisingAsync)} first.");
+                _logger.AlreadyAdvertising();
+                return;
             }
 
-            _advertiser = new Advertiser(this);
-            await _advertiser.StartAdvertisingAsync(advertiseOptions ?? DefaultOptions.AdvertiserOptions);
+            var options = advertiseOptions ?? DefaultOptions.AdvertiserOptions;
+            _logger.StartingAdvertising(options.ServiceName, options.DisplayName);
+
+            _advertiser = new Advertiser(this, _loggerFactory);
+            await _advertiser.StartAdvertisingAsync(options);
             IsAdvertising = true;
+
+            _logger.AdvertisingStarted();
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.AdvertisingStartFailed(ex);
             _advertiser?.Dispose();
             _advertiser = null;
             IsAdvertising = false;
@@ -171,15 +187,22 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         {
             if (IsDiscovering)
             {
-                throw new InvalidOperationException($"Already discovering. Call {nameof(StopDiscoveryAsync)} first.");
+                _logger.AlreadyDiscovering();
+                return;
             }
 
-            _discoverer = new Discoverer(this);
-            await _discoverer.StartDiscoveringAsync(discoverOptions ?? DefaultOptions.DiscovererOptions);
+            var options = discoverOptions ?? DefaultOptions.DiscovererOptions;
+            _logger.StartingDiscovery(options.ServiceName);
+
+            _discoverer = new Discoverer(this, _loggerFactory);
+            await _discoverer.StartDiscoveringAsync(options);
             IsDiscovering = true;
+
+            _logger.DiscoveryStarted();
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.DiscoveryStartFailed(ex);
             _discoverer?.Dispose();
             _discoverer = null;
             IsDiscovering = false;
@@ -198,10 +221,12 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         {
             if (IsAdvertising)
             {
+                _logger.StoppingAdvertising();
                 _advertiser?.StopAdvertising();
                 _advertiser?.Dispose();
                 _advertiser = null;
                 IsAdvertising = false;
+                _logger.AdvertisingStopped();
             }
         }
         finally
@@ -217,10 +242,12 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         {
             if (IsDiscovering)
             {
+                _logger.StoppingDiscovery();
                 _discoverer?.StopDiscovering();
                 _discoverer?.Dispose();
                 _discoverer = null;
                 IsDiscovering = false;
+                _logger.DiscoveryStopped();
             }
         }
         finally
@@ -238,13 +265,15 @@ partial class NearbyConnectionsImplementation : INearbyConnections
 
         if (disposing)
         {
+            _logger.Disposing();
+
             try
             {
                 _advertiseSemaphore?.Wait(millisecondsTimeout: 200);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[NEARBY CONNECTIONS] Dispose: Failed to acquire advertise semaphore: {ex}");
+                _logger.DisposeSemaphoreFailure(ex);
             }
 
             _advertiser?.StopAdvertising();
@@ -258,7 +287,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[NEARBY CONNECTIONS] Dispose: Failed to acquire discover semaphore: {ex}");
+                _logger.DisposeSemaphoreFailure(ex);
             }
 
             _discoverer?.StopDiscovering();

@@ -40,10 +40,6 @@ internal partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
     /// <inheritdoc/>
     public void DidNotStartBrowsingForPeers(MCNearbyServiceBrowser browser, NSError error)
     {
-        // Handle browsing start failure
-        Console.WriteLine($"[DISCOVERER] ERROR: Failed to start browsing: {error.LocalizedDescription}");
-        Console.WriteLine($"[DISCOVERER] Error code: {error.Code}, Domain: {error.Domain}");
-
         if (error.UserInfo != null)
         {
             Console.WriteLine($"[DISCOVERER] Error details: {error.UserInfo}");
