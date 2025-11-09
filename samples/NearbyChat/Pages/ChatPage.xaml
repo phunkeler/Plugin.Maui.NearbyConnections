@@ -4,12 +4,19 @@
                 x:Class="NearbyChat.Pages.ChatPage"
                 xmlns:pages="clr-namespace:NearbyChat.Pages"
                 xmlns:vm="clr-namespace:NearbyChat.ViewModels"
+                xmlns:mct="clr-namespace:CommunityToolkit.Maui.Core;assembly=CommunityToolkit.Maui.Core"
                 xmlns:idk="clr-namespace:Indiko.Maui.Controls.Chat;assembly=Indiko.Maui.Controls.Chat"
                 xmlns:sfBottomSheet="clr-namespace:Syncfusion.Maui.Toolkit.BottomSheet;assembly=Syncfusion.Maui.Toolkit"
                 xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
                 x:TypeArguments="vm:ChatPageViewModel"
                 x:DataType="vm:ChatPageViewModel"
                 x:Name="chat">
+
+    <pages:BasePage.Resources>
+        <ResourceDictionary>
+            <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter"/>
+        </ResourceDictionary>
+    </pages:BasePage.Resources>
 
     <pages:BasePage.Behaviors>
         <toolkit:EventToCommandBehavior
@@ -22,7 +29,7 @@
             Command="{Binding DisappearingCommand}"/>
     </pages:BasePage.Behaviors>
 
-    <Grid RowDefinitions="*,Auto">
+    <Grid>
 
         <!-- Messages Area -->
         <idk:ChatView Grid.Row="0"
@@ -41,8 +48,6 @@
                       EmojiReactionFontSize="14"
                       EmojiReactionTextColor="Green"
                       ReplyMessageBackgroundColor="Blue"
-                      MessageTappedCommand="{Binding MessageTappedCommand}"
-                      LongPressedCommand="{Binding LongPressedCommand}"
                       ReplyMessageTextColor="White"
                       ShowNewMessagesSeperator="True"
                       SystemMessageBackgroundColor="{DynamicResource Gray400}"
@@ -54,11 +59,13 @@
 
         <!-- Message Input -->
         <Border Grid.Row="1"
+                VerticalOptions="End"
                 Padding="10"
                 Margin="10,5">
-            <Grid>
+            <Grid ColumnSpacing="5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
@@ -71,11 +78,44 @@
                 <Button x:Name="SendButton"
                         Grid.Column="1"
                         Text="Send"
+                        BackgroundColor="Blue"
+                        TextColor="Black"
+                        Command="{Binding SendMessageCommand}"/>
+
+                <Button x:Name="SettingsButton"
+                        WidthRequest="48"
+                        HeightRequest="48"
+                        Grid.Column="2"
+                        Text="&#xe001;"
+                        CornerRadius="24"
+                        FontFamily="NearbyChatIcons"
+                        FontSize="24"
+                        BackgroundColor="{DynamicResource Primary}"
                         TextColor="White"
-                        Command="{Binding SendMessageCommand}"
-                        IsEnabled="{Binding IsConnected}"/>
+                        Clicked="OnSettingsButtonClicked"/>
             </Grid>
         </Border>
+        <sfBottomSheet:SfBottomSheet x:Name="bottomSheet"
+                                     Grid.Row="1"
+                                     CornerRadius="25, 25, 0, 0"
+                                     HalfExpandedRatio="0.25"
+                                     ContentPadding="10">
+            <sfBottomSheet:SfBottomSheet.BottomSheetContent>
+                <VerticalStackLayout Spacing="5"
+                                     BackgroundColor="{DynamicResource Gray800}"
+                                     x:Name="bottomSheetContent">
+
+                    <Button Text="Advertise"
+                            Command="{Binding StartAdvertisingCommand}"
+                            IsEnabled="{Binding IsAdvertising, Converter={StaticResource InvertedBoolConverter}}"/>
+
+                    <Button Text="Discover"
+                            Command="{Binding StartDiscoveryCommand}"
+                            IsEnabled="{Binding IsDiscovering, Converter={StaticResource InvertedBoolConverter}}"/>
+
+                </VerticalStackLayout>
+            </sfBottomSheet:SfBottomSheet.BottomSheetContent>
+        </sfBottomSheet:SfBottomSheet>
     </Grid>
 
 </pages:BasePage>

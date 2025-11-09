@@ -6,7 +6,6 @@ using NearbyChat.Models;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
 using Plugin.Maui.NearbyConnections.Advertise;
-using Plugin.Maui.NearbyConnections.Device;
 using Plugin.Maui.NearbyConnections.Events;
 
 namespace NearbyChat.ViewModels;
@@ -17,7 +16,6 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     readonly IChatMessageService _chatMessageService;
     readonly INearbyConnections _nearbyConnections;
     readonly IUserService _userService;
-
     readonly List<User> _userList;
 
     IDisposable? _eventSubscription;
@@ -45,6 +43,9 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
 
     [ObservableProperty]
     string _currentMessage = "";
+
+    public bool IsAdvertising => _nearbyConnections.IsAdvertising;
+    public bool IsDiscovering => _nearbyConnections.IsDiscovering;
 
     public ChatPageViewModel(
         AvatarRepository avatarRepository,
@@ -87,18 +88,6 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
                 DisplayName = "Mara Mc.Kellogs",
             }
         ];
-    }
-
-    [RelayCommand]
-    private void OnMessageTapped(ChatMessage message)
-    {
-        Console.WriteLine($"Message tapped for message: {message.MessageId}");
-    }
-
-    [RelayCommand]
-    private void LongPressed(ContextAction contextAction)
-    {
-        Console.WriteLine($"Message long pressed Id: {contextAction.Message.MessageId}");
     }
 
     [RelayCommand]
@@ -206,8 +195,6 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         await Refresh(cancellationToken);
 
         SubscribeToNearbyConnectionsEventChannel();
-        await StartAdvertising(cancellationToken);
-        await StartDiscovery(cancellationToken);
     }
 
     [RelayCommand]
@@ -260,7 +247,8 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
                     MessageId = Guid.NewGuid().ToString("N"),
                     MessageType = MessageType.System,
                     Reactions = [],
-                    TextContent = $"Discovered {foundEvent.Device.DisplayName} nearby."
+                    TextContent = $"Discovered {foundEvent.Device.DisplayName} nearby.",
+
                 };
 
                 ChatMessages.Add(discoveryMsg);

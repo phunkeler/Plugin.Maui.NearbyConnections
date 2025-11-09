@@ -13,19 +13,24 @@ public class SeedDataService : ISeedDataService
     const string SEED_DATA_FILE_PATH = "SeedData.json";
 
     readonly AvatarRepository _avatarRepository;
+    readonly IFileSystem _fileSystem;
 
-    public SeedDataService(AvatarRepository avatarRepository)
+    public SeedDataService(
+        AvatarRepository avatarRepository,
+        IFileSystem fileSystem)
     {
         ArgumentNullException.ThrowIfNull(avatarRepository);
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
         _avatarRepository = avatarRepository;
+        _fileSystem = fileSystem;
     }
 
     public async Task LoadSeedDataAsync(CancellationToken cancellationToken = default)
     {
         await ClearTables(cancellationToken);
 
-        await using var templateStream = await FileSystem.OpenAppPackageFileAsync(SEED_DATA_FILE_PATH);
+        await using var templateStream = await _fileSystem.OpenAppPackageFileAsync(SEED_DATA_FILE_PATH);
 
         AvatarsJson? avatarsJson = null;
 

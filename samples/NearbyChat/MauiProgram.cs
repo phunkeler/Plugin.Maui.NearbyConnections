@@ -17,6 +17,10 @@ public static class MauiProgram
     {
         var builder = MauiApp.CreateBuilder()
             .UseMauiApp<App>()
+            .ConfigureFonts(fonts =>
+            {
+                fonts.AddFont("NearbyChatIcons.ttf", "NearbyChatIcons");
+            })
             .UseMauiCommunityToolkit()
             .UseChatView()
             .ConfigureSyncfusionToolkit()
@@ -27,6 +31,7 @@ public static class MauiProgram
         builder.Services.AddLogging(configure => configure.AddDebug());
 #endif
 
+        builder.Services.AddSingleton(_ => FileSystem.Current);
         builder.Services.AddSingleton<AppShell>();
         builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
         builder.Services.AddSingleton<AvatarRepository>();

@@ -411,3 +411,5 @@ FodyWeavers.xsd
 
 #MacOS specific files
 .DS_Store
+
+scripts/tmp
