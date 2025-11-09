@@ -44,9 +44,6 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     [ObservableProperty]
     string _currentMessage = "";
 
-    public bool IsAdvertising => _nearbyConnections.IsAdvertising;
-    public bool IsDiscovering => _nearbyConnections.IsDiscovering;
-
     public ChatPageViewModel(
         AvatarRepository avatarRepository,
         IChatMessageService chatMessageService,
@@ -91,40 +88,41 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     }
 
     [RelayCommand]
-    async Task StartAdvertising(CancellationToken cancellationToken)
+    async Task Advertise(ToggledEventArgs toggledEventArgs, CancellationToken cancellationToken)
     {
-        var advertiseOptions = new AdvertiseOptions
+        if (toggledEventArgs.Value)
         {
-            DisplayName = CurrentUser?.DisplayName ?? DeviceInfo.Current.Name,
-        };
+            var advertiseOptions = new AdvertiseOptions
+            {
+                DisplayName = CurrentUser?.DisplayName ?? DeviceInfo.Current.Name,
+            };
 
-        await _nearbyConnections.StartAdvertisingAsync(advertiseOptions, cancellationToken);
+            await _nearbyConnections.StartAdvertisingAsync(advertiseOptions, cancellationToken);
+        }
+        else
+        {
+            await _nearbyConnections.StopAdvertisingAsync();
+        }
     }
 
     [RelayCommand]
-    async Task StopAdvertising()
+    async Task Discover(ToggledEventArgs toggledEventArgs, CancellationToken cancellationToken)
     {
-        await _nearbyConnections.StopAdvertisingAsync();
-    }
-
-    [RelayCommand]
-    async Task StartDiscovery(CancellationToken cancellationToken)
-    {
-        // Attach to Discovery events
-        var discoveryOptions = new Plugin.Maui.NearbyConnections.Discover.DiscoverOptions
+        if (toggledEventArgs.Value)
         {
+            var discoveryOptions = new Plugin.Maui.NearbyConnections.Discover.DiscoverOptions
+            {
 #if ANDROID
-            Activity = Platform.CurrentActivity
+                Activity = Platform.CurrentActivity
 #endif
-        };
+            };
 
-        await _nearbyConnections.StartDiscoveryAsync(discoveryOptions, cancellationToken);
-    }
-
-    [RelayCommand]
-    async Task StopDiscovery()
-    {
-        await _nearbyConnections.StopDiscoveryAsync();
+            await _nearbyConnections.StartDiscoveryAsync(discoveryOptions, cancellationToken);
+        }
+        else
+        {
+            await _nearbyConnections.StopDiscoveryAsync();
+        }
     }
 
     [RelayCommand]

@@ -77,9 +77,14 @@
 
                 <Button x:Name="SendButton"
                         Grid.Column="1"
-                        Text="Send"
-                        BackgroundColor="Blue"
-                        TextColor="Black"
+                        WidthRequest="48"
+                        HeightRequest="48"
+                        CornerRadius="24"
+                        FontFamily="NearbyChatIcons"
+                        Text="&#xe002;"
+                        FontSize="24"
+                        BackgroundColor="{DynamicResource PrimaryBlue700}"
+                        TextColor="White"
                         Command="{Binding SendMessageCommand}"/>
 
                 <Button x:Name="SettingsButton"
@@ -90,7 +95,7 @@
                         CornerRadius="24"
                         FontFamily="NearbyChatIcons"
                         FontSize="24"
-                        BackgroundColor="{DynamicResource Primary}"
+                        BackgroundColor="{DynamicResource PrimaryBlue700}"
                         TextColor="White"
                         Clicked="OnSettingsButtonClicked"/>
             </Grid>
@@ -102,17 +107,33 @@
                                      ContentPadding="10">
             <sfBottomSheet:SfBottomSheet.BottomSheetContent>
                 <VerticalStackLayout Spacing="5"
-                                     BackgroundColor="{DynamicResource Gray800}"
                                      x:Name="bottomSheetContent">
 
-                    <Button Text="Advertise"
-                            Command="{Binding StartAdvertisingCommand}"
-                            IsEnabled="{Binding IsAdvertising, Converter={StaticResource InvertedBoolConverter}}"/>
+                    <Label Text="Advertising"
+                           FontSize="18"
+                           TextColor="{DynamicResource Gray800}"/>
+                    <Switch x:Name="advertisingSwitch">
+                        <Switch.Behaviors>
+                            <toolkit:EventToCommandBehavior
+                                BindingContext="{Binding Path=BindingContext, Source={x:Reference advertisingSwitch}, x:DataType=Switch}"
+                                x:TypeArguments="ToggledEventArgs"
+                                EventName="Toggled"
+                                Command="{Binding AdvertiseCommand}"/>
+                        </Switch.Behaviors>
+                    </Switch>
 
-                    <Button Text="Discover"
-                            Command="{Binding StartDiscoveryCommand}"
-                            IsEnabled="{Binding IsDiscovering, Converter={StaticResource InvertedBoolConverter}}"/>
-
+                    <Label Text="Discovering"
+                           FontSize="18"
+                           TextColor="{DynamicResource Gray800}"/>
+                    <Switch x:Name="discoverySwitch">
+                        <Switch.Behaviors>
+                            <toolkit:EventToCommandBehavior
+                                BindingContext="{Binding Path=BindingContext, Source={x:Reference discoverySwitch}, x:DataType=Switch}"
+                                x:TypeArguments="ToggledEventArgs"
+                                EventName="Toggled"
+                                Command="{Binding DiscoverCommand}"/>
+                        </Switch.Behaviors>
+                    </Switch>
                 </VerticalStackLayout>
             </sfBottomSheet:SfBottomSheet.BottomSheetContent>
         </sfBottomSheet:SfBottomSheet>
