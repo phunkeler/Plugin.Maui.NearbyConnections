@@ -1,13 +1,13 @@
 {
-    "version": 1,
-    "isRoot": true,
-    "tools": {
-        "docfx": {
-            "version": "2.78.3",
-            "commands": [
-                "docfx"
-            ],
-            "rollForward": false
-        }
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "docfx": {
+      "version": "2.78.4",
+      "commands": [
+        "docfx"
+      ],
+      "rollForward": false
     }
+  }
 }
