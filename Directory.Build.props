@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <NetVersion>net9.0</NetVersion>
+    <NetVersion>net10.0</NetVersion>
     <AndroidPlatform>android</AndroidPlatform>
     <IosPlatform>ios</IosPlatform>
     <AndroidTargetFramework>$(NetVersion)-$(AndroidPlatform)</AndroidTargetFramework>
