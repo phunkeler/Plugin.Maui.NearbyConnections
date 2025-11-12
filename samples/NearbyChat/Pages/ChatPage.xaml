@@ -5,7 +5,6 @@
                 xmlns:pages="clr-namespace:NearbyChat.Pages"
                 xmlns:vm="clr-namespace:NearbyChat.ViewModels"
                 xmlns:mct="clr-namespace:CommunityToolkit.Maui.Core;assembly=CommunityToolkit.Maui.Core"
-                xmlns:idk="clr-namespace:Indiko.Maui.Controls.Chat;assembly=Indiko.Maui.Controls.Chat"
                 xmlns:sfBottomSheet="clr-namespace:Syncfusion.Maui.Toolkit.BottomSheet;assembly=Syncfusion.Maui.Toolkit"
                 xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
                 x:TypeArguments="vm:ChatPageViewModel"
@@ -20,123 +19,87 @@
 
     <pages:BasePage.Behaviors>
         <toolkit:EventToCommandBehavior
-            BindingContext="{Binding Path=BindingContext, Source={x:Reference chat}, x:DataType=pages:BasePage}"
+            BindingContext="{Binding Path=BindingContext, Source={x:Reference chat}, x:DataType=pages:ChatPage}"
             EventName="Appearing"
             Command="{Binding AppearingCommand}"/>
         <toolkit:EventToCommandBehavior
-            BindingContext="{Binding Path=BindingContext, Source={x:Reference chat}, x:DataType=pages:BasePage}"
+            BindingContext="{Binding Path=BindingContext, Source={x:Reference chat}, x:DataType=pages:ChatPage}"
             EventName="Disappearing"
             Command="{Binding DisappearingCommand}"/>
     </pages:BasePage.Behaviors>
 
-    <Grid>
+    <pages:BasePage.Content>
+        <Grid>
+            <!-- Message Input -->
+            <Border Grid.Row="1"
+                    VerticalOptions="End"
+                    Padding="10"
+                    Margin="10,5">
+                <Grid ColumnSpacing="5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-        <!-- Messages Area -->
-        <idk:ChatView Grid.Row="0"
-                      x:Name="chatView"
-                      OwnMessageBackgroundColor="Blue"
-                      OwnMessageTextColor="White"
-                      OtherMessageBackgroundColor="Green"
-                      OtherMessageTextColor="White"
-                      DateTextColor="{StaticResource Gray500}"
-                      Messages="{Binding ChatMessages}"
-                      DateTextFontSize="14"
-                      MessageTimeTextColor="{StaticResource Gray200}"
-                      NewMessagesSeperatorTextColor="{StaticResource Gray300}"
-                      NewMessagesSeperatorFontSize="16"
-                      NewMessagesSeperatorText="New Messages"
-                      EmojiReactionFontSize="14"
-                      EmojiReactionTextColor="Green"
-                      ReplyMessageBackgroundColor="Blue"
-                      ReplyMessageTextColor="White"
-                      ShowNewMessagesSeperator="True"
-                      SystemMessageBackgroundColor="{DynamicResource Gray400}"
-                      SystemMessageTextColor="Black"
-                      SystemMessageFontSize="14"
-                      ContextMenuDividerColor="{StaticResource Gray300}"
-                      ContextMenuTextColor="{StaticResource Gray200}"
-                      ContextMenuBackgroundColor="{StaticResource Gray700}"/>
+                    <Label Text="WHY"/>
 
-        <!-- Message Input -->
-        <Border Grid.Row="1"
-                VerticalOptions="End"
-                Padding="10"
-                Margin="10,5">
-            <Grid ColumnSpacing="5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                    <Button x:Name="SendButton"
+                            Grid.Column="1"
+                            WidthRequest="48"
+                            HeightRequest="48"
+                            CornerRadius="24"
+                            ImageSource="{FontImageSource Glyph=&#xe002;, Color={AppThemeBinding Light=White, Dark=White}, FontFamily=NearbyChatIcons, Size=36}"
+                            BackgroundColor="{DynamicResource PrimaryBlue700}"
+                            Command="{Binding SendMessageCommand}"/>
 
-                <Entry x:Name="UsernameEntry"
-                       Style="{StaticResource TextInput}"
-                       Text="{Binding CurrentMessage}"
-                       Placeholder="Type a message..."
-                       ReturnCommand="{Binding SendMessageCommand}"/>
+                    <Button x:Name="SettingsButton"
+                            Grid.Column="2"
+                            WidthRequest="48"
+                            HeightRequest="48"
+                            CornerRadius="24"
+                            ImageSource="{FontImageSource Glyph=&#xe001;, Color={AppThemeBinding Light=White, Dark=White}, FontFamily=NearbyChatIcons, Size=36}"
+                            BackgroundColor="{DynamicResource PrimaryBlue700}"
+                            Clicked="OnSettingsButtonClicked"/>
+                </Grid>
+            </Border>
+            <sfBottomSheet:SfBottomSheet x:Name="bottomSheet"
+                                         Grid.Row="1"
+                                         CornerRadius="25, 25, 0, 0"
+                                         HalfExpandedRatio="0.5"
+                                         ContentPadding="10">
+                <sfBottomSheet:SfBottomSheet.BottomSheetContent>
+                    <VerticalStackLayout Spacing="5"
+                                         x:Name="bottomSheetContent">
 
-                <Button x:Name="SendButton"
-                        Grid.Column="1"
-                        WidthRequest="48"
-                        HeightRequest="48"
-                        CornerRadius="24"
-                        FontFamily="NearbyChatIcons"
-                        Text="&#xe002;"
-                        FontSize="24"
-                        BackgroundColor="{DynamicResource PrimaryBlue700}"
-                        TextColor="White"
-                        Command="{Binding SendMessageCommand}"/>
+                        <Label Text="Advertising"
+                               FontSize="18"
+                               TextColor="{DynamicResource Gray800}"/>
+                        <Switch x:Name="advertisingSwitch">
+                            <Switch.Behaviors>
+                                <toolkit:EventToCommandBehavior
+                                    BindingContext="{Binding Path=BindingContext, Source={x:Reference advertisingSwitch}, x:DataType=Switch}"
+                                    x:TypeArguments="ToggledEventArgs"
+                                    EventName="Toggled"
+                                    Command="{Binding AdvertiseCommand}"/>
+                            </Switch.Behaviors>
+                        </Switch>
 
-                <Button x:Name="SettingsButton"
-                        WidthRequest="48"
-                        HeightRequest="48"
-                        Grid.Column="2"
-                        Text="&#xe001;"
-                        CornerRadius="24"
-                        FontFamily="NearbyChatIcons"
-                        FontSize="24"
-                        BackgroundColor="{DynamicResource PrimaryBlue700}"
-                        TextColor="White"
-                        Clicked="OnSettingsButtonClicked"/>
-            </Grid>
-        </Border>
-        <sfBottomSheet:SfBottomSheet x:Name="bottomSheet"
-                                     Grid.Row="1"
-                                     CornerRadius="25, 25, 0, 0"
-                                     HalfExpandedRatio="0.25"
-                                     ContentPadding="10">
-            <sfBottomSheet:SfBottomSheet.BottomSheetContent>
-                <VerticalStackLayout Spacing="5"
-                                     x:Name="bottomSheetContent">
-
-                    <Label Text="Advertising"
-                           FontSize="18"
-                           TextColor="{DynamicResource Gray800}"/>
-                    <Switch x:Name="advertisingSwitch">
-                        <Switch.Behaviors>
-                            <toolkit:EventToCommandBehavior
-                                BindingContext="{Binding Path=BindingContext, Source={x:Reference advertisingSwitch}, x:DataType=Switch}"
-                                x:TypeArguments="ToggledEventArgs"
-                                EventName="Toggled"
-                                Command="{Binding AdvertiseCommand}"/>
-                        </Switch.Behaviors>
-                    </Switch>
-
-                    <Label Text="Discovering"
-                           FontSize="18"
-                           TextColor="{DynamicResource Gray800}"/>
-                    <Switch x:Name="discoverySwitch">
-                        <Switch.Behaviors>
-                            <toolkit:EventToCommandBehavior
-                                BindingContext="{Binding Path=BindingContext, Source={x:Reference discoverySwitch}, x:DataType=Switch}"
-                                x:TypeArguments="ToggledEventArgs"
-                                EventName="Toggled"
-                                Command="{Binding DiscoverCommand}"/>
-                        </Switch.Behaviors>
-                    </Switch>
-                </VerticalStackLayout>
-            </sfBottomSheet:SfBottomSheet.BottomSheetContent>
-        </sfBottomSheet:SfBottomSheet>
-    </Grid>
-
+                        <Label Text="Discovering"
+                               FontSize="18"
+                               TextColor="{DynamicResource Gray800}"/>
+                        <Switch x:Name="discoverySwitch">
+                            <Switch.Behaviors>
+                                <toolkit:EventToCommandBehavior
+                                    BindingContext="{Binding Path=BindingContext, Source={x:Reference discoverySwitch}, x:DataType=Switch}"
+                                    x:TypeArguments="ToggledEventArgs"
+                                    EventName="Toggled"
+                                    Command="{Binding DiscoverCommand}"/>
+                            </Switch.Behaviors>
+                        </Switch>
+                    </VerticalStackLayout>
+                </sfBottomSheet:SfBottomSheet.BottomSheetContent>
+            </sfBottomSheet:SfBottomSheet>
+        </Grid>
+    </pages:BasePage.Content>
 </pages:BasePage>

@@ -27,150 +27,152 @@
             Command="{Binding AppearingCommand}"/>
     </pages:BasePage.Behaviors>
 
-    <Grid>
-        <ScrollView>
-            <Grid Padding="{DynamicResource SpacingXL}"
-                  RowSpacing="{DynamicResource SpacingSM}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+    <pages:BasePage.Content>
+        <Grid>
+            <ScrollView>
+                <Grid Padding="{DynamicResource SpacingXL}"
+                      RowSpacing="{DynamicResource SpacingSM}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                <Grid RowDefinitions="Auto,*"
-                      RowSpacing="{StaticResource Spacing2XL}"
-                      MaximumWidthRequest="400"
-                      HorizontalOptions="Center">
+                    <Grid RowDefinitions="Auto,*"
+                          RowSpacing="{StaticResource Spacing2XL}"
+                          MaximumWidthRequest="400"
+                          HorizontalOptions="Center">
 
-                    <!-- App Header -->
-                    <StackLayout Spacing="{DynamicResource SpacingXL}">
-
-                        <!-- App/Plugin Icon -->
-                        <Image Source="nuget.png"
-                               HeightRequest="80"
-                               WidthRequest="80"
-                               HorizontalOptions="Center"/>
-
-                        <!-- App Title and Description -->
-                        <StackLayout Spacing="{StaticResource SpacingSM}">
-                            <Label Text="NearbyChat"
-                                   Style="{StaticResource Display1}"
-                                   HorizontalTextAlignment="Center"/>
-
-                            <Label Style="{StaticResource Body1}"
-                                   HorizontalTextAlignment="Center">
-                                <Label.FormattedText>
-                                    <FormattedString>
-                                        <Span Text="Powered By:  "/>
-                                        <Span Text="Plugin.Maui.NearbyConnections"
-                                              FontAttributes="Bold"
-                                              TextColor="{StaticResource PrimaryBlue600}"/>
-                                    </FormattedString>
-                                </Label.FormattedText>
-                            </Label>
-                        </StackLayout>
-                    </StackLayout>
-
-                    <!-- Login Card -->
-                    <Border Grid.Row="1"
-                            Style="{StaticResource CardFrame}"
-                            Padding="{DynamicResource SpacingXL}">
+                        <!-- App Header -->
                         <StackLayout Spacing="{DynamicResource SpacingXL}">
 
-                            <!-- Card Header -->
-                            <Label Text="Create Identity"
-                                   Style="{StaticResource Headline1}"
-                                   HorizontalTextAlignment="Center"/>
+                            <!-- App/Plugin Icon -->
+                            <Image Source="nuget.png"
+                                   HeightRequest="80"
+                                   WidthRequest="80"
+                                   HorizontalOptions="Center"/>
 
-                            <!-- Avatar Selection -->
-                            <Grid RowDefinitions="Auto,*"
-                                  RowSpacing="{StaticResource SpacingLG}">
-
-                                <Label Text="Choose Avatar"
-                                       Style="{StaticResource LabelMedium}"/>
-
-                                <CollectionView Grid.Row="1"
-                                                HorizontalScrollBarVisibility="Never"
-                                                x:Name="AvatarList"
-                                                ItemsSource="{Binding Avatars}"
-                                                SelectionMode="Single"
-                                                SelectedItem="{Binding SelectedAvatar}"
-                                                HeightRequest="48">
-                                    <CollectionView.Behaviors>
-                                        <toolkit:EventToCommandBehavior
-                                            x:TypeArguments="SelectionChangedEventArgs"
-                                            BindingContext="{Binding Path=BindingContext, Source={x:Reference AvatarList}, x:DataType=CollectionView}"
-                                            EventName="SelectionChanged"
-                                            Command="{Binding AvatarSelectionChangedCommand}"/>
-                                    </CollectionView.Behaviors>
-                                    <CollectionView.ItemsLayout>
-                                        <LinearItemsLayout Orientation="Horizontal"
-                                                           ItemSpacing="{StaticResource SpacingMD}"/>
-                                    </CollectionView.ItemsLayout>
-                                    <CollectionView.ItemTemplate>
-                                        <DataTemplate x:DataType="models:Avatar">
-                                            <!-- Wrap AvatarView so we can control CollectionView's default selected item color -->
-                                            <ContentView BackgroundColor="Transparent"
-                                                         Style="{StaticResource AvatarList-Container}"
-                                                         Padding="0">
-                                                <toolkit:AvatarView
-                                                    Style="{StaticResource AvatarList-Selected}"
-                                                    BackgroundColor="{Binding BackgroundColor}"
-                                                    BorderColor="{Binding BorderColor}"
-                                                    BorderWidth="{Binding BorderWidth}"
-                                                    ImageSource="{Binding ImageSource}"
-                                                    Padding="{Binding Padding}"
-                                                    Text="{Binding Text}"
-                                                    TextColor="{Binding TextColor}"/>
-                                            </ContentView>
-                                        </DataTemplate>
-                                    </CollectionView.ItemTemplate>
-                                </CollectionView>
-                            </Grid>
-
-                            <!-- Username Input -->
+                            <!-- App Title and Description -->
                             <StackLayout Spacing="{StaticResource SpacingSM}">
-                                <Label Text="Display Name"
-                                       Style="{StaticResource LabelMedium}"/>
-                                <sfInputLayout:SfTextInputLayout ContainerType="Outlined"
-                                                                 Stroke="{DynamicResource Gray500}"
-                                                                 OutlineCornerRadius="8">
-                                    <Entry x:Name="DisplayNameEntry"
-                                           Text="{Binding DisplayName}"
-                                           TextColor="{DynamicResource Gray800}"
-                                           MaxLength="32"
-                                           FontSize="Medium"/>
-                                </sfInputLayout:SfTextInputLayout>
+                                <Label Text="NearbyChat"
+                                       Style="{StaticResource Display1}"
+                                       HorizontalTextAlignment="Center"/>
+
+                                <Label Style="{StaticResource Body1}"
+                                       HorizontalTextAlignment="Center">
+                                    <Label.FormattedText>
+                                        <FormattedString>
+                                            <Span Text="Powered By:  "/>
+                                            <Span Text="Plugin.Maui.NearbyConnections"
+                                                  FontAttributes="Bold"
+                                                  TextColor="{StaticResource PrimaryBlue600}"/>
+                                        </FormattedString>
+                                    </Label.FormattedText>
+                                </Label>
                             </StackLayout>
-
-                            <!-- Login Button -->
-                            <Button x:Name="LoginButton"
-                                    Text="📱 Start Nearby Chat"
-                                    Style="{StaticResource PrimaryButton}"
-                                    Command="{Binding LoginCommand}"/>
                         </StackLayout>
-                    </Border>
-                </Grid>
 
-                <!-- Footer -->
-                <Grid
-                    Grid.Row="1"
-                    HorizontalOptions="Center">
-                    <Label HorizontalOptions="Center">
-                        <Label.FormattedText>
-                            <FormattedString>
-                                <Span Text="GitHub"
-                                      TextColor="{StaticResource PrimaryBlue600}"
-                                      TextDecorations="Underline">
-                                    <Span.GestureRecognizers>
-                                        <TapGestureRecognizer
-                                            Command="{Binding OpenGitHubCommand}"/>
-                                    </Span.GestureRecognizers>
-                                </Span>
-                            </FormattedString>
-                        </Label.FormattedText>
-                    </Label>
+                        <!-- Login Card -->
+                        <Border Grid.Row="1"
+                                Style="{StaticResource CardFrame}"
+                                Padding="{DynamicResource SpacingXL}">
+                            <StackLayout Spacing="{DynamicResource SpacingXL}">
+
+                                <!-- Card Header -->
+                                <Label Text="Create Identity"
+                                       Style="{StaticResource Headline1}"
+                                       HorizontalTextAlignment="Center"/>
+
+                                <!-- Avatar Selection -->
+                                <Grid RowDefinitions="Auto,*"
+                                      RowSpacing="{StaticResource SpacingLG}">
+
+                                    <Label Text="Choose Avatar"
+                                           Style="{StaticResource LabelMedium}"/>
+
+                                    <CollectionView Grid.Row="1"
+                                                    HorizontalScrollBarVisibility="Never"
+                                                    x:Name="AvatarList"
+                                                    ItemsSource="{Binding Avatars}"
+                                                    SelectionMode="Single"
+                                                    SelectedItem="{Binding SelectedAvatar}"
+                                                    HeightRequest="48">
+                                        <CollectionView.Behaviors>
+                                            <toolkit:EventToCommandBehavior
+                                                x:TypeArguments="SelectionChangedEventArgs"
+                                                BindingContext="{Binding Path=BindingContext, Source={x:Reference AvatarList}, x:DataType=CollectionView}"
+                                                EventName="SelectionChanged"
+                                                Command="{Binding AvatarSelectionChangedCommand}"/>
+                                        </CollectionView.Behaviors>
+                                        <CollectionView.ItemsLayout>
+                                            <LinearItemsLayout Orientation="Horizontal"
+                                                               ItemSpacing="{StaticResource SpacingMD}"/>
+                                        </CollectionView.ItemsLayout>
+                                        <CollectionView.ItemTemplate>
+                                            <DataTemplate x:DataType="models:Avatar">
+                                                <!-- Wrap AvatarView so we can control CollectionView's default selected item color -->
+                                                <ContentView BackgroundColor="Transparent"
+                                                             Style="{StaticResource AvatarList-Container}"
+                                                             Padding="0">
+                                                    <toolkit:AvatarView
+                                                        Style="{StaticResource AvatarList-Selected}"
+                                                        BackgroundColor="{Binding BackgroundColor}"
+                                                        BorderColor="{Binding BorderColor}"
+                                                        BorderWidth="{Binding BorderWidth}"
+                                                        ImageSource="{Binding ImageSource}"
+                                                        Padding="{Binding Padding}"
+                                                        Text="{Binding Text}"
+                                                        TextColor="{Binding TextColor}"/>
+                                                </ContentView>
+                                            </DataTemplate>
+                                        </CollectionView.ItemTemplate>
+                                    </CollectionView>
+                                </Grid>
+
+                                <!-- Username Input -->
+                                <StackLayout Spacing="{StaticResource SpacingSM}">
+                                    <Label Text="Display Name"
+                                           Style="{StaticResource LabelMedium}"/>
+                                    <sfInputLayout:SfTextInputLayout ContainerType="Outlined"
+                                                                     Stroke="{DynamicResource Gray500}"
+                                                                     OutlineCornerRadius="8">
+                                        <Entry x:Name="DisplayNameEntry"
+                                               Text="{Binding DisplayName}"
+                                               TextColor="{DynamicResource Gray800}"
+                                               MaxLength="32"
+                                               FontSize="14"/>
+                                    </sfInputLayout:SfTextInputLayout>
+                                </StackLayout>
+
+                                <!-- Login Button -->
+                                <Button x:Name="LoginButton"
+                                        Text="📱 Start Nearby Chat"
+                                        Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding LoginCommand}"/>
+                            </StackLayout>
+                        </Border>
+                    </Grid>
+
+                    <!-- Footer -->
+                    <Grid
+                        Grid.Row="1"
+                        HorizontalOptions="Center">
+                        <Label HorizontalOptions="Center">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="GitHub"
+                                          TextColor="{StaticResource PrimaryBlue600}"
+                                          TextDecorations="Underline">
+                                        <Span.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding OpenGitHubCommand}"/>
+                                        </Span.GestureRecognizers>
+                                    </Span>
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                    </Grid>
                 </Grid>
-            </Grid>
-        </ScrollView>
-    </Grid>
+            </ScrollView>
+        </Grid>
+    </pages:BasePage.Content>
 </pages:BasePage>

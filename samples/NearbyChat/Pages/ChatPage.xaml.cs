@@ -9,7 +9,7 @@ public partial class ChatPage : BasePage<ChatPageViewModel>
         InitializeComponent();
     }
 
-    void OnSettingsButtonClicked(object sender, EventArgs e)
+    void OnSettingsButtonClicked(object? sender, EventArgs e)
     {
         bottomSheet.Show();
     }

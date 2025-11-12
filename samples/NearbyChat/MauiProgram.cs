@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Maui;
-using Indiko.Maui.Controls.Chat;
 using Microsoft.Extensions.Logging;
 using NearbyChat.Data;
 using NearbyChat.Pages;
@@ -22,7 +21,6 @@ public static class MauiProgram
                 fonts.AddFont("NearbyChatIcons.ttf", "NearbyChatIcons");
             })
             .UseMauiCommunityToolkit()
-            .UseChatView()
             .ConfigureSyncfusionToolkit()
             .AddNearbyConnections();
 
@@ -33,7 +31,6 @@ public static class MauiProgram
 
         builder.Services.AddSingleton(_ => FileSystem.Current);
         builder.Services.AddSingleton<AppShell>();
-        builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
         builder.Services.AddSingleton<AvatarRepository>();
         builder.Services.AddSingleton<UserRepository>();
         builder.Services.AddSingleton<ISeedDataService, SeedDataService>();

@@ -20,4 +20,3 @@
 -   adb -s R3CR609PX6W exec-out run-as com.companyname.nearbychat cat "/data/data/com.companyname.nearbychat/files/NearbyChat.db3" > %userprofile%\Downloads\NearbyChat.db3
 
 # Acknowledgements
-- [0xc3u](https://github.com/0xc3u): Thanks for the the awesome [ChatView](https://github.com/0xc3u/Indiko.Maui.Controls.Chat)
