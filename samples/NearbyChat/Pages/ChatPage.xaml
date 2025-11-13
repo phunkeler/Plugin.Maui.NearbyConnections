@@ -5,6 +5,7 @@
                 xmlns:pages="clr-namespace:NearbyChat.Pages"
                 xmlns:vm="clr-namespace:NearbyChat.ViewModels"
                 xmlns:mct="clr-namespace:CommunityToolkit.Maui.Core;assembly=CommunityToolkit.Maui.Core"
+                xmlns:nc="clr-namespace:Plugin.Maui.NearbyConnections.Device;assembly=Plugin.Maui.NearbyConnections"
                 xmlns:sfBottomSheet="clr-namespace:Syncfusion.Maui.Toolkit.BottomSheet;assembly=Syncfusion.Maui.Toolkit"
                 xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
                 x:TypeArguments="vm:ChatPageViewModel"
@@ -30,44 +31,136 @@
 
     <pages:BasePage.Content>
         <Grid>
-            <!-- Message Input -->
-            <Border Grid.Row="1"
-                    VerticalOptions="End"
-                    Padding="10"
-                    Margin="10,5">
-                <Grid ColumnSpacing="5">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
 
-                    <Label Text="WHY"/>
-
-                    <Button x:Name="SendButton"
-                            Grid.Column="1"
-                            WidthRequest="48"
-                            HeightRequest="48"
-                            CornerRadius="24"
-                            ImageSource="{FontImageSource Glyph=&#xe002;, Color={AppThemeBinding Light=White, Dark=White}, FontFamily=NearbyChatIcons, Size=36}"
-                            BackgroundColor="{DynamicResource PrimaryBlue700}"
-                            Command="{Binding SendMessageCommand}"/>
-
-                    <Button x:Name="SettingsButton"
-                            Grid.Column="2"
-                            WidthRequest="48"
-                            HeightRequest="48"
-                            CornerRadius="24"
-                            ImageSource="{FontImageSource Glyph=&#xe001;, Color={AppThemeBinding Light=White, Dark=White}, FontFamily=NearbyChatIcons, Size=36}"
-                            BackgroundColor="{DynamicResource PrimaryBlue700}"
-                            Clicked="OnSettingsButtonClicked"/>
-                </Grid>
-            </Border>
             <sfBottomSheet:SfBottomSheet x:Name="bottomSheet"
-                                         Grid.Row="1"
                                          CornerRadius="25, 25, 0, 0"
-                                         HalfExpandedRatio="0.5"
+                                         HalfExpandedRatio="0.25"
                                          ContentPadding="10">
+
+                <sfBottomSheet:SfBottomSheet.Content>
+                    <Grid RowDefinitions="Auto,*,Auto">
+                        <Border
+                            VerticalOptions="End"
+                            Padding="10"
+                            Margin="10,5">
+                            <CollectionView
+                                            x:Name="NearbyDevices"
+                                            ItemsSource="{Binding NearbyDevices}">
+                                <CollectionView.ItemsLayout>
+                                    <LinearItemsLayout Orientation="Horizontal"
+                                                       ItemSpacing="{StaticResource SpacingMD}"/>
+                                </CollectionView.ItemsLayout>
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="nc:NearbyDevice">
+                                        <Border Stroke="Red" Padding="20">
+                                            <Grid RowDefinitions="Auto,*" RowSpacing="5">
+                                                <!-- pass the whole item as parameter -->
+                                                <Grid.GestureRecognizers>
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding Source={x:Reference chat}, Path=BindingContext.SelectDeviceCommand}"
+                                                        CommandParameter="{Binding .}"/>
+                                                </Grid.GestureRecognizers>
+
+                                                <!-- item UI -->
+                                                <Label Text="{Binding DisplayName}"
+                                                       HorizontalOptions="Center"/>
+                                                <HorizontalStackLayout Spacing="5"
+                                                                       Grid.Row="1"
+                                                                       VerticalOptions="End">
+                                                    <Button x:Name="AcceptButton"
+                                                            Padding="0"
+                                                            WidthRequest="30"
+                                                            HeightRequest="30"
+                                                            CornerRadius="15"
+                                                            BackgroundColor="{DynamicResource Green500}"
+                                                            Command="{Binding Source={x:Reference chat}, Path=BindingContext.AcceptInvitationCommand}"
+                                                            CommandParameter="{Binding .}">
+                                                        <Button.ImageSource>
+                                                            <FontImageSource Glyph="&#xe002;"
+                                                                             Color="{AppThemeBinding Light=White, Dark=White}"
+                                                                             FontFamily="NearbyChatIcons"
+                                                                             Size="15"/>
+                                                        </Button.ImageSource>
+                                                    </Button>
+                                                    <Button x:Name="RejectButton"
+                                                            Padding="0"
+                                                            WidthRequest="30"
+                                                            HeightRequest="30"
+                                                            CornerRadius="15"
+                                                            BackgroundColor="{DynamicResource Pink500}"
+                                                            Command="{Binding Source={x:Reference chat}, Path=BindingContext.RejectInvitationCommand}"
+                                                            CommandParameter="{Binding .}">
+                                                        <Button.ImageSource>
+                                                            <FontImageSource Glyph="&#xe001;"
+                                                                             Color="{AppThemeBinding Light=White, Dark=White}"
+                                                                             FontFamily="NearbyChatIcons"
+                                                                             Size="15"/>
+                                                        </Button.ImageSource>
+                                                    </Button>
+                                                </HorizontalStackLayout>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </Border>
+
+                        <CollectionView Grid.Row="1">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Label Text="A"/>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <Border
+                            Grid.Row="2"
+                            VerticalOptions="End"
+                            Padding="10"
+                            Margin="10,5">
+                            <Grid ColumnSpacing="5"
+                                  ColumnDefinitions="*, Auto, Auto">
+
+                                <Label Text="TEST"/>
+
+                                <Button x:Name="SendButton"
+                                        Grid.Column="1"
+                                        Padding="0"
+                                        WidthRequest="48"
+                                        HeightRequest="48"
+                                        CornerRadius="24"
+                                        BackgroundColor="{DynamicResource PrimaryBlue700}"
+                                        Command="{Binding SendMessageCommand}">
+                                    <Button.ImageSource>
+                                        <FontImageSource Glyph="&#xe002;"
+                                                         Color="{AppThemeBinding Light=White, Dark=White}"
+                                                         FontFamily="NearbyChatIcons"
+                                                         Size="24"/>
+                                    </Button.ImageSource>
+                                </Button>
+
+                                <Button x:Name="SettingsButton"
+                                        Grid.Column="2"
+                                        Padding="0"
+                                        WidthRequest="48"
+                                        HeightRequest="48"
+                                        CornerRadius="24"
+                                        BackgroundColor="{DynamicResource PrimaryBlue700}"
+                                        Clicked="OnSettingsButtonClicked">
+                                    <Button.ImageSource>
+                                        <FontImageSource Glyph="&#xe001;"
+                                                         Color="{AppThemeBinding Light=White, Dark=White}"
+                                                         FontFamily="NearbyChatIcons"
+                                                         Size="24"/>
+                                    </Button.ImageSource>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                    </Grid>
+
+                </sfBottomSheet:SfBottomSheet.Content>
+
                 <sfBottomSheet:SfBottomSheet.BottomSheetContent>
                     <VerticalStackLayout Spacing="5"
                                          x:Name="bottomSheetContent">

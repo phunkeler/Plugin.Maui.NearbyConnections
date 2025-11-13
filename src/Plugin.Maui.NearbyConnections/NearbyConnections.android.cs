@@ -12,27 +12,36 @@ sealed partial class NearbyConnectionsImplementation
     {
         _logger.EndpointFound(endpointId, info.EndpointName);
 
-        var device = new NearbyDevice(endpointId, info.EndpointName);
+        var device = new NearbyDevice(endpointId, info.EndpointName, NearbyDeviceStatus.Discovered);
 
-        if (_discoveredDevices.TryAdd(endpointId, device))
+        if (_devices.TryAdd(endpointId, device))
         {
+            var evt = new NearbyDeviceFound(
+                Guid.NewGuid().ToString(),
+                DateTimeOffset.UtcNow,
+                device);
+
+            ProcessEvent(evt);
+
         }
-
-        var evt = new NearbyDeviceFound(
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow,
-            device);
-
-        ProcessEvent(evt);
     }
 
     internal void OnEndpointLost(string endpointId)
     {
         _logger.EndpointLost(endpointId);
 
-        if (!_discoveredDevices.TryRemove(endpointId, out var device))
+        if (_devices.TryGetValue(endpointId, out var device))
         {
-            return;
+            device.Status = NearbyDeviceStatus.Disconnected;
+        }
+        else
+        {
+            device = new NearbyDevice(
+                endpointId,
+                string.Empty,
+                NearbyDeviceStatus.Disconnected);
+
+            _devices.TryAdd(endpointId, device);
         }
 
         var evt = new NearbyDeviceLost(
@@ -54,18 +63,29 @@ sealed partial class NearbyConnectionsImplementation
             connectionInfo.EndpointName,
             connectionInfo.IsIncomingConnection);
 
-        if (!_discoveredDevices.TryGetValue(endpointId, out var device))
+        if (!_devices.TryGetValue(endpointId, out var device))
         {
-            return;
+            device = new NearbyDevice(
+                endpointId,
+                connectionInfo.EndpointName,
+                NearbyDeviceStatus.Invited);
+
+            _devices.TryAdd(endpointId, device);
+        }
+        else
+        {
+            device.Status = NearbyDeviceStatus.Invited;
         }
 
-        // We're missing-out on a lot of details by not passing ConnectionInfo, but this is sufficient for now.
-        var evt = new InvitationReceived(
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow,
-            device);
+        if (connectionInfo.IsIncomingConnection)
+        {
+            var evt = new InvitationReceived(
+                Guid.NewGuid().ToString(),
+                DateTimeOffset.UtcNow,
+                device);
 
-        ProcessEvent(evt);
+            ProcessEvent(evt);
+        }
     }
 
     internal void OnConnectionResult(string endpointId, ConnectionResolution resolution)
@@ -76,21 +96,23 @@ sealed partial class NearbyConnectionsImplementation
             resolution.Status.StatusMessage ?? string.Empty,
             resolution.Status.IsSuccess);
 
-        // Try to get device from discovered devices, or create a new one
-        if (!_discoveredDevices.TryGetValue(endpointId, out var device))
+        if (!_devices.TryGetValue(endpointId, out var device))
         {
-            device = new NearbyDevice(endpointId, string.Empty);
+            device = new NearbyDevice(
+                endpointId,
+                string.Empty,
+                NearbyDeviceStatus.Invited);
+
+            _devices.TryAdd(endpointId, device);
         }
 
-        // If connection was successful, add to connected devices
         if (resolution.Status.IsSuccess)
         {
-            if (_connectedDevices.TryAdd(endpointId, device))
-            {
-            }
+            device.Status = NearbyDeviceStatus.Connected;
         }
         else
         {
+            device.Status = NearbyDeviceStatus.Disconnected;
         }
 
         var evt = new InvitationAnswered(
@@ -105,11 +127,19 @@ sealed partial class NearbyConnectionsImplementation
     {
         _logger.Disconnected(endpointId);
 
-        if (!_connectedDevices.TryRemove(endpointId, out var device))
+        if (_devices.TryGetValue(endpointId, out var device))
         {
-            return;
+            device.Status = NearbyDeviceStatus.Disconnected;
         }
+        else
+        {
+            device = new NearbyDevice(
+                endpointId,
+                string.Empty,
+                NearbyDeviceStatus.Disconnected);
 
+            _devices.TryAdd(endpointId, device);
+        }
 
         var evt = new NearbyDeviceDisconnected(
             Guid.NewGuid().ToString(),
@@ -120,4 +150,31 @@ sealed partial class NearbyConnectionsImplementation
     }
 
     #endregion Advertising
+
+
+    Task PlatformSendInvitation(INearbyDevice device, CancellationToken cancellationToken = default)
+    {
+        return NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Android.App.Application.Context)
+            .RequestConnectionAsync("ME", device.Id, new InvitationCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected));
+    }
+
+
+    sealed class InvitationCallback(
+        Action<string, ConnectionInfo> onConnectionInitiated,
+        Action<string, ConnectionResolution> onConnectionResult,
+        Action<string> onDisconnected) : ConnectionLifecycleCallback
+    {
+        readonly Action<string, ConnectionInfo> _onConnectionInitiated = onConnectionInitiated;
+        readonly Action<string, ConnectionResolution> _onConnectionResult = onConnectionResult;
+        readonly Action<string> _onDisconnected = onDisconnected;
+
+        public override void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
+            => _onConnectionInitiated(endpointId, connectionInfo);
+
+        public override void OnConnectionResult(string endpointId, ConnectionResolution resolution)
+            => _onConnectionResult(endpointId, resolution);
+
+        public override void OnDisconnected(string endpointId)
+            => _onDisconnected(endpointId);
+    }
 }

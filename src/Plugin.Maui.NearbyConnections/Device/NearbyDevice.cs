@@ -1,11 +1,13 @@
 namespace Plugin.Maui.NearbyConnections.Device;
 
-/// <inheritdoc/>
-public sealed class NearbyDevice(string id, string displayName) : INearbyDevice
+internal sealed class NearbyDevice(
+    string id,
+    string displayName,
+    NearbyDeviceStatus status) : INearbyDevice
 {
-    /// <inheritdoc/>
     public string Id { get; } = id;
 
-    /// <inheritdoc/>
     public string DisplayName { get; } = displayName;
+
+    public NearbyDeviceStatus Status { get; internal set; } = status;
 }

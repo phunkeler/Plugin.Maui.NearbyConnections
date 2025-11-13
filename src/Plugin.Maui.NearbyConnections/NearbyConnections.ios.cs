@@ -18,16 +18,17 @@ sealed partial class NearbyConnectionsImplementation
 
         using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-        var device = new NearbyDevice(id, peerID.DisplayName);
+        var device = new NearbyDevice(id, peerID.DisplayName, NearbyDeviceStatus.Discovered);
 
-        _discoveredDevices.TryAdd(id, device);
+        if (_devices.TryAdd(id, device))
+        {
+            var evt = new NearbyDeviceFound(
+                Guid.NewGuid().ToString(),
+                DateTimeOffset.UtcNow,
+                device);
 
-        var evt = new NearbyDeviceFound(
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow,
-            device);
-
-        ProcessEvent(evt);
+            ProcessEvent(evt);
+        }
     }
 
     internal void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
@@ -37,9 +38,14 @@ sealed partial class NearbyConnectionsImplementation
         using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        if (!_discoveredDevices.TryRemove(id, out var device))
+        if (_devices.TryGetValue(id, out var device))
         {
-            return;
+            device.Status = NearbyDeviceStatus.Disconnected;
+        }
+        else
+        {
+            device = new NearbyDevice(id, string.Empty, NearbyDeviceStatus.Disconnected);
+            _devices.TryAdd(id, device);
         }
 
         var evt = new NearbyDeviceLost(
@@ -72,9 +78,18 @@ sealed partial class NearbyConnectionsImplementation
 
         using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-        var device = new NearbyDevice(id, peerID.DisplayName);
 
-        // We're missing-out on a lot of details by not passing ConnectionInfo, but this is sufficient for now.
+        // Get or create device with Invited status
+        if (!_devices.TryGetValue(id, out var device))
+        {
+            device = new NearbyDevice(id, peerID.DisplayName, NearbyDeviceStatus.Invited);
+            _devices.TryAdd(id, device);
+        }
+        else
+        {
+            device.Status = NearbyDeviceStatus.Invited;
+        }
+
         var evt = new InvitationReceived(
             Guid.NewGuid().ToString(),
             DateTimeOffset.UtcNow,
@@ -84,4 +99,9 @@ sealed partial class NearbyConnectionsImplementation
     }
 
     #endregion Advertising
+
+    Task PlatformSendInvitation(INearbyDevice device, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
 }

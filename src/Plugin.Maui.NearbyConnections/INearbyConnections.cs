@@ -27,14 +27,9 @@ public interface INearbyConnections : IDisposable
     bool IsDiscovering { get; }
 
     /// <summary>
-    /// Gets a collection of currently discovered nearby devices.
+    /// Gets all nearby devices regardless of <see cref="NearbyDeviceStatus"/>.
     /// </summary>
-    IReadOnlyDictionary<string, INearbyDevice> DiscoveredDevices { get; }
-
-    /// <summary>
-    /// Gets a collection of currently connected devices.
-    /// </summary>
-    IReadOnlyDictionary<string, INearbyDevice> ConnectedDevices { get; }
+    IReadOnlyDictionary<string, INearbyDevice> Devices { get; }
 
     /// <summary>
     /// Gets or sets the default options to use.
@@ -65,28 +60,11 @@ public interface INearbyConnections : IDisposable
     /// <returns></returns>
     Task StopDiscoveryAsync();
 
-    /*
-        /// <summary>
-        /// Send data to a connected device.
-        /// </summary>
-        /// <param name="deviceId">Target device ID</param>
-        /// <param name="data">Data to send</param>
-        /// <returns>Task representing the send operation</returns>
-        Task SendDataAsync(string deviceId, byte[] data);
-
-        /// <summary>
-        /// Accept a connection invitation from a device.
-        /// </summary>
-        /// <param name="deviceId">Device ID to accept connection from</param>
-        /// <returns>Task representing the acceptance operation</returns>
-        Task AcceptConnectionAsync(string deviceId);
-
-        /// <summary>
-        /// Reject a connection invitation from a device.
-        /// </summary>
-        /// <param name="deviceId">Device ID to reject connection from</param>
-        /// <returns>Task representing the rejection operation</returns>
-        Task RejectConnectionAsync(string deviceId);
-
-    */
+    /// <summary>
+    /// Sends an invitation to the specified nearby device asynchronously.
+    /// </summary>
+    /// <param name="device">The device to which the invitation will be sent. Cannot be null.</param>
+    /// <param name="cancellationToken">A cancellation token that can be used to cancel the invitation operation.</param>
+    /// <returns>A task that represents the asynchronous operation of sending the invitation.</returns>
+    Task SendInvitation(INearbyDevice device, CancellationToken cancellationToken = default);
 }

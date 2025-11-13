@@ -15,4 +15,9 @@ public interface INearbyDevice
     /// Gets a user-friendly display name for the device.
     /// </summary>
     string DisplayName { get; }
+
+    /// <summary>
+    /// Gets the current connection status of the device.
+    /// </summary>
+    NearbyDeviceStatus Status { get; }
 }

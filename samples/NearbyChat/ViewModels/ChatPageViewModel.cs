@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NearbyChat.Data;
@@ -31,6 +32,9 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
 
     [ObservableProperty]
     string _currentMessage = "";
+
+    [ObservableProperty]
+    ObservableCollection<INearbyDevice> _nearbyDevices = [];
 
     public ChatPageViewModel(
         AvatarRepository avatarRepository,
@@ -85,6 +89,32 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     }
 
     [RelayCommand]
+    async Task SelectDevice(INearbyDevice? device)
+    {
+        if (device is null)
+            return;
+
+        await _nearbyConnections.SendInvitation(device, CancellationToken.None);
+    }
+
+    [RelayCommand]
+    async Task AcceptInvitation(INearbyDevice? device)
+    {
+        if (device is null)
+            return;
+
+        await Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    async Task RejectInvitation(INearbyDevice? device)
+    {
+        if (device is null)
+            return;
+        await Task.CompletedTask;
+    }
+
+    [RelayCommand]
     async Task Refresh(CancellationToken cancellationToken)
     {
         try
@@ -125,7 +155,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
             .Subscribe(
                 onNext: eventData =>
                 {
-                    MainThread.BeginInvokeOnMainThread(() => HandleNearbyEvent(eventData));
+                    _ = HandleNearbyEvent(eventData);
                 },
                 onError: ex =>
                 {
@@ -143,20 +173,21 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         _eventSubscription = null;
     }
 
-    private void HandleNearbyEvent(object eventData)
+    async Task HandleNearbyEvent(object eventData)
     {
         // Handle different event types
         switch (eventData)
         {
             case NearbyDeviceFound foundEvent:
-
+                AddOrUpdateNearbyDevice(foundEvent.Device);
                 break;
 
             case NearbyDeviceLost lostEvent:
-
+                RemoveNearbyDevice(lostEvent.Device.Id);
                 break;
 
             case InvitationReceived invitationEvent:
+                AddOrUpdateNearbyDevice(invitationEvent.From);
 
                 break;
 
@@ -165,7 +196,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
                 break;
 
             case NearbyDeviceDisconnected disconnectedEvent:
-
+                RemoveNearbyDevice(disconnectedEvent.Device.Id);
                 break;
         }
     }
@@ -187,6 +218,45 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         {
             IsBusy = false;
         }
+    }
+
+    void AddOrUpdateNearbyDevice(INearbyDevice device)
+    {
+        if (device is null)
+        {
+            return;
+        }
+
+        // assume caller may be on background thread; ensure UI thread
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            var existing = NearbyDevices.FirstOrDefault(d => d.Id == device.Id);
+
+            if (existing is null)
+            {
+                NearbyDevices.Add(device);
+            }
+            else if (!ReferenceEquals(existing, device))
+            {
+                // replace the item so CollectionView can refresh the item template
+                var index = NearbyDevices.IndexOf(existing);
+                if (index >= 0)
+                    NearbyDevices[index] = device;
+            }
+        });
+    }
+
+    void RemoveNearbyDevice(string? id)
+    {
+        if (string.IsNullOrEmpty(id))
+            return;
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            var existing = NearbyDevices.FirstOrDefault(d => d.Id == id);
+            if (existing != null)
+                NearbyDevices.Remove(existing);
+        });
     }
 
     public void Dispose()

@@ -4,6 +4,7 @@ using System.Reactive.Subjects;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Plugin.Maui.NearbyConnections.Advertise;
+using Plugin.Maui.NearbyConnections.Device;
 using Plugin.Maui.NearbyConnections.Discover;
 using Plugin.Maui.NearbyConnections.Events;
 using Plugin.Maui.NearbyConnections.Logging;
@@ -76,9 +77,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
     readonly SemaphoreSlim _discoverSemaphore = new(1, 1);
 
     readonly Subject<INearbyConnectionsEvent> _events;
-    readonly ConcurrentDictionary<string, INearbyDevice> _discoveredDevices = new();
-    readonly ConcurrentDictionary<string, INearbyDevice> _connectedDevices = new();
-    readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingConnections = new();
+    readonly ConcurrentDictionary<string, NearbyDevice> _devices = new();
     readonly ILoggerFactory _loggerFactory;
     readonly ILogger _logger;
     bool _isDisposed;
@@ -91,8 +90,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
     public bool IsAdvertising { get; private set; }
     public bool IsDiscovering { get; private set; }
 
-    public IReadOnlyDictionary<string, INearbyDevice> DiscoveredDevices => _discoveredDevices;
-    public IReadOnlyDictionary<string, INearbyDevice> ConnectedDevices => _connectedDevices;
+    public IReadOnlyDictionary<string, INearbyDevice> Devices => (IReadOnlyDictionary<string, INearbyDevice>)_devices;
 
     public NearbyConnectionsOptions DefaultOptions { get; }
 
@@ -255,6 +253,8 @@ partial class NearbyConnectionsImplementation : INearbyConnections
             _discoverSemaphore.Release();
         }
     }
+
+    public async Task SendInvitation(INearbyDevice device, CancellationToken cancellationToken = default) => await PlatformSendInvitation(device, cancellationToken);
 
     public void Dispose(bool disposing)
     {
