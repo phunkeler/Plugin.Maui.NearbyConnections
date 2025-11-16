@@ -104,7 +104,7 @@ sealed partial class NearbyConnectionsImplementation
 
     #endregion Advertising
 
-    Task PlatformSendInvitation(INearbyDevice device, CancellationToken cancellationToken = default)
+    Task PlatformSendInvitation(NearbyDevice device, CancellationToken cancellationToken = default)
     {
         throw new NotImplementedException();
     }

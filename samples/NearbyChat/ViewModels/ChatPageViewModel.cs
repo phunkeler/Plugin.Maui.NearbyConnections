@@ -34,7 +34,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     string _currentMessage = "";
 
     [ObservableProperty]
-    ObservableCollection<INearbyDevice> _nearbyDevices = [];
+    ObservableCollection<NearbyDevice> _nearbyDevices = [];
 
     public ChatPageViewModel(
         AvatarRepository avatarRepository,
@@ -89,7 +89,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     }
 
     [RelayCommand]
-    async Task SelectDevice(INearbyDevice? device)
+    async Task SelectDevice(NearbyDevice? device)
     {
         if (device is null)
             return;
@@ -98,7 +98,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     }
 
     [RelayCommand]
-    async Task AcceptInvitation(INearbyDevice? device)
+    async Task AcceptInvitation(NearbyDevice? device)
     {
         if (device is null)
             return;
@@ -107,7 +107,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     }
 
     [RelayCommand]
-    async Task RejectInvitation(INearbyDevice? device)
+    async Task RejectInvitation(NearbyDevice? device)
     {
         if (device is null)
             return;
@@ -220,7 +220,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         }
     }
 
-    void AddOrUpdateNearbyDevice(INearbyDevice device)
+    void AddOrUpdateNearbyDevice(NearbyDevice device)
     {
         if (device is null)
         {

@@ -6,7 +6,7 @@ namespace Plugin.Maui.NearbyConnections.Events;
 public class NearbyDeviceFound(
     string eventId,
     DateTimeOffset timestamp,
-    INearbyDevice device) : INearbyConnectionsEvent
+    NearbyDevice device) : INearbyConnectionsEvent
 {
     /// <inheritdoc/>
     public string EventId { get; } = eventId;
@@ -15,7 +15,7 @@ public class NearbyDeviceFound(
     public DateTimeOffset Timestamp { get; } = timestamp;
 
     /// <summary>
-    /// The <see cref="INearbyDevice" /> that was discovered.
+    /// The <see cref="NearbyDevice" /> that was discovered.
     /// </summary>
-    public INearbyDevice Device { get; } = device;
+    public NearbyDevice Device { get; } = device;
 }

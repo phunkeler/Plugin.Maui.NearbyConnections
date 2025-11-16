@@ -15,7 +15,7 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 /// - iOS: Maximum 400 bytes total, 255 bytes per key-value pair
 /// </para>
 /// </remarks>
-public sealed class NearbyAdvertisement
+public sealed partial class NearbyAdvertisement
 {
     /// <summary>
     /// Maximum size in bytes for Android's endpointInfo parameter.

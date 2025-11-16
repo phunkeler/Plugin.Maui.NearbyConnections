@@ -8,7 +8,7 @@ namespace Plugin.Maui.NearbyConnections.Events;
 public class InvitationAnswered(
     string eventId,
     DateTimeOffset timestamp,
-    INearbyDevice from) : INearbyConnectionsEvent
+    NearbyDevice from) : INearbyConnectionsEvent
 {
     /// <summary>
     /// Unique identifier for this event instance.
@@ -21,7 +21,7 @@ public class InvitationAnswered(
     public DateTimeOffset Timestamp { get; } = timestamp;
 
     /// <summary>
-    /// The <see cref="INearbyDevice"/> that sent the invitation to connect.
+    /// The <see cref="NearbyDevice"/> that sent the invitation to connect.
     /// </summary>
-    public INearbyDevice From { get; } = from;
+    public NearbyDevice From { get; } = from;
 }

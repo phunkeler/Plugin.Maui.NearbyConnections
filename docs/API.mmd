@@ -12,13 +12,13 @@ classDiagram
         +Events IObservable~INearbyConnectionsEvent~
         +IsAdvertising bool
         +IsDiscovering bool
-        +Devices IReadOnlyDictionary~string, INearbyDevice~
+        +Devices IReadOnlyDictionary~string, NearbyDevice~
         +DefaultOptions NearbyConnectionsOptions
         +StartAdvertisingAsync(AdvertiseOptions?, CancellationToken) Task
         +StartDiscoveryAsync(DiscoverOptions?, CancellationToken) Task
         +StopAdvertisingAsync() Task
         +StopDiscoveryAsync() Task
-        +SendInvitation(INearbyDevice, CancellationToken) Task
+        +SendInvitation(NearbyDevice, CancellationToken) Task
         +Dispose() void
     }
 
@@ -53,7 +53,7 @@ classDiagram
     }
 
     %% Device Model
-    class INearbyDevice {
+    class NearbyDevice {
         <<interface>>
         +Id string
         +DisplayName string
@@ -78,44 +78,44 @@ classDiagram
     class NearbyDeviceFound {
         +EventId string
         +Timestamp DateTimeOffset
-        +Device INearbyDevice
+        +Device NearbyDevice
     }
 
     class NearbyDeviceLost {
         +EventId string
         +Timestamp DateTimeOffset
-        +Device INearbyDevice
+        +Device NearbyDevice
     }
 
     class InvitationReceived {
         +EventId string
         +Timestamp DateTimeOffset
-        +From INearbyDevice
+        +From NearbyDevice
     }
 
     class InvitationAnswered {
         +EventId string
         +Timestamp DateTimeOffset
-        +From INearbyDevice
+        +From NearbyDevice
     }
 
     class NearbyDeviceDisconnected {
         +EventId string
         +Timestamp DateTimeOffset
-        +Device INearbyDevice
+        +Device NearbyDevice
     }
 
     %% Relationships
     NearbyConnections --> INearbyConnections : provides
     INearbyConnections --> NearbyConnectionsOptions : configured by
-    INearbyConnections --> INearbyDevice : manages
+    INearbyConnections --> NearbyDevice : manages
     INearbyConnections --> INearbyConnectionsEvent : emits
 
     NearbyConnectionsOptions *-- AdvertiseOptions
     NearbyConnectionsOptions *-- DiscoverOptions
     NearbyConnectionsOptions *-- EventPublisherOptions
 
-    INearbyDevice --> NearbyDeviceStatus : has
+    NearbyDevice --> NearbyDeviceStatus : has
 
     INearbyConnectionsEvent <|.. NearbyDeviceFound : implements
     INearbyConnectionsEvent <|.. NearbyDeviceLost : implements
@@ -123,8 +123,8 @@ classDiagram
     INearbyConnectionsEvent <|.. InvitationAnswered : implements
     INearbyConnectionsEvent <|.. NearbyDeviceDisconnected : implements
 
-    NearbyDeviceFound --> INearbyDevice : contains
-    NearbyDeviceLost --> INearbyDevice : contains
-    InvitationReceived --> INearbyDevice : from
-    InvitationAnswered --> INearbyDevice : from
-    NearbyDeviceDisconnected --> INearbyDevice : contains
+    NearbyDeviceFound --> NearbyDevice : contains
+    NearbyDeviceLost --> NearbyDevice : contains
+    InvitationReceived --> NearbyDevice : from
+    InvitationAnswered --> NearbyDevice : from
+    NearbyDeviceDisconnected --> NearbyDevice : contains

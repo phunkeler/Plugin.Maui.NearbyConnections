@@ -79,7 +79,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
     public bool IsAdvertising { get; private set; }
     public bool IsDiscovering { get; private set; }
 
-    public IReadOnlyDictionary<string, INearbyDevice> Devices => (IReadOnlyDictionary<string, INearbyDevice>)_devices;
+    public IReadOnlyDictionary<string, NearbyDevice> Devices => (IReadOnlyDictionary<string, NearbyDevice>)_devices;
 
     public NearbyConnectionsOptions DefaultOptions { get; }
 
@@ -244,7 +244,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         }
     }
 
-    public async Task SendInvitation(INearbyDevice device, CancellationToken cancellationToken = default) => await PlatformSendInvitation(device, cancellationToken);
+    public async Task SendInvitation(NearbyDevice device, CancellationToken cancellationToken = default) => await PlatformSendInvitation(device, cancellationToken);
 
     public void Dispose(bool disposing)
     {

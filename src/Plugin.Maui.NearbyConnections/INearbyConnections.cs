@@ -25,7 +25,7 @@ public interface INearbyConnections : IDisposable
     /// <summary>
     /// Gets all nearby devices regardless of <see cref="NearbyDeviceStatus"/>.
     /// </summary>
-    IReadOnlyDictionary<string, INearbyDevice> Devices { get; }
+    IReadOnlyDictionary<string, NearbyDevice> Devices { get; }
 
     /// <summary>
     /// Gets or sets the default options to use.
@@ -39,7 +39,7 @@ public interface INearbyConnections : IDisposable
     Task StartAdvertisingAsync(AdvertisingOptions? advertiseOptions = null, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Begin discovery of <see cref="INearbyDevice"/>'s.
+    /// Begin discovery of <see cref="NearbyDevice"/>'s.
     /// </summary>
     /// <returns></returns>
     Task StartDiscoveryAsync(DiscoverOptions? discoverOptions = null, CancellationToken cancellationToken = default);
@@ -62,5 +62,5 @@ public interface INearbyConnections : IDisposable
     /// <param name="device">The device to which the invitation will be sent. Cannot be null.</param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the invitation operation.</param>
     /// <returns>A task that represents the asynchronous operation of sending the invitation.</returns>
-    Task SendInvitation(INearbyDevice device, CancellationToken cancellationToken = default);
+    Task SendInvitation(NearbyDevice device, CancellationToken cancellationToken = default);
 }

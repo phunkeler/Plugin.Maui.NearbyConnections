@@ -9,7 +9,7 @@ namespace Plugin.Maui.NearbyConnections.Events;
 public class NearbyDeviceLost(
     string eventId,
     DateTimeOffset timestamp,
-    INearbyDevice device) : INearbyConnectionsEvent
+    NearbyDevice device) : INearbyConnectionsEvent
 {
     /// <inheritdoc />
     public string EventId { get; } = eventId;
@@ -18,7 +18,7 @@ public class NearbyDeviceLost(
     public DateTimeOffset Timestamp { get; } = timestamp;
 
     /// <summary>
-    /// The <see cref="INearbyDevice"/> that was lost.
+    /// The <see cref="NearbyDevice"/> that was lost.
     /// </summary>
-    public INearbyDevice Device { get; } = device;
+    public NearbyDevice Device { get; } = device;
 }

@@ -50,7 +50,6 @@
       <Using Include="Plugin.Maui.NearbyConnections" />
       <Using Include="Plugin.Maui.NearbyConnections.Advertise" />
       <Using Include="Plugin.Maui.NearbyConnections.AdvertisingOptions" Alias="AdvertisingOptions" />
-      <Using Include="Plugin.Maui.NearbyConnections.Device" />
       <Using Include="Plugin.Maui.NearbyConnections.Discover" />
       <Using Include="Plugin.Maui.NearbyConnections.Events" />
       <Using Include="Plugin.Maui.NearbyConnections.Logging" />

@@ -1,7 +1,7 @@
 namespace Plugin.Maui.NearbyConnections.Events;
 
 /// <summary>
-/// Event that occurs when a <see cref="INearbyDevice" /> disconnects
+/// Event that occurs when a <see cref="NearbyDevice" /> disconnects
 /// or becomes unreachable.
 /// </summary>
 /// <remarks>
@@ -10,7 +10,7 @@ namespace Plugin.Maui.NearbyConnections.Events;
 public class NearbyDeviceDisconnected(
     string eventId,
     DateTimeOffset timestamp,
-    INearbyDevice device) : INearbyConnectionsEvent
+    NearbyDevice device) : INearbyConnectionsEvent
 {
     /// <inheritdoc/>
     public string EventId { get; } = eventId;
@@ -19,7 +19,7 @@ public class NearbyDeviceDisconnected(
     public DateTimeOffset Timestamp { get; } = timestamp;
 
     /// <summary>
-    /// The <see cref="INearbyDevice"/> that disconnected.
+    /// The <see cref="NearbyDevice"/> that disconnected.
     /// </summary>
-    public INearbyDevice Device { get; } = device;
+    public NearbyDevice Device { get; } = device;
 }
