@@ -1,9 +1,6 @@
-using Foundation;
-using MultipeerConnectivity;
-
 namespace Plugin.Maui.NearbyConnections.Discover;
 
-internal partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
+internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
 {
     readonly MyPeerIdManager _myMCPeerIDManager = new();
 

@@ -1,7 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using Plugin.Maui.NearbyConnections.Discover;
-using Plugin.Maui.NearbyConnections.Advertise;
-using Plugin.Maui.NearbyConnections.Events;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -18,13 +15,13 @@ public class NearbyConnectionsOptions
     /// <summary>
     /// Options for the advertiser (if used).
     /// </summary>
-    public AdvertiseOptions AdvertiserOptions { get; init; } = new();
+    public AdvertisingOptions AdvertiserOptions { get; init; } = new();
 
     /// <summary>
     /// Settings that control discovery behavior (if used).
     /// </summary>
     /// <remarks>
-    /// This can differ from <see cref="AdvertiseOptions.ServiceName" /> in more complex use cases.
+    /// This can differ from <see cref="AdvertisingOptions.ServiceName" /> in more complex use cases.
     /// </remarks>
     public DiscoverOptions DiscovererOptions { get; init; } = new();
 

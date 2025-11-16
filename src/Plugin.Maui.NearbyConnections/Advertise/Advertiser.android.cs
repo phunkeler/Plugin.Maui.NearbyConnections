@@ -1,5 +1,3 @@
-using Plugin.Maui.NearbyConnections.Logging;
-
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
 internal sealed partial class Advertiser : Java.Lang.Object
@@ -21,7 +19,7 @@ internal sealed partial class Advertiser : Java.Lang.Object
         _nearbyConnections.OnDisconnected(endpointId);
     }
 
-    Task PlatformStartAdvertising(AdvertiseOptions options)
+    Task PlatformStartAdvertising(AdvertisingOptions options)
     {
         _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
 
@@ -29,7 +27,11 @@ internal sealed partial class Advertiser : Java.Lang.Object
             options.DisplayName,
             options.ServiceName,
             new AdvertiseCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected),
-            new AdvertisingOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
+            new AndroidAdvertisingOptions.Builder()
+                .SetStrategy(options.Strategy)
+                .SetConnectionType(options.ConnectionType)
+                .SetLowPower(options.UseLowPower)
+                .Build());
     }
 
     void PlatformStopAdvertising()

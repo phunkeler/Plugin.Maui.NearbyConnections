@@ -30,10 +30,33 @@
 
   <!-- This goes against convention but keeps our project clean -->
   <Target Name="BeforeGenerateGlobalUsings" BeforeTargets="GenerateGlobalUsings">
-    <ItemGroup Condition="'$(IsTargetPlatformAndroid)' == 'true'">
+
+    <ItemGroup Condition="$(IsTargetPlatformAndroid) == true">
       <Using Include="Android.Gms.Common" />
       <Using Include="Android.Gms.Nearby" />
       <Using Include="Android.Gms.Nearby.Connection" />
+      <Using Include="Android.Gms.Nearby.Connection.AdvertisingOptions" Alias="AndroidAdvertisingOptions" />
+    </ItemGroup>
+
+    <ItemGroup Condition="$(IsTargetPlatformIos) == true">
+      <Using Include="Foundation" />
+      <Using Include="MultipeerConnectivity" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Using Include="Microsoft.Extensions.Logging" />
+      <Using Include="Microsoft.Extensions.Logging.Abstractions" />
+      <Using Include="Microsoft.Extensions.Options" />
+      <Using Include="Plugin.Maui.NearbyConnections" />
+      <Using Include="Plugin.Maui.NearbyConnections.Advertise" />
+      <Using Include="Plugin.Maui.NearbyConnections.AdvertisingOptions" Alias="AdvertisingOptions" />
+      <Using Include="Plugin.Maui.NearbyConnections.Device" />
+      <Using Include="Plugin.Maui.NearbyConnections.Discover" />
+      <Using Include="Plugin.Maui.NearbyConnections.Events" />
+      <Using Include="Plugin.Maui.NearbyConnections.Logging" />
+      <Using Include="System.Collections.Concurrent" />
+      <Using Include="System.Reactive.Linq" />
+      <Using Include="System.Reactive.Subjects" />
     </ItemGroup>
   </Target>
 </Project>

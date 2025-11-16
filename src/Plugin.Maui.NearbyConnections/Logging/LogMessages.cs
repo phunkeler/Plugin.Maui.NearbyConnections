@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-
 namespace Plugin.Maui.NearbyConnections.Logging;
 
 internal static partial class LogMessages
@@ -8,25 +6,25 @@ internal static partial class LogMessages
 
     [LoggerMessage(
         EventId = 1000,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Starting discovery with ServiceName={ServiceName}")]
     public static partial void StartingDiscovery(this ILogger logger, string serviceName);
 
     [LoggerMessage(
         EventId = 1001,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Discovery started successfully")]
     public static partial void DiscoveryStarted(this ILogger logger);
 
     [LoggerMessage(
         EventId = 1002,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Stopping discovery")]
     public static partial void StoppingDiscovery(this ILogger logger);
 
     [LoggerMessage(
         EventId = 1003,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Discovery stopped")]
     public static partial void DiscoveryStopped(this ILogger logger);
 
@@ -48,25 +46,25 @@ internal static partial class LogMessages
 
     [LoggerMessage(
         EventId = 2000,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Starting advertising with service ID '{ServiceId}' and endpoint name '{EndpointName}'")]
     public static partial void StartingAdvertising(this ILogger logger, string serviceId, string endpointName);
 
     [LoggerMessage(
         EventId = 2001,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Advertising started successfully")]
     public static partial void AdvertisingStarted(this ILogger logger);
 
     [LoggerMessage(
         EventId = 2002,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Stopping advertising")]
     public static partial void StoppingAdvertising(this ILogger logger);
 
     [LoggerMessage(
         EventId = 2003,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Advertising stopped")]
     public static partial void AdvertisingStopped(this ILogger logger);
 

@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-
 namespace Plugin.Maui.NearbyConnections.Logging;
 
 internal static partial class LogMessages
@@ -8,7 +6,7 @@ internal static partial class LogMessages
 
     [LoggerMessage(
         EventId = 2006,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Connection initiated: EndpointId={EndpointId}, EndpointName={EndpointName}, IsIncoming={IsIncoming}")]
     public static partial void ConnectionInitiated(
         this ILogger logger,
@@ -18,7 +16,7 @@ internal static partial class LogMessages
 
     [LoggerMessage(
         EventId = 2007,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Connection result: EndpointId={EndpointId}, StatusCode={StatusCode}, Message={Message}, IsSuccess={IsSuccess}")]
     public static partial void OnConnectionResult(
         this ILogger logger,
@@ -29,7 +27,7 @@ internal static partial class LogMessages
 
     [LoggerMessage(
         EventId = 2008,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Disconnected from EndpointId={EndpointId}")]
     public static partial void Disconnected(this ILogger logger, string endpointId);
 
@@ -39,7 +37,7 @@ internal static partial class LogMessages
 
     [LoggerMessage(
         EventId = 1006,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Endpoint found: EndpointId={EndpointId}, EndpointName={EndpointName}")]
     public static partial void EndpointFound(
         this ILogger logger,
@@ -48,7 +46,7 @@ internal static partial class LogMessages
 
     [LoggerMessage(
         EventId = 1007,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Endpoint lost: EndpointId={EndpointId}")]
     public static partial void EndpointLost(this ILogger logger, string endpointId);
 

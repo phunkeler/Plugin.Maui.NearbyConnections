@@ -1,7 +1,3 @@
-using Plugin.Maui.NearbyConnections.Device;
-using Plugin.Maui.NearbyConnections.Events;
-using Plugin.Maui.NearbyConnections.Logging;
-
 namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation

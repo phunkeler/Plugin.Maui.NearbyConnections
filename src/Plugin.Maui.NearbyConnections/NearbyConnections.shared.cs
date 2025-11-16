@@ -1,14 +1,3 @@
-using System.Collections.Concurrent;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using Plugin.Maui.NearbyConnections.Advertise;
-using Plugin.Maui.NearbyConnections.Device;
-using Plugin.Maui.NearbyConnections.Discover;
-using Plugin.Maui.NearbyConnections.Events;
-using Plugin.Maui.NearbyConnections.Logging;
-
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
@@ -142,7 +131,8 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         }
     }
 
-    public async Task StartAdvertisingAsync(AdvertiseOptions? advertiseOptions = null, CancellationToken cancellationToken = default)
+
+    public async Task StartAdvertisingAsync(AdvertisingOptions? advertiseOptions = null, CancellationToken cancellationToken = default)
     {
         await _advertiseSemaphore.WaitAsync(cancellationToken);
 
@@ -157,7 +147,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
             var options = advertiseOptions ?? DefaultOptions.AdvertiserOptions;
             _logger.StartingAdvertising(options.ServiceName, options.DisplayName);
 
-            _advertiser = new Advertiser(this, _loggerFactory);
+            _advertiser = new Advertiser(this);
             await _advertiser.StartAdvertisingAsync(options);
             IsAdvertising = true;
 
@@ -192,7 +182,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
             var options = discoverOptions ?? DefaultOptions.DiscovererOptions;
             _logger.StartingDiscovery(options.ServiceName);
 
-            _discoverer = new Discoverer(this, _loggerFactory);
+            _discoverer = new Discoverer(this);
             await _discoverer.StartDiscoveringAsync(options);
             IsDiscovering = true;
 

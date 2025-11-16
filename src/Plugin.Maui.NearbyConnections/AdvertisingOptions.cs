@@ -1,9 +1,9 @@
-namespace Plugin.Maui.NearbyConnections.Advertise;
+namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
 /// Configuration settings that describe how to advertise.
 /// </summary>
-public class AdvertiseOptions
+public class AdvertisingOptions
 {
     /// <summary>
     /// Gets or sets the name displayed to nearby devices during discovery.
@@ -44,7 +44,7 @@ public class AdvertiseOptions
     /// The total size of the collection should not exceed 400 bytes.
     /// </para>
     /// </remarks>
-    public IDictionary<string, string> AdvertisingInfo { get; set; } = new Dictionary<string, string>();
+    public NearbyAdvertisement Advertisement { get; set; } = new();
 
 #if ANDROID
 
@@ -58,5 +58,24 @@ public class AdvertiseOptions
         get => _activity ?? Platform.CurrentActivity;
         set => _activity = value;
     }
+
+    /// <summary>
+    /// Gets or sets <see cref="Android.Gms.Nearby.Connection.ConnectionType"/>.
+    /// </summary>
+    public int ConnectionType { get; set; } = Android.Gms.Nearby.Connection.ConnectionType.Balanced;
+
+    /// <summary>
+    /// Gets or sets the advertising strategy.
+    /// This must match the strategy used in <see cref="DiscoveryOptions"/>
+    /// </summary>
+    public Strategy Strategy { get; set; } = Strategy.P2pCluster;
+
+    /// <summary>
+    /// Gets or aets whether low power should be used.
+    /// If <see langword="true" />, only low power mediums (like BLE) will be used for advertising.
+    /// By default, this option is <see langword="false" />.
+    /// </summary>
+    public bool UseLowPower { get; set; }
+
 #endif
 }

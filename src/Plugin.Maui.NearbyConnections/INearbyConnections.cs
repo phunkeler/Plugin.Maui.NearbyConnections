@@ -1,7 +1,3 @@
-using Plugin.Maui.NearbyConnections.Advertise;
-using Plugin.Maui.NearbyConnections.Discover;
-using Plugin.Maui.NearbyConnections.Events;
-
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
@@ -40,7 +36,7 @@ public interface INearbyConnections : IDisposable
     /// Start advertising this device.
     /// </summary>
     /// <returns></returns>
-    Task StartAdvertisingAsync(AdvertiseOptions? advertiseOptions = null, CancellationToken cancellationToken = default);
+    Task StartAdvertisingAsync(AdvertisingOptions? advertiseOptions = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Begin discovery of <see cref="INearbyDevice"/>'s.

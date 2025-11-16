@@ -1,6 +1,4 @@
-using Plugin.Maui.NearbyConnections.Events;
-
-namespace Plugin.Maui.NearbyConnections;
+namespace Plugin.Maui.NearbyConnections.Events;
 
 /// <summary>
 /// Processes events in the internal pipeline before they are exposed externally.

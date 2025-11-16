@@ -1,19 +1,17 @@
-using Microsoft.Extensions.Logging;
-
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
-internal sealed partial class Advertiser
+internal sealed partial class Advertiser : IDisposable
 {
     readonly NearbyConnectionsImplementation _nearbyConnections;
-    readonly ILogger _logger;
 
-    internal Advertiser(NearbyConnectionsImplementation nearbyConnections, ILoggerFactory loggerFactory)
+    internal Advertiser(NearbyConnectionsImplementation nearbyConnections)
     {
+        ArgumentNullException.ThrowIfNull(nearbyConnections);
+
         _nearbyConnections = nearbyConnections;
-        _logger = loggerFactory.CreateLogger<Advertiser>();
     }
 
-    internal Task StartAdvertisingAsync(AdvertiseOptions options)
+    internal Task StartAdvertisingAsync(AdvertisingOptions options)
         => PlatformStartAdvertising(options);
 
     internal void StopAdvertising()

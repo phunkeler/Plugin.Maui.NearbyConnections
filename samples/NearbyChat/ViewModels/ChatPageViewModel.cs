@@ -55,7 +55,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     {
         if (toggledEventArgs.Value)
         {
-            var advertiseOptions = new AdvertiseOptions
+            var advertiseOptions = new AdvertisingOptions
             {
                 DisplayName = CurrentUser?.DisplayName ?? DeviceInfo.Current.Name,
             };

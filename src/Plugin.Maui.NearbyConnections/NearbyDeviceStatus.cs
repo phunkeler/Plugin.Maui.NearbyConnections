@@ -3,31 +3,12 @@
 /// <summary>
 /// Represents the connection status of a nearby device.
 /// </summary>
-/// <remarks>
-/// <para>
-/// This enum unifies the connection state models across platforms:
-/// </para>
-/// <para>
-/// **Android (Nearby Connections API)**:
-/// - Discovered: OnEndpointFound callback
-/// - Invited: After SendInvitation or OnConnectionInitiated
-/// - Connected: OnConnectionResult with success status
-/// - Disconnected: OnDisconnected callback or connection failure
-/// </para>
-/// <para>
-/// **iOS (MultipeerConnectivity)**:
-/// - Discovered: FoundPeer callback
-/// - Invited: DidReceiveInvitationFromPeer callback + MCSessionState.Connecting
-/// - Connected: MCSessionState.Connected
-/// - Disconnected: MCSessionState.NotConnected or invitation declined
-/// </para>
-/// </remarks>
 public enum NearbyDeviceStatus
 {
     /// <summary>
-    /// Device has been disconnected or the invitation was declined.
+    /// Initial state or status cannot be determined.
     /// </summary>
-    Disconnected,
+    Unknown,
 
     /// <summary>
     /// Device has been discovered but no connection has been initiated.
@@ -43,5 +24,10 @@ public enum NearbyDeviceStatus
     /// <summary>
     /// Device is connected and ready for communication.
     /// </summary>
-    Connected
+    Connected,
+
+    /// <summary>
+    /// Device has been disconnected or the invitation was declined.
+    /// </summary>
+    Disconnected,
 }

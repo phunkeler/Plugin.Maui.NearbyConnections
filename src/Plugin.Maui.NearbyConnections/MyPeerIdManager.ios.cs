@@ -1,6 +1,3 @@
-using Foundation;
-using MultipeerConnectivity;
-
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>

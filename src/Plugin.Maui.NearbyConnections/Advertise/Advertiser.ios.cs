@@ -1,28 +1,18 @@
-using Foundation;
-using MultipeerConnectivity;
-
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
-internal partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
+internal sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 {
     readonly MyPeerIdManager _myMCPeerIDManager = new();
 
     MCNearbyServiceAdvertiser? _advertiser;
 
-    Task PlatformStartAdvertising(AdvertiseOptions options)
+    Task PlatformStartAdvertising(AdvertisingOptions options)
     {
         var myPeerId = _myMCPeerIDManager.GetPeerId(options.DisplayName)
             ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
-        NSDictionary? advertisingInfo = null;
-        if (options.AdvertisingInfo?.Any() == true)
-        {
-            Console.WriteLine($"[ADVERTISER] Adding advertising info with {options.AdvertisingInfo.Count} items");
-            advertisingInfo = NSDictionary.FromObjectsAndKeys(
-                options.AdvertisingInfo.Values.ToArray(),
-                options.AdvertisingInfo.Keys.ToArray()
-            );
-        }
+        // Convert NearbyAdvertisement to NSDictionary for iOS
+        var advertisingInfo = options.Advertisement?.ToNSDictionary();
 
         _advertiser = new MCNearbyServiceAdvertiser(
             myPeerID: myPeerId,

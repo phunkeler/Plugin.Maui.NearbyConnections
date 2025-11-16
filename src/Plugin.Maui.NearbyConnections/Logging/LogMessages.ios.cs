@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-
 namespace Plugin.Maui.NearbyConnections.Logging;
 
 internal static partial class LogMessages
@@ -8,13 +6,13 @@ internal static partial class LogMessages
 
     [LoggerMessage(
         EventId = 1006,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "FoundPeer: DisplayName={DisplayName}")]
     public static partial void FoundPeer(this ILogger logger, string displayName);
 
     [LoggerMessage(
         EventId = 1007,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "LostPeer: DisplayName={DisplayName}")]
     public static partial void LostPeer(this ILogger logger, string displayName);
 
@@ -30,7 +28,7 @@ internal static partial class LogMessages
 
     [LoggerMessage(
         EventId = 2007,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "Received invitation from peer: DisplayName={DisplayName}")]
     public static partial void DidReceiveInvitationFromPeer(this ILogger logger, string displayName);
 

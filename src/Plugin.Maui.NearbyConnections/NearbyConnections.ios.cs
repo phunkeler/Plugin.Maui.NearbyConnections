@@ -1,9 +1,3 @@
-using Foundation;
-using MultipeerConnectivity;
-using Plugin.Maui.NearbyConnections.Device;
-using Plugin.Maui.NearbyConnections.Events;
-using Plugin.Maui.NearbyConnections.Logging;
-
 namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
@@ -18,6 +12,16 @@ sealed partial class NearbyConnectionsImplementation
 
         using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+
+        // Deserialize advertisement from discovery info
+        var advertisement = NearbyAdvertisement.FromNSDictionary(info);
+
+        // Optional: Log advertisement details
+        if (advertisement is not null)
+        {
+
+        }
+
         var device = new NearbyDevice(id, peerID.DisplayName, NearbyDeviceStatus.Discovered);
 
         if (_devices.TryAdd(id, device))
