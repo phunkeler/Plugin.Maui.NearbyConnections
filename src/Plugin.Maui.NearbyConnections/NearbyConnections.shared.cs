@@ -244,7 +244,14 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         }
     }
 
-    public async Task SendInvitation(NearbyDevice device, CancellationToken cancellationToken = default) => await PlatformSendInvitation(device, cancellationToken);
+    public async Task SendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+        => await PlatformSendInvitationAsync(device, cancellationToken);
+
+    public async Task AcceptInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+        => await PlatformAcceptInvitationAsync(device, cancellationToken);
+
+    public async Task DeclineInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+        => await PlatformDeclineInvitationAsync(device, cancellationToken);
 
     public void Dispose(bool disposing)
     {

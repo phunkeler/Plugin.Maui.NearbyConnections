@@ -62,5 +62,21 @@ public interface INearbyConnections : IDisposable
     /// <param name="device">The device to which the invitation will be sent. Cannot be null.</param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the invitation operation.</param>
     /// <returns>A task that represents the asynchronous operation of sending the invitation.</returns>
-    Task SendInvitation(NearbyDevice device, CancellationToken cancellationToken = default);
+    Task SendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Accept the invitation to connect with the provided <see cref="NearbyDevice"/> .
+    /// </summary>
+    /// <param name="device"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task AcceptInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reject the invitation to connect from this <see cref="NearbyDevice"/>.
+    /// </summary>
+    /// <param name="device"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task DeclineInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default);
 }

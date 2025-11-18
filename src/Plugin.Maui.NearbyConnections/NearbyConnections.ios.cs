@@ -44,11 +44,11 @@ sealed partial class NearbyConnectionsImplementation
 
         if (_devices.TryGetValue(id, out var device))
         {
-            device.Status = NearbyDeviceStatus.Disconnected;
+            device.Status = NearbyDeviceStatus.Unknown;
         }
         else
         {
-            device = new NearbyDevice(id, string.Empty, NearbyDeviceStatus.Disconnected);
+            device = new NearbyDevice(id, string.Empty, NearbyDeviceStatus.Unknown);
             _devices.TryAdd(id, device);
         }
 
@@ -104,7 +104,17 @@ sealed partial class NearbyConnectionsImplementation
 
     #endregion Advertising
 
-    Task PlatformSendInvitation(NearbyDevice device, CancellationToken cancellationToken = default)
+    Task PlatformSendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    Task PlatformAcceptInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    Task PlatformDeclineInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
     {
         throw new NotImplementedException();
     }

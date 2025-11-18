@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
@@ -28,14 +30,14 @@ sealed partial class NearbyConnectionsImplementation
 
         if (_devices.TryGetValue(endpointId, out var device))
         {
-            device.Status = NearbyDeviceStatus.Disconnected;
+            device.Status = NearbyDeviceStatus.Unknown;
         }
         else
         {
             device = new NearbyDevice(
                 endpointId,
                 string.Empty,
-                NearbyDeviceStatus.Disconnected);
+                NearbyDeviceStatus.Unknown);
 
             _devices.TryAdd(endpointId, device);
         }
@@ -52,6 +54,14 @@ sealed partial class NearbyConnectionsImplementation
 
     #region Advertising
 
+    /*
+        This is called when the discoverer requests a connection to an advertiser
+            1.) By the advertiser, when receiving an invitation to connect
+            2.) By the discoverer, after sending an invitation to connect
+
+            - Both sides must call AcceptInvitation at this point
+
+    */
     internal void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
         _logger.ConnectionInitiated(
@@ -73,15 +83,13 @@ sealed partial class NearbyConnectionsImplementation
             device.Status = NearbyDeviceStatus.Invited;
         }
 
-        if (connectionInfo.IsIncomingConnection)
-        {
-            var evt = new InvitationReceived(
-                Guid.NewGuid().ToString(),
-                DateTimeOffset.UtcNow,
-                device);
 
-            ProcessEvent(evt);
-        }
+        var evt = new InvitationReceived(
+            Guid.NewGuid().ToString(),
+            DateTimeOffset.UtcNow,
+            device);
+
+        ProcessEvent(evt);
     }
 
     internal void OnConnectionResult(string endpointId, ConnectionResolution resolution)
@@ -148,10 +156,31 @@ sealed partial class NearbyConnectionsImplementation
     #endregion Advertising
 
 
-    Task PlatformSendInvitation(NearbyDevice device, CancellationToken cancellationToken = default)
+    Task PlatformSendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
     {
         return NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Android.App.Application.Context)
-            .RequestConnectionAsync("ME", device.Id, new InvitationCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected));
+            .RequestConnectionAsync(DefaultOptions.AdvertiserOptions.DisplayName,
+            device.Id,
+            new InvitationCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected));
+    }
+
+    static Task PlatformAcceptInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    {
+        return NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Android.App.Application.Context)
+            .AcceptConnectionAsync(device.Id, new MessengerCallback((deviceId, payload) =>
+            {
+                Debug.WriteLine($"Received payload from EndpointId={deviceId}");
+            },
+            (deviceId, update) =>
+            {
+                Debug.WriteLine($"Received payload transfer update from EndpointId={deviceId}");
+            }));
+    }
+
+    static Task PlatformDeclineInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    {
+        return NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Android.App.Application.Context)
+            .RejectConnectionAsync(device.Id);
     }
 
 
@@ -172,5 +201,19 @@ sealed partial class NearbyConnectionsImplementation
 
         public override void OnDisconnected(string endpointId)
             => _onDisconnected(endpointId);
+    }
+
+    sealed class MessengerCallback(
+        Action<string, Payload> onPayloadReceived,
+        Action<string, PayloadTransferUpdate> onPayloadTransferUpdate) : PayloadCallback
+    {
+        readonly Action<string, Payload> _onPayloadReceived = onPayloadReceived;
+        readonly Action<string, PayloadTransferUpdate> _onPayloadTransferUpdate = onPayloadTransferUpdate;
+
+        public override void OnPayloadReceived(string p0, Payload p1)
+            => _onPayloadReceived(p0, p1);
+
+        public override void OnPayloadTransferUpdate(string p0, PayloadTransferUpdate p1)
+            => _onPayloadTransferUpdate(p0, p1);
     }
 }

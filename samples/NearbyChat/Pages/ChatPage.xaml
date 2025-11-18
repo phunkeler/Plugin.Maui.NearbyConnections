@@ -5,7 +5,7 @@
                 xmlns:pages="clr-namespace:NearbyChat.Pages"
                 xmlns:vm="clr-namespace:NearbyChat.ViewModels"
                 xmlns:mct="clr-namespace:CommunityToolkit.Maui.Core;assembly=CommunityToolkit.Maui.Core"
-                xmlns:nc="clr-namespace:Plugin.Maui.NearbyConnections.Device;assembly=Plugin.Maui.NearbyConnections"
+                xmlns:nc="clr-namespace:Plugin.Maui.NearbyConnections;assembly=Plugin.Maui.NearbyConnections"
                 xmlns:sfBottomSheet="clr-namespace:Syncfusion.Maui.Toolkit.BottomSheet;assembly=Syncfusion.Maui.Toolkit"
                 xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
                 x:TypeArguments="vm:ChatPageViewModel"
@@ -15,6 +15,12 @@
     <pages:BasePage.Resources>
         <ResourceDictionary>
             <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter"/>
+            <toolkit:EnumToBoolConverter x:Key="InvitationConverter">
+                <toolkit:EnumToBoolConverter.TrueValues>
+                    <nc:NearbyDeviceStatus>Invited
+                    </nc:NearbyDeviceStatus>
+                </toolkit:EnumToBoolConverter.TrueValues>
+            </toolkit:EnumToBoolConverter>
         </ResourceDictionary>
     </pages:BasePage.Resources>
 
@@ -44,16 +50,18 @@
                             Padding="10"
                             Margin="10,5">
                             <CollectionView
-                                            x:Name="NearbyDevices"
-                                            ItemsSource="{Binding NearbyDevices}">
+                                x:Name="NearbyDevices"
+                                ItemsSource="{Binding NearbyDevices}">
                                 <CollectionView.ItemsLayout>
                                     <LinearItemsLayout Orientation="Horizontal"
                                                        ItemSpacing="{StaticResource SpacingMD}"/>
                                 </CollectionView.ItemsLayout>
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate x:DataType="nc:NearbyDevice">
-                                        <Border Stroke="Red" Padding="20">
-                                            <Grid RowDefinitions="Auto,*" RowSpacing="5">
+                                        <Border Stroke="Red"
+                                                Padding="20">
+                                            <Grid RowDefinitions="Auto,Auto,*"
+                                                  RowSpacing="5">
                                                 <!-- pass the whole item as parameter -->
                                                 <Grid.GestureRecognizers>
                                                     <TapGestureRecognizer
@@ -66,7 +74,8 @@
                                                        HorizontalOptions="Center"/>
                                                 <HorizontalStackLayout Spacing="5"
                                                                        Grid.Row="1"
-                                                                       VerticalOptions="End">
+                                                                       VerticalOptions="End"
+                                                                       IsVisible="{Binding Status, Converter={StaticResource InvitationConverter}, ConverterParameter={x:Static nc:NearbyDeviceStatus.Invited}}">
                                                     <Button x:Name="AcceptButton"
                                                             Padding="0"
                                                             WidthRequest="30"
@@ -98,6 +107,8 @@
                                                         </Button.ImageSource>
                                                     </Button>
                                                 </HorizontalStackLayout>
+                                                <Label Grid.Row="2"
+                                                       Text="{Binding Status}"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

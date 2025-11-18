@@ -26,7 +26,11 @@ public static class MauiProgram
 
 #if DEBUG
         builder.Logging.AddDebug();
-        builder.Services.AddLogging(configure => configure.AddDebug());
+        builder.Services.AddLogging(configure =>
+        {
+            configure.AddDebug();
+            configure.SetMinimumLevel(LogLevel.Debug);
+        });
 #endif
 
         builder.Services.AddSingleton(_ => FileSystem.Current);

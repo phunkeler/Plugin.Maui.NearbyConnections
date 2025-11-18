@@ -26,15 +26,12 @@ internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDele
     void PlatformStopDiscovering()
         => _browser?.StopBrowsingForPeers();
 
-    /// <inheritdoc/>
     public void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
         => _nearbyConnections.FoundPeer(browser, peerID, info);
 
-    /// <inheritdoc/>
     public void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
         => _nearbyConnections.LostPeer(browser, peerID);
 
-    /// <inheritdoc/>
     public void DidNotStartBrowsingForPeers(MCNearbyServiceBrowser browser, NSError error)
     {
         if (error.UserInfo != null)

@@ -73,7 +73,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     {
         if (toggledEventArgs.Value)
         {
-            var discoveryOptions = new Plugin.Maui.NearbyConnections.Discover.DiscoverOptions
+            var discoveryOptions = new DiscoverOptions
             {
 #if ANDROID
                 Activity = Platform.CurrentActivity
@@ -94,7 +94,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         if (device is null)
             return;
 
-        await _nearbyConnections.SendInvitation(device, CancellationToken.None);
+        await _nearbyConnections.SendInvitationAsync(device, CancellationToken.None);
     }
 
     [RelayCommand]
@@ -103,7 +103,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         if (device is null)
             return;
 
-        await Task.CompletedTask;
+        await _nearbyConnections.AcceptInvitationAsync(device, CancellationToken.None);
     }
 
     [RelayCommand]
@@ -111,7 +111,8 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     {
         if (device is null)
             return;
-        await Task.CompletedTask;
+
+        await _nearbyConnections.DeclineInvitationAsync(device);
     }
 
     [RelayCommand]
@@ -192,7 +193,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
                 break;
 
             case InvitationAnswered answeredEvent:
-
+                AddOrUpdateNearbyDevice(answeredEvent.From);
                 break;
 
             case NearbyDeviceDisconnected disconnectedEvent:
@@ -236,12 +237,10 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
             {
                 NearbyDevices.Add(device);
             }
-            else if (!ReferenceEquals(existing, device))
+            else if (existing.Equals(device))
             {
-                // replace the item so CollectionView can refresh the item template
-                var index = NearbyDevices.IndexOf(existing);
-                if (index >= 0)
-                    NearbyDevices[index] = device;
+                var index = NearbyDevices.Remove(existing);
+                NearbyDevices.Add(existing);
             }
         });
     }
