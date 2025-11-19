@@ -24,6 +24,13 @@ public sealed class NearbyDevice(
     /// </summary>
     public NearbyDeviceStatus Status { get; internal set; } = status;
 
+    /// <summary>
+    /// Determines whether the specified <see cref="NearbyDevice"/>
+    /// is equal to the current object.
+    /// </summary>
+    /// <param name="other">The <see cref="NearbyDevice"/> to compare with the current object.</param>
+    /// <returns><see langword="true"/> if the specified <see cref="NearbyDevice"/>
+    /// is equal to the current object; otherwise, <see langword="false"/>.</returns>
     public bool Equals(NearbyDevice? other)
     {
         if (other is null)
@@ -40,7 +47,9 @@ public sealed class NearbyDevice(
             && DisplayName == other.DisplayName;
     }
 
+    /// <inheritdoc />
     public override bool Equals(object? obj) => Equals(obj as NearbyDevice);
 
+    /// <inheritdoc />
     public override int GetHashCode() => HashCode.Combine(Id, DisplayName);
 }
