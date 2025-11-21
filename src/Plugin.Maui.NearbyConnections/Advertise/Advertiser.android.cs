@@ -19,15 +19,17 @@ internal sealed partial class Advertiser : Java.Lang.Object
         _nearbyConnections.OnDisconnected(endpointId);
     }
 
-    Task PlatformStartAdvertising(AdvertisingOptions options)
+    Task PlatformStartAdvertising(string displayName)
     {
-        _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
+        var options = _nearbyConnections._options;
+
+        _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context ?? Android.App.Application.Context);
 
         return _connectionClient.StartAdvertisingAsync(
-            options.DisplayName,
+            displayName,
             options.ServiceName,
             new AdvertiseCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected),
-            new AndroidAdvertisingOptions.Builder()
+            new AdvertisingOptions.Builder()
                 .SetStrategy(options.Strategy)
                 .SetConnectionType(options.ConnectionType)
                 .SetLowPower(options.UseLowPower)

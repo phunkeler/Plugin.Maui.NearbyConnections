@@ -158,8 +158,8 @@ sealed partial class NearbyConnectionsImplementation
 
     Task PlatformSendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
     {
-        return NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Android.App.Application.Context)
-            .RequestConnectionAsync(DefaultOptions.AdvertiserOptions.DisplayName,
+        return NearbyClass.GetConnectionsClient(_options.Activity ?? Android.App.Application.Context)
+            .RequestConnectionAsync(_displayName,
             device.Id,
             new InvitationCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected));
     }

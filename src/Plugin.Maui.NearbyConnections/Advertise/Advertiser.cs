@@ -11,8 +11,8 @@ internal sealed partial class Advertiser : IDisposable
         _nearbyConnections = nearbyConnections;
     }
 
-    internal Task StartAdvertisingAsync(AdvertisingOptions options)
-        => PlatformStartAdvertising(options);
+    internal Task StartAdvertisingAsync(string displayName)
+        => PlatformStartAdvertising(displayName);
 
     internal void StopAdvertising()
         => PlatformStopAdvertising();

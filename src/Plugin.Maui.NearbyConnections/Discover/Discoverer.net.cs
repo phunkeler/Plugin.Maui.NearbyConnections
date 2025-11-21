@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.Discover;
 /// </summary>
 internal sealed partial class Discoverer
 {
-    public Task PlatformStartDiscovering(DiscoverOptions options)
+    Task PlatformStartDiscovering()
         => throw new NotImplementedException("Platform-specific discovering start logic must be implemented.");
 
     public void PlatformStopDiscovering()

@@ -6,8 +6,10 @@ internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDele
 
     MCNearbyServiceBrowser? _browser;
 
-    Task PlatformStartDiscovering(DiscoverOptions options)
+    Task PlatformStartDiscovering()
     {
+        var options = _nearbyConnections._options;
+
         var myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName)
             ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 

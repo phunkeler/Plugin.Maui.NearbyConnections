@@ -28,32 +28,30 @@ public interface INearbyConnections : IDisposable
     IReadOnlyDictionary<string, NearbyDevice> Devices { get; }
 
     /// <summary>
-    /// Gets or sets the default options to use.
+    /// Gets or sets the display name shown to nearby devices during advertising.
+    /// Can be changed between advertising sessions.
+    /// Changes take effect on next <see cref="StartAdvertisingAsync"/> call.
     /// </summary>
-    NearbyConnectionsOptions DefaultOptions { get; }
+    string DisplayName { get; set; }
 
     /// <summary>
     /// Start advertising this device.
     /// </summary>
-    /// <returns></returns>
-    Task StartAdvertisingAsync(AdvertisingOptions? advertiseOptions = null, CancellationToken cancellationToken = default);
+    Task StartAdvertisingAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Begin discovery of <see cref="NearbyDevice"/>'s.
     /// </summary>
-    /// <returns></returns>
-    Task StartDiscoveryAsync(DiscoverOptions? discoverOptions = null, CancellationToken cancellationToken = default);
+    Task StartDiscoveryAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stop advertising this device.
     /// </summary>
-    /// <returns></returns>
     Task StopAdvertisingAsync();
 
     /// <summary>
     /// Stop discovering nearby devices.
     /// </summary>
-    /// <returns></returns>
     Task StopDiscoveryAsync();
 
     /// <summary>

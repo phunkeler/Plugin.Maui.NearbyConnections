@@ -14,15 +14,20 @@ internal sealed partial class Discoverer : Java.Lang.Object
         _nearbyConnections?.OnEndpointLost(endpointId);
     }
 
-    Task PlatformStartDiscovering(DiscoverOptions options)
+    Task PlatformStartDiscovering()
     {
+        var options = _nearbyConnections._options;
+
         // Android warns about NFC needing Activity context
         _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
 
         return _connectionClient.StartDiscoveryAsync(
             options.ServiceName,
             new DiscoveryCallback(OnEndpointFound, OnEndpointLost),
-            new DiscoveryOptions.Builder().SetStrategy(Strategy.P2pCluster).Build());
+            new DiscoveryOptions.Builder()
+                .SetStrategy(options.Strategy)
+                .SetLowPower(options.UseLowPower)
+                .Build());
     }
 
     void PlatformStopDiscovering()

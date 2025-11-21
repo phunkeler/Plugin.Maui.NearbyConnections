@@ -55,12 +55,10 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     {
         if (toggledEventArgs.Value)
         {
-            var advertiseOptions = new AdvertisingOptions
-            {
-                DisplayName = CurrentUser?.DisplayName ?? DeviceInfo.Current.Name,
-            };
+            // Set display name before advertising
+            _nearbyConnections.DisplayName = CurrentUser?.DisplayName ?? DeviceInfo.Current.Name;
 
-            await _nearbyConnections.StartAdvertisingAsync(advertiseOptions, cancellationToken);
+            await _nearbyConnections.StartAdvertisingAsync(cancellationToken);
         }
         else
         {
@@ -73,14 +71,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     {
         if (toggledEventArgs.Value)
         {
-            var discoveryOptions = new DiscoverOptions
-            {
-#if ANDROID
-                Activity = Platform.CurrentActivity
-#endif
-            };
-
-            await _nearbyConnections.StartDiscoveryAsync(discoveryOptions, cancellationToken);
+            await _nearbyConnections.StartDiscoveryAsync(cancellationToken);
         }
         else
         {

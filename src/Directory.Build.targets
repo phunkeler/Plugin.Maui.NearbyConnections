@@ -35,7 +35,6 @@
       <Using Include="Android.Gms.Common" />
       <Using Include="Android.Gms.Nearby" />
       <Using Include="Android.Gms.Nearby.Connection" />
-      <Using Include="Android.Gms.Nearby.Connection.AdvertisingOptions" Alias="AndroidAdvertisingOptions" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(IsTargetPlatformIos)' == 'true'">
@@ -49,7 +48,6 @@
       <Using Include="Microsoft.Extensions.Options" />
       <Using Include="Plugin.Maui.NearbyConnections" />
       <Using Include="Plugin.Maui.NearbyConnections.Advertise" />
-      <Using Include="Plugin.Maui.NearbyConnections.AdvertisingOptions" Alias="AdvertisingOptions" />
       <Using Include="Plugin.Maui.NearbyConnections.Discover" />
       <Using Include="Plugin.Maui.NearbyConnections.Events" />
       <Using Include="Plugin.Maui.NearbyConnections.Logging" />

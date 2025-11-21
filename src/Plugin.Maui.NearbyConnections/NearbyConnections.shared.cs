@@ -69,10 +69,12 @@ partial class NearbyConnectionsImplementation : INearbyConnections
     readonly ConcurrentDictionary<string, NearbyDevice> _devices = new();
     readonly ILoggerFactory _loggerFactory;
     readonly ILogger _logger;
+    internal readonly NearbyConnectionsOptions _options;
     bool _isDisposed;
 
     Advertiser? _advertiser;
     Discoverer? _discoverer;
+    string _displayName = DeviceInfo.Current.Name;
 
     public IObservable<INearbyConnectionsEvent> Events => _events.AsObservable();
 
@@ -81,7 +83,15 @@ partial class NearbyConnectionsImplementation : INearbyConnections
 
     public IReadOnlyDictionary<string, NearbyDevice> Devices => (IReadOnlyDictionary<string, NearbyDevice>)_devices;
 
-    public NearbyConnectionsOptions DefaultOptions { get; }
+    public string DisplayName
+    {
+        get => _displayName;
+        set
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(value));
+            _displayName = value;
+        }
+    }
 
     /// <summary>
     /// Creates a new instance with default options (for static API usage).
@@ -103,7 +113,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(loggerFactory);
 
-        DefaultOptions = options;
+        _options = options;
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<NearbyConnectionsImplementation>();
         _events = new Subject<INearbyConnectionsEvent>();
@@ -132,7 +142,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
     }
 
 
-    public async Task StartAdvertisingAsync(AdvertisingOptions? advertiseOptions = null, CancellationToken cancellationToken = default)
+    public async Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
     {
         await _advertiseSemaphore.WaitAsync(cancellationToken);
 
@@ -144,11 +154,13 @@ partial class NearbyConnectionsImplementation : INearbyConnections
                 return;
             }
 
-            var options = advertiseOptions ?? DefaultOptions.AdvertiserOptions;
-            _logger.StartingAdvertising(options.ServiceName, options.DisplayName);
+            // Capture immutable snapshot of display name for this session
+            var displayName = _displayName;
+
+            _logger.StartingAdvertising(_options.ServiceName, displayName);
 
             _advertiser = new Advertiser(this);
-            await _advertiser.StartAdvertisingAsync(options);
+            await _advertiser.StartAdvertisingAsync(displayName);
             IsAdvertising = true;
 
             _logger.AdvertisingStarted();
@@ -167,7 +179,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         }
     }
 
-    public async Task StartDiscoveryAsync(DiscoverOptions? discoverOptions = null, CancellationToken cancellationToken = default)
+    public async Task StartDiscoveryAsync(CancellationToken cancellationToken = default)
     {
         await _discoverSemaphore.WaitAsync(cancellationToken);
 
@@ -179,11 +191,10 @@ partial class NearbyConnectionsImplementation : INearbyConnections
                 return;
             }
 
-            var options = discoverOptions ?? DefaultOptions.DiscovererOptions;
-            _logger.StartingDiscovery(options.ServiceName);
+            _logger.StartingDiscovery(_options.ServiceName);
 
             _discoverer = new Discoverer(this);
-            await _discoverer.StartDiscoveringAsync(options);
+            await _discoverer.StartDiscoveringAsync();
             IsDiscovering = true;
 
             _logger.DiscoveryStarted();

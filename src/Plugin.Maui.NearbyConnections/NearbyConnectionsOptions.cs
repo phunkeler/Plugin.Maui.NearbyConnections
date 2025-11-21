@@ -3,7 +3,8 @@ using System.ComponentModel.DataAnnotations;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Options to configure the behavior of the Nearby Connections plugin.
+/// One-time app configuration for Nearby Connections.
+/// Configure once at startup via <see cref="NearbyConnections.Configure"/>.
 /// </summary>
 public class NearbyConnectionsOptions
 {
@@ -13,17 +14,10 @@ public class NearbyConnectionsOptions
     public const string SectionName = "NearbyConnections";
 
     /// <summary>
-    /// Options for the advertiser (if used).
+    /// Service identifier for iOS Bonjour and Android service ID.
+    /// Must match Info.plist NSBonjourServices configuration on iOS.
     /// </summary>
-    public AdvertisingOptions AdvertiserOptions { get; init; } = new();
-
-    /// <summary>
-    /// Settings that control discovery behavior (if used).
-    /// </summary>
-    /// <remarks>
-    /// This can differ from <see cref="AdvertisingOptions.ServiceName" /> in more complex use cases.
-    /// </remarks>
-    public DiscoverOptions DiscovererOptions { get; init; } = new();
+    public string ServiceName { get; set; } = AppInfo.Current.Name;
 
     /// <summary>
     /// Configuration for the event publishing system.
@@ -46,6 +40,34 @@ public class NearbyConnectionsOptions
     /// </summary>
     [Range(1, 300)]
     public int AdvertisingTimeoutSeconds { get; init; } = 30;
+
+#if ANDROID
+
+    /// <summary>
+    /// The <see cref="Android.App.Activity"/> (required for Google Nearby Connections API).
+    /// </summary>
+    public Android.App.Activity? Activity { get; set; } = Platform.CurrentActivity;
+
+    /// <summary>
+    /// Gets or sets the advertising/discovery strategy.
+    /// Must match between advertising and discovery sessions.
+    /// Default is <see cref="Strategy.P2pCluster"/>.
+    /// </summary>
+    public Strategy Strategy { get; set; } = Strategy.P2pCluster;
+
+    /// <summary>
+    /// Gets or sets whether low power mode should be used.
+    /// If <see langword="true" />, only low power mediums (like BLE) will be used for advertising and discovery.
+    /// Default is <see langword="false"/>.
+    /// </summary>
+    public bool UseLowPower { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Android connection type.
+    /// Default is <see cref="Android.Gms.Nearby.Connection.ConnectionType.Balanced"/>.
+    /// </summary>
+    public int ConnectionType { get; set; } = Android.Gms.Nearby.Connection.ConnectionType.Balanced;
+#endif
 }
 
 /// <summary>

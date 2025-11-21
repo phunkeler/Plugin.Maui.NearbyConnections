@@ -11,8 +11,8 @@ internal sealed partial class Discoverer : IDisposable
         _nearbyConnections = nearbyConnections;
     }
 
-    internal Task StartDiscoveringAsync(DiscoverOptions options)
-        => PlatformStartDiscovering(options);
+    internal Task StartDiscoveringAsync()
+        => PlatformStartDiscovering();
 
     internal void StopDiscovering()
         => PlatformStopDiscovering();
