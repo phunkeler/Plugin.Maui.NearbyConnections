@@ -170,11 +170,11 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         // Handle different event types
         switch (eventData)
         {
-            case NearbyDeviceFound foundEvent:
+            case NearbyDeviceFoundEventArgs foundEvent:
                 AddOrUpdateNearbyDevice(foundEvent.Device);
                 break;
 
-            case NearbyDeviceLost lostEvent:
+            case NearbyDeviceLostEventArgs lostEvent:
                 RemoveNearbyDevice(lostEvent.Device.Id);
                 break;
 

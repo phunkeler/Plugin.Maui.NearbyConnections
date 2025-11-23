@@ -23,7 +23,7 @@ internal sealed partial class Advertiser : Java.Lang.Object
     {
         var options = _nearbyConnections._options;
 
-        _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context ?? Android.App.Application.Context);
+        _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
 
         return _connectionClient.StartAdvertisingAsync(
             displayName,

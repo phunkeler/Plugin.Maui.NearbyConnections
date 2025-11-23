@@ -10,17 +10,7 @@ public interface INearbyConnections : IDisposable
     /// An observable stream of processed events from the Nearby Connections API.
     /// Events flow through internal handlers before being exposed externally.
     /// </summary>
-    IObservable<INearbyConnectionsEvent> Events { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether this device is currently advertising.
-    /// </summary>
-    bool IsAdvertising { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether this device is currently discovering nearby devices.
-    /// </summary>
-    bool IsDiscovering { get; }
+    INearbyConnectionsEvents Events { get; }
 
     /// <summary>
     /// Gets all nearby devices regardless of <see cref="NearbyDeviceStatus"/>.

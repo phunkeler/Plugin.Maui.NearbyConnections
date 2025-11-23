@@ -52,8 +52,6 @@
       <Using Include="Plugin.Maui.NearbyConnections.Events" />
       <Using Include="Plugin.Maui.NearbyConnections.Logging" />
       <Using Include="System.Collections.Concurrent" />
-      <Using Include="System.Reactive.Linq" />
-      <Using Include="System.Reactive.Subjects" />
     </ItemGroup>
   </Target>
 </Project>

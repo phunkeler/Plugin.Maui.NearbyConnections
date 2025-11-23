@@ -65,9 +65,8 @@ partial class NearbyConnectionsImplementation : INearbyConnections
     readonly SemaphoreSlim _advertiseSemaphore = new(1, 1);
     readonly SemaphoreSlim _discoverSemaphore = new(1, 1);
 
-    readonly Subject<INearbyConnectionsEvent> _events;
+    readonly NearbyConnectionsEvents _events = new(TimeProvider.System);
     readonly ConcurrentDictionary<string, NearbyDevice> _devices = new();
-    readonly ILoggerFactory _loggerFactory;
     readonly ILogger _logger;
     internal readonly NearbyConnectionsOptions _options;
     bool _isDisposed;
@@ -76,12 +75,9 @@ partial class NearbyConnectionsImplementation : INearbyConnections
     Discoverer? _discoverer;
     string _displayName = DeviceInfo.Current.Name;
 
-    public IObservable<INearbyConnectionsEvent> Events => _events.AsObservable();
+    public INearbyConnectionsEvents Events => _events;
 
-    public bool IsAdvertising { get; private set; }
-    public bool IsDiscovering { get; private set; }
-
-    public IReadOnlyDictionary<string, NearbyDevice> Devices => (IReadOnlyDictionary<string, NearbyDevice>)_devices;
+    public IReadOnlyDictionary<string, NearbyDevice> Devices => _devices;
 
     public string DisplayName
     {
@@ -114,33 +110,8 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         ArgumentNullException.ThrowIfNull(loggerFactory);
 
         _options = options;
-        _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<NearbyConnectionsImplementation>();
-        _events = new Subject<INearbyConnectionsEvent>();
     }
-
-    /// <summary>
-    /// Process an event through the internal pipeline before exposing it to external subscribers.
-    /// Follows Sentry's pattern of wrapping processor calls in exception handling.
-    /// </summary>
-    /// <param name="evt">The event to process</param>
-    void ProcessEvent(INearbyConnectionsEvent evt)
-    {
-        if (evt is null)
-        {
-            return;
-        }
-
-        try
-        {
-            _events.OnNext(evt);
-        }
-        catch (Exception ex)
-        {
-            _logger.EventSubscriberException(evt.EventId, ex);
-        }
-    }
-
 
     public async Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
     {
@@ -148,7 +119,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
 
         try
         {
-            if (IsAdvertising)
+            if (_advertiser is not null)
             {
                 _logger.AlreadyAdvertising();
                 return;
@@ -161,7 +132,6 @@ partial class NearbyConnectionsImplementation : INearbyConnections
 
             _advertiser = new Advertiser(this);
             await _advertiser.StartAdvertisingAsync(displayName);
-            IsAdvertising = true;
 
             _logger.AdvertisingStarted();
         }
@@ -170,7 +140,6 @@ partial class NearbyConnectionsImplementation : INearbyConnections
             _logger.AdvertisingStartFailed(ex);
             _advertiser?.Dispose();
             _advertiser = null;
-            IsAdvertising = false;
             throw;
         }
         finally
@@ -185,7 +154,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
 
         try
         {
-            if (IsDiscovering)
+            if (_discoverer is not null)
             {
                 _logger.AlreadyDiscovering();
                 return;
@@ -195,7 +164,6 @@ partial class NearbyConnectionsImplementation : INearbyConnections
 
             _discoverer = new Discoverer(this);
             await _discoverer.StartDiscoveringAsync();
-            IsDiscovering = true;
 
             _logger.DiscoveryStarted();
         }
@@ -204,7 +172,6 @@ partial class NearbyConnectionsImplementation : INearbyConnections
             _logger.DiscoveryStartFailed(ex);
             _discoverer?.Dispose();
             _discoverer = null;
-            IsDiscovering = false;
             throw;
         }
         finally
@@ -218,13 +185,12 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         await _advertiseSemaphore.WaitAsync();
         try
         {
-            if (IsAdvertising)
+            if (_advertiser is not null)
             {
                 _logger.StoppingAdvertising();
                 _advertiser?.StopAdvertising();
                 _advertiser?.Dispose();
                 _advertiser = null;
-                IsAdvertising = false;
                 _logger.AdvertisingStopped();
             }
         }
@@ -239,13 +205,12 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         await _discoverSemaphore.WaitAsync();
         try
         {
-            if (IsDiscovering)
+            if (_discoverer is not null)
             {
                 _logger.StoppingDiscovery();
                 _discoverer?.StopDiscovering();
                 _discoverer?.Dispose();
                 _discoverer = null;
-                IsDiscovering = false;
                 _logger.DiscoveryStopped();
             }
         }
@@ -302,9 +267,6 @@ partial class NearbyConnectionsImplementation : INearbyConnections
             _discoverer?.Dispose();
             _discoverer = null;
             _discoverSemaphore?.Dispose();
-
-            _events?.OnCompleted();
-            _events?.Dispose();
         }
 
         _isDisposed = true;

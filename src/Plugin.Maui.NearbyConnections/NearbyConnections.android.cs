@@ -14,13 +14,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (_devices.TryAdd(endpointId, device))
         {
-            var evt = new NearbyDeviceFound(
-                Guid.NewGuid().ToString(),
-                DateTimeOffset.UtcNow,
-                device);
-
-            ProcessEvent(evt);
-
+            _events.OnDeviceFound(device);
         }
     }
 
@@ -28,26 +22,10 @@ sealed partial class NearbyConnectionsImplementation
     {
         _logger.EndpointLost(endpointId);
 
-        if (_devices.TryGetValue(endpointId, out var device))
+        if (_devices.TryRemove(endpointId, out var device))
         {
-            device.Status = NearbyDeviceStatus.Unknown;
+            _events.OnDeviceLost(device);
         }
-        else
-        {
-            device = new NearbyDevice(
-                endpointId,
-                string.Empty,
-                NearbyDeviceStatus.Unknown);
-
-            _devices.TryAdd(endpointId, device);
-        }
-
-        var evt = new NearbyDeviceLost(
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow,
-            device);
-
-        ProcessEvent(evt);
     }
 
     #endregion Discovery
@@ -84,12 +62,7 @@ sealed partial class NearbyConnectionsImplementation
         }
 
 
-        var evt = new InvitationReceived(
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow,
-            device);
-
-        ProcessEvent(evt);
+        _events.OnConnectionRequested(device);
     }
 
     internal void OnConnectionResult(string endpointId, ConnectionResolution resolution)
@@ -102,12 +75,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (!_devices.TryGetValue(endpointId, out var device))
         {
-            device = new NearbyDevice(
-                endpointId,
-                string.Empty,
-                NearbyDeviceStatus.Invited);
-
-            _devices.TryAdd(endpointId, device);
+            return;
         }
 
         if (resolution.Status.IsSuccess)
@@ -119,12 +87,7 @@ sealed partial class NearbyConnectionsImplementation
             device.Status = NearbyDeviceStatus.Disconnected;
         }
 
-        var evt = new InvitationAnswered(
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow,
-            device);
-
-        ProcessEvent(evt);
+        _events.OnConnectionResponded(device);
     }
 
     internal void OnDisconnected(string endpointId)
@@ -134,27 +97,12 @@ sealed partial class NearbyConnectionsImplementation
         if (_devices.TryGetValue(endpointId, out var device))
         {
             device.Status = NearbyDeviceStatus.Disconnected;
+
+            _events.OnDeviceDisconnected(device);
         }
-        else
-        {
-            device = new NearbyDevice(
-                endpointId,
-                string.Empty,
-                NearbyDeviceStatus.Disconnected);
-
-            _devices.TryAdd(endpointId, device);
-        }
-
-        var evt = new NearbyDeviceDisconnected(
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow,
-            device);
-
-        ProcessEvent(evt);
     }
 
     #endregion Advertising
-
 
     Task PlatformSendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
     {

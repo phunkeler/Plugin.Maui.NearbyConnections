@@ -16,22 +16,11 @@ sealed partial class NearbyConnectionsImplementation
         // Deserialize advertisement from discovery info
         var advertisement = NearbyAdvertisement.FromNSDictionary(info);
 
-        // Optional: Log advertisement details
-        if (advertisement is not null)
-        {
-
-        }
-
         var device = new NearbyDevice(id, peerID.DisplayName, NearbyDeviceStatus.Discovered);
 
         if (_devices.TryAdd(id, device))
         {
-            var evt = new NearbyDeviceFound(
-                Guid.NewGuid().ToString(),
-                DateTimeOffset.UtcNow,
-                device);
-
-            ProcessEvent(evt);
+            _events.OnDeviceFound(device);
         }
     }
 
@@ -42,22 +31,10 @@ sealed partial class NearbyConnectionsImplementation
         using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        if (_devices.TryGetValue(id, out var device))
+        if (_devices.TryRemove(id, out var device))
         {
-            device.Status = NearbyDeviceStatus.Unknown;
+            _events.OnDeviceLost(device);
         }
-        else
-        {
-            device = new NearbyDevice(id, string.Empty, NearbyDeviceStatus.Unknown);
-            _devices.TryAdd(id, device);
-        }
-
-        var evt = new NearbyDeviceLost(
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow,
-            device);
-
-        ProcessEvent(evt);
     }
 
     #endregion Discovery
@@ -86,7 +63,11 @@ sealed partial class NearbyConnectionsImplementation
         // Get or create device with Invited status
         if (!_devices.TryGetValue(id, out var device))
         {
-            device = new NearbyDevice(id, peerID.DisplayName, NearbyDeviceStatus.Invited);
+            device = new NearbyDevice(
+                id,
+                peerID.DisplayName,
+                NearbyDeviceStatus.Invited);
+
             _devices.TryAdd(id, device);
         }
         else
@@ -94,12 +75,7 @@ sealed partial class NearbyConnectionsImplementation
             device.Status = NearbyDeviceStatus.Invited;
         }
 
-        var evt = new InvitationReceived(
-            Guid.NewGuid().ToString(),
-            DateTimeOffset.UtcNow,
-            device);
-
-        ProcessEvent(evt);
+        _events.OnConnectionRequested(device);
     }
 
     #endregion Advertising
