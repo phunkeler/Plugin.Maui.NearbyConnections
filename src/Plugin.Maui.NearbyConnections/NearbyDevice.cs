@@ -5,12 +5,11 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 public sealed class NearbyDevice(
     string id,
-    string displayName,
-    NearbyDeviceStatus status) : IEquatable<NearbyDevice>
+    string displayName) : IEquatable<NearbyDevice>
 {
     /// <summary>
     /// Gets a unique identifier for the device, valid within the current session.
-    /// This is a hash of the "endpointId" (Android) or the serialized MCPeerID (iOS).
+    /// <c>EndpointId</c> (Android) and a serialized MCPeerID (iOS).
     /// </summary>
     public string Id { get; } = id;
 
@@ -18,11 +17,6 @@ public sealed class NearbyDevice(
     /// Gets a user-friendly display name for the device.
     /// </summary>
     public string DisplayName { get; } = displayName;
-
-    /// <summary>
-    /// Gets the current connection status of the device.
-    /// </summary>
-    public NearbyDeviceStatus Status { get; internal set; } = status;
 
     /// <summary>
     /// Determines whether the specified <see cref="NearbyDevice"/>

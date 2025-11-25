@@ -1,0 +1,10 @@
+﻿<Project Sdk="MSTest.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(NetVersion)</TargetFramework>
+    <TestingExtensionsProfile>Default</TestingExtensionsProfile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NSubstitute" />
+    <ProjectReference Include="../../src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj" />
+  </ItemGroup>
+</Project>

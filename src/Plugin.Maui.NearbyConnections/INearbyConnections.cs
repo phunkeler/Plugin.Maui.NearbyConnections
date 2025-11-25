@@ -10,12 +10,7 @@ public interface INearbyConnections : IDisposable
     /// An observable stream of processed events from the Nearby Connections API.
     /// Events flow through internal handlers before being exposed externally.
     /// </summary>
-    INearbyConnectionsEvents Events { get; }
-
-    /// <summary>
-    /// Gets all nearby devices regardless of <see cref="NearbyDeviceStatus"/>.
-    /// </summary>
-    IReadOnlyDictionary<string, NearbyDevice> Devices { get; }
+    NearbyConnectionsEvents Events { get; }
 
     /// <summary>
     /// Gets or sets the display name shown to nearby devices during advertising.
@@ -37,12 +32,12 @@ public interface INearbyConnections : IDisposable
     /// <summary>
     /// Stop advertising this device.
     /// </summary>
-    Task StopAdvertisingAsync();
+    Task StopAdvertisingAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stop discovering nearby devices.
     /// </summary>
-    Task StopDiscoveryAsync();
+    Task StopDiscoveryAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sends an invitation to the specified nearby device asynchronously.

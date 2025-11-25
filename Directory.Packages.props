@@ -16,4 +16,9 @@
     <PackageVersion Include="Syncfusion.Maui.Toolkit" Version="1.0.7" />
   </ItemGroup>
 
+  <!-- Unit Tests -->
+  <ItemGroup>
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+  </ItemGroup>
+
 </Project>

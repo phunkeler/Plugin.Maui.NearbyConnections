@@ -2,7 +2,6 @@ namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
 /// One-time app configuration for Nearby Connections.
-/// Configure once at startup via <see cref="NearbyConnections.Configure"/>.
 /// </summary>
 public class NearbyConnectionsOptions
 {

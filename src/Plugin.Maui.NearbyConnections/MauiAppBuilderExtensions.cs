@@ -17,18 +17,26 @@ public static class MauiAppBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        // Register options
         if (configureOptions is not null)
         {
             builder.Services.Configure(configureOptions);
         }
 
-        // Register the main plugin interface with factory that resolves options, logger factory, and service provider
-        builder.Services.AddSingleton<INearbyConnections>(sp =>
+        builder.Services.TryAddSingleton<INearbyConnections>(sp =>
         {
-            var options = sp.GetService<IOptions<NearbyConnectionsOptions>>()?.Value ?? new NearbyConnectionsOptions();
-            var loggerFactory = sp.GetService<ILoggerFactory>() ?? NullLoggerFactory.Instance;
-            return new NearbyConnectionsImplementation(options, loggerFactory);
+            var options = sp.GetService<IOptions<NearbyConnectionsOptions>>()?.Value
+                ?? new NearbyConnectionsOptions();
+
+            var loggerFactory = sp.GetService<ILoggerFactory>()
+                ?? NullLoggerFactory.Instance;
+
+            var timeProvider = sp.GetService<TimeProvider>()
+                ?? TimeProvider.System;
+
+            return new NearbyConnections(
+                options,
+                loggerFactory,
+                timeProvider);
         });
 
         return builder;

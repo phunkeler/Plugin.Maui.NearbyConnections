@@ -43,13 +43,13 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Using Include="Microsoft.Extensions.DependencyInjection.Extensions" />
       <Using Include="Microsoft.Extensions.Logging" />
       <Using Include="Microsoft.Extensions.Logging.Abstractions" />
       <Using Include="Microsoft.Extensions.Options" />
       <Using Include="Plugin.Maui.NearbyConnections" />
       <Using Include="Plugin.Maui.NearbyConnections.Advertise" />
       <Using Include="Plugin.Maui.NearbyConnections.Discover" />
-      <Using Include="Plugin.Maui.NearbyConnections.Events" />
       <Using Include="Plugin.Maui.NearbyConnections.Logging" />
       <Using Include="System.Collections.Concurrent" />
     </ItemGroup>

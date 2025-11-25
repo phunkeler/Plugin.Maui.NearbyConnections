@@ -2,44 +2,28 @@ using System.Diagnostics;
 
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbyConnectionsImplementation
+internal sealed partial class NearbyConnections
 {
     #region Discovery
 
     internal void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
         _logger.EndpointFound(endpointId, info.EndpointName);
-
-        var device = new NearbyDevice(endpointId, info.EndpointName, NearbyDeviceStatus.Discovered);
-
-        if (_devices.TryAdd(endpointId, device))
-        {
-            _events.OnDeviceFound(device);
-        }
+        var device = new NearbyDevice(endpointId, info.EndpointName);
+        Events.OnDeviceFound(device, _timeProvider.GetUtcNow());
     }
 
     internal void OnEndpointLost(string endpointId)
     {
         _logger.EndpointLost(endpointId);
-
-        if (_devices.TryRemove(endpointId, out var device))
-        {
-            _events.OnDeviceLost(device);
-        }
+        var device = new NearbyDevice(endpointId, string.Empty);
+        Events.OnDeviceLost(device, _timeProvider.GetUtcNow());
     }
 
     #endregion Discovery
 
     #region Advertising
 
-    /*
-        This is called when the discoverer requests a connection to an advertiser
-            1.) By the advertiser, when receiving an invitation to connect
-            2.) By the discoverer, after sending an invitation to connect
-
-            - Both sides must call AcceptInvitation at this point
-
-    */
     internal void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
         _logger.ConnectionInitiated(
@@ -47,22 +31,9 @@ sealed partial class NearbyConnectionsImplementation
             connectionInfo.EndpointName,
             connectionInfo.IsIncomingConnection);
 
-        if (!_devices.TryGetValue(endpointId, out var device))
-        {
-            device = new NearbyDevice(
-                endpointId,
-                connectionInfo.EndpointName,
-                NearbyDeviceStatus.Invited);
+        var device = new NearbyDevice(endpointId, connectionInfo.EndpointName);
 
-            _devices.TryAdd(endpointId, device);
-        }
-        else
-        {
-            device.Status = NearbyDeviceStatus.Invited;
-        }
-
-
-        _events.OnConnectionRequested(device);
+        Events.OnConnectionRequested(device, _timeProvider.GetUtcNow());
     }
 
     internal void OnConnectionResult(string endpointId, ConnectionResolution resolution)
@@ -73,33 +44,18 @@ sealed partial class NearbyConnectionsImplementation
             resolution.Status.StatusMessage ?? string.Empty,
             resolution.Status.IsSuccess);
 
-        if (!_devices.TryGetValue(endpointId, out var device))
-        {
-            return;
-        }
+        var device = new NearbyDevice(endpointId, string.Empty);
 
-        if (resolution.Status.IsSuccess)
-        {
-            device.Status = NearbyDeviceStatus.Connected;
-        }
-        else
-        {
-            device.Status = NearbyDeviceStatus.Disconnected;
-        }
-
-        _events.OnConnectionResponded(device);
+        Events.OnConnectionResponded(device, _timeProvider.GetUtcNow());
     }
 
     internal void OnDisconnected(string endpointId)
     {
         _logger.Disconnected(endpointId);
 
-        if (_devices.TryGetValue(endpointId, out var device))
-        {
-            device.Status = NearbyDeviceStatus.Disconnected;
+        var device = new NearbyDevice(endpointId, string.Empty);
 
-            _events.OnDeviceDisconnected(device);
-        }
+        Events.OnDeviceDisconnected(device, _timeProvider.GetUtcNow());
     }
 
     #endregion Advertising
@@ -107,7 +63,7 @@ sealed partial class NearbyConnectionsImplementation
     Task PlatformSendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
     {
         return NearbyClass.GetConnectionsClient(_options.Activity ?? Android.App.Application.Context)
-            .RequestConnectionAsync(_displayName,
+            .RequestConnectionAsync(DisplayName,
             device.Id,
             new InvitationCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected));
     }

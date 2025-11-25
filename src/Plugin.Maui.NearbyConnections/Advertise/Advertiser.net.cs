@@ -7,4 +7,9 @@ internal sealed partial class Advertiser
 
     public void PlatformStopAdvertising()
         => throw new NotImplementedException("Platform-specific advertising stop logic must be implemented.");
+
+    public void Dispose()
+    {
+        // No resources to dispose on non-mobile platforms
+    }
 }

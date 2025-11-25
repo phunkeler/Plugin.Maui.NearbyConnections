@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbyConnectionsImplementation
+internal sealed partial class NearbyConnections
 {
     readonly MyPeerIdManager _myMCPeerIDManager = new();
 
@@ -12,16 +12,10 @@ sealed partial class NearbyConnectionsImplementation
 
         using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-
-        // Deserialize advertisement from discovery info
         var advertisement = NearbyAdvertisement.FromNSDictionary(info);
+        var device = new NearbyDevice(id, peerID.DisplayName);
 
-        var device = new NearbyDevice(id, peerID.DisplayName, NearbyDeviceStatus.Discovered);
-
-        if (_devices.TryAdd(id, device))
-        {
-            _events.OnDeviceFound(device);
-        }
+        Events.OnDeviceFound(device, _timeProvider.GetUtcNow());
     }
 
     internal void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
@@ -30,11 +24,9 @@ sealed partial class NearbyConnectionsImplementation
 
         using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+        var device = new NearbyDevice(id, peerID.DisplayName);
 
-        if (_devices.TryRemove(id, out var device))
-        {
-            _events.OnDeviceLost(device);
-        }
+        Events.OnDeviceLost(device, _timeProvider.GetUtcNow());
     }
 
     #endregion Discovery
@@ -59,23 +51,9 @@ sealed partial class NearbyConnectionsImplementation
 
         using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+        var device = new NearbyDevice(id, peerID.DisplayName);
 
-        // Get or create device with Invited status
-        if (!_devices.TryGetValue(id, out var device))
-        {
-            device = new NearbyDevice(
-                id,
-                peerID.DisplayName,
-                NearbyDeviceStatus.Invited);
-
-            _devices.TryAdd(id, device);
-        }
-        else
-        {
-            device.Status = NearbyDeviceStatus.Invited;
-        }
-
-        _events.OnConnectionRequested(device);
+        Events.OnConnectionRequested(device, _timeProvider.GetUtcNow());
     }
 
     #endregion Advertising

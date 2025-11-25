@@ -1,8 +1,5 @@
 namespace Plugin.Maui.NearbyConnections.Discover;
 
-/// <summary>
-/// Partial class for starting/stopping discovery of nearby devices.
-/// </summary>
 internal sealed partial class Discoverer
 {
     Task PlatformStartDiscovering()
@@ -10,4 +7,9 @@ internal sealed partial class Discoverer
 
     public void PlatformStopDiscovering()
         => throw new NotImplementedException("Platform-specific discovering stop logic must be implemented.");
+
+    public void Dispose()
+    {
+        // No resources to dispose on non-mobile platforms
+    }
 }

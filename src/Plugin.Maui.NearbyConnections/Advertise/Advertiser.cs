@@ -2,9 +2,9 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 
 internal sealed partial class Advertiser : IDisposable
 {
-    readonly NearbyConnectionsImplementation _nearbyConnections;
+    readonly NearbyConnections _nearbyConnections;
 
-    internal Advertiser(NearbyConnectionsImplementation nearbyConnections)
+    internal Advertiser(NearbyConnections nearbyConnections)
     {
         ArgumentNullException.ThrowIfNull(nearbyConnections);
 

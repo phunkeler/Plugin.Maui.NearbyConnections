@@ -1,116 +1,52 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Static access to the Plugin.Maui.NearbyConnections API.
+/// Default implementation of the <see cref="INearbyConnections"/> interface.
 /// </summary>
-public static class NearbyConnections
+internal sealed partial class NearbyConnections : INearbyConnections
 {
-    static readonly Lock s_lock = new();
-
-    static INearbyConnections? s_defaultImplementation;
-    static NearbyConnectionsOptions? s_defaultOptions;
-
-    internal static void SetDefault(INearbyConnections? implementation) =>
-        s_defaultImplementation = implementation;
-
-    /// <summary>
-    /// Configure options for the static Default instance.
-    /// Must be called before accessing Default for the first time.
-    /// </summary>
-    /// <param name="configure">Action to configure options</param>
-    public static void Configure(Action<NearbyConnectionsOptions> configure)
-    {
-        ArgumentNullException.ThrowIfNull(configure);
-
-        lock (s_lock)
-        {
-            if (s_defaultImplementation != null)
-            {
-                throw new InvalidOperationException(
-                    "Cannot configure after Default has been accessed. Call Configure() before using Default.");
-            }
-
-            s_defaultOptions = new NearbyConnectionsOptions();
-            configure(s_defaultOptions);
-        }
-    }
-
-    /// <summary>
-    /// Provides the default implementation for static usage of this API.
-    /// </summary>
-    public static INearbyConnections Default
-    {
-        get
-        {
-            if (s_defaultImplementation is null)
-            {
-                lock (s_lock)
-                {
-                    s_defaultImplementation ??= new NearbyConnectionsImplementation(
-                        s_defaultOptions ?? new NearbyConnectionsOptions(),
-                        loggerFactory: NullLoggerFactory.Instance);
-                }
-            }
-            return s_defaultImplementation;
-        }
-    }
-}
-
-/// <summary>
-/// Central event hub implementation that processes all nearby connections events internally
-/// before exposing them externally. Maintains device state and handles cross-platform abstractions.
-/// </summary>
-partial class NearbyConnectionsImplementation : INearbyConnections
-{
-    readonly SemaphoreSlim _advertiseSemaphore = new(1, 1);
-    readonly SemaphoreSlim _discoverSemaphore = new(1, 1);
-
-    readonly NearbyConnectionsEvents _events = new(TimeProvider.System);
-    readonly ConcurrentDictionary<string, NearbyDevice> _devices = new();
+    readonly TimeProvider _timeProvider;
     readonly ILogger _logger;
-    internal readonly NearbyConnectionsOptions _options;
-    bool _isDisposed;
 
+    readonly SemaphoreSlim _advertiseSemaphore = new(initialCount: 1, maxCount: 1);
+    readonly SemaphoreSlim _discoverSemaphore = new(initialCount: 1, maxCount: 1);
+
+    internal readonly NearbyConnectionsOptions _options;
+
+    bool _isDisposed;
     Advertiser? _advertiser;
     Discoverer? _discoverer;
-    string _displayName = DeviceInfo.Current.Name;
 
-    public INearbyConnectionsEvents Events => _events;
-
-    public IReadOnlyDictionary<string, NearbyDevice> Devices => _devices;
+    public NearbyConnectionsEvents Events { get; } = new();
 
     public string DisplayName
     {
-        get => _displayName;
+        get;
         set
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(value));
-            _displayName = value;
+            field = value;
         }
-    }
-
-    /// <summary>
-    /// Creates a new instance with default options (for static API usage).
-    /// </summary>
-    public NearbyConnectionsImplementation()
-        : this(new NearbyConnectionsOptions(), NullLoggerFactory.Instance)
-    {
-    }
+    } = DeviceInfo.Current.Name;
 
     /// <summary>
     /// Creates a new instance with specified options (for DI usage).
     /// </summary>
     /// <param name="options">Configuration options</param>
     /// <param name="loggerFactory">Logger factory for creating loggers (uses NullLoggerFactory if not provided)</param>
-    public NearbyConnectionsImplementation(
+    /// <param name="timeProvider">Time provider for timestamps (uses TimeProvider.System if not provided)</param>
+    public NearbyConnections(
         NearbyConnectionsOptions options,
-        ILoggerFactory loggerFactory)
+        ILoggerFactory loggerFactory,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(loggerFactory);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         _options = options;
-        _logger = loggerFactory.CreateLogger<NearbyConnectionsImplementation>();
+        _logger = loggerFactory.CreateLogger<NearbyConnections>();
+        _timeProvider = timeProvider;
     }
 
     public async Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
@@ -119,20 +55,22 @@ partial class NearbyConnectionsImplementation : INearbyConnections
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (_advertiser is not null)
             {
                 _logger.AlreadyAdvertising();
                 return;
             }
 
-            // Capture immutable snapshot of display name for this session
-            var displayName = _displayName;
+            var displayName = DisplayName;
 
             _logger.StartingAdvertising(_options.ServiceName, displayName);
 
             _advertiser = new Advertiser(this);
             await _advertiser.StartAdvertisingAsync(displayName);
 
+            cancellationToken.ThrowIfCancellationRequested();
             _logger.AdvertisingStarted();
         }
         catch (Exception ex)
@@ -154,6 +92,8 @@ partial class NearbyConnectionsImplementation : INearbyConnections
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (_discoverer is not null)
             {
                 _logger.AlreadyDiscovering();
@@ -165,6 +105,7 @@ partial class NearbyConnectionsImplementation : INearbyConnections
             _discoverer = new Discoverer(this);
             await _discoverer.StartDiscoveringAsync();
 
+            cancellationToken.ThrowIfCancellationRequested();
             _logger.DiscoveryStarted();
         }
         catch (Exception ex)
@@ -180,15 +121,17 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         }
     }
 
-    public async Task StopAdvertisingAsync()
+    public async Task StopAdvertisingAsync(CancellationToken cancellationToken = default)
     {
-        await _advertiseSemaphore.WaitAsync();
+        await _advertiseSemaphore.WaitAsync(cancellationToken);
         try
         {
             if (_advertiser is not null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 _logger.StoppingAdvertising();
                 _advertiser?.StopAdvertising();
+                cancellationToken.ThrowIfCancellationRequested();
                 _advertiser?.Dispose();
                 _advertiser = null;
                 _logger.AdvertisingStopped();
@@ -200,15 +143,17 @@ partial class NearbyConnectionsImplementation : INearbyConnections
         }
     }
 
-    public async Task StopDiscoveryAsync()
+    public async Task StopDiscoveryAsync(CancellationToken cancellationToken = default)
     {
-        await _discoverSemaphore.WaitAsync();
+        await _discoverSemaphore.WaitAsync(cancellationToken);
         try
         {
             if (_discoverer is not null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 _logger.StoppingDiscovery();
                 _discoverer?.StopDiscovering();
+                cancellationToken.ThrowIfCancellationRequested();
                 _discoverer?.Dispose();
                 _discoverer = null;
                 _logger.DiscoveryStopped();
@@ -267,6 +212,8 @@ partial class NearbyConnectionsImplementation : INearbyConnections
             _discoverer?.Dispose();
             _discoverer = null;
             _discoverSemaphore?.Dispose();
+
+            Events.ClearAllHandlers();
         }
 
         _isDisposed = true;

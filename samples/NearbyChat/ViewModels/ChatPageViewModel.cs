@@ -5,8 +5,6 @@ using NearbyChat.Data;
 using NearbyChat.Models;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
-using Plugin.Maui.NearbyConnections.Advertise;
-using Plugin.Maui.NearbyConnections.Events;
 
 namespace NearbyChat.ViewModels;
 
@@ -15,8 +13,6 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     readonly AvatarRepository _avatarRepository;
     readonly INearbyConnections _nearbyConnections;
     readonly IUserService _userService;
-
-    IDisposable? _eventSubscription;
 
     [ObservableProperty]
     User? _currentUser;
@@ -62,7 +58,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         }
         else
         {
-            await _nearbyConnections.StopAdvertisingAsync();
+            await _nearbyConnections.StopAdvertisingAsync(cancellationToken);
         }
     }
 
@@ -75,7 +71,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         }
         else
         {
-            await _nearbyConnections.StopDiscoveryAsync();
+            await _nearbyConnections.StopDiscoveryAsync(cancellationToken);
         }
     }
 
@@ -130,69 +126,32 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
     {
         await Refresh(cancellationToken);
 
-        SubscribeToNearbyConnectionsEventChannel();
+        SubscribeToNearbyConnectionsEvents();
     }
 
     [RelayCommand]
     void Disappearing()
     {
-        StopEventConsumption();
+        UnsubscribeFromNearbyConnectionsEvents();
     }
 
-    private void SubscribeToNearbyConnectionsEventChannel()
+    void SubscribeToNearbyConnectionsEvents()
     {
-        _eventSubscription?.Dispose();
-
-        _eventSubscription = _nearbyConnections.Events
-            .Subscribe(
-                onNext: eventData =>
-                {
-                    _ = HandleNearbyEvent(eventData);
-                },
-                onError: ex =>
-                {
-                    Console.WriteLine($"Event consumption error: {ex}");
-                },
-                onCompleted: () =>
-                {
-                    Console.WriteLine("Event stream completed");
-                });
+        _nearbyConnections.Events.DeviceFound += (s, e) => AddOrUpdateNearbyDevice(e.NearbyDevice);
+        _nearbyConnections.Events.DeviceLost += (s, e) => RemoveNearbyDevice(e.NearbyDevice.Id);
+        _nearbyConnections.Events.DeviceDisconnected += (s, e) => RemoveNearbyDevice(e.NearbyDevice.Id);
+        _nearbyConnections.Events.ConnectionRequested += (s, e) => AddOrUpdateNearbyDevice(e.NearbyDevice);
+        _nearbyConnections.Events.ConnectionResponded += (s, e) => AddOrUpdateNearbyDevice(e.NearbyDevice);
     }
 
-    private void StopEventConsumption()
+    void UnsubscribeFromNearbyConnectionsEvents()
     {
-        _eventSubscription?.Dispose();
-        _eventSubscription = null;
+        _nearbyConnections.Events.DeviceFound -= (s, e) => AddOrUpdateNearbyDevice(e.NearbyDevice);
+        _nearbyConnections.Events.DeviceLost -= (s, e) => RemoveNearbyDevice(e.NearbyDevice.Id);
+        _nearbyConnections.Events.DeviceDisconnected -= (s, e) => RemoveNearbyDevice(e.NearbyDevice.Id);
+        _nearbyConnections.Events.ConnectionRequested -= (s, e) => AddOrUpdateNearbyDevice(e.NearbyDevice);
+        _nearbyConnections.Events.ConnectionResponded -= (s, e) => AddOrUpdateNearbyDevice(e.NearbyDevice);
     }
-
-    async Task HandleNearbyEvent(object eventData)
-    {
-        // Handle different event types
-        switch (eventData)
-        {
-            case NearbyDeviceFoundEventArgs foundEvent:
-                AddOrUpdateNearbyDevice(foundEvent.Device);
-                break;
-
-            case NearbyDeviceLostEventArgs lostEvent:
-                RemoveNearbyDevice(lostEvent.Device.Id);
-                break;
-
-            case InvitationReceived invitationEvent:
-                AddOrUpdateNearbyDevice(invitationEvent.From);
-
-                break;
-
-            case InvitationAnswered answeredEvent:
-                AddOrUpdateNearbyDevice(answeredEvent.From);
-                break;
-
-            case NearbyDeviceDisconnected disconnectedEvent:
-                RemoveNearbyDevice(disconnectedEvent.Device.Id);
-                break;
-        }
-    }
-
 
     private async Task LoadData(CancellationToken cancellationToken = default)
     {
@@ -251,8 +210,6 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
 
     public void Dispose()
     {
-        _eventSubscription?.Dispose();
-
         GC.SuppressFinalize(this);
     }
 }

@@ -1,28 +1,14 @@
 namespace Plugin.Maui.NearbyConnections;
 
-partial class NearbyConnectionsImplementation : INearbyConnections
+internal sealed partial class NearbyConnections : INearbyConnections
 {
-    /// <summary>
-    /// Generic .NET implementation - not supported on this platform.
-    /// </summary>
-    private partial Task PlatformSendDataAsync(string deviceId, byte[] data)
-    {
-        throw new NotSupportedException("Nearby connections are not supported on this platform");
-    }
+    Task PlatformSendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
 
-    /// <summary>
-    /// Generic .NET implementation - not supported on this platform.
-    /// </summary>
-    private partial Task PlatformAcceptConnectionAsync(string deviceId)
-    {
-        throw new NotSupportedException("Nearby connections are not supported on this platform");
-    }
+    Task PlatformAcceptInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
 
-    /// <summary>
-    /// Generic .NET implementation - not supported on this platform.
-    /// </summary>
-    private partial Task PlatformRejectConnectionAsync(string deviceId)
-    {
-        throw new NotSupportedException("Nearby connections are not supported on this platform");
-    }
+    Task PlatformDeclineInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
 }

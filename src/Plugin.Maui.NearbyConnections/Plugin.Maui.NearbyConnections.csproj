@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>$(MobileTargetFrameworks)</TargetFrameworks>
-    <TargetFrameworks Condition="$(IsTestProject) == true">$(TargetFrameworks);$(NetVersion)</TargetFrameworks>
+		<TargetFrameworks>$(MobileTargetFrameworks);$(NetVersion)</TargetFrameworks>
     <UseMaui>true</UseMaui>
 		<SingleProject>true</SingleProject>
 	</PropertyGroup>
@@ -10,6 +9,8 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="Microsoft.Maui.Controls" /> <!-- TODO: Try to remove this in favor of something more targeted -->
     <PackageReference Include="Xamarin.GooglePlayServices.Nearby" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
+
+    <InternalsVisibleTo Include="Plugin.Maui.NearbyConnections.UnitTests" />
 	</ItemGroup>
 
 </Project>
