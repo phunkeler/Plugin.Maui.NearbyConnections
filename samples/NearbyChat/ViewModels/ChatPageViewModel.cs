@@ -81,7 +81,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         if (device is null)
             return;
 
-        await _nearbyConnections.SendInvitationAsync(device, CancellationToken.None);
+        await _nearbyConnections.RequestConnectionAsync(device);
     }
 
     [RelayCommand]
@@ -90,7 +90,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         if (device is null)
             return;
 
-        await _nearbyConnections.AcceptInvitationAsync(device, CancellationToken.None);
+        await _nearbyConnections.RespondToConnectionAsync(device, true);
     }
 
     [RelayCommand]
@@ -99,7 +99,7 @@ public partial class ChatPageViewModel : BaseViewModel, IDisposable
         if (device is null)
             return;
 
-        await _nearbyConnections.DeclineInvitationAsync(device);
+        await _nearbyConnections.RespondToConnectionAsync(device, false);
     }
 
     [RelayCommand]

@@ -1,14 +1,12 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Main interface for nearby connections functionality.
-/// Provides centralized event handling and device management.
+/// Interface defining the Nearby Connections functionality.
 /// </summary>
 public interface INearbyConnections : IDisposable
 {
     /// <summary>
-    /// An observable stream of processed events from the Nearby Connections API.
-    /// Events flow through internal handlers before being exposed externally.
+    /// Gets the events related to nearby connections.
     /// </summary>
     NearbyConnectionsEvents Events { get; }
 
@@ -25,13 +23,21 @@ public interface INearbyConnections : IDisposable
     string DisplayName { get; set; }
 
     /// <summary>
-    /// Start advertising this device.
+    /// Starts advertising this device to nearby discoverers.
     /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that represents the asynchronous operation of starting advertising.</returns>
+    /// <exception cref="NearbyAdvertisingException">Thrown if advertising fails to start.</exception>
+    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled.</exception>
     Task StartAdvertisingAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Start discovering nearby devices.
     /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that represents the asynchronous operation of starting discovery.</returns>
+    /// <exception cref="NearbyDiscoveryException">Thrown if discovery fails to start.</exception>
+    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled.</exception>
     Task StartDiscoveryAsync(CancellationToken cancellationToken = default);
 
     /// <summary>

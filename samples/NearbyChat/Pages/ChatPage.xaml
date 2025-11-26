@@ -15,12 +15,6 @@
     <pages:BasePage.Resources>
         <ResourceDictionary>
             <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter"/>
-            <toolkit:EnumToBoolConverter x:Key="InvitationConverter">
-                <toolkit:EnumToBoolConverter.TrueValues>
-                    <nc:NearbyDeviceStatus>Invited
-                    </nc:NearbyDeviceStatus>
-                </toolkit:EnumToBoolConverter.TrueValues>
-            </toolkit:EnumToBoolConverter>
         </ResourceDictionary>
     </pages:BasePage.Resources>
 
@@ -74,8 +68,7 @@
                                                        HorizontalOptions="Center"/>
                                                 <HorizontalStackLayout Spacing="5"
                                                                        Grid.Row="1"
-                                                                       VerticalOptions="End"
-                                                                       IsVisible="{Binding Status, Converter={StaticResource InvitationConverter}, ConverterParameter={x:Static nc:NearbyDeviceStatus.Invited}}">
+                                                                       VerticalOptions="End">
                                                     <Button x:Name="AcceptButton"
                                                             Padding="0"
                                                             WidthRequest="30"

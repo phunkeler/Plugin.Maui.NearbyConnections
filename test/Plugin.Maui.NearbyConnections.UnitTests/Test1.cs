@@ -3,16 +3,15 @@
 [TestClass]
 public sealed class NearbyConnectionsTests : IDisposable
 {
-    readonly INearbyConnections _sut;
+    readonly NearbyConnectionsImplementation _sut;
 
     public NearbyConnectionsTests()
     {
-        var loggerFactory = new Microsoft.Extensions.Logging.LoggerFactory();
-        var options = new NearbyConnectionsOptions();
-        _sut = new NearbyConnections(options, loggerFactory, TimeProvider.System);
+        _sut = new NearbyConnectionsImplementation();
     }
 
-    public void Dispose() => throw new NotImplementedException();
+    public void Dispose()
+        => _sut.Dispose();
 
     [TestMethod]
     public void TestMethod1()
