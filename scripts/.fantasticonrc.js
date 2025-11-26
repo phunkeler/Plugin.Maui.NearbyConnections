@@ -13,6 +13,9 @@ export const formatOptions = {
 export const codepoints = {
     'settings': 0xe001,
     'send': 0xe002,
+    'advertising': 0xe003,
+    'connected': 0xe004,
+    'disconnected': 0xe005,
 };
 export function getIconId({
     basename, // `string` - Example: 'foo';
