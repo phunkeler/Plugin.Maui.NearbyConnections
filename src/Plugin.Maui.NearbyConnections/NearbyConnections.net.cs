@@ -1,14 +1,10 @@
 namespace Plugin.Maui.NearbyConnections;
 
-internal sealed partial class NearbyConnections : INearbyConnections
+internal sealed partial class NearbyConnectionsImplementation : INearbyConnections
 {
-    Task PlatformSendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    Task PlatformRequestConnectionAsync(NearbyDevice device)
         => throw new NotImplementedException();
 
-    Task PlatformAcceptInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    Task PlatformRespondToConnectionAsync(NearbyDevice device, bool accept)
         => throw new NotImplementedException();
-
-    Task PlatformDeclineInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
-        => throw new NotImplementedException();
-
 }

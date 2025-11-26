@@ -30,6 +30,11 @@ public class NearbyConnectionsEvents
     /// </summary>
     public event EventHandler<NearbyConnectionsEventArgs>? ConnectionResponded;
 
+    /// <summary>
+    /// Event fired when an operation fails.
+    /// </summary>
+    public event EventHandler<NearbyConnectionsErrorEventArgs>? ErrorOccurred;
+
     internal void OnDeviceFound(NearbyDevice device, DateTimeOffset timeStamp)
         => DeviceFound?.Invoke(this, new NearbyConnectionsEventArgs(device, timeStamp));
 
@@ -45,6 +50,9 @@ public class NearbyConnectionsEvents
     internal void OnConnectionResponded(NearbyDevice device, DateTimeOffset timeStamp)
         => ConnectionResponded?.Invoke(this, new NearbyConnectionsEventArgs(device, timeStamp));
 
+    internal void OnError(string operation, string errorMessage, DateTimeOffset timeStamp)
+        => ErrorOccurred?.Invoke(this, new NearbyConnectionsErrorEventArgs(operation, errorMessage, timeStamp));
+
     internal void ClearAllHandlers()
     {
         DeviceFound = null;
@@ -52,5 +60,6 @@ public class NearbyConnectionsEvents
         DeviceDisconnected = null;
         ConnectionRequested = null;
         ConnectionResponded = null;
+        ErrorOccurred = null;
     }
 }

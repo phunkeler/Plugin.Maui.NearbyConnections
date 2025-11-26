@@ -50,8 +50,8 @@
       <Using Include="Plugin.Maui.NearbyConnections" />
       <Using Include="Plugin.Maui.NearbyConnections.Advertise" />
       <Using Include="Plugin.Maui.NearbyConnections.Discover" />
-      <Using Include="Plugin.Maui.NearbyConnections.Logging" />
       <Using Include="System.Collections.Concurrent" />
+      <Using Include="System.Diagnostics" />
     </ItemGroup>
   </Target>
 </Project>

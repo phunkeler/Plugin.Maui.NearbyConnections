@@ -13,6 +13,11 @@ public interface INearbyConnections : IDisposable
     NearbyConnectionsEvents Events { get; }
 
     /// <summary>
+    /// Gets or sets the options used to configure the Nearby Connections functionality.
+    /// </summary>
+    NearbyConnectionsOptions Options { get; set; }
+
+    /// <summary>
     /// Gets or sets the display name shown to nearby devices during advertising.
     /// Can be changed between advertising sessions.
     /// Changes take effect on next <see cref="StartAdvertisingAsync"/> call.
@@ -25,7 +30,7 @@ public interface INearbyConnections : IDisposable
     Task StartAdvertisingAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Begin discovery of <see cref="NearbyDevice"/>'s.
+    /// Start discovering nearby devices.
     /// </summary>
     Task StartDiscoveryAsync(CancellationToken cancellationToken = default);
 
@@ -40,26 +45,17 @@ public interface INearbyConnections : IDisposable
     Task StopDiscoveryAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sends an invitation to the specified nearby device asynchronously.
+    /// Send an invitation to connect to the specified <see cref="NearbyDevice"/>.
     /// </summary>
     /// <param name="device">The device to which the invitation will be sent. Cannot be null.</param>
-    /// <param name="cancellationToken">A cancellation token that can be used to cancel the invitation operation.</param>
     /// <returns>A task that represents the asynchronous operation of sending the invitation.</returns>
-    Task SendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default);
+    Task RequestConnectionAsync(NearbyDevice device);
 
     /// <summary>
-    /// Accept the invitation to connect with the provided <see cref="NearbyDevice"/> .
+    /// Respond to a connection request from the specified <see cref="NearbyDevice"/>.
     /// </summary>
-    /// <param name="device"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    Task AcceptInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Reject the invitation to connect from this <see cref="NearbyDevice"/>.
-    /// </summary>
-    /// <param name="device"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    Task DeclineInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default);
+    /// <param name="device">The device that sent the connection request.</param>
+    /// <param name="accept"><see langword="true"/> to accept the connection; <see langword="false"/> to decline.</param>
+    /// <returns>A task that represents the asynchronous operation of responding to the connection request.</returns>
+    Task RespondToConnectionAsync(NearbyDevice device, bool accept);
 }

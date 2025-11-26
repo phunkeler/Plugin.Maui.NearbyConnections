@@ -1,23 +1,32 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
+/// Static access to the Plugin.Maui.NearbyConnections API.
+/// </summary>
+public static class NearbyConnections
+{
+    /// <summary>
+    /// Gets the default implementation of the <see cref="INearbyConnections"/> interface.
+    /// </summary>
+    public static INearbyConnections Current
+        => field ??= new NearbyConnectionsImplementation();
+}
+
+/// <summary>
 /// Default implementation of the <see cref="INearbyConnections"/> interface.
 /// </summary>
-internal sealed partial class NearbyConnections : INearbyConnections
+internal sealed partial class NearbyConnectionsImplementation : INearbyConnections
 {
-    readonly TimeProvider _timeProvider;
-    readonly ILogger _logger;
-
+    readonly TimeProvider _timeProvider = TimeProvider.System;
     readonly SemaphoreSlim _advertiseSemaphore = new(initialCount: 1, maxCount: 1);
     readonly SemaphoreSlim _discoverSemaphore = new(initialCount: 1, maxCount: 1);
-
-    internal readonly NearbyConnectionsOptions _options;
 
     bool _isDisposed;
     Advertiser? _advertiser;
     Discoverer? _discoverer;
 
     public NearbyConnectionsEvents Events { get; } = new();
+    public NearbyConnectionsOptions Options { get; set; } = new();
 
     public string DisplayName
     {
@@ -29,56 +38,42 @@ internal sealed partial class NearbyConnections : INearbyConnections
         }
     } = DeviceInfo.Current.Name;
 
-    /// <summary>
-    /// Creates a new instance with specified options (for DI usage).
-    /// </summary>
-    /// <param name="options">Configuration options</param>
-    /// <param name="loggerFactory">Logger factory for creating loggers (uses NullLoggerFactory if not provided)</param>
-    /// <param name="timeProvider">Time provider for timestamps (uses TimeProvider.System if not provided)</param>
-    public NearbyConnections(
-        NearbyConnectionsOptions options,
-        ILoggerFactory loggerFactory,
-        TimeProvider timeProvider)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(loggerFactory);
-        ArgumentNullException.ThrowIfNull(timeProvider);
-
-        _options = options;
-        _logger = loggerFactory.CreateLogger<NearbyConnections>();
-        _timeProvider = timeProvider;
-    }
-
     public async Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
     {
-        await _advertiseSemaphore.WaitAsync(cancellationToken);
-
         try
         {
+            await _advertiseSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
             if (_advertiser is not null)
             {
-                _logger.AlreadyAdvertising();
+                Trace.WriteLine($"Already advertising; call '{nameof(StopAdvertisingAsync)}' before trying to start advertising again.");
                 return;
             }
 
-            var displayName = DisplayName;
-
-            _logger.StartingAdvertising(_options.ServiceName, displayName);
+            Trace.WriteLine($"Starting advertising with ServiceName={Options.ServiceName}, DisplayName={DisplayName}");
 
             _advertiser = new Advertiser(this);
-            await _advertiser.StartAdvertisingAsync(displayName);
-
+            await _advertiser.StartAdvertisingAsync(DisplayName);
             cancellationToken.ThrowIfCancellationRequested();
-            _logger.AdvertisingStarted();
+            Trace.WriteLine("Advertising started successfully.");
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            _logger.AdvertisingStartFailed(ex);
             _advertiser?.Dispose();
             _advertiser = null;
             throw;
+        }
+        catch (Exception ex)
+        {
+            _advertiser?.Dispose();
+            _advertiser = null;
+
+            throw new NearbyAdvertisingException(
+                DisplayName,
+                Options,
+                $"Failed to start advertising.",
+                ex);
         }
         finally
         {
@@ -88,32 +83,39 @@ internal sealed partial class NearbyConnections : INearbyConnections
 
     public async Task StartDiscoveryAsync(CancellationToken cancellationToken = default)
     {
-        await _discoverSemaphore.WaitAsync(cancellationToken);
-
         try
         {
+            await _discoverSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
             if (_discoverer is not null)
             {
-                _logger.AlreadyDiscovering();
+                Trace.WriteLine($"Already discovering; call '{nameof(StopDiscoveryAsync)}' before trying to start discovery again.");
                 return;
             }
 
-            _logger.StartingDiscovery(_options.ServiceName);
+            Trace.WriteLine($"Starting discovery with ServiceName={Options.ServiceName}");
 
             _discoverer = new Discoverer(this);
             await _discoverer.StartDiscoveringAsync();
-
             cancellationToken.ThrowIfCancellationRequested();
-            _logger.DiscoveryStarted();
+            Trace.WriteLine("Discovery started successfully.");
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            _logger.DiscoveryStartFailed(ex);
             _discoverer?.Dispose();
             _discoverer = null;
             throw;
+        }
+        catch (Exception ex)
+        {
+            _discoverer?.Dispose();
+            _discoverer = null;
+
+            throw new NearbyDiscoveryException(
+                Options,
+                $"Failed to start discovery.",
+                ex);
         }
         finally
         {
@@ -123,19 +125,37 @@ internal sealed partial class NearbyConnections : INearbyConnections
 
     public async Task StopAdvertisingAsync(CancellationToken cancellationToken = default)
     {
-        await _advertiseSemaphore.WaitAsync(cancellationToken);
         try
         {
+            await _advertiseSemaphore.WaitAsync(cancellationToken);
+
             if (_advertiser is not null)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                _logger.StoppingAdvertising();
+                Trace.WriteLine("Stopping advertising.");
                 _advertiser?.StopAdvertising();
                 cancellationToken.ThrowIfCancellationRequested();
                 _advertiser?.Dispose();
                 _advertiser = null;
-                _logger.AdvertisingStopped();
+                Trace.WriteLine("Advertising stopped.");
             }
+        }
+        catch (OperationCanceledException)
+        {
+            _advertiser?.Dispose();
+            _advertiser = null;
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _advertiser?.Dispose();
+            _advertiser = null;
+
+            throw new NearbyAdvertisingException(
+                DisplayName,
+                Options,
+                "Failed stopping advertising.",
+                ex);
         }
         finally
         {
@@ -145,19 +165,36 @@ internal sealed partial class NearbyConnections : INearbyConnections
 
     public async Task StopDiscoveryAsync(CancellationToken cancellationToken = default)
     {
-        await _discoverSemaphore.WaitAsync(cancellationToken);
         try
         {
+            await _discoverSemaphore.WaitAsync(cancellationToken);
+
             if (_discoverer is not null)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                _logger.StoppingDiscovery();
+                Trace.WriteLine("Stopping discovery.");
                 _discoverer?.StopDiscovering();
                 cancellationToken.ThrowIfCancellationRequested();
                 _discoverer?.Dispose();
                 _discoverer = null;
-                _logger.DiscoveryStopped();
+                Trace.WriteLine("Discovery stopped.");
             }
+        }
+        catch (OperationCanceledException)
+        {
+            _discoverer?.Dispose();
+            _discoverer = null;
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _discoverer?.Dispose();
+            _discoverer = null;
+
+            throw new NearbyDiscoveryException(
+                Options,
+                "Failed stopping discovery.",
+                ex);
         }
         finally
         {
@@ -165,14 +202,11 @@ internal sealed partial class NearbyConnections : INearbyConnections
         }
     }
 
-    public async Task SendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
-        => await PlatformSendInvitationAsync(device, cancellationToken);
+    public async Task RequestConnectionAsync(NearbyDevice device)
+        => await PlatformRequestConnectionAsync(device);
 
-    public async Task AcceptInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
-        => await PlatformAcceptInvitationAsync(device, cancellationToken);
-
-    public async Task DeclineInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
-        => await PlatformDeclineInvitationAsync(device, cancellationToken);
+    public async Task RespondToConnectionAsync(NearbyDevice device, bool accept)
+        => await PlatformRespondToConnectionAsync(device, accept);
 
     public void Dispose(bool disposing)
     {
@@ -183,7 +217,7 @@ internal sealed partial class NearbyConnections : INearbyConnections
 
         if (disposing)
         {
-            _logger.Disposing();
+            Trace.WriteLine("Disposing NearbyConnectionsImplementation.");
 
             try
             {
@@ -191,7 +225,8 @@ internal sealed partial class NearbyConnections : INearbyConnections
             }
             catch (Exception ex)
             {
-                _logger.DisposeSemaphoreFailure(ex);
+                Trace.WriteLine($"Failed to wait for advertise semaphore: {ex.Message}");
+                Trace.WriteLine(ex.StackTrace);
             }
 
             _advertiser?.StopAdvertising();
@@ -205,7 +240,9 @@ internal sealed partial class NearbyConnections : INearbyConnections
             }
             catch (Exception ex)
             {
-                _logger.DisposeSemaphoreFailure(ex);
+
+                Trace.WriteLine($"Failed to wait for discover semaphore: {ex.Message}");
+                Trace.WriteLine(ex.StackTrace);
             }
 
             _discoverer?.StopDiscovering();

@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 public sealed class NearbyDevice(
     string id,
-    string displayName) : IEquatable<NearbyDevice>
+    string? displayName = null) : IEquatable<NearbyDevice>
 {
     /// <summary>
     /// Gets a unique identifier for the device, valid within the current session.
@@ -16,7 +16,7 @@ public sealed class NearbyDevice(
     /// <summary>
     /// Gets a user-friendly display name for the device.
     /// </summary>
-    public string DisplayName { get; } = displayName;
+    public string? DisplayName { get; } = displayName;
 
     /// <summary>
     /// Determines whether the specified <see cref="NearbyDevice"/>

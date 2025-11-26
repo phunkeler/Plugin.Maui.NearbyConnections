@@ -1,14 +1,17 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Extension methods for configuring the plugin.
+/// Provides extension methods for registering Plugin.Maui.NearbyConnections services
+/// with the MAUI dependency injection container.
 /// </summary>
 public static class MauiAppBuilderExtensions
 {
     /// <summary>
-    /// Adds the Nearby Connections plugin to the MAUI app.
+    /// Adds <see cref="INearbyConnections"/> as a singleton to the MAUI app's service collection
+    /// and optional configuration of <see cref="NearbyConnectionsOptions"/>.
+    ///
     /// </summary>
-    /// <param name="builder">The MAUI app builder</param>
+    /// <param name="builder">The <see cref="MauiAppBuilder"/> to register the Plugin.Maui.NearbyConnections plugin with.</param>
     /// <param name="configureOptions">Optional action to configure plugin options</param>
     /// <returns>The <see cref="MauiAppBuilder"/> for chaining</returns>
     public static MauiAppBuilder AddNearbyConnections(
@@ -17,27 +20,11 @@ public static class MauiAppBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        if (configureOptions is not null)
-        {
-            builder.Services.Configure(configureOptions);
-        }
+        var options = new NearbyConnectionsOptions();
+        configureOptions?.Invoke(options);
+        NearbyConnections.Current.Options = options;
 
-        builder.Services.TryAddSingleton<INearbyConnections>(sp =>
-        {
-            var options = sp.GetService<IOptions<NearbyConnectionsOptions>>()?.Value
-                ?? new NearbyConnectionsOptions();
-
-            var loggerFactory = sp.GetService<ILoggerFactory>()
-                ?? NullLoggerFactory.Instance;
-
-            var timeProvider = sp.GetService<TimeProvider>()
-                ?? TimeProvider.System;
-
-            return new NearbyConnections(
-                options,
-                loggerFactory,
-                timeProvider);
-        });
+        builder.Services.AddSingleton(NearbyConnections.Current);
 
         return builder;
     }

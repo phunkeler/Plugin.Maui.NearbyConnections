@@ -16,9 +16,7 @@ internal sealed partial class Discoverer : Java.Lang.Object
 
     Task PlatformStartDiscovering()
     {
-        var options = _nearbyConnections._options;
-
-        // Android warns about NFC needing Activity context
+        var options = _nearbyConnections.Options;
         _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
 
         return _connectionClient.StartDiscoveryAsync(

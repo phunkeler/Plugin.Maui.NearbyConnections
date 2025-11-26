@@ -1,22 +1,20 @@
-using System.Diagnostics;
-
 namespace Plugin.Maui.NearbyConnections;
 
-internal sealed partial class NearbyConnections
+internal sealed partial class NearbyConnectionsImplementation
 {
     #region Discovery
 
     internal void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
-        _logger.EndpointFound(endpointId, info.EndpointName);
+        Trace.WriteLine($"Endpoint found: EndpointId={endpointId}, EndpointName={info.EndpointName}");
         var device = new NearbyDevice(endpointId, info.EndpointName);
         Events.OnDeviceFound(device, _timeProvider.GetUtcNow());
     }
 
     internal void OnEndpointLost(string endpointId)
     {
-        _logger.EndpointLost(endpointId);
-        var device = new NearbyDevice(endpointId, string.Empty);
+        Trace.WriteLine($"Endpoint lost: EndpointId={endpointId}");
+        var device = new NearbyDevice(endpointId);
         Events.OnDeviceLost(device, _timeProvider.GetUtcNow());
     }
 
@@ -26,69 +24,61 @@ internal sealed partial class NearbyConnections
 
     internal void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
-        _logger.ConnectionInitiated(
-            endpointId,
-            connectionInfo.EndpointName,
-            connectionInfo.IsIncomingConnection);
+        Trace.WriteLine($"Connection initiated: EndpointId={endpointId}, EndpointName={connectionInfo.EndpointName}, IsIncomingConnection={connectionInfo.IsIncomingConnection}");
 
         var device = new NearbyDevice(endpointId, connectionInfo.EndpointName);
-
         Events.OnConnectionRequested(device, _timeProvider.GetUtcNow());
     }
 
     internal void OnConnectionResult(string endpointId, ConnectionResolution resolution)
     {
-        _logger.OnConnectionResult(
-            endpointId,
-            resolution.Status.StatusCode,
-            resolution.Status.StatusMessage ?? string.Empty,
-            resolution.Status.IsSuccess);
+        Trace.WriteLine($"Connection result: EndpointId={endpointId}, StatusCode={resolution.Status.StatusCode}, StatusMessage={resolution.Status.StatusMessage ?? string.Empty}, IsSuccess={resolution.Status.IsSuccess}");
 
-        var device = new NearbyDevice(endpointId, string.Empty);
-
+        var device = new NearbyDevice(endpointId);
         Events.OnConnectionResponded(device, _timeProvider.GetUtcNow());
     }
 
     internal void OnDisconnected(string endpointId)
     {
-        _logger.Disconnected(endpointId);
+        Trace.WriteLine($"Disconnected from EndpointId={endpointId}");
 
-        var device = new NearbyDevice(endpointId, string.Empty);
-
+        var device = new NearbyDevice(endpointId);
         Events.OnDeviceDisconnected(device, _timeProvider.GetUtcNow());
     }
 
     #endregion Advertising
 
-    Task PlatformSendInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    static void OnPayloadReceived(string endpointId, Payload payload)
     {
-        return NearbyClass.GetConnectionsClient(_options.Activity ?? Android.App.Application.Context)
-            .RequestConnectionAsync(DisplayName,
-            device.Id,
-            new InvitationCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected));
+        Trace.WriteLine($"Payload received: EndpointId={endpointId}, PayloadId={payload.Id}, PayloadType={payload.PayloadType}");
     }
 
-    static Task PlatformAcceptInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    static void OnPayloadTransferUpdate(string endpointId, PayloadTransferUpdate update)
     {
-        return NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Android.App.Application.Context)
-            .AcceptConnectionAsync(device.Id, new MessengerCallback((deviceId, payload) =>
-            {
-                Debug.WriteLine($"Received payload from EndpointId={deviceId}");
-            },
-            (deviceId, update) =>
-            {
-                Debug.WriteLine($"Received payload transfer update from EndpointId={deviceId}");
-            }));
+        Trace.WriteLine($"Payload transfer update: EndpointId={endpointId}, PayloadId={update.PayloadId}, TransferStatus={update.TransferStatus}, TotalBytes={update.TotalBytes}, BytesTransferred={update.BytesTransferred}");
     }
 
-    static Task PlatformDeclineInvitationAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    Task PlatformRequestConnectionAsync(NearbyDevice device)
+        => NearbyClass
+            .GetConnectionsClient(Options.Activity ?? Android.App.Application.Context)
+            .RequestConnectionAsync(
+                DisplayName,
+                device.Id,
+                new ConnectionRequestCallback(
+                    OnConnectionInitiated,
+                    OnConnectionResult,
+                    OnDisconnected));
+
+    Task PlatformRespondToConnectionAsync(NearbyDevice device, bool accept)
     {
-        return NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Android.App.Application.Context)
-            .RejectConnectionAsync(device.Id);
+        var client = NearbyClass.GetConnectionsClient(Options.Activity ?? Android.App.Application.Context);
+
+        return accept
+            ? client.AcceptConnectionAsync(device.Id, new ConnectionCallback(OnPayloadReceived, OnPayloadTransferUpdate))
+            : client.RejectConnectionAsync(device.Id);
     }
 
-
-    sealed class InvitationCallback(
+    sealed class ConnectionRequestCallback(
         Action<string, ConnectionInfo> onConnectionInitiated,
         Action<string, ConnectionResolution> onConnectionResult,
         Action<string> onDisconnected) : ConnectionLifecycleCallback
@@ -107,7 +97,7 @@ internal sealed partial class NearbyConnections
             => _onDisconnected(endpointId);
     }
 
-    sealed class MessengerCallback(
+    sealed class ConnectionCallback(
         Action<string, Payload> onPayloadReceived,
         Action<string, PayloadTransferUpdate> onPayloadTransferUpdate) : PayloadCallback
     {

@@ -21,7 +21,7 @@ internal sealed partial class Advertiser : Java.Lang.Object
 
     Task PlatformStartAdvertising(string displayName)
     {
-        var options = _nearbyConnections._options;
+        var options = _nearbyConnections.Options;
 
         _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
 

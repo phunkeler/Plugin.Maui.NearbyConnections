@@ -2,7 +2,6 @@
 
   <!-- Plugin.Maui.NearbyConnections -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.0" />
     <PackageVersion Include="Xamarin.GooglePlayServices.Nearby" Version="119.3.0.7" />
   </ItemGroup>
