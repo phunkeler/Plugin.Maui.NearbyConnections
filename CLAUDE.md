@@ -8,9 +8,9 @@ This is a .NET MAUI plugin that provides peer-to-peer (P2P) connectivity with ne
 
 ## Build System
 
-- **Framework**: .NET 9.0 (`global.json:3`)
+- **Framework**: .NET 10.0 (`global.json:3`)
 - **Project Type**: Multi-targeted .NET MAUI plugin
-- **Target Frameworks**: `net9.0`, `net9.0-android`, `net9.0-ios` (`Directory.Build.props:3-8`)
+- **Target Frameworks**: `net10.0`, `net10.0-android`, `net10.0-ios` (`Directory.Build.props:3-8`)
 - **Solution File**: `Plugin.Maui.NearbyConnections.slnx` (Visual Studio solution)
 
 ### Build Commands
@@ -23,8 +23,8 @@ dotnet build
 dotnet pack
 
 # Build for specific platform
-dotnet build -f net9.0-android
-dotnet build -f net9.0-ios
+dotnet build -f net10.0-android
+dotnet build -f net10.0-ios
 ```
 
 ## Architecture

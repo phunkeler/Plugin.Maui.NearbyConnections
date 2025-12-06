@@ -11,11 +11,16 @@ export const formatOptions = {
     }
 };
 export const codepoints = {
-    'settings': 0xe001,
-    'send': 0xe002,
-    'advertising': 0xe003,
-    'connected': 0xe004,
-    'disconnected': 0xe005,
+    'antenna': 0xe001,
+    'chat': 0xe002,
+    'checkmark': 0xe003,
+    'discovering': 0xe004,
+    'down': 0xe005,
+    'link': 0xe006,
+    'right': 0xe007,
+    'send': 0xe008,
+    'settings': 0xe009,
+    'users': 0xe010
 };
 export function getIconId({
     basename, // `string` - Example: 'foo';

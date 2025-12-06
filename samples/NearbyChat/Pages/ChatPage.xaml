@@ -136,7 +136,7 @@
                                         BackgroundColor="{DynamicResource PrimaryBlue700}"
                                         Command="{Binding SendMessageCommand}">
                                     <Button.ImageSource>
-                                        <FontImageSource Glyph="&#xe002;"
+                                        <FontImageSource Glyph="&#xe008;"
                                                          Color="{AppThemeBinding Light=White, Dark=White}"
                                                          FontFamily="NearbyChatIcons"
                                                          Size="24"/>

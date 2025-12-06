@@ -24,7 +24,7 @@ public partial class AppShell : Shell
 
         if (!viewModelType.IsAssignableTo(typeof(BaseViewModel)))
         {
-            throw new ArgumentException($@"{nameof(viewModelType)} must implement {nameof(BaseViewModel)}", nameof(viewModelType));
+            throw new ArgumentException($"{nameof(viewModelType)} must implement {nameof(BaseViewModel)}", nameof(viewModelType));
         }
 
         if (!s_viewModelMappings.TryGetValue(viewModelType, out var mapping))
