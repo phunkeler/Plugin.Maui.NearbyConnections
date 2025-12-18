@@ -69,7 +69,7 @@ dotnet add package Plugin.Maui.NearbyConnections -s https://api.nuget.org/v3/ind
 public static MauiApp CreateMauiApp()
     => MauiApp.CreateBuilder()
         .UseMauiApp<App>()
-        .ConfigureNearbyConnections() // Defaults
+        .AddNearbyConnections() // Defaults
         .Build();
 
 ```
@@ -78,52 +78,14 @@ public static MauiApp CreateMauiApp()
 public static MauiApp CreateMauiApp()
     => MauiApp.CreateBuilder()
         .UseMauiApp<App>()
-        .ConfigureNearbyConnections(builder => // Custom Config
+        .AddNearbyConnections(options => // Custom Config
         {
-
+            options.ServiceName = "MyService";
+            options.AutoAcceptConnections = false;
         })
         .Build();
 
 ```
-
-## Options
-
-### AdvertisingOptions
-These options can be set once or per advertising session.
-
--   DisplayName
--   ServiceName
--   Limited amount of arbitrary key/value pairs (_iOS only_)
-
-## Architecture
-
-### Phases
-
-#### **Pre-Connection** (_`Advertise/Discover` --> `Invite` --> `Accept/Decline`_)
-
-During the pre-connection phase, nearby devices; make themselves known (`Start/Stop Advertising`), find out about others (`Start/Stop Discovering`), request to connect (`SendInvitation`), choose to accept/decline (`Accept/Decline Invitation`), and then submit their response (`AnswerInvitation`).
-
-The following table shows how critical native callback/delegate methods map to plugin events.
-
-| Plugin.Maui.NearbyConnections.Events |                                                                                                                                                                                 Android                                                                                                                                                                                 |                                                                                                                                                                        iOS                                                                                                                                                                        |
-| :----------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-|          InvitationReceived          | [OnConnectionInitiated](https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback#public-abstract-void-onconnectioninitiated-string-endpointid,-connectioninfo-connectioninfo) (_[dotnet](https://github.com/dotnet/android-libraries/blob/eb048f14d0ac1fd66144572cbca3cc476b353cb5/docs/artifact-list.md)_) | [DidReceiveInvitationFromPeer](<https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyserviceadvertiserdelegate/advertiser(_:didreceiveinvitationfrompeer:withcontext:invitationhandler:)>) (_[dotnet](https://github.com/dotnet/macios/blob/0d3c2e24a0ee88420142fd6710571d1260b99c15/src/multipeerconnectivity.cs#L413-L416)_) |
-|        NearbyConnectionFound         |         [OnEndpointFound](https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/EndpointDiscoveryCallback#public-abstract-void-onendpointfound-string-endpointid,-discoveredendpointinfo-info) (_[dotnet](https://github.com/dotnet/android-libraries/blob/eb048f14d0ac1fd66144572cbca3cc476b353cb5/docs/artifact-list.md)_)         |                             [FoundPeer](<https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyservicebrowserdelegate/browser(_:foundpeer:withdiscoveryinfo:)>) (_[dotnet](https://github.com/dotnet/macios/blob/0d3c2e24a0ee88420142fd6710571d1260b99c15/src/multipeerconnectivity.cs#L515-L525)_)                             |
-|         NearbyConnectionLost         |                        [OnEndpointLost](https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/EndpointDiscoveryCallback#public-abstract-void-onendpointlost-string-endpointid) (_[dotnet](https://github.com/dotnet/android-libraries/blob/eb048f14d0ac1fd66144572cbca3cc476b353cb5/docs/artifact-list.md)_)                         |                                       [LostPeer](<https://developer.apple.com/documentation/multipeerconnectivity/mcnearbyservicebrowserdelegate/browser(_:lostpeer:)>) (_[dotnet](https://github.com/dotnet/macios/blob/0d3c2e24a0ee88420142fd6710571d1260b99c15/src/multipeerconnectivity.cs#L527-L533)_)                                       |
-|          InvitationAnswered          |                                                          [OnConnectionResult](https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback#public-abstract-void-onconnectionresult-string-endpointid,-connectionresolution-resolution) (_[dotnet]()_)                                                           |                                          [DidChange](<https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate/session(_:peer:didchange:)>) (_[dotnet](https://github.com/dotnet/macios/blob/0d3c2e24a0ee88420142fd6710571d1260b99c15/src/multipeerconnectivity.cs#L250-L257)_)                                          |
-
-#### **Connection** (_`Data Exchange` --> `Resource Transfer` --> `State Changes`_)
-
-During the connection phase, connected devices exchange messages (`Send/Receive Message`) and handle connection state changes (`Connected/Disconnected`).
-
-The following table shows how critical native callback/delegate methods map to plugin events.
-
-| Plugin.Maui.NearbyConnections.Events |                                                                                                                                                                Android                                                                                                                                                                |                                                                                                                                    iOS                                                                                                                                    |
-| :----------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-|           MessageReceived            | [OnPayloadReceived](https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/PayloadCallback#public-abstract-void-onpayloadreceived-string-endpointid,-payload-payload) (_[dotnet](https://github.com/dotnet/android-libraries/blob/eb048f14d0ac1fd66144572cbca3cc476b353cb5/docs/artifact-list.md)_) | [DidReceiveData](<https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate/session(_:didreceive:frompeer:)>) (_[dotnet](https://github.com/dotnet/macios/blob/0d3c2e24a0ee88420142fd6710571d1260b99c15/src/multipeerconnectivity.cs#L259-L266)_) |
-|           PeerDisconnected           |      [OnDisconnected](https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback#public-abstract-void-ondisconnected-string-endpointid) (_[dotnet](https://github.com/dotnet/android-libraries/blob/eb048f14d0ac1fd66144572cbca3cc476b353cb5/docs/artifact-list.md)_)       |      [DidChange](<https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate/session(_:peer:didchange:)>) (_[dotnet](https://github.com/dotnet/macios/blob/0d3c2e24a0ee88420142fd6710571d1260b99c15/src/multipeerconnectivity.cs#L250-L257)_)      |
-
-#### **Post-Connection** (`Cleanup`)
 
 # Acknowledgements
 

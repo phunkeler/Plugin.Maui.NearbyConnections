@@ -1,8 +1,10 @@
 namespace Plugin.Maui.NearbyConnections.Discover;
 
-internal sealed partial class Discoverer : IDisposable
+internal sealed partial class Discoverer
 {
     readonly NearbyConnectionsImplementation _nearbyConnections;
+
+    bool _disposed;
 
     internal Discoverer(NearbyConnectionsImplementation nearbyConnections)
     {

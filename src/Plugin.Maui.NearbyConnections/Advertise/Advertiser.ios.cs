@@ -31,7 +31,28 @@ internal sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserD
     }
 
     void PlatformStopAdvertising()
-        => _advertiser?.StopAdvertisingPeer();
+    {
+        _advertiser?.StopAdvertisingPeer();
+        _advertiser?.Dispose();
+        _advertiser = null;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+
+            if (disposing)
+            {
+                _advertiser?.StopAdvertisingPeer();
+                _advertiser?.Dispose();
+                _advertiser = null;
+            }
+        }
+
+        base.Dispose(disposing);
+    }
 
     public void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
         => _nearbyConnections.DidNotStartAdvertisingPeer(advertiser, error);

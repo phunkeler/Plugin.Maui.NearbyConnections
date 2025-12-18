@@ -22,7 +22,7 @@ public class UserRepository
     public async Task<User?> GetActiveUserAsync(CancellationToken cancellationToken = default)
     {
         await Initialize(cancellationToken);
-        await using var connection = new SqliteConnection(Constants.DatabasePath);
+        using var connection = new SqliteConnection(Constants.DatabasePath);
         await connection.OpenAsync(cancellationToken);
 
         var command = connection.CreateCommand();
@@ -32,7 +32,7 @@ public class UserRepository
                 {nameof(User.DisplayName)},
                 {nameof(User.AvatarId)},
                 {nameof(User.CreatedOn)}
-            FROM User
+            FROM {nameof(User)}
             LIMIT 1;";
 
         try

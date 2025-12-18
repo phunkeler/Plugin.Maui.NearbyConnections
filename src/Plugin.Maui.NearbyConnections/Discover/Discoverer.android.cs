@@ -31,6 +31,23 @@ internal sealed partial class Discoverer : Java.Lang.Object
     void PlatformStopDiscovering()
         => _connectionClient?.StopDiscovery();
 
+    protected override void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+
+            if (disposing)
+            {
+                _connectionClient?.StopDiscovery();
+                _connectionClient?.Dispose();
+                _connectionClient = null;
+            }
+        }
+
+        base.Dispose(disposing);
+    }
+
     sealed class DiscoveryCallback(
         Action<string, DiscoveredEndpointInfo> onEndpointFound,
         Action<string> onEndpointLost) : EndpointDiscoveryCallback

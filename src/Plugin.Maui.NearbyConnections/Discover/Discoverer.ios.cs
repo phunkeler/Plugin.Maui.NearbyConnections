@@ -26,7 +26,31 @@ internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDele
     }
 
     void PlatformStopDiscovering()
-        => _browser?.StopBrowsingForPeers();
+    {
+        _browser?.StopBrowsingForPeers();
+
+        // On iOS, we must dispose and recreate the browser if service name changes
+        // So we dispose immediately after stopping
+        _browser?.Dispose();
+        _browser = null;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+
+            if (disposing)
+            {
+                _browser?.StopBrowsingForPeers();
+                _browser?.Dispose();
+                _browser = null;
+            }
+        }
+
+        base.Dispose(disposing);
+    }
 
     public void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
         => _nearbyConnections.FoundPeer(browser, peerID, info);

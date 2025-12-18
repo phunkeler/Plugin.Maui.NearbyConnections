@@ -39,6 +39,23 @@ internal sealed partial class Advertiser : Java.Lang.Object
     void PlatformStopAdvertising()
         => _connectionClient?.StopAdvertising();
 
+    protected override void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+
+            if (disposing)
+            {
+                _connectionClient?.StopAdvertising();
+                _connectionClient?.Dispose();
+                _connectionClient = null;
+            }
+        }
+
+        base.Dispose(disposing);
+    }
+
     sealed class AdvertiseCallback(
         Action<string, ConnectionInfo> onConnectionInitiated,
         Action<string, ConnectionResolution> onConnectionResult,

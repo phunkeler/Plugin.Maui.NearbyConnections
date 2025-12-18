@@ -18,7 +18,7 @@ public class MainActivity : MauiAppCompatActivity
         base.OnCreate(savedInstanceState);
 
         RequestPermissionsForResult.Instance.Register(this);
-        var permissions = FromArray(GetRequiredPermissions() ?? []) ?? new JavaList<string>();
+        var permissions = FromArray(GetRequiredPermissions()) ?? new JavaList<string>();
 
         var result = RequestPermissionsForResult.Instance.Launch(permissions);
 

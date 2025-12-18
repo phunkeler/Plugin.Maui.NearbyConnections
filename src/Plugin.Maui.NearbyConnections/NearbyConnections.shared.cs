@@ -45,29 +45,22 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             await _advertiseSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (_advertiser is not null)
-            {
-                Trace.WriteLine($"Already advertising; call '{nameof(StopAdvertisingAsync)}' before trying to start advertising again.");
-                return;
-            }
-
             Trace.WriteLine($"Starting advertising with ServiceName={Options.ServiceName}, DisplayName={DisplayName}");
 
-            _advertiser = new Advertiser(this);
+            // Create advertiser if needed (kept alive for reuse on Android)
+            _advertiser ??= new Advertiser(this);
             await _advertiser.StartAdvertisingAsync(DisplayName);
             cancellationToken.ThrowIfCancellationRequested();
             Trace.WriteLine("Advertising started successfully.");
         }
         catch (OperationCanceledException)
         {
-            _advertiser?.Dispose();
-            _advertiser = null;
+            _advertiser?.StopAdvertising();
             throw;
         }
         catch (Exception ex)
         {
-            _advertiser?.Dispose();
-            _advertiser = null;
+            _advertiser?.StopAdvertising();
 
             throw new NearbyAdvertisingException(
                 DisplayName,
@@ -88,29 +81,22 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             await _discoverSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (_discoverer is not null)
-            {
-                Trace.WriteLine($"Already discovering; call '{nameof(StopDiscoveryAsync)}' before trying to start discovery again.");
-                return;
-            }
-
             Trace.WriteLine($"Starting discovery with ServiceName={Options.ServiceName}");
 
-            _discoverer = new Discoverer(this);
+            // Create discoverer if needed (kept alive for reuse on Android)
+            _discoverer ??= new Discoverer(this);
             await _discoverer.StartDiscoveringAsync();
             cancellationToken.ThrowIfCancellationRequested();
             Trace.WriteLine("Discovery started successfully.");
         }
         catch (OperationCanceledException)
         {
-            _discoverer?.Dispose();
-            _discoverer = null;
+            _discoverer?.StopDiscovering();
             throw;
         }
         catch (Exception ex)
         {
-            _discoverer?.Dispose();
-            _discoverer = null;
+            _discoverer?.StopDiscovering();
 
             throw new NearbyDiscoveryException(
                 Options,
@@ -133,23 +119,19 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Trace.WriteLine("Stopping advertising.");
-                _advertiser?.StopAdvertising();
+                _advertiser.StopAdvertising();
                 cancellationToken.ThrowIfCancellationRequested();
-                _advertiser?.Dispose();
-                _advertiser = null;
                 Trace.WriteLine("Advertising stopped.");
             }
         }
         catch (OperationCanceledException)
         {
-            _advertiser?.Dispose();
-            _advertiser = null;
+            _advertiser?.StopAdvertising();
             throw;
         }
         catch (Exception ex)
         {
-            _advertiser?.Dispose();
-            _advertiser = null;
+            _advertiser?.StopAdvertising();
 
             throw new NearbyAdvertisingException(
                 DisplayName,
@@ -173,23 +155,19 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Trace.WriteLine("Stopping discovery.");
-                _discoverer?.StopDiscovering();
+                _discoverer.StopDiscovering();
                 cancellationToken.ThrowIfCancellationRequested();
-                _discoverer?.Dispose();
-                _discoverer = null;
                 Trace.WriteLine("Discovery stopped.");
             }
         }
         catch (OperationCanceledException)
         {
-            _discoverer?.Dispose();
-            _discoverer = null;
+            _discoverer?.StopDiscovering();
             throw;
         }
         catch (Exception ex)
         {
-            _discoverer?.Dispose();
-            _discoverer = null;
+            _discoverer?.StopDiscovering();
 
             throw new NearbyDiscoveryException(
                 Options,
