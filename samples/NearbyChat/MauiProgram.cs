@@ -40,8 +40,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ISeedDataService, SeedDataService>();
         builder.Services.AddSingleton<IUserService, UserService>();
 
-        AddTransientWithShellRoute<LoginPage, LoginPageViewModel>(builder.Services);
-        AddTransientWithShellRoute<ChatPage, ChatPageViewModel>(builder.Services);
+        AddTransientWithShellRoute<MainPage, MainPageViewModel>(builder.Services);
 
         return builder.Build();
     }

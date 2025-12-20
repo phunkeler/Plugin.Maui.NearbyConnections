@@ -12,9 +12,6 @@ public static class NearbyConnections
         => field ??= new NearbyConnectionsImplementation();
 }
 
-/// <summary>
-/// Default implementation of the <see cref="INearbyConnections"/> interface.
-/// </summary>
 internal sealed partial class NearbyConnectionsImplementation : INearbyConnections
 {
     readonly TimeProvider _timeProvider = TimeProvider.System;

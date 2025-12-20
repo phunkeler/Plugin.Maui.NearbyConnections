@@ -1,6 +1,202 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="NearbyChat.Resources.Styles.Colors">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    x:Class="NearbyChat.Resources.Styles.Colors">
+
+    <!-- ========================================== -->
+    <!-- DARK THEME COLORS (Layered Design)         -->
+    <!-- ========================================== -->
+
+    <!-- Dark Theme - Background Colors -->
+    <Color x:Key="DarkBackgroundPrimary">#0f172a</Color>
+    <!-- slate-900 -->
+    <Color x:Key="DarkBackgroundSecondary">#1e293b</Color>
+    <!-- slate-800 -->
+    <Color x:Key="DarkBackgroundTertiary">#334155</Color>
+    <!-- slate-700 -->
+
+    <!-- Dark Theme - Surface/Card Colors -->
+    <Color x:Key="DarkSurfacePrimary">#1e293b</Color>
+    <!-- slate-800 -->
+    <Color x:Key="DarkSurfaceSecondary">#0f172a</Color>
+    <!-- slate-900 -->
+
+    <!-- Dark Theme - Text Colors -->
+    <Color x:Key="DarkTextPrimary">#ffffff</Color>
+    <!-- white -->
+    <Color x:Key="DarkTextSecondary">#cbd5e1</Color>
+    <!-- slate-300 -->
+    <Color x:Key="DarkTextTertiary">#94a3b8</Color>
+    <!-- slate-400 -->
+    <Color x:Key="DarkTextQuaternary">#64748b</Color>
+    <!-- slate-500 -->
+    <Color x:Key="DarkTextDisabled">#475569</Color>
+    <!-- slate-600 -->
+
+    <!-- Dark Theme - Accent Colors -->
+    <Color x:Key="DarkAccentAdvertising">#2563eb</Color>
+    <!-- blue-600 -->
+    <Color x:Key="DarkAccentAdvertisingLight">#60a5fa</Color>
+    <!-- blue-400 -->
+    <Color x:Key="DarkAccentDiscovery">#16a34a</Color>
+    <!-- green-600 -->
+    <Color x:Key="DarkAccentDiscoveryLight">#4ade80</Color>
+    <!-- green-400 -->
+    <Color x:Key="DarkAccentConnections">#9333ea</Color>
+    <!-- purple-600 -->
+    <Color x:Key="DarkAccentConnectionsLight">#a855f7</Color>
+    <!-- purple-400 -->
+
+    <!-- Dark Theme - Border Colors -->
+    <Color x:Key="DarkBorderAdvertising">#3b82f680</Color>
+    <!-- blue-500 with 50% opacity -->
+    <Color x:Key="DarkBorderDiscovery">#22c55e80</Color>
+    <!-- green-500 with 50% opacity -->
+
+    <!-- Dark Theme - Shadow Colors -->
+    <Color x:Key="DarkShadowDark">#00000066</Color>
+    <!-- black with 40% opacity -->
+    <Color x:Key="DarkShadowLight">#ffffff0d</Color>
+    <!-- white with 5% opacity -->
+
+    <!-- Dark Theme - Status Colors -->
+    <Color x:Key="DarkStatusActive">#16a34a</Color>
+    <!-- green-600 -->
+    <Color x:Key="DarkStatusInactive">#475569</Color>
+    <!-- slate-600 -->
+
+
+    <!-- ========================================== -->
+    <!-- LIGHT THEME COLORS (Light Layered Design)  -->
+    <!-- ========================================== -->
+
+    <!-- Light Theme - Background Colors -->
+    <Color x:Key="LightBackgroundPrimary">#f8fafc</Color>
+    <!-- slate-50 -->
+    <Color x:Key="LightBackgroundSecondary">#f1f5f9</Color>
+    <!-- slate-100 -->
+    <Color x:Key="LightBackgroundTertiary">#e2e8f0</Color>
+    <!-- slate-200 -->
+
+    <!-- Light Theme - Surface/Card Colors -->
+    <Color x:Key="LightSurfacePrimary">#f1f5f9</Color>
+    <!-- slate-100 -->
+    <Color x:Key="LightSurfaceSecondary">#f8fafc</Color>
+    <!-- slate-50 -->
+
+    <!-- Light Theme - Text Colors -->
+    <Color x:Key="LightTextPrimary">#0f172a</Color>
+    <!-- slate-900 -->
+    <Color x:Key="LightTextSecondary">#334155</Color>
+    <!-- slate-700 -->
+    <Color x:Key="LightTextTertiary">#475569</Color>
+    <!-- slate-600 -->
+    <Color x:Key="LightTextQuaternary">#64748b</Color>
+    <!-- slate-500 -->
+    <Color x:Key="LightTextDisabled">#94a3b8</Color>
+    <!-- slate-400 -->
+
+    <!-- Light Theme - Accent Colors -->
+    <Color x:Key="LightAccentAdvertising">#2563eb</Color>
+    <!-- blue-600 -->
+    <Color x:Key="LightAccentAdvertisingDark">#1d4ed8</Color>
+    <!-- blue-700 -->
+    <Color x:Key="LightAccentDiscovery">#16a34a</Color>
+    <!-- green-600 -->
+    <Color x:Key="LightAccentDiscoveryDark">#15803d</Color>
+    <!-- green-700 -->
+    <Color x:Key="LightAccentConnections">#9333ea</Color>
+    <!-- purple-600 -->
+
+    <!-- Light Theme - Border Colors -->
+    <Color x:Key="LightBorderAdvertising">#93c5fd</Color>
+    <!-- blue-300 -->
+    <Color x:Key="LightBorderDiscovery">#86efac</Color>
+    <!-- green-300 -->
+
+    <!-- Light Theme - Shadow Colors -->
+    <Color x:Key="LightShadowDark">#94a3b833</Color>
+    <!-- slate-400 with 20% opacity -->
+    <Color x:Key="LightShadowLight">#ffffffe6</Color>
+    <!-- white with 90% opacity -->
+
+    <!-- Light Theme - Status Colors -->
+    <Color x:Key="LightStatusActive">#16a34a</Color>
+    <!-- green-600 -->
+    <Color x:Key="LightStatusInactive">#cbd5e1</Color>
+    <!-- slate-300 -->
+
+
+    <!-- ========================================== -->
+    <!-- SHARED COLORS (Same in both themes)        -->
+    <!-- ========================================== -->
+
+    <!-- Shared - Pure Colors -->
+    <Color x:Key="White">#ffffff</Color>
+    <Color x:Key="Black">#000000</Color>
+
+    <!-- Shared - Semantic Colors (consistent across themes) -->
+    <Color x:Key="AccentAdvertising">#2563eb</Color>
+    <!-- blue-600 -->
+    <Color x:Key="AccentDiscovery">#16a34a</Color>
+    <!-- green-600 -->
+    <Color x:Key="AccentConnections">#9333ea</Color>
+    <!-- purple-600 -->
+    <Color x:Key="LightAccentConnectionsDark">#7e22ce</Color>
+    <!-- purple-700 -->
+
+    <!-- Shared - Status Colors -->
+    <Color x:Key="StatusSuccess">#16a34a</Color>
+    <!-- green-600 -->
+    <Color x:Key="StatusError">#dc2626</Color>
+    <!-- red-600 -->
+    <Color x:Key="StatusWarning">#ca8a04</Color>
+    <!-- yellow-600 -->
+    <Color x:Key="StatusInfo">#2563eb</Color>
+    <!-- blue-600 -->
+
+
+    <!-- ========================================== -->
+    <!-- GRADIENT DEFINITIONS                        -->
+    <!-- ========================================== -->
+
+    <!-- Dark Theme Gradient (slate-900 -> slate-800 -> slate-900) -->
+    <LinearGradientBrush x:Key="DarkBackgroundGradient"
+                         StartPoint="0,0"
+                         EndPoint="1,1">
+        <GradientStop Color="#1e293b"
+                      Offset="0.0"/>
+        <GradientStop Color="#0f172a"
+                      Offset="0.5"/>
+        <GradientStop Color="#1e293b"
+                      Offset="1.0"/>
+    </LinearGradientBrush>
+
+    <!-- Light Theme Gradient (slate-100 -> slate-50 -> slate-100) -->
+    <LinearGradientBrush x:Key="LightBackgroundGradient"
+                         StartPoint="0,0"
+                         EndPoint="1,1">
+        <GradientStop Color="#f8fafc"
+                      Offset="0.0"/>
+        <GradientStop Color="#f1f5f9"
+                      Offset="0.5"/>
+        <GradientStop Color="#f8fafc"
+                      Offset="1.0"/>
+    </LinearGradientBrush>
+
+
+    <!-- ========================================== -->
+    <!-- OPACITY VALUES FOR SHADOW EFFECTS           -->
+    <!-- ========================================== -->
+
+    <!-- Use these with Color properties for neumorphic shadows -->
+    <x:Double x:Key="ShadowOpacityDark">0.4</x:Double>
+    <!-- 40% for dark shadows -->
+    <x:Double x:Key="ShadowOpacityLight">0.05</x:Double>
+    <!-- 5% for light highlights in dark theme -->
+    <x:Double x:Key="ShadowOpacityLightDark">0.2</x:Double>
+    <!-- 20% for shadows in light theme -->
+    <x:Double x:Key="ShadowOpacityLightLight">0.9</x:Double>
+    <!-- 90% for highlights in light theme -->
 
 </ResourceDictionary>

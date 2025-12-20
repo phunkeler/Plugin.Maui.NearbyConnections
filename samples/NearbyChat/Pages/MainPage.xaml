@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<pages:BasePage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                xmlns:vm="clr-namespace:NearbyChat.ViewModels"
+                xmlns:pages="clr-namespace:NearbyChat.Pages"
+                xmlns:models="clr-namespace:NearbyChat.Models"
+                xmlns:sf="clr-namespace:Syncfusion.Maui.Toolkit.SegmentedControl;assembly=Syncfusion.Maui.Toolkit"
+                xmlns:sfInputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+                xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+                x:Class="NearbyChat.Pages.MainPage"
+                x:Name="login"
+                x:TypeArguments="vm:MainPageViewModel"
+                Background="{AppThemeBinding Light={StaticResource DarkBackgroundGradient}, Dark={StaticResource DarkBackgroundGradient}}"
+                x:DataType="vm:MainPageViewModel">
+
+    <pages:BasePage.Resources>
+        <ResourceDictionary>
+            <!-- Dark Theme - Main Navigation Card (Home Screen) -->
+            <Style x:Key="DarkNavigationCard"
+                   TargetType="Border">
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource DarkSurfacePrimary}"/>
+                <Setter Property="Padding"
+                        Value="24"/>
+                <Setter Property="StrokeThickness"
+                        Value="0"/>
+                <Setter Property="StrokeShape"
+                        Value="RoundRectangle 24"/>
+                <Setter Property="Shadow">
+                    <Shadow Brush="Black"
+                            Offset="12,12"
+                            Radius="24"
+                            Opacity="0.4"/>
+                </Setter>
+            </Style>
+
+            <!-- Dark Theme - Advertising Icon Container -->
+            <Style x:Key="DarkAdvertisingIconContainer"
+                   TargetType="Border">
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource AccentAdvertising}"/>
+                <Setter Property="WidthRequest"
+                        Value="56"/>
+                <Setter Property="HeightRequest"
+                        Value="56"/>
+                <Setter Property="StrokeThickness"
+                        Value="0"/>
+                <Setter Property="StrokeShape"
+                        Value="RoundRectangle 16"/>
+                <Setter Property="Shadow">
+                    <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentAdvertisingDark}, Dark={StaticResource DarkAccentAdvertisingLight}}"
+                            Offset="0,4"
+                            Radius="12"
+                            Opacity="0.3"/>
+                </Setter>
+            </Style>
+
+            <!-- Dark Theme - Discover Icon Container -->
+            <Style x:Key="DiscoverIconContainer"
+                   TargetType="Border">
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource DarkAccentDiscovery}"/>
+                <Setter Property="WidthRequest"
+                        Value="56"/>
+                <Setter Property="HeightRequest"
+                        Value="56"/>
+                <Setter Property="StrokeThickness"
+                        Value="0"/>
+                <Setter Property="StrokeShape"
+                        Value="RoundRectangle 16"/>
+                <Setter Property="Shadow">
+                    <Shadow Brush="{StaticResource DarkAccentDiscoveryLight}"
+                            Offset="0,4"
+                            Radius="12"
+                            Opacity="0.3"/>
+                </Setter>
+            </Style>
+
+            <!-- Connections Icon Container -->
+            <Style x:Key="ConnectionsIconContainer"
+                   TargetType="Border">
+                <Setter Property="BackgroundColor"
+                        Value="{StaticResource AccentConnections}"/>
+                <Setter Property="WidthRequest"
+                        Value="56"/>
+                <Setter Property="HeightRequest"
+                        Value="56"/>
+                <Setter Property="StrokeThickness"
+                        Value="0"/>
+                <Setter Property="StrokeShape"
+                        Value="RoundRectangle 16"/>
+                <Setter Property="Shadow">
+                    <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentConnectionsDark}, Dark={StaticResource DarkAccentConnectionsLight}}"
+                            Offset="0,4"
+                            Radius="12"
+                            Opacity="0.3"/>
+                </Setter>
+            </Style>
+
+        </ResourceDictionary>
+    </pages:BasePage.Resources>
+
+    <pages:BasePage.Content>
+        <StackLayout VerticalOptions="Center"
+                     Margin="{StaticResource SpacingXL}"
+                     Spacing="{StaticResource SpacingLG}">
+            <Label Text="NearbyChat"
+                   FontSize="28"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center"
+                   TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
+            <Label Text="Choose your connection mode"
+                   FontSize="14"
+                   HorizontalOptions="Center"
+                   TextColor="{AppThemeBinding Light={StaticResource LightTextSecondary}, Dark={StaticResource DarkTextSecondary}}"/>
+
+            <!-- Advertise Card -->
+            <Border Style="{StaticResource DarkNavigationCard}">
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                      ColumnSpacing="{StaticResource SpacingLG}">
+                    <!-- Icon Container -->
+                    <Border Grid.Column="0"
+                            Style="{StaticResource DarkAdvertisingIconContainer}">
+                        <Image
+                            WidthRequest="24"
+                            HeightRequest="24">
+                            <Image.Source>
+                                <FontImageSource FontFamily="NearbyChatIcons"
+                                                 Glyph="{StaticResource icon-antenna}"
+                                                 Color="{StaticResource White}"/>
+                            </Image.Source>
+                        </Image>
+                    </Border>
+
+                    <!-- Text Content -->
+                    <VerticalStackLayout Grid.Column="1"
+                                         VerticalOptions="Center"
+                                         Spacing="4">
+                        <Label Text="Advertising"
+                               Style="{StaticResource CardTitle}"/>
+                        <Label Text="Be discoverable"
+                               Style="{StaticResource CardSubtitle}"/>
+                    </VerticalStackLayout>
+
+                    <!-- Chevron -->
+                    <Image
+                        Grid.Column="2"
+                        WidthRequest="12"
+                        HeightRequest="12">
+                        <Image.Source>
+                            <FontImageSource FontFamily="NearbyChatIcons"
+                                             Glyph="{StaticResource icon-right}"
+                                             Color="{AppThemeBinding Light={StaticResource LightTextSecondary}, Dark={StaticResource DarkTextSecondary}}"/>
+                        </Image.Source>
+                    </Image>
+                </Grid>
+            </Border>
+
+            <!-- Discover Card -->
+            <Border Style="{StaticResource DarkNavigationCard}">
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                      ColumnSpacing="{StaticResource SpacingLG}">
+                    <!-- Icon Container -->
+                    <Border Grid.Column="0"
+                            Style="{StaticResource DiscoverIconContainer}">
+                        <Image
+                            WidthRequest="24"
+                            HeightRequest="24">
+                            <Image.Source>
+                                <FontImageSource FontFamily="NearbyChatIcons"
+                                                 Glyph="{StaticResource icon-sonar}"
+                                                 Color="{StaticResource White}"/>
+                            </Image.Source>
+                        </Image>
+                    </Border>
+
+                    <!-- Text Content -->
+                    <VerticalStackLayout Grid.Column="1"
+                                         VerticalOptions="Center"
+                                         Spacing="4">
+                        <Label Text="Discovery"
+                               Style="{StaticResource CardTitle}"/>
+                        <Label Text="Find nearby devices"
+                               Style="{StaticResource CardSubtitle}"/>
+                    </VerticalStackLayout>
+
+                    <!-- Chevron -->
+                    <Image
+                        Grid.Column="2"
+                        WidthRequest="12"
+                        HeightRequest="12">
+                        <Image.Source>
+                            <FontImageSource FontFamily="NearbyChatIcons"
+                                             Glyph="{StaticResource icon-right}"
+                                             Color="{AppThemeBinding Light={StaticResource LightTextSecondary}, Dark={StaticResource DarkTextSecondary}}"/>
+                        </Image.Source>
+                    </Image>
+                </Grid>
+            </Border>
+
+            <!-- Connections Card -->
+            <Border Style="{StaticResource DarkNavigationCard}">
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                      ColumnSpacing="{StaticResource SpacingLG}">
+                    <!-- Icon Container -->
+                    <Border Grid.Column="0"
+                            Style="{StaticResource ConnectionsIconContainer}">
+                        <Image
+                            WidthRequest="24"
+                            HeightRequest="24">
+                            <Image.Source>
+                                <FontImageSource FontFamily="NearbyChatIcons"
+                                                 Glyph="{StaticResource icon-message}"
+                                                 Color="{StaticResource White}"/>
+                            </Image.Source>
+                        </Image>
+                    </Border>
+
+                    <!-- Text Content -->
+                    <VerticalStackLayout Grid.Column="1"
+                                         VerticalOptions="Center"
+                                         Spacing="4">
+                        <Label Text="Connections"
+                               Style="{StaticResource CardTitle}"/>
+                        <Label Text="No connections"
+                               Style="{StaticResource CardSubtitle}"/>
+                    </VerticalStackLayout>
+
+                    <!-- Chevron -->
+                    <Image
+                        Grid.Column="2"
+                        WidthRequest="12"
+                        HeightRequest="12">
+                        <Image.Source>
+                            <FontImageSource FontFamily="NearbyChatIcons"
+                                             Glyph="{StaticResource icon-right}"
+                                             Color="{AppThemeBinding Light={StaticResource LightTextSecondary}, Dark={StaticResource DarkTextSecondary}}"/>
+                        </Image.Source>
+                    </Image>
+                </Grid>
+            </Border>
+
+        </StackLayout>
+    </pages:BasePage.Content>
+</pages:BasePage>

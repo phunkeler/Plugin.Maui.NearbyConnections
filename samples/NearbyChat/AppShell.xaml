@@ -4,17 +4,10 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:pages="clr-namespace:NearbyChat.Pages"
-    NavBarIsVisible="False"
-    Title="NearbyChat">
+    NavBarIsVisible="False">
 
     <ShellContent
-        Title="Login"
-        ContentTemplate="{DataTemplate pages:LoginPage}"
-        Route="LoginPage"/>
-
-    <ShellContent
-        Title="Chat"
-        ContentTemplate="{DataTemplate pages:ChatPage}"
-        Route="ChatPage"/>
+        ContentTemplate="{DataTemplate pages:MainPage}"
+        Route="MainPage"/>
 
 </Shell>

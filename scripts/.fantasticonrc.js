@@ -13,14 +13,19 @@ export const formatOptions = {
 export const codepoints = {
     'antenna': 0xe001,
     'chat': 0xe002,
-    'checkmark': 0xe003,
-    'discovering': 0xe004,
-    'down': 0xe005,
-    'link': 0xe006,
-    'right': 0xe007,
-    'send': 0xe008,
-    'settings': 0xe009,
-    'users': 0xe010
+    'check': 0xe003,
+    'down': 0xe004,
+    'gear': 0xe005,
+    'left': 0xe006,
+    'link': 0xe007,
+    'magnify': 0xe008,
+    'message': 0xe009,
+    'radio': 0xe010,
+    'right': 0xe011,
+    'send': 0xe012,
+    'sonar': 0xe013,
+    'users': 0xe014,
+    'wifi': 0xe015,
 };
 export function getIconId({
     basename, // `string` - Example: 'foo';
