@@ -43,4 +43,86 @@
                 Value="12"/>
     </Style>
 
+    <!-- Main Navigation Card - Inner Layer (Dark bottom-right shadow) -->
+    <Style x:Key="NavigationCard"
+           TargetType="Border">
+        <Setter Property="BackgroundColor"
+                Value="{AppThemeBinding Light={StaticResource LightSurfacePrimary}, Dark={StaticResource DarkSurfacePrimary}}"/>
+        <Setter Property="Padding"
+                Value="24"/>
+        <Setter Property="StrokeThickness"
+                Value="0"/>
+        <Setter Property="StrokeShape"
+                Value="RoundRectangle 24"/>
+        <Setter Property="Shadow">
+            <Shadow Brush="Black"
+                    Offset="12,12"
+                    Radius="24"
+                    Opacity="0.4"/>
+        </Setter>
+    </Style>
+
+    <!-- Advertising Icon Container -->
+    <Style x:Key="AdvertiseIconContainer"
+           TargetType="Border">
+        <Setter Property="BackgroundColor"
+                Value="{StaticResource AccentAdvertising}"/>
+        <Setter Property="WidthRequest"
+                Value="56"/>
+        <Setter Property="HeightRequest"
+                Value="56"/>
+        <Setter Property="StrokeThickness"
+                Value="0"/>
+        <Setter Property="StrokeShape"
+                Value="RoundRectangle 16"/>
+        <Setter Property="Shadow">
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentAdvertisingDark}, Dark={StaticResource DarkAccentAdvertisingLight}}"
+                    Offset="0,4"
+                    Radius="12"
+                    Opacity="0.3"/>
+        </Setter>
+    </Style>
+
+    <!-- Discover Icon Container -->
+    <Style x:Key="DiscoverIconContainer"
+           TargetType="Border">
+        <Setter Property="BackgroundColor"
+                Value="{StaticResource AccentDiscovery}"/>
+        <Setter Property="WidthRequest"
+                Value="56"/>
+        <Setter Property="HeightRequest"
+                Value="56"/>
+        <Setter Property="StrokeThickness"
+                Value="0"/>
+        <Setter Property="StrokeShape"
+                Value="RoundRectangle 16"/>
+        <Setter Property="Shadow">
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentDiscoveryDark}, Dark={StaticResource DarkAccentDiscoveryLight}}"
+                    Offset="0,4"
+                    Radius="12"
+                    Opacity="0.3"/>
+        </Setter>
+    </Style>
+
+    <!-- Connections Icon Container -->
+    <Style x:Key="ConnectionsIconContainer"
+           TargetType="Border">
+        <Setter Property="BackgroundColor"
+                Value="{StaticResource AccentConnections}"/>
+        <Setter Property="WidthRequest"
+                Value="56"/>
+        <Setter Property="HeightRequest"
+                Value="56"/>
+        <Setter Property="StrokeThickness"
+                Value="0"/>
+        <Setter Property="StrokeShape"
+                Value="RoundRectangle 16"/>
+        <Setter Property="Shadow">
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentConnectionsDark}, Dark={StaticResource DarkAccentConnectionsLight}}"
+                    Offset="0,4"
+                    Radius="12"
+                    Opacity="0.3"/>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>
