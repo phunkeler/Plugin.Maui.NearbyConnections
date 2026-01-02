@@ -2,7 +2,7 @@
   <Import Project="../Directory.Build.props" />
   <PropertyGroup>
     <Authors>phunkeler and contributors</Authors>
-    <Copyright>Copyright © 2025 phunkeler and contributors</Copyright>
+    <Copyright>Copyright © $([System.DateTime]::Now.ToString(`yyyy`)) phunkeler and contributors</Copyright>
     <Description>A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices by unifying Google's Nearby Connections and Apple's Multipeer Connectivity capabilities.</Description>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
