@@ -6,7 +6,6 @@ using NearbyChat.Pages;
 using NearbyChat.Services;
 using NearbyChat.ViewModels;
 using Plugin.Maui.NearbyConnections;
-using Syncfusion.Maui.Toolkit.Hosting;
 
 namespace NearbyChat;
 
@@ -21,7 +20,6 @@ public static class MauiProgram
                 fonts.AddFont("NearbyChatIcons.ttf", "NearbyChatIcons");
             })
             .UseMauiCommunityToolkit()
-            .ConfigureSyncfusionToolkit()
             .AddNearbyConnections();
 
 #if DEBUG
