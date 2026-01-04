@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<BasePage
+    x:Class="NearbyChat.Pages.AdvertisingPage"
+    x:Name="this"
+    x:TypeArguments="AdvertisingPageViewModel"
+    Background="{AppThemeBinding Light={StaticResource LightBackgroundGradient}, Dark={StaticResource DarkBackgroundGradient}}"
+    x:DataType="AdvertisingPageViewModel">
+
+    <BasePage.Content>
+        <Grid RowDefinitions="Auto, *"
+              Margin="{StaticResource SpacingXL}">
+            <Border
+                Style="{StaticResource NavigationCard}">
+
+                <!-- Main Content -->
+                <Grid RowDefinitions="*,*"
+                      RowSpacing="{StaticResource SpacingMD}">
+                    <!-- Icon Container -->
+                    <Border Style="{StaticResource AdvertiseIconContainer}">
+                        <Image
+                            WidthRequest="18"
+                            HeightRequest="18">
+                            <Image.Source>
+                                <FontImageSource FontFamily="NearbyChatIcons"
+                                                 Glyph="{StaticResource icon-antenna}"
+                                                 Color="{StaticResource White}"/>
+                            </Image.Source>
+                        </Image>
+                    </Border>
+
+                    <!-- Text Content -->
+                    <VerticalStackLayout Grid.Column="1"
+                                         VerticalOptions="Center"
+                                         Spacing="4">
+                        <Label Text="{Binding Title}"
+                               Style="{StaticResource CardTitle}"/>
+                        <Label Text="{Binding Subtitle}"
+                               Style="{StaticResource CardSubtitle}"/>
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+        </Grid>
+    </BasePage.Content>
+</BasePage>

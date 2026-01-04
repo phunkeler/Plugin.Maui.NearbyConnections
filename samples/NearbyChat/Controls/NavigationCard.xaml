@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:controls="clr-namespace:NearbyChat.Controls"
-             x:Class="NearbyChat.Controls.NavigationCard"
-             x:Name="this"
-             x:DataType="controls:NavigationCard">
+<ContentView
+    x:Class="NearbyChat.Controls.NavigationCard"
+    x:Name="this"
+    x:DataType="NavigationCard">
 
-    <!-- Inner Card Border with Dark Shadow and Content -->
     <Border x:Name="CardBorder"
             BindingContext="{x:Reference this}"
             Style="{StaticResource NavigationCard}">
+        <Border.GestureRecognizers>
+            <TapGestureRecognizer Command="{Binding Command}"
+                                  CommandParameter="{Binding CommandParameter}"/>
+        </Border.GestureRecognizers>
 
         <!-- Main Content -->
         <Grid ColumnDefinitions="Auto,*,Auto"

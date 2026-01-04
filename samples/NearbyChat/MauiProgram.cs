@@ -31,14 +31,16 @@ public static class MauiProgram
         });
 #endif
 
-        builder.Services.AddSingleton(_ => FileSystem.Current);
+        builder.Services.AddSingleton(FileSystem.Current);
         builder.Services.AddSingleton<AppShell>();
         builder.Services.AddSingleton<AvatarRepository>();
         builder.Services.AddSingleton<UserRepository>();
         builder.Services.AddSingleton<ISeedDataService, SeedDataService>();
         builder.Services.AddSingleton<IUserService, UserService>();
-
-        AddTransientWithShellRoute<MainPage, MainPageViewModel>(builder.Services);
+        builder.Services.AddTransientWithShellRoute<MainPage, MainPageViewModel>();
+        builder.Services.AddTransientWithShellRoute<AdvertisingPage, AdvertisingPageViewModel>();
+        builder.Services.AddTransientWithShellRoute<DiscoveryPage, DiscoveryPageViewModel>();
+        builder.Services.AddTransientWithShellRoute<ConnectionsPage, ConnectionsPageViewModel>();
 
         return builder.Build();
     }

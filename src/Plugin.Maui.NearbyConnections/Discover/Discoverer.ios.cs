@@ -2,15 +2,13 @@ namespace Plugin.Maui.NearbyConnections.Discover;
 
 internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
 {
-    readonly MyPeerIdManager _myMCPeerIDManager = new();
-
     MCNearbyServiceBrowser? _browser;
 
     Task PlatformStartDiscovering()
     {
         var options = _nearbyConnections.Options;
 
-        var myPeerId = _myMCPeerIDManager.GetPeerId(options.ServiceName)
+        var myPeerId = _nearbyConnections.MyMCPeerIDManager.GetPeerId(options.ServiceName)
             ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
         _browser = new MCNearbyServiceBrowser(
@@ -21,6 +19,7 @@ internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDele
         };
 
         _browser.StartBrowsingForPeers();
+        IsDiscovering = true;
 
         return Task.CompletedTask;
     }
@@ -28,11 +27,9 @@ internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDele
     void PlatformStopDiscovering()
     {
         _browser?.StopBrowsingForPeers();
-
-        // On iOS, we must dispose and recreate the browser if service name changes
-        // So we dispose immediately after stopping
         _browser?.Dispose();
         _browser = null;
+        IsDiscovering = false;
     }
 
     protected override void Dispose(bool disposing)
@@ -46,6 +43,7 @@ internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDele
                 _browser?.StopBrowsingForPeers();
                 _browser?.Dispose();
                 _browser = null;
+                IsDiscovering = false;
             }
         }
 

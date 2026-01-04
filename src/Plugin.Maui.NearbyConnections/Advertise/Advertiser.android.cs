@@ -19,13 +19,13 @@ internal sealed partial class Advertiser : Java.Lang.Object
         _nearbyConnections.OnDisconnected(endpointId);
     }
 
-    Task PlatformStartAdvertising(string displayName)
+    async Task PlatformStartAdvertising(string displayName)
     {
         var options = _nearbyConnections.Options;
 
         _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
 
-        return _connectionClient.StartAdvertisingAsync(
+        await _connectionClient.StartAdvertisingAsync(
             displayName,
             options.ServiceName,
             new AdvertiseCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected),
@@ -34,10 +34,15 @@ internal sealed partial class Advertiser : Java.Lang.Object
                 .SetConnectionType(options.ConnectionType)
                 .SetLowPower(options.UseLowPower)
                 .Build());
+
+        IsAdvertising = true;
     }
 
     void PlatformStopAdvertising()
-        => _connectionClient?.StopAdvertising();
+    {
+        _connectionClient?.StopAdvertising();
+        IsAdvertising = false;
+    }
 
     protected override void Dispose(bool disposing)
     {
@@ -50,6 +55,7 @@ internal sealed partial class Advertiser : Java.Lang.Object
                 _connectionClient?.StopAdvertising();
                 _connectionClient?.Dispose();
                 _connectionClient = null;
+                IsAdvertising = false;
             }
         }
 

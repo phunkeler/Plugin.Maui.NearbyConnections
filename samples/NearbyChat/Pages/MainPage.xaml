@@ -1,52 +1,51 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<pages:BasePage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-                xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-                xmlns:vm="clr-namespace:NearbyChat.ViewModels"
-                xmlns:pages="clr-namespace:NearbyChat.Pages"
-                xmlns:models="clr-namespace:NearbyChat.Models"
-                xmlns:controls="clr-namespace:NearbyChat.Controls"
-                xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
-                x:Class="NearbyChat.Pages.MainPage"
-                x:Name="login"
-                x:TypeArguments="vm:MainPageViewModel"
-                Background="{AppThemeBinding Light={StaticResource LightBackgroundGradient}, Dark={StaticResource DarkBackgroundGradient}}"
-                x:DataType="vm:MainPageViewModel">
+<BasePage
+    x:Class="NearbyChat.Pages.MainPage"
+    x:Name="this"
+    x:TypeArguments="MainPageViewModel"
+    Background="{AppThemeBinding Light={StaticResource LightBackgroundGradient}, Dark={StaticResource DarkBackgroundGradient}}"
+    x:DataType="MainPageViewModel">
 
-    <pages:BasePage.Content>
-        <StackLayout VerticalOptions="Center"
-                     Margin="{StaticResource SpacingXL}"
-                     Spacing="{StaticResource SpacingLG}">
-            <Label Text="NearbyChat"
-                   FontSize="28"
-                   FontAttributes="Bold"
-                   HorizontalOptions="Center"
-                   TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
-            <Label Text="Choose your connection mode"
-                   FontSize="14"
-                   HorizontalOptions="Center"
-                   TextColor="{AppThemeBinding Light={StaticResource LightTextSecondary}, Dark={StaticResource DarkTextSecondary}}"/>
+    <BasePage.Content>
+        <ScrollView>
+            <StackLayout VerticalOptions="Center"
+                         Margin="{StaticResource SpacingXL}"
+                         Spacing="{StaticResource SpacingLG}">
+                <Label Text="NearbyChat"
+                       FontSize="28"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
+                <Label Text="Choose your connection mode"
+                       FontSize="14"
+                       HorizontalOptions="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource LightTextSecondary}, Dark={StaticResource DarkTextSecondary}}"/>
 
-            <!-- Advertise -->
-            <controls:NavigationCard
-                Icon="{StaticResource icon-antenna}"
-                IconStyle="{StaticResource AdvertiseIconContainer}"
-                Title="Advertising"
-                Subtitle="Be discoverable"/>
+                <!-- Advertise -->
+                <NavigationCard
+                    Icon="{StaticResource icon-antenna}"
+                    IconStyle="{StaticResource AdvertiseIconContainer}"
+                    Title="Advertising"
+                    Subtitle="Be discoverable"
+                    Command="{Binding NavigateToAdvertisingCommand}"/>
 
-            <!-- Discover -->
-            <controls:NavigationCard
-                Icon="{StaticResource icon-sonar}"
-                IconStyle="{StaticResource DiscoverIconContainer}"
-                Title="Discovery"
-                Subtitle="Find nearby devices"/>
+                <!-- Discover -->
+                <NavigationCard
+                    Icon="{StaticResource icon-sonar}"
+                    IconStyle="{StaticResource DiscoverIconContainer}"
+                    Title="Discovery"
+                    Subtitle="Find nearby devices"
+                    Command="{Binding NavigateToDiscoveryCommand}"/>
 
-            <!-- Connections -->
-            <controls:NavigationCard
-                Icon="{StaticResource icon-message}"
-                IconStyle="{StaticResource ConnectionsIconContainer}"
-                Title="Connections"
-                Subtitle="No connections"/>
+                <!-- Connections -->
+                <NavigationCard
+                    Icon="{StaticResource icon-message}"
+                    IconStyle="{StaticResource ConnectionsIconContainer}"
+                    Title="Connections"
+                    Subtitle="No connections"
+                    Command="{Binding NavigateToConnectionsCommand}"/>
 
-        </StackLayout>
-    </pages:BasePage.Content>
-</pages:BasePage>
+            </StackLayout>
+        </ScrollView>
+    </BasePage.Content>
+</BasePage>

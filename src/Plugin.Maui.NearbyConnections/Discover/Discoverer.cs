@@ -13,6 +13,8 @@ internal sealed partial class Discoverer
         _nearbyConnections = nearbyConnections;
     }
 
+    internal bool IsDiscovering { get; private set; }
+
     internal Task StartDiscoveringAsync()
         => PlatformStartDiscovering();
 

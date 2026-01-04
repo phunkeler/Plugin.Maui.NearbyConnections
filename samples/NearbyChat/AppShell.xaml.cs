@@ -10,6 +10,9 @@ public partial class AppShell : Shell
         new KeyValuePair<Type, Type>[]
         {
             CreateViewModelMapping<MainPage, MainPageViewModel>(),
+            CreateViewModelMapping<AdvertisingPage, AdvertisingPageViewModel>(),
+            CreateViewModelMapping<DiscoveryPage, DiscoveryPageViewModel>(),
+            CreateViewModelMapping<ConnectionsPage, ConnectionsPageViewModel>(),
         }.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
 
     public AppShell()
@@ -17,7 +20,8 @@ public partial class AppShell : Shell
         InitializeComponent();
     }
 
-    public static string GetPageRoute<TViewModel>() where TViewModel : BaseViewModel
+    public static string GetPageRoute<TViewModel>()
+        where TViewModel : BaseViewModel
     {
         var viewModelType = typeof(TViewModel);
 

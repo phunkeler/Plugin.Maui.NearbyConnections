@@ -35,8 +35,19 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
         }
     } = DeviceInfo.Current.Name;
 
+    public bool IsAdvertising => _advertiser?.IsAdvertising ?? false;
+
+    public bool IsDiscovering => _discoverer?.IsDiscovering ?? false;
+
     public async Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
     {
+        // Guard: prevent starting if already advertising
+        if (IsAdvertising)
+        {
+            Trace.WriteLine("Advertising is already active, skipping StartAdvertisingAsync.");
+            return;
+        }
+
         try
         {
             await _advertiseSemaphore.WaitAsync(cancellationToken);
@@ -73,6 +84,13 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     public async Task StartDiscoveryAsync(CancellationToken cancellationToken = default)
     {
+        // Guard: prevent starting if already discovering
+        if (IsDiscovering)
+        {
+            Trace.WriteLine("Discovery is already active, skipping StartDiscoveryAsync.");
+            return;
+        }
+
         try
         {
             await _discoverSemaphore.WaitAsync(cancellationToken);
@@ -108,6 +126,13 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     public async Task StopAdvertisingAsync(CancellationToken cancellationToken = default)
     {
+        // Guard: prevent stopping if not advertising
+        if (!IsAdvertising)
+        {
+            Trace.WriteLine("Advertising is not active, skipping StopAdvertisingAsync.");
+            return;
+        }
+
         try
         {
             await _advertiseSemaphore.WaitAsync(cancellationToken);
@@ -144,6 +169,13 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     public async Task StopDiscoveryAsync(CancellationToken cancellationToken = default)
     {
+        // Guard: prevent stopping if not discovering
+        if (!IsDiscovering)
+        {
+            Trace.WriteLine("Discovery is not active, skipping StopDiscoveryAsync.");
+            return;
+        }
+
         try
         {
             await _discoverSemaphore.WaitAsync(cancellationToken);

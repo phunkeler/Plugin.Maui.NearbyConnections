@@ -2,13 +2,13 @@ namespace Plugin.Maui.NearbyConnections;
 
 internal sealed partial class NearbyConnectionsImplementation
 {
-    readonly MyPeerIdManager _myMCPeerIDManager = new();
+    internal MyPeerIdManager MyMCPeerIDManager { get; } = new();
 
     #region Discovery
 
     internal void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
     {
-        using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
+        using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
         var advertisement = NearbyAdvertisement.FromNSDictionary(info);
         var device = new NearbyDevice(id, peerID.DisplayName);
@@ -19,7 +19,7 @@ internal sealed partial class NearbyConnectionsImplementation
 
     internal void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
     {
-        using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
+        using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
         var device = new NearbyDevice(id, peerID.DisplayName);
 
@@ -45,7 +45,7 @@ internal sealed partial class NearbyConnectionsImplementation
         NSData? context,
         MCNearbyServiceAdvertiserInvitationHandler invitationHandler)
     {
-        using var data = _myMCPeerIDManager.ArchivePeerId(peerID);
+        using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
         var device = new NearbyDevice(id, peerID.DisplayName);
 

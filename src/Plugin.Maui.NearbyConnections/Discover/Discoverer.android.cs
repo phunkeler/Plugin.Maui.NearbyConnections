@@ -14,22 +14,27 @@ internal sealed partial class Discoverer : Java.Lang.Object
         _nearbyConnections?.OnEndpointLost(endpointId);
     }
 
-    Task PlatformStartDiscovering()
+    async Task PlatformStartDiscovering()
     {
         var options = _nearbyConnections.Options;
         _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
 
-        return _connectionClient.StartDiscoveryAsync(
+        await _connectionClient.StartDiscoveryAsync(
             options.ServiceName,
             new DiscoveryCallback(OnEndpointFound, OnEndpointLost),
             new DiscoveryOptions.Builder()
                 .SetStrategy(options.Strategy)
                 .SetLowPower(options.UseLowPower)
                 .Build());
+
+        IsDiscovering = true;
     }
 
     void PlatformStopDiscovering()
-        => _connectionClient?.StopDiscovery();
+    {
+        _connectionClient?.StopDiscovery();
+        IsDiscovering = false;
+    }
 
     protected override void Dispose(bool disposing)
     {
@@ -42,6 +47,7 @@ internal sealed partial class Discoverer : Java.Lang.Object
                 _connectionClient?.StopDiscovery();
                 _connectionClient?.Dispose();
                 _connectionClient = null;
+                IsDiscovering = false;
             }
         }
 

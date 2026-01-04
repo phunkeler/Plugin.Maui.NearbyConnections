@@ -17,6 +17,8 @@
 
     <NoWarn>CA1822</NoWarn>
     <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
+    <DefineConstants>$(DefineConstants);MauiAllowImplicitXmlnsDeclaration</DefineConstants>
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
   </PropertyGroup>
 
   <ItemGroup>

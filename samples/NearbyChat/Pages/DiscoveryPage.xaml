@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<BasePage
+    x:Class="NearbyChat.Pages.DiscoveryPage"
+    x:Name="this"
+    x:TypeArguments="DiscoveryPageViewModel"
+    Background="{AppThemeBinding Light={StaticResource LightBackgroundGradient}, Dark={StaticResource DarkBackgroundGradient}}"
+    x:DataType="DiscoveryPageViewModel">
+
+    <BasePage.Content>
+        <VerticalStackLayout>
+            <Label
+                Text="Welcome to .NET MAUI!"
+                VerticalOptions="Center"
+                HorizontalOptions="Center"/>
+        </VerticalStackLayout>
+    </BasePage.Content>
+</BasePage>

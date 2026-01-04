@@ -2,15 +2,13 @@ namespace Plugin.Maui.NearbyConnections.Advertise;
 
 internal sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 {
-    readonly MyPeerIdManager _myMCPeerIDManager = new();
-
     MCNearbyServiceAdvertiser? _advertiser;
 
     Task PlatformStartAdvertising(string displayName)
     {
         var options = _nearbyConnections.Options;
 
-        var myPeerId = _myMCPeerIDManager.GetPeerId(displayName)
+        var myPeerId = _nearbyConnections.MyMCPeerIDManager.GetPeerId(displayName)
             ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
         // TODO: Future enhancement - support custom advertisement info
@@ -26,6 +24,7 @@ internal sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserD
         };
 
         _advertiser.StartAdvertisingPeer();
+        IsAdvertising = true;
 
         return Task.CompletedTask;
     }
@@ -35,6 +34,7 @@ internal sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserD
         _advertiser?.StopAdvertisingPeer();
         _advertiser?.Dispose();
         _advertiser = null;
+        IsAdvertising = false;
     }
 
     protected override void Dispose(bool disposing)
@@ -48,6 +48,7 @@ internal sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserD
                 _advertiser?.StopAdvertisingPeer();
                 _advertiser?.Dispose();
                 _advertiser = null;
+                IsAdvertising = false;
             }
         }
 

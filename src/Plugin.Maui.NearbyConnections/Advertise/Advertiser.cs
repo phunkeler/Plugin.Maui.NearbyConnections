@@ -13,6 +13,8 @@ internal sealed partial class Advertiser
         _nearbyConnections = nearbyConnections;
     }
 
+    internal bool IsAdvertising { get; private set; }
+
     internal Task StartAdvertisingAsync(string displayName)
         => PlatformStartAdvertising(displayName);
 

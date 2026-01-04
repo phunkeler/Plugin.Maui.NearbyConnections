@@ -2,9 +2,9 @@ using NearbyChat.ViewModels;
 
 namespace NearbyChat.Pages;
 
-public partial class MainPage : BasePage<MainPageViewModel>
+public partial class DiscoveryPage : BasePage<DiscoveryPageViewModel>
 {
-    public MainPage(MainPageViewModel viewModel)
+    public DiscoveryPage(DiscoveryPageViewModel viewModel)
         : base(viewModel)
     {
         InitializeComponent();

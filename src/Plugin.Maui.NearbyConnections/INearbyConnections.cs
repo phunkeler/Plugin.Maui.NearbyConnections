@@ -23,6 +23,16 @@ public interface INearbyConnections : IDisposable
     string DisplayName { get; set; }
 
     /// <summary>
+    /// Gets a value indicating whether this device is currently advertising to nearby devices.
+    /// </summary>
+    bool IsAdvertising { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether this device is currently discovering nearby devices.
+    /// </summary>
+    bool IsDiscovering { get; }
+
+    /// <summary>
     /// Starts advertising this device to nearby discoverers.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
