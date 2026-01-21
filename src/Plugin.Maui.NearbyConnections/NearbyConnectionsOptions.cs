@@ -3,49 +3,36 @@ namespace Plugin.Maui.NearbyConnections;
 /// <summary>
 /// One-time app configuration for Nearby Connections.
 /// </summary>
-public class NearbyConnectionsOptions
+public sealed partial class NearbyConnectionsOptions
 {
     /// <summary>
-    /// The configuration section name for these options.
+    /// Gets or sets the service identifer used to discover and connect with nearby devices.
+    /// The default value is the application name (e.g., <see href="https://learn.microsoft.com/en-us/dotnet/api/microsoft.maui.applicationmodel.iappinfo.name">Microsoft.Maui.ApplicationModel.IAppInfo.Name</see>).
     /// </summary>
-    public const string SectionName = "NearbyConnections";
-
-    /// <summary>
-    /// Service identifier for iOS Bonjour and Android service ID.
-    /// Must match Info.plist NSBonjourServices configuration on iOS.
-    /// </summary>
-    public string ServiceName { get; set; } = AppInfo.Current.Name;
+    /// <remarks>
+    /// <para>
+    /// On Android, this is used as the <c>serviceId</c> when interacting with Google Play Service's Nearby Connections API
+    /// (<see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/package-summary">developers.google.com</see>).
+    /// </para>
+    /// <para>
+    /// On iOS, this is a Bonjour service type defined in the application's Info.plist
+    /// (<see href="https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSBonjourServices">developer.apple.com</see>).
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">Thrown when setting a null value.</exception>
+    /// <exception cref="ArgumentException">Thrown when setting an empty string or whitespace value.</exception>
+    public string ServiceId
+    {
+        get => field;
+        set
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(ServiceId));
+            field = value;
+        }
+    } = AppInfo.Current.Name;
 
     /// <summary>
     /// When a nearby device requests a connection, automatically accept it.
     /// </summary>
-    public bool AutoAcceptConnections { get; init; } = true;
-
-#if ANDROID
-
-    /// <summary>
-    /// The <see cref="Android.App.Activity"/> (required for Google Nearby Connections API).
-    /// </summary>
-    public Android.App.Activity? Activity { get; set; } = Platform.CurrentActivity;
-
-    /// <summary>
-    /// Gets or sets the advertising/discovery strategy.
-    /// Must match between advertising and discovery sessions.
-    /// Default is <see cref="Strategy.P2pCluster"/>.
-    /// </summary>
-    public Strategy Strategy { get; set; } = Strategy.P2pCluster;
-
-    /// <summary>
-    /// Gets or sets whether low power mode should be used.
-    /// If <see langword="true" />, only low power mediums (like BLE) will be used for advertising and discovery.
-    /// Default is <see langword="false"/>.
-    /// </summary>
-    public bool UseLowPower { get; set; }
-
-    /// <summary>
-    /// Gets or sets the Android connection type.
-    /// Default is <see cref="Android.Gms.Nearby.Connection.ConnectionType.Balanced"/>.
-    /// </summary>
-    public int ConnectionType { get; set; } = Android.Gms.Nearby.Connection.ConnectionType.Balanced;
-#endif
+    public bool AutoAcceptConnections { get; set; } = true;
 }

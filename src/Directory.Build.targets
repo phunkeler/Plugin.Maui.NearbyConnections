@@ -43,10 +43,15 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Using Include="Microsoft.Extensions.DependencyInjection" />
       <Using Include="Microsoft.Extensions.DependencyInjection.Extensions" />
       <Using Include="Microsoft.Extensions.Logging" />
       <Using Include="Microsoft.Extensions.Logging.Abstractions" />
       <Using Include="Microsoft.Extensions.Options" />
+      <Using Include="Microsoft.Maui.ApplicationModel" />
+      <Using Include="Microsoft.Maui.Hosting" />
+      <Using Include="Microsoft.Maui.Devices" />
+      <Using Include="Microsoft.Maui.Storage" />
       <Using Include="Plugin.Maui.NearbyConnections" />
       <Using Include="Plugin.Maui.NearbyConnections.Advertise" />
       <Using Include="Plugin.Maui.NearbyConnections.Discover" />

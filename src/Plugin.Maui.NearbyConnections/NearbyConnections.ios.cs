@@ -10,11 +10,10 @@ internal sealed partial class NearbyConnectionsImplementation
     {
         using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-        var advertisement = NearbyAdvertisement.FromNSDictionary(info);
         var device = new NearbyDevice(id, peerID.DisplayName);
 
         Trace.WriteLine($"Found peer: Id={id}, DisplayName={peerID.DisplayName}");
-        Events.OnDeviceFound(device, _timeProvider.GetUtcNow());
+        Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
     }
 
     internal void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
@@ -24,7 +23,7 @@ internal sealed partial class NearbyConnectionsImplementation
         var device = new NearbyDevice(id, peerID.DisplayName);
 
         Trace.WriteLine($"Lost peer: Id={id}, DisplayName={peerID.DisplayName}");
-        Events.OnDeviceLost(device, _timeProvider.GetUtcNow());
+        Events.OnDeviceLost(device, TimeProvider.GetUtcNow());
     }
 
     #endregion Discovery
@@ -33,10 +32,12 @@ internal sealed partial class NearbyConnectionsImplementation
 
     internal void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
     {
+        _advertiser?.OnAdvertisingFailed();
+
         Events.OnError(
             "Advertising",
             error.LocalizedDescription,
-            _timeProvider.GetUtcNow());
+            TimeProvider.GetUtcNow());
     }
 
     internal void DidReceiveInvitationFromPeer(
@@ -50,7 +51,7 @@ internal sealed partial class NearbyConnectionsImplementation
         var device = new NearbyDevice(id, peerID.DisplayName);
 
         Trace.WriteLine($"Received invitation from peer: Id={id}, DisplayName={peerID.DisplayName}");
-        Events.OnConnectionRequested(device, _timeProvider.GetUtcNow());
+        Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
     }
 
     #endregion Advertising

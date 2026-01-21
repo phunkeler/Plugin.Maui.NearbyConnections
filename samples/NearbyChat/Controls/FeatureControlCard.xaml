@@ -1,0 +1,66 @@
+<CardView
+    x:Class="NearbyChat.Controls.FeatureControlCard"
+    x:Name="this"
+    x:DataType="FeatureControlCard">
+    <CardView.Content>
+        <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
+            <Grid ColumnDefinitions="Auto, *"
+                  RowDefinitions="Auto, *"
+                  RowSpacing="{StaticResource SpacingLG}"
+                  ColumnSpacing="{StaticResource SpacingLG}">
+                <FeatureIconBadge Style="{Binding FeatureIconBadgeStyle, Source={x:Reference this}}"/>
+
+                <VerticalStackLayout Grid.Column="1"
+                                     VerticalOptions="Center"
+                                     Spacing="4">
+                    <Label Text="{Binding Title, Source={x:Reference this}}"
+                           Style="{StaticResource CardTitle}"/>
+                    <Label Text="{Binding Subtitle, Source={x:Reference this}}"
+                           Style="{StaticResource CardSubtitle}">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label"
+                                         Binding="{Binding FeatureIsActive, Source={x:Reference this}}"
+                                         Value="True">
+                                <Setter Property="Text"
+                                        Value="{Binding ActiveSubtitle, Source={x:Reference this}}"/>
+                            </DataTrigger>
+                            <DataTrigger TargetType="Label"
+                                         Binding="{Binding FeatureIsActive, Source={x:Reference this}}"
+                                         Value="False">
+                                <Setter Property="Text"
+                                        Value="{Binding InactiveSubtitle, Source={x:Reference this}}"/>
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </VerticalStackLayout>
+
+                <Button
+                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                    HeightRequest="44"
+                    Grid.Row="1"
+                    CornerRadius="12"
+                    Grid.ColumnSpan="2"
+                    Command="{Binding Command, Source={x:Reference this}}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button"
+                                     Binding="{Binding FeatureIsActive, Source={x:Reference this}}"
+                                     Value="True">
+                            <Setter Property="Text"
+                                    Value="{Binding ActiveButtonText, Source={x:Reference this}}"/>
+                            <Setter Property="BackgroundColor"
+                                    Value="{Binding ActiveButtonColor, Source={x:Reference this}}"/>
+                        </DataTrigger>
+                        <DataTrigger TargetType="Button"
+                                     Binding="{Binding FeatureIsActive, Source={x:Reference this}}"
+                                     Value="False">
+                            <Setter Property="Text"
+                                    Value="{Binding InactiveButtonText, Source={x:Reference this}}"/>
+                            <Setter Property="BackgroundColor"
+                                    Value="{Binding InactiveButtonColor, Source={x:Reference this}}"/>
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </Grid>
+        </Border>
+    </CardView.Content>
+</CardView>

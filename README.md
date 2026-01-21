@@ -47,8 +47,11 @@
 |          |                           |
 
 # Dependencies
--   [Microsoft.Maui.Controls]()
--   [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/)
+
+| Dependency | iOS | Android | .NET |
+| --- | --- | --- | --- |
+| [Microsoft.Maui.Core](https://www.nuget.org/packages/Microsoft.Maui.Core) | ✓ | ✓ | ✓ |
+| [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) | | ✓ | |
 
 # Getting Started
 `Plugin.Maui.NearbyConnections` is ~~available~~ on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)

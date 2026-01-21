@@ -16,31 +16,26 @@
                        FontAttributes="Bold"
                        HorizontalOptions="Center"
                        TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
-                <Label Text="Choose your connection mode"
-                       FontSize="14"
-                       HorizontalOptions="Center"
-                       TextColor="{AppThemeBinding Light={StaticResource LightTextSecondary}, Dark={StaticResource DarkTextSecondary}}"/>
 
                 <!-- Advertise -->
-                <NavigationCard
-                    Icon="{StaticResource icon-antenna}"
-                    IconStyle="{StaticResource AdvertiseIconContainer}"
+                <FeatureNavigationCard
+                    FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeAdvertiseStyle}"
                     Title="Advertising"
                     Subtitle="Be discoverable"
+                    FeatureIsActive="{Binding IsAdvertising}"
+                    ActiveSubtitle="Broadcasting..."
                     Command="{Binding NavigateToAdvertisingCommand}"/>
 
                 <!-- Discover -->
-                <NavigationCard
-                    Icon="{StaticResource icon-sonar}"
-                    IconStyle="{StaticResource DiscoverIconContainer}"
+                <FeatureNavigationCard
+                    FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeDiscoverStyle}"
                     Title="Discovery"
                     Subtitle="Find nearby devices"
                     Command="{Binding NavigateToDiscoveryCommand}"/>
 
                 <!-- Connections -->
-                <NavigationCard
-                    Icon="{StaticResource icon-message}"
-                    IconStyle="{StaticResource ConnectionsIconContainer}"
+                <FeatureNavigationCard
+                    FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeConnectionsStyle}"
                     Title="Connections"
                     Subtitle="No connections"
                     Command="{Binding NavigateToConnectionsCommand}"/>

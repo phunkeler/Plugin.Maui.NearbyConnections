@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+    xmlns:controls="clr-namespace:NearbyChat.Controls"
     x:Class="NearbyChat.Resources.Styles.MainStyle">
 
     <!-- Layout Spacing -->
@@ -21,6 +22,144 @@
     <x:String x:Key="icon-message">&#xe009;</x:String>
     <x:String x:Key="icon-right">&#xe011;</x:String>
     <x:String x:Key="icon-sonar">&#xe013;</x:String>
+
+    <!-- ========================================== -->
+    <!--          FEATURE ICON BADGE PARTS          -->
+    <!-- ========================================== -->
+
+    <!-- Border styles (must be defined before FeatureIconBadge styles) -->
+    <Style x:Key="FeatureIconBadgeBorderBaseStyle"
+           TargetType="Border">
+        <Setter Property="WidthRequest"
+                Value="56"/>
+        <Setter Property="HeightRequest"
+                Value="56"/>
+        <Setter Property="StrokeShape"
+                Value="RoundRectangle 16"/>
+    </Style>
+
+    <Style x:Key="FeatureIconBadgeBorderAdvertiseStyle"
+           TargetType="Border"
+           BasedOn="{StaticResource FeatureIconBadgeBorderBaseStyle}">
+        <Setter Property="BackgroundColor"
+                Value="{StaticResource AccentAdvertising}"/>
+        <Setter Property="Shadow">
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentAdvertisingDark}, Dark={StaticResource DarkAccentAdvertisingLight}}"
+                    Offset="0,4"
+                    Radius="12"
+                    Opacity="0.3"/>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FeatureIconBadgeBorderDiscoverStyle"
+           TargetType="Border"
+           BasedOn="{StaticResource FeatureIconBadgeBorderBaseStyle}">
+        <Setter Property="BackgroundColor"
+                Value="{StaticResource AccentDiscovery}"/>
+        <Setter Property="Shadow">
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentDiscoveryDark}, Dark={StaticResource DarkAccentDiscoveryLight}}"
+                    Offset="0,4"
+                    Radius="12"
+                    Opacity="0.3"/>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FeatureIconBadgeBorderConnectionsStyle"
+           TargetType="Border"
+           BasedOn="{StaticResource FeatureIconBadgeBorderBaseStyle}">
+        <Setter Property="BackgroundColor"
+                Value="{StaticResource AccentConnections}"/>
+        <Setter Property="Shadow">
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentConnectionsDark}, Dark={StaticResource DarkAccentConnectionsLight}}"
+                    Offset="0,4"
+                    Radius="12"
+                    Opacity="0.3"/>
+        </Setter>
+    </Style>
+
+    <!-- Image styles (must be defined before FeatureIconBadge styles) -->
+    <Style x:Key="FeatureIconBadgeImageBaseStyle"
+           TargetType="Image">
+        <Setter Property="WidthRequest"
+                Value="24"/>
+        <Setter Property="HeightRequest"
+                Value="24"/>
+    </Style>
+
+    <Style x:Key="FeatureIconBadgeImageAdvertiseStyle"
+           TargetType="Image"
+           BasedOn="{StaticResource FeatureIconBadgeImageBaseStyle}">
+        <Setter Property="Source">
+            <Setter.Value>
+                <FontImageSource FontFamily="NearbyChatIcons"
+                                 Glyph="{StaticResource icon-antenna}"
+                                 Color="{StaticResource White}"/>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FeatureIconBadgeImageDiscoverStyle"
+           TargetType="Image"
+           BasedOn="{StaticResource FeatureIconBadgeImageBaseStyle}">
+        <Setter Property="Source">
+            <Setter.Value>
+                <FontImageSource FontFamily="NearbyChatIcons"
+                                 Glyph="{StaticResource icon-sonar}"
+                                 Color="{StaticResource White}"/>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FeatureIconBadgeImageConnectionsStyle"
+           TargetType="Image"
+           BasedOn="{StaticResource FeatureIconBadgeImageBaseStyle}">
+        <Setter Property="Source">
+            <Setter.Value>
+                <FontImageSource FontFamily="NearbyChatIcons"
+                                 Glyph="{StaticResource icon-message}"
+                                 Color="{StaticResource White}"/>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================== -->
+    <!--        FEATURE ICON BADGE CONTROLS         -->
+    <!-- ========================================== -->
+
+    <Style x:Key="FeatureIconBadgeStyle"
+           TargetType="controls:FeatureIconBadge">
+        <Setter Property="BorderStyle"
+                Value="{StaticResource FeatureIconBadgeBorderBaseStyle}"/>
+        <Setter Property="ImageStyle"
+                Value="{StaticResource FeatureIconBadgeImageBaseStyle}"/>
+    </Style>
+
+    <Style x:Key="FeatureIconBadgeAdvertiseStyle"
+           TargetType="controls:FeatureIconBadge"
+           BasedOn="{StaticResource FeatureIconBadgeStyle}">
+        <Setter Property="BorderStyle"
+                Value="{StaticResource FeatureIconBadgeBorderAdvertiseStyle}"/>
+        <Setter Property="ImageStyle"
+                Value="{StaticResource FeatureIconBadgeImageAdvertiseStyle}"/>
+    </Style>
+
+    <Style x:Key="FeatureIconBadgeDiscoverStyle"
+           TargetType="controls:FeatureIconBadge"
+           BasedOn="{StaticResource FeatureIconBadgeStyle}">
+        <Setter Property="BorderStyle"
+                Value="{StaticResource FeatureIconBadgeBorderDiscoverStyle}"/>
+        <Setter Property="ImageStyle"
+                Value="{StaticResource FeatureIconBadgeImageDiscoverStyle}"/>
+    </Style>
+
+    <Style x:Key="FeatureIconBadgeConnectionsStyle"
+           TargetType="controls:FeatureIconBadge"
+           BasedOn="{StaticResource FeatureIconBadgeStyle}">
+        <Setter Property="BorderStyle"
+                Value="{StaticResource FeatureIconBadgeBorderConnectionsStyle}"/>
+        <Setter Property="ImageStyle"
+                Value="{StaticResource FeatureIconBadgeImageConnectionsStyle}"/>
+    </Style>
 
     <!-- ========================================== -->
     <!--                TEXT STYLES                 -->
@@ -43,8 +182,7 @@
                 Value="12"/>
     </Style>
 
-    <!-- Main Navigation Card - Inner Layer (Dark bottom-right shadow) -->
-    <Style x:Key="NavigationCard"
+    <Style x:Key="FeatureNavigationCardBorderStyle"
            TargetType="Border">
         <Setter Property="BackgroundColor"
                 Value="{AppThemeBinding Light={StaticResource LightSurfacePrimary}, Dark={StaticResource DarkSurfacePrimary}}"/>

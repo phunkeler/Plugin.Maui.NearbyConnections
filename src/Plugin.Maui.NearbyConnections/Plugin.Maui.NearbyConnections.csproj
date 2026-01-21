@@ -6,7 +6,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Maui.Controls" /> <!-- TODO: Try to remove this in favor of something more targeted -->
+		<PackageReference Include="Microsoft.Maui.Core" />
     <PackageReference Include="Xamarin.GooglePlayServices.Nearby" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
 
     <InternalsVisibleTo Include="Plugin.Maui.NearbyConnections.UnitTests" />

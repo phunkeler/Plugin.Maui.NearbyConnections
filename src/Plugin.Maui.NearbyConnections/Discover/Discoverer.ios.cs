@@ -8,12 +8,12 @@ internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDele
     {
         var options = _nearbyConnections.Options;
 
-        var myPeerId = _nearbyConnections.MyMCPeerIDManager.GetPeerId(options.ServiceName)
+        var myPeerId = _nearbyConnections.MyMCPeerIDManager.GetPeerId(options.ServiceId)
             ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
         _browser = new MCNearbyServiceBrowser(
             myPeerID: myPeerId,
-            serviceType: options.ServiceName)
+            serviceType: options.ServiceId)
         {
             Delegate = this
         };
@@ -58,9 +58,11 @@ internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDele
 
     public void DidNotStartBrowsingForPeers(MCNearbyServiceBrowser browser, NSError error)
     {
-        if (error.UserInfo != null)
-        {
-            Console.WriteLine($"[DISCOVERER] Error details: {error.UserInfo}");
-        }
+        OnDiscoveryFailed();
+
+        _nearbyConnections.Events.OnError(
+            "Discovery",
+            error.LocalizedDescription,
+            _nearbyConnections.TimeProvider.GetUtcNow());
     }
 }

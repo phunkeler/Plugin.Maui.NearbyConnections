@@ -6,6 +6,16 @@ namespace Plugin.Maui.NearbyConnections;
 public class NearbyConnectionsEvents
 {
     /// <summary>
+    /// Event fired when the advertising state changes.
+    /// </summary>
+    public event EventHandler<AdvertisingStateChangedEventArgs>? AdvertisingStateChanged;
+
+    /// <summary>
+    /// Event fired when the discovering state changes.
+    /// </summary>
+    public event EventHandler<DiscoveringStateChangedEventArgs>? DiscoveringStateChanged;
+
+    /// <summary>
     /// Event fired when a nearby device is discovered.
     /// </summary>
     public event EventHandler<NearbyConnectionsEventArgs>? DeviceFound;
@@ -53,6 +63,12 @@ public class NearbyConnectionsEvents
     internal void OnError(string operation, string errorMessage, DateTimeOffset timeStamp)
         => ErrorOccurred?.Invoke(this, new NearbyConnectionsErrorEventArgs(operation, errorMessage, timeStamp));
 
+    internal void OnAdvertisingStateChanged(bool isAdvertising, DateTimeOffset timeStamp)
+        => AdvertisingStateChanged?.Invoke(this, new AdvertisingStateChangedEventArgs(isAdvertising, timeStamp));
+
+    internal void OnDiscoveringStateChanged(bool isDiscovering, DateTimeOffset timeStamp)
+        => DiscoveringStateChanged?.Invoke(this, new DiscoveringStateChangedEventArgs(isDiscovering, timeStamp));
+
     internal void ClearAllHandlers()
     {
         DeviceFound = null;
@@ -61,5 +77,7 @@ public class NearbyConnectionsEvents
         ConnectionRequested = null;
         ConnectionResponded = null;
         ErrorOccurred = null;
+        AdvertisingStateChanged = null;
+        DiscoveringStateChanged = null;
     }
 }

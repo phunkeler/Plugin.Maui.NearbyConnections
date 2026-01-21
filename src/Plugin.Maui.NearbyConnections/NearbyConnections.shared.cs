@@ -14,7 +14,7 @@ public static class NearbyConnections
 
 internal sealed partial class NearbyConnectionsImplementation : INearbyConnections
 {
-    readonly TimeProvider _timeProvider = TimeProvider.System;
+    internal TimeProvider TimeProvider { get; } = TimeProvider.System;
     readonly SemaphoreSlim _advertiseSemaphore = new(initialCount: 1, maxCount: 1);
     readonly SemaphoreSlim _discoverSemaphore = new(initialCount: 1, maxCount: 1);
 
@@ -41,7 +41,6 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     public async Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
     {
-        // Guard: prevent starting if already advertising
         if (IsAdvertising)
         {
             Trace.WriteLine("Advertising is already active, skipping StartAdvertisingAsync.");
@@ -53,7 +52,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             await _advertiseSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            Trace.WriteLine($"Starting advertising with ServiceName={Options.ServiceName}, DisplayName={DisplayName}");
+            Trace.WriteLine($"Starting advertising with ServiceId={Options.ServiceId}, DisplayName={DisplayName}");
 
             // Create advertiser if needed (kept alive for reuse on Android)
             _advertiser ??= new Advertiser(this);
@@ -96,7 +95,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             await _discoverSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            Trace.WriteLine($"Starting discovery with ServiceName={Options.ServiceName}");
+            Trace.WriteLine($"Starting discovery with ServiceName={Options.ServiceId}");
 
             // Create discoverer if needed (kept alive for reuse on Android)
             _discoverer ??= new Discoverer(this);

@@ -17,7 +17,7 @@ internal sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserD
         _advertiser = new MCNearbyServiceAdvertiser(
             myPeerID: myPeerId,
             info: advertisingInfo,
-            serviceType: options.ServiceName
+            serviceType: options.ServiceId
         )
         {
             Delegate = this

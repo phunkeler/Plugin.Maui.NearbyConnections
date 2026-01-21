@@ -37,6 +37,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<UserRepository>();
         builder.Services.AddSingleton<ISeedDataService, SeedDataService>();
         builder.Services.AddSingleton<IUserService, UserService>();
+        builder.Services.AddSingleton<INearbyConnectionsService, NearbyConnectionsService>();
         builder.Services.AddTransientWithShellRoute<MainPage, MainPageViewModel>();
         builder.Services.AddTransientWithShellRoute<AdvertisingPage, AdvertisingPageViewModel>();
         builder.Services.AddTransientWithShellRoute<DiscoveryPage, DiscoveryPageViewModel>();

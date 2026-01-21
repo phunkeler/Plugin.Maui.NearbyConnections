@@ -17,10 +17,10 @@ internal sealed partial class Discoverer : Java.Lang.Object
     async Task PlatformStartDiscovering()
     {
         var options = _nearbyConnections.Options;
-        _connectionClient ??= NearbyClass.GetConnectionsClient(options.Activity ?? Android.App.Application.Context);
+        _connectionClient ??= NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
         await _connectionClient.StartDiscoveryAsync(
-            options.ServiceName,
+            options.ServiceId,
             new DiscoveryCallback(OnEndpointFound, OnEndpointLost),
             new DiscoveryOptions.Builder()
                 .SetStrategy(options.Strategy)

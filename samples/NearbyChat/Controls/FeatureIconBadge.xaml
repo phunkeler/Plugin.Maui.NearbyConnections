@@ -1,0 +1,8 @@
+<ContentView
+    x:Name="this"
+    x:Class="NearbyChat.Controls.FeatureIconBadge">
+    <Border Style="{Binding BorderStyle, Source={x:Reference this}}">
+        <Image
+            Style="{Binding ImageStyle, Source={x:Reference this}}"/>
+    </Border>
+</ContentView>
