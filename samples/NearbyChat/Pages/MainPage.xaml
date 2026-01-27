@@ -31,6 +31,8 @@
                     FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeDiscoverStyle}"
                     Title="Discovery"
                     Subtitle="Find nearby devices"
+                    FeatureIsActive="{Binding IsDiscovering}"
+                    ActiveSubtitle="Scanning..."
                     Command="{Binding NavigateToDiscoveryCommand}"/>
 
                 <!-- Connections -->
