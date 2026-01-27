@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8" ?>
 <BasePage
     x:Class="NearbyChat.Pages.DiscoveryPage"
     x:Name="this"
@@ -7,11 +6,66 @@
     x:DataType="DiscoveryPageViewModel">
 
     <BasePage.Content>
-        <VerticalStackLayout>
-            <Label
-                Text="Welcome to .NET MAUI!"
-                VerticalOptions="Center"
-                HorizontalOptions="Center"/>
-        </VerticalStackLayout>
+        <Grid RowDefinitions="Auto,*,*"
+              RowSpacing="{StaticResource SpacingXL}"
+              Margin="{StaticResource SpacingXL}">
+            <FeatureControlCard
+                VerticalOptions="Start"
+                FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeDiscoverStyle}"
+                Title="Discovery Mode"
+                ActiveSubtitle="Scanning"
+                InactiveSubtitle="Not scanning"
+                ActiveButtonText="Stop Discovery"
+                InactiveButtonText="Start Discovery"
+                ActiveButtonColor="{StaticResource AccentDiscovery}"
+                InactiveButtonColor="{AppThemeBinding Light={StaticResource LightSurfaceSecondary}, Dark={StaticResource DarkSurfaceSecondary}}"
+                FeatureIsActive="{Binding IsDiscovering}"
+                Command="{Binding ToggleDiscoveryCommand}"/>
+
+            <CollectionView
+                Grid.Row="1"
+                ItemsSource="{Binding AdvertisedEndpoints}"
+                VerticalScrollBarVisibility="Never"
+                Margin="{StaticResource SpacingLG}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="AdvertisedEndpointViewModel">
+
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout Spacing="{StaticResource SpacingLG}">
+                        <Image
+                            x:Name="SonarIcon"
+                            WidthRequest="56"
+                            HeightRequest="56">
+                            <Image.Source>
+                                <FontImageSource x:Name="SonarIconSource"
+                                                 FontFamily="NearbyChatIcons"
+                                                 Glyph="{StaticResource icon-sonar}"
+                                                 Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
+                            </Image.Source>
+                        </Image>
+                        <Label
+                            TextColor="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"
+                            HorizontalTextAlignment="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label"
+                                             Binding="{Binding IsDiscovering}"
+                                             Value="False">
+                                    <Setter Property="Text"
+                                            Value="Start discovering nearby devices"/>
+                                </DataTrigger>
+                                <DataTrigger TargetType="Label"
+                                             Binding="{Binding IsDiscovering}"
+                                             Value="True">
+                                    <Setter Property="Text"
+                                            Value="Scanning for nearby devices..."/>
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+            </CollectionView>
+        </Grid>
     </BasePage.Content>
 </BasePage>

@@ -3,7 +3,9 @@ using System.ComponentModel;
 
 namespace NearbyChat.Pages;
 
-public partial class AdvertisingPage : BasePage<AdvertisingPageViewModel>, IDisposable
+#pragma warning disable CA1001 // Types that own disposable fields should be disposable
+public partial class AdvertisingPage : BasePage<AdvertisingPageViewModel>
+#pragma warning restore CA1001 // Types that own disposable fields should be disposable
 {
     readonly Color _inactiveColor;
     readonly Color _pulseColor;
@@ -37,15 +39,8 @@ public partial class AdvertisingPage : BasePage<AdvertisingPageViewModel>, IDisp
         base.OnDisappearing();
 
         StopPulseAnimation();
-    }
-
-    public void Dispose()
-    {
         BindingContext.PropertyChanged -= OnViewModelPropertyChanged;
-        _animationCts?.Cancel();
         _animationCts?.Dispose();
-
-        GC.SuppressFinalize(this);
     }
 
     void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -80,8 +75,8 @@ public partial class AdvertisingPage : BasePage<AdvertisingPageViewModel>, IDisp
             return;
 
         AntennaIcon.CancelAnimations();
-        AntennaIconSource.Color = _inactiveColor;
         AntennaIcon.Opacity = 1;
+        AntennaIconSource.Color = _inactiveColor;
     }
 
     async Task RunPulseAnimationAsync(CancellationToken cancellationToken)

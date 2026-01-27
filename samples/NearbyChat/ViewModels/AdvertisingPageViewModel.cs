@@ -1,8 +1,7 @@
 using CommunityToolkit.Mvvm.Input;
-using NearbyChat.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
+using NearbyChat.Services;
 using System.ComponentModel;
-
 
 namespace NearbyChat.ViewModels;
 
@@ -13,6 +12,8 @@ public partial class AdvertisingPageViewModel : BaseViewModel
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleAdvertisingCommand))]
     bool _isBusy;
+
+    public bool IsAdvertising => _nearbyConnectionsService.IsAdvertising;
 
     public AdvertisingPageViewModel(INearbyConnectionsService nearbyConnectionsService)
     {
@@ -30,8 +31,6 @@ public partial class AdvertisingPageViewModel : BaseViewModel
     {
         _nearbyConnectionsService.PropertyChanged -= OnServicePropertyChanged;
     }
-
-    public bool IsAdvertising => _nearbyConnectionsService.IsAdvertising;
 
     [RelayCommand(CanExecute = nameof(CanToggleAdvertising))]
     async Task ToggleAdvertising(CancellationToken cancellationToken)
