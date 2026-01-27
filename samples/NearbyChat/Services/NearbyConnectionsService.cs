@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Plugin.Maui.NearbyConnections;
@@ -9,12 +10,15 @@ public interface INearbyConnectionsService : INotifyPropertyChanged, IDisposable
     bool IsAdvertising { get; }
     bool IsDiscovering { get; }
 
+    ObservableCollection<NearbyDevice> DiscoveredDevices { get; }
+
     INearbyConnections NearbyConnections { get; }
 
     Task StartAdvertisingAsync(CancellationToken cancellationToken = default);
     Task StopAdvertisingAsync(CancellationToken cancellationToken = default);
     Task StartDiscoveryAsync(CancellationToken cancellationToken = default);
     Task StopDiscoveryAsync(CancellationToken cancellationToken = default);
+
 }
 
 public partial class NearbyConnectionsService : ObservableObject, INearbyConnectionsService
@@ -27,6 +31,9 @@ public partial class NearbyConnectionsService : ObservableObject, INearbyConnect
     [ObservableProperty]
     bool _isDiscovering;
 
+    [ObservableProperty]
+    ObservableCollection<NearbyDevice> _discoveredDevices = [];
+
     public INearbyConnections NearbyConnections { get; }
 
     public NearbyConnectionsService(INearbyConnections nearbyConnections)
@@ -37,6 +44,7 @@ public partial class NearbyConnectionsService : ObservableObject, INearbyConnect
 
         NearbyConnections.Events.AdvertisingStateChanged += OnAdvertisingStateChanged;
         NearbyConnections.Events.DiscoveringStateChanged += OnDiscoveringStateChanged;
+        NearbyConnections.Events.DeviceFound += OnDeviceFound;
     }
 
     public Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
@@ -57,6 +65,14 @@ public partial class NearbyConnectionsService : ObservableObject, INearbyConnect
     void OnDiscoveringStateChanged(object? sender, DiscoveringStateChangedEventArgs e)
         => IsDiscovering = e.IsDiscovering;
 
+    void OnDeviceFound(object? sender, NearbyConnectionsEventArgs e)
+    {
+        if (DiscoveredDevices.Any(d => d.Id == e.NearbyDevice.Id))
+            return;
+
+        DiscoveredDevices.Add(e.NearbyDevice);
+    }
+
     protected virtual void Dispose(bool disposing)
     {
         if (_disposed)
@@ -68,6 +84,7 @@ public partial class NearbyConnectionsService : ObservableObject, INearbyConnect
         {
             NearbyConnections.Events.AdvertisingStateChanged -= OnAdvertisingStateChanged;
             NearbyConnections.Events.DiscoveringStateChanged -= OnDiscoveringStateChanged;
+            NearbyConnections.Events.DeviceFound -= OnDeviceFound;
         }
 
         _disposed = true;

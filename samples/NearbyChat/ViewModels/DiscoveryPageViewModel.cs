@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NearbyChat.Services;
+using Plugin.Maui.NearbyConnections;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 
 namespace NearbyChat.ViewModels;
@@ -14,6 +16,7 @@ public partial class DiscoveryPageViewModel : BaseViewModel
     bool _isBusy;
 
     public bool IsDiscovering => _nearbyConnectionsService.IsDiscovering;
+    public ObservableCollection<NearbyDevice> DiscoveredDevices => _nearbyConnectionsService.DiscoveredDevices;
 
     public DiscoveryPageViewModel(INearbyConnectionsService nearbyConnectionsService)
     {
@@ -61,6 +64,11 @@ public partial class DiscoveryPageViewModel : BaseViewModel
         if (e.PropertyName == nameof(INearbyConnectionsService.IsDiscovering))
         {
             OnPropertyChanged(nameof(IsDiscovering));
+        }
+
+        if (e.PropertyName == nameof(INearbyConnectionsService.DiscoveredDevices))
+        {
+            OnPropertyChanged(nameof(DiscoveredDevices));
         }
     }
 

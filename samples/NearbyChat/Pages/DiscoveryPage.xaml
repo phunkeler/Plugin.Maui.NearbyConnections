@@ -24,12 +24,21 @@
 
             <CollectionView
                 Grid.Row="1"
-                ItemsSource="{Binding AdvertisedEndpoints}"
+                ItemsSource="{Binding DiscoveredDevices}"
                 VerticalScrollBarVisibility="Never"
                 Margin="{StaticResource SpacingLG}">
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="AdvertisedEndpointViewModel">
-
+                    <DataTemplate x:DataType="NearbyDevice">
+                        <Border Style="{StaticResource FeatureNavigationCardBorderStyle}"
+                                Stroke="{AppThemeBinding Light={StaticResource LightStatusActive}, Dark={StaticResource DarkStatusActive}}"
+                                StrokeThickness="1">
+                            <Label
+                                Text="{Binding DisplayName}"
+                                FontSize="{StaticResource FontSizeMD}"
+                                FontAttributes="Bold"
+                                TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                VerticalTextAlignment="Center"/>
+                        </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
                 <CollectionView.EmptyView>
