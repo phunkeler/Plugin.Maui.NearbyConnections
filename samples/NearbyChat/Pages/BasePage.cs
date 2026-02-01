@@ -3,7 +3,7 @@ using NearbyChat.ViewModels;
 namespace NearbyChat.Pages;
 
 public abstract class BasePage<TViewModel>(TViewModel viewModel) : BasePage(viewModel)
-    where TViewModel : BaseViewModel
+    where TViewModel : BasePageViewModel
 {
     public new TViewModel BindingContext => (TViewModel)base.BindingContext;
 

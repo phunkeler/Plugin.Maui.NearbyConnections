@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Maui;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using NearbyChat.Data;
 using NearbyChat.Pages;
@@ -32,11 +33,13 @@ public static class MauiProgram
 #endif
 
         builder.Services.AddSingleton(FileSystem.Current);
+        builder.Services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
         builder.Services.AddSingleton<AppShell>();
         builder.Services.AddSingleton<AvatarRepository>();
         builder.Services.AddSingleton<UserRepository>();
         builder.Services.AddSingleton<ISeedDataService, SeedDataService>();
         builder.Services.AddSingleton<IUserService, UserService>();
+        builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<INearbyConnectionsService, NearbyConnectionsService>();
         builder.Services.AddTransientWithShellRoute<MainPage, MainPageViewModel>();
         builder.Services.AddTransientWithShellRoute<AdvertisingPage, AdvertisingPageViewModel>();
@@ -51,7 +54,7 @@ public static class MauiProgram
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TViewModel>
         (this IServiceCollection services)
         where TPage : BasePage<TViewModel>
-        where TViewModel : BaseViewModel
+        where TViewModel : BasePageViewModel
     {
         return services.AddTransientWithShellRoute<TPage, TViewModel>(AppShell.GetPageRoute<TViewModel>());
     }

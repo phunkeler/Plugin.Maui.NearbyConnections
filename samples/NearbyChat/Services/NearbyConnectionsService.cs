@@ -1,76 +1,95 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Messaging;
+using NearbyChat.Messages;
 using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.Services;
 
-public interface INearbyConnectionsService : INotifyPropertyChanged, IDisposable
+public interface INearbyConnectionsService : IDisposable
 {
     bool IsAdvertising { get; }
     bool IsDiscovering { get; }
 
-    ObservableCollection<NearbyDevice> DiscoveredDevices { get; }
-
-    INearbyConnections NearbyConnections { get; }
+    IReadOnlyCollection<DiscoveredDevice> DiscoveredDevices { get; }
 
     Task StartAdvertisingAsync(CancellationToken cancellationToken = default);
     Task StopAdvertisingAsync(CancellationToken cancellationToken = default);
     Task StartDiscoveryAsync(CancellationToken cancellationToken = default);
     Task StopDiscoveryAsync(CancellationToken cancellationToken = default);
-
+    Task RequestConnectionAsync(NearbyDevice device);
 }
 
-public partial class NearbyConnectionsService : ObservableObject, INearbyConnectionsService
+public partial class NearbyConnectionsService : INearbyConnectionsService
 {
+    readonly List<DiscoveredDevice> _discoveredDevices = [];
+
+    readonly INearbyConnections _nearbyConnections;
+    readonly IMessenger _messenger;
+
     bool _disposed;
 
-    [ObservableProperty]
-    bool _isAdvertising;
+    public bool IsAdvertising => _nearbyConnections.IsAdvertising;
+    public bool IsDiscovering => _nearbyConnections.IsDiscovering;
 
-    [ObservableProperty]
-    bool _isDiscovering;
+    public IReadOnlyCollection<DiscoveredDevice> DiscoveredDevices
+        => _discoveredDevices.AsReadOnly();
 
-    [ObservableProperty]
-    ObservableCollection<NearbyDevice> _discoveredDevices = [];
-
-    public INearbyConnections NearbyConnections { get; }
-
-    public NearbyConnectionsService(INearbyConnections nearbyConnections)
+    public NearbyConnectionsService(
+        INearbyConnections nearbyConnections,
+        IMessenger messenger)
     {
         ArgumentNullException.ThrowIfNull(nearbyConnections);
+        ArgumentNullException.ThrowIfNull(messenger);
 
-        NearbyConnections = nearbyConnections;
+        _nearbyConnections = nearbyConnections;
+        _messenger = messenger;
 
-        NearbyConnections.Events.AdvertisingStateChanged += OnAdvertisingStateChanged;
-        NearbyConnections.Events.DiscoveringStateChanged += OnDiscoveringStateChanged;
-        NearbyConnections.Events.DeviceFound += OnDeviceFound;
+        _nearbyConnections.Events.AdvertisingStateChanged += OnAdvertisingStateChanged;
+        _nearbyConnections.Events.DiscoveringStateChanged += OnDiscoveringStateChanged;
+        _nearbyConnections.Events.DeviceFound += OnDeviceFound;
+        _nearbyConnections.Events.DeviceLost += OnDeviceLost;
     }
 
     public Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
-        => NearbyConnections.StartAdvertisingAsync(cancellationToken);
+        => _nearbyConnections.StartAdvertisingAsync(cancellationToken);
 
     public Task StopAdvertisingAsync(CancellationToken cancellationToken = default)
-        => NearbyConnections.StopAdvertisingAsync(cancellationToken);
+        => _nearbyConnections.StopAdvertisingAsync(cancellationToken);
 
     public Task StartDiscoveryAsync(CancellationToken cancellationToken = default)
-        => NearbyConnections.StartDiscoveryAsync(cancellationToken);
+        => _nearbyConnections.StartDiscoveryAsync(cancellationToken);
 
     public Task StopDiscoveryAsync(CancellationToken cancellationToken = default)
-        => NearbyConnections.StopDiscoveryAsync(cancellationToken);
+        => _nearbyConnections.StopDiscoveryAsync(cancellationToken);
+
+    public Task RequestConnectionAsync(NearbyDevice device)
+        => _nearbyConnections.RequestConnectionAsync(device);
 
     void OnAdvertisingStateChanged(object? sender, AdvertisingStateChangedEventArgs e)
-        => IsAdvertising = e.IsAdvertising;
+        => _messenger.Send(new AdvertisingStateChangedMessage(e.IsAdvertising));
 
     void OnDiscoveringStateChanged(object? sender, DiscoveringStateChangedEventArgs e)
-        => IsDiscovering = e.IsDiscovering;
+        => _messenger.Send(new DiscoveringStateChangedMessage(e.IsDiscovering));
 
     void OnDeviceFound(object? sender, NearbyConnectionsEventArgs e)
     {
-        if (DiscoveredDevices.Any(d => d.Id == e.NearbyDevice.Id))
+        if (_discoveredDevices.Any(d => d.Device.Id == e.NearbyDevice.Id))
             return;
 
-        DiscoveredDevices.Add(e.NearbyDevice);
+        _discoveredDevices.Add(new DiscoveredDevice(e.NearbyDevice, e.Timestamp));
+        _messenger.Send(new DeviceFoundMessage(e.NearbyDevice, e.Timestamp));
+    }
+
+    void OnDeviceLost(object? sender, NearbyConnectionsEventArgs e)
+    {
+        var discovered = _discoveredDevices.FirstOrDefault(d => d.Device.Id == e.NearbyDevice.Id);
+
+        if (discovered is not null)
+        {
+            _discoveredDevices.Remove(discovered);
+            _messenger.Send(new DeviceLostMessage(discovered.Device));
+        }
     }
 
     protected virtual void Dispose(bool disposing)
@@ -82,9 +101,10 @@ public partial class NearbyConnectionsService : ObservableObject, INearbyConnect
 
         if (disposing)
         {
-            NearbyConnections.Events.AdvertisingStateChanged -= OnAdvertisingStateChanged;
-            NearbyConnections.Events.DiscoveringStateChanged -= OnDiscoveringStateChanged;
-            NearbyConnections.Events.DeviceFound -= OnDeviceFound;
+            _nearbyConnections.Events.AdvertisingStateChanged -= OnAdvertisingStateChanged;
+            _nearbyConnections.Events.DiscoveringStateChanged -= OnDiscoveringStateChanged;
+            _nearbyConnections.Events.DeviceFound -= OnDeviceFound;
+            _nearbyConnections.Events.DeviceLost -= OnDeviceLost;
         }
 
         _disposed = true;

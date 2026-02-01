@@ -1,38 +1,53 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using NearbyChat.Messages;
 using NearbyChat.Services;
-using Plugin.Maui.NearbyConnections;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 
 namespace NearbyChat.ViewModels;
 
-public partial class DiscoveryPageViewModel : BaseViewModel
+public partial class DiscoveryPageViewModel : BasePageViewModel,
+    IRecipient<DiscoveringStateChangedMessage>,
+    IRecipient<DeviceFoundMessage>,
+    IRecipient<DeviceLostMessage>
 {
+    readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleDiscoveryCommand))]
-    bool _isBusy;
+    public partial bool IsBusy { get; set; }
 
-    public bool IsDiscovering => _nearbyConnectionsService.IsDiscovering;
-    public ObservableCollection<NearbyDevice> DiscoveredDevices => _nearbyConnectionsService.DiscoveredDevices;
+    [ObservableProperty]
+    public partial bool IsDiscovering { get; set; }
 
-    public DiscoveryPageViewModel(INearbyConnectionsService nearbyConnectionsService)
+    public ObservableCollection<DiscoveredDeviceViewModel> DiscoveredDevices { get; } = [];
+
+    public DiscoveryPageViewModel(
+        IMessenger messenger,
+        INavigationService navigationService,
+        INearbyConnectionsService nearbyConnectionsService)
+        : base(messenger)
     {
+        ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
 
+        _navigationService = navigationService;
         _nearbyConnectionsService = nearbyConnectionsService;
+
+        IsDiscovering = _nearbyConnectionsService.IsDiscovering;
+
+        foreach (var discovered in _nearbyConnectionsService.DiscoveredDevices)
+        {
+            DiscoveredDevices.Add(new DiscoveredDeviceViewModel(discovered, _nearbyConnectionsService));
+        }
     }
 
-    protected override void NavigatedTo()
+    [RelayCommand]
+    async Task Back()
     {
-        _nearbyConnectionsService.PropertyChanged += OnServicePropertyChanged;
-    }
-
-    protected override void NavigatedFrom()
-    {
-        _nearbyConnectionsService.PropertyChanged -= OnServicePropertyChanged;
+        await _navigationService.GoBackAsync();
     }
 
     [RelayCommand(CanExecute = nameof(CanToggleDiscovery))]
@@ -57,19 +72,26 @@ public partial class DiscoveryPageViewModel : BaseViewModel
         }
     }
 
-    bool CanToggleDiscovery() => !IsBusy;
+    public void Receive(DiscoveringStateChangedMessage message)
+        => IsDiscovering = message.Value;
 
-    void OnServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    public void Receive(DeviceFoundMessage message)
     {
-        if (e.PropertyName == nameof(INearbyConnectionsService.IsDiscovering))
-        {
-            OnPropertyChanged(nameof(IsDiscovering));
-        }
+        if (DiscoveredDevices.Any(d => d.Id == message.Value.Id))
+            return;
 
-        if (e.PropertyName == nameof(INearbyConnectionsService.DiscoveredDevices))
+        var discoveredDevice = new DiscoveredDevice(message.Value, message.FoundAt);
+        DiscoveredDevices.Add(new DiscoveredDeviceViewModel(discoveredDevice, _nearbyConnectionsService));
+    }
+
+    public void Receive(DeviceLostMessage message)
+    {
+        var device = DiscoveredDevices.FirstOrDefault(d => d.Id == message.Value.Id);
+        if (device is not null)
         {
-            OnPropertyChanged(nameof(DiscoveredDevices));
+            DiscoveredDevices.Remove(device);
         }
     }
 
+    bool CanToggleDiscovery() => !IsBusy;
 }

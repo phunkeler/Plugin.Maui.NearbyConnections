@@ -95,7 +95,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             await _discoverSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            Trace.WriteLine($"Starting discovery with ServiceName={Options.ServiceId}");
+            Trace.WriteLine($"Starting discovery with ServiceId={Options.ServiceId}");
 
             // Create discoverer if needed (kept alive for reuse on Android)
             _discoverer ??= new Discoverer(this);

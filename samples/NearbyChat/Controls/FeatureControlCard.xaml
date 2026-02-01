@@ -35,7 +35,6 @@
                 </VerticalStackLayout>
 
                 <Button
-                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
                     HeightRequest="44"
                     Grid.Row="1"
                     CornerRadius="12"
@@ -47,6 +46,8 @@
                                      Value="True">
                             <Setter Property="Text"
                                     Value="{Binding ActiveButtonText, Source={x:Reference this}}"/>
+                            <Setter Property="TextColor"
+                                    Value="White"/>
                             <Setter Property="BackgroundColor"
                                     Value="{Binding ActiveButtonColor, Source={x:Reference this}}"/>
                         </DataTrigger>
@@ -55,6 +56,8 @@
                                      Value="False">
                             <Setter Property="Text"
                                     Value="{Binding InactiveButtonText, Source={x:Reference this}}"/>
+                            <Setter Property="TextColor"
+                                    Value="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
                             <Setter Property="BackgroundColor"
                                     Value="{Binding InactiveButtonColor, Source={x:Reference this}}"/>
                         </DataTrigger>

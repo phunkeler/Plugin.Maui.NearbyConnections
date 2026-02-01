@@ -1,25 +1,43 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Extensions;
+using NearbyChat.Messages;
 using NearbyChat.Services;
-using System.ComponentModel;
 
 namespace NearbyChat.ViewModels;
 
-public partial class MainPageViewModel : BaseViewModel
+public partial class MainPageViewModel : BasePageViewModel,
+    IRecipient<AdvertisingStateChangedMessage>,
+    IRecipient<DiscoveringStateChangedMessage>
 {
     readonly AppShell _appShell;
     readonly INearbyConnectionsService _nearbyConnectionsService;
 
-    public bool IsAdvertising => _nearbyConnectionsService.IsAdvertising;
-    public bool IsDiscovering => _nearbyConnectionsService.IsDiscovering;
+    [ObservableProperty]
+    public partial bool IsAdvertising { get; set; }
 
-    public MainPageViewModel(AppShell appShell, INearbyConnectionsService nearbyConnectionsService)
+    [ObservableProperty]
+    public partial bool IsDiscovering { get; set; }
+
+    public MainPageViewModel(
+        IMessenger messenger,
+        AppShell appShell,
+        INearbyConnectionsService nearbyConnectionsService)
+        : base(messenger)
     {
         ArgumentNullException.ThrowIfNull(appShell);
         ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
 
         _appShell = appShell;
         _nearbyConnectionsService = nearbyConnectionsService;
+    }
+
+    protected override void NavigatedTo()
+    {
+        IsAdvertising = _nearbyConnectionsService.IsAdvertising;
+        IsDiscovering = _nearbyConnectionsService.IsDiscovering;
+        base.NavigatedTo();
     }
 
     [RelayCommand]
@@ -34,28 +52,13 @@ public partial class MainPageViewModel : BaseViewModel
     async Task NavigateToConnections()
         => await _appShell.GoToAsync<ConnectionsPageViewModel>();
 
-    protected override void NavigatedTo()
+    public void Receive(AdvertisingStateChangedMessage message)
     {
-        OnPropertyChanged(nameof(IsAdvertising));
-        OnPropertyChanged(nameof(IsDiscovering));
-        _nearbyConnectionsService.PropertyChanged += OnServicePropertyChanged;
+        IsAdvertising = message.Value;
     }
 
-    protected override void NavigatedFrom()
+    public void Receive(DiscoveringStateChangedMessage message)
     {
-        _nearbyConnectionsService.PropertyChanged -= OnServicePropertyChanged;
-    }
-
-    void OnServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(INearbyConnectionsService.IsAdvertising))
-        {
-            OnPropertyChanged(nameof(IsAdvertising));
-        }
-
-        if (e.PropertyName == nameof(INearbyConnectionsService.IsDiscovering))
-        {
-            OnPropertyChanged(nameof(IsDiscovering));
-        }
+        IsDiscovering = message.Value;
     }
 }

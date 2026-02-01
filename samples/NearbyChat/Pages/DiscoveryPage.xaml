@@ -6,11 +6,23 @@
     x:DataType="DiscoveryPageViewModel">
 
     <BasePage.Content>
-        <Grid RowDefinitions="Auto,*,*"
+        <Grid RowDefinitions="Auto,Auto,*"
               RowSpacing="{StaticResource SpacingXL}"
               Margin="{StaticResource SpacingXL}">
+            <Button Text="Back"
+                    Command="{Binding BackCommand}"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Start"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                    FontAttributes="Bold"
+                    BorderWidth="1"
+                    BorderColor="{AppThemeBinding Light=Black, Dark=White}}"
+                    CornerRadius="12"
+                    FontSize="{StaticResource FontSizeMD}"/>
             <FeatureControlCard
                 VerticalOptions="Start"
+                Grid.Row="1"
                 FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeDiscoverStyle}"
                 Title="Discovery Mode"
                 ActiveSubtitle="Scanning"
@@ -23,21 +35,35 @@
                 Command="{Binding ToggleDiscoveryCommand}"/>
 
             <CollectionView
-                Grid.Row="1"
+                Grid.Row="2"
                 ItemsSource="{Binding DiscoveredDevices}"
                 VerticalScrollBarVisibility="Never"
-                Margin="{StaticResource SpacingLG}">
+                HorizontalScrollBarVisibility="Never">
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="NearbyDevice">
-                        <Border Style="{StaticResource FeatureNavigationCardBorderStyle}"
-                                Stroke="{AppThemeBinding Light={StaticResource LightStatusActive}, Dark={StaticResource DarkStatusActive}}"
-                                StrokeThickness="1">
-                            <Label
-                                Text="{Binding DisplayName}"
-                                FontSize="{StaticResource FontSizeMD}"
-                                FontAttributes="Bold"
-                                TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
-                                VerticalTextAlignment="Center"/>
+                    <DataTemplate x:DataType="DiscoveredDeviceViewModel">
+                        <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
+                            <Grid RowDefinitions="*, *, Auto"
+                                  RowSpacing="{StaticResource SpacingLG}">
+                                <Label
+                                    HorizontalOptions="Start"
+                                    Style="{StaticResource CardTitle}"
+                                    Text="{Binding DisplayName}"/>
+                                <Label
+                                    Grid.Row="1"
+                                    HorizontalOptions="Start"
+                                    Style="{StaticResource CardSubtitle}"
+                                    Text="{Binding FoundAt, StringFormat='{0:MM/dd/yyyy HH:mm:ss}'}"/>
+                                <Button
+                                    Grid.Row="2"
+                                    HeightRequest="44"
+                                    Text="Connect"
+                                    Command="{Binding ConnectCommand}"
+                                    BackgroundColor="{StaticResource AccentConnections}"
+                                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                    FontAttributes="Bold"
+                                    CornerRadius="12"
+                                    FontSize="{StaticResource FontSizeSM}"/>
+                            </Grid>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

@@ -42,5 +42,9 @@
     <ProjectReference Include="..\..\src\Plugin.Maui.NearbyConnections\Plugin.Maui.NearbyConnections.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Messages/" />
+  </ItemGroup>
+
 </Project>
 

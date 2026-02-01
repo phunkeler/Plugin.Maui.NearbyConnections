@@ -227,4 +227,12 @@ public class MyPeerIdManager : IDisposable
     /// <returns></returns>
     public NSData ArchivePeerId(MCPeerID mCPeerID)
         => _archiver.ArchivePeerId(mCPeerID);
+
+    /// <summary>
+    /// Deserialize an MCPeerID object from NSData.
+    /// </summary>
+    /// <param name="data">The archived peer ID data.</param>
+    /// <returns>The unarchived MCPeerID object.</returns>
+    public MCPeerID? UnarchivePeerId(NSData data)
+        => _archiver.UnarchivePeerId(data);
 }

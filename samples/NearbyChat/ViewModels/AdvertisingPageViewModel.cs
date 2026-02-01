@@ -1,35 +1,48 @@
-using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using NearbyChat.Messages;
 using NearbyChat.Services;
-using System.ComponentModel;
 
 namespace NearbyChat.ViewModels;
 
-public partial class AdvertisingPageViewModel : BaseViewModel
+public partial class AdvertisingPageViewModel : BasePageViewModel,
+    IRecipient<AdvertisingStateChangedMessage>
 {
+    readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleAdvertisingCommand))]
-    bool _isBusy;
+    public partial bool IsBusy { get; set; }
 
-    public bool IsAdvertising => _nearbyConnectionsService.IsAdvertising;
+    [ObservableProperty]
+    public partial bool IsAdvertising { get; set; }
 
-    public AdvertisingPageViewModel(INearbyConnectionsService nearbyConnectionsService)
+    public AdvertisingPageViewModel(
+        IMessenger messenger,
+        INavigationService navigationService,
+        INearbyConnectionsService nearbyConnectionsService)
+        : base(messenger)
     {
+        ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
 
+        _navigationService = navigationService;
         _nearbyConnectionsService = nearbyConnectionsService;
+
+        IsAdvertising = _nearbyConnectionsService.IsAdvertising;
     }
 
-    protected override void NavigatedTo()
+    public void Receive(AdvertisingStateChangedMessage message)
     {
-        _nearbyConnectionsService.PropertyChanged += OnServicePropertyChanged;
+        IsAdvertising = message.Value;
     }
 
-    protected override void NavigatedFrom()
+    [RelayCommand]
+    async Task Back()
     {
-        _nearbyConnectionsService.PropertyChanged -= OnServicePropertyChanged;
+        await _navigationService.GoBackAsync();
     }
 
     [RelayCommand(CanExecute = nameof(CanToggleAdvertising))]
@@ -55,12 +68,4 @@ public partial class AdvertisingPageViewModel : BaseViewModel
     }
 
     bool CanToggleAdvertising() => !IsBusy;
-
-    void OnServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(INearbyConnectionsService.IsAdvertising))
-        {
-            OnPropertyChanged(nameof(IsAdvertising));
-        }
-    }
 }

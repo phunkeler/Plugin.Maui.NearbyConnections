@@ -6,11 +6,23 @@
     x:DataType="AdvertisingPageViewModel">
 
     <BasePage.Content>
-        <Grid RowDefinitions="Auto,*,*"
+        <Grid RowDefinitions="Auto,Auto,*"
               RowSpacing="{StaticResource SpacingXL}"
               Margin="{StaticResource SpacingXL}">
+            <Button Text="Back"
+                    Command="{Binding BackCommand}"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Start"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                    FontAttributes="Bold"
+                    BorderWidth="1"
+                    BorderColor="{AppThemeBinding Light=Black, Dark=Gray}}"
+                    CornerRadius="12"
+                    FontSize="{StaticResource FontSizeMD}"/>
             <FeatureControlCard
                 VerticalOptions="Start"
+                Grid.Row="1"
                 FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeAdvertiseStyle}"
                 Title="Advertising Mode"
                 ActiveSubtitle="Broadcasting"
@@ -23,7 +35,7 @@
                 Command="{Binding ToggleAdvertisingCommand}"/>
 
             <CollectionView
-                Grid.Row="1"
+                Grid.Row="2"
                 ItemsSource="{Binding AdvertisedEndpoints}"
                 VerticalScrollBarVisibility="Never"
                 Margin="{StaticResource SpacingLG}">

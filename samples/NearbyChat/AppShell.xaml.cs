@@ -21,13 +21,13 @@ public partial class AppShell : Shell
     }
 
     public static string GetPageRoute<TViewModel>()
-        where TViewModel : BaseViewModel
+        where TViewModel : BasePageViewModel
     {
         var viewModelType = typeof(TViewModel);
 
-        if (!viewModelType.IsAssignableTo(typeof(BaseViewModel)))
+        if (!viewModelType.IsAssignableTo(typeof(BasePageViewModel)))
         {
-            throw new ArgumentException($"{nameof(viewModelType)} must implement {nameof(BaseViewModel)}", nameof(viewModelType));
+            throw new ArgumentException($"{nameof(viewModelType)} must implement {nameof(BasePageViewModel)}", nameof(viewModelType));
         }
 
         if (!s_viewModelMappings.TryGetValue(viewModelType, out var mapping))
@@ -41,6 +41,6 @@ public partial class AppShell : Shell
 
     static KeyValuePair<Type, Type> CreateViewModelMapping<TPage, TViewModel>()
         where TPage : BasePage<TViewModel>
-        where TViewModel : BaseViewModel
+        where TViewModel : BasePageViewModel
         => new(typeof(TViewModel), typeof(TPage));
 }
