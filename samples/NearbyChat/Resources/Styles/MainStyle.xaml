@@ -15,6 +15,10 @@
     <x:Double x:Key="Spacing2XL">32</x:Double>
     <x:Double x:Key="Spacing3XL">48</x:Double>
 
+    <!-- Font sizes -->
+    <x:Double x:Key="FontSizeSM">14</x:Double>
+    <x:Double x:Key="FontSizeMD">16</x:Double>
+
     <!-- ========================================== -->
     <!--                   ICONS                    -->
     <!-- ========================================== -->
