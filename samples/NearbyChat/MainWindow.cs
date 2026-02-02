@@ -1,8 +1,5 @@
 namespace NearbyChat;
 
-public class MainWindow : Window
+public class MainWindow(Page page) : Window(page)
 {
-    public MainWindow(Page page) : base(page)
-    {
-    }
 }

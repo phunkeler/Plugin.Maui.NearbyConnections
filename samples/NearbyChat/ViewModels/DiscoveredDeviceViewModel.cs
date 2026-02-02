@@ -9,6 +9,8 @@ public partial class DiscoveredDeviceViewModel(
 {
     public DateTimeOffset FoundAt { get; } = device.FoundAt.ToLocalTime();
 
+    public void RefreshRelativeTime() => OnPropertyChanged(nameof(FoundAt));
+
     [RelayCommand]
     async Task Connect()
     {

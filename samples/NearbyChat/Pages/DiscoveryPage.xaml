@@ -5,6 +5,11 @@
     Background="{AppThemeBinding Light={StaticResource LightBackgroundGradient}, Dark={StaticResource DarkBackgroundGradient}}"
     x:DataType="DiscoveryPageViewModel">
 
+    <BasePage.Resources>
+        <RelativeTimeConverter x:Key="relativeTimeConverter"/>
+        <IntToBoolConverter x:Key="intToBoolConverter"/>
+    </BasePage.Resources>
+
     <BasePage.Content>
         <Grid RowDefinitions="Auto,Auto,*"
               RowSpacing="{StaticResource SpacingXL}"
@@ -35,15 +40,23 @@
                 Command="{Binding ToggleDiscoveryCommand}"/>
 
             <CollectionView
+                Margin="0,-8,0,0"
                 Grid.Row="2"
                 ItemsSource="{Binding DiscoveredDevices}"
                 VerticalScrollBarVisibility="Never"
                 HorizontalScrollBarVisibility="Never">
+                <CollectionView.Header>
+                    <Label
+                        Margin="{StaticResource SpacingSM}"
+                        IsVisible="{Binding DiscoveredDevices.Count, Converter={StaticResource intToBoolConverter}}"
+                        Text="Discovered Devices"
+                        Style="{StaticResource ListHeader}"/>
+                </CollectionView.Header>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="DiscoveredDeviceViewModel">
                         <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
                             <Grid RowDefinitions="*, *, Auto"
-                                  RowSpacing="{StaticResource SpacingLG}">
+                                  RowSpacing="{StaticResource SpacingSM}">
                                 <Label
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardTitle}"
@@ -52,7 +65,7 @@
                                     Grid.Row="1"
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardSubtitle}"
-                                    Text="{Binding FoundAt, StringFormat='{0:MM/dd/yyyy HH:mm:ss}'}"/>
+                                    Text="{Binding FoundAt, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
                                 <Button
                                     Grid.Row="2"
                                     HeightRequest="44"

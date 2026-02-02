@@ -14,6 +14,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
 {
     readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
+    IDispatcherTimer? _relativeTimeRefreshTimer;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleDiscoveryCommand))]
@@ -41,6 +42,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
         foreach (var discovered in _nearbyConnectionsService.DiscoveredDevices)
         {
             DiscoveredDevices.Add(new DiscoveredDeviceViewModel(discovered, _nearbyConnectionsService));
+            UpdateRelativeTimeRefreshTimer();
         }
     }
 
@@ -82,6 +84,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
 
         var discoveredDevice = new DiscoveredDevice(message.Value, message.FoundAt);
         DiscoveredDevices.Add(new DiscoveredDeviceViewModel(discoveredDevice, _nearbyConnectionsService));
+        UpdateRelativeTimeRefreshTimer();
     }
 
     public void Receive(DeviceLostMessage message)
@@ -90,8 +93,40 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
         if (device is not null)
         {
             DiscoveredDevices.Remove(device);
+            UpdateRelativeTimeRefreshTimer();
         }
     }
 
     bool CanToggleDiscovery() => !IsBusy;
+
+    void UpdateRelativeTimeRefreshTimer()
+    {
+        if (DiscoveredDevices.Count >= 1)
+            StartRelativeTimeRefreshTimer();
+        else
+            StopRelativeTimeRefreshTimer();
+    }
+
+    void StartRelativeTimeRefreshTimer()
+    {
+        _relativeTimeRefreshTimer = Application.Current!.Dispatcher.CreateTimer();
+        _relativeTimeRefreshTimer.Interval = TimeSpan.FromSeconds(30);
+        _relativeTimeRefreshTimer.Tick += OnRelativeTimeRefreshTimerTick;
+        _relativeTimeRefreshTimer.Start();
+    }
+
+    void StopRelativeTimeRefreshTimer()
+    {
+        _relativeTimeRefreshTimer?.Stop();
+        _relativeTimeRefreshTimer?.Tick -= OnRelativeTimeRefreshTimerTick;
+        _relativeTimeRefreshTimer = null;
+    }
+
+    void OnRelativeTimeRefreshTimerTick(object? sender, EventArgs e)
+    {
+        foreach (var device in DiscoveredDevices)
+        {
+            device.RefreshRelativeTime();
+        }
+    }
 }
