@@ -1,5 +1,5 @@
 using Plugin.Maui.NearbyConnections;
 
-namespace NearbyChat.Services;
+namespace NearbyChat.Models;
 
 public record DiscoveredDevice(NearbyDevice Device, DateTimeOffset FoundAt);

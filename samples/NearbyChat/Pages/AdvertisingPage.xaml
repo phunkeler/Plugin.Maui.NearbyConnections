@@ -5,6 +5,11 @@
     Background="{AppThemeBinding Light={StaticResource LightBackgroundGradient}, Dark={StaticResource DarkBackgroundGradient}}"
     x:DataType="AdvertisingPageViewModel">
 
+    <BasePage.Resources>
+        <RelativeTimeConverter x:Key="relativeTimeConverter"/>
+        <IntToBoolConverter x:Key="intToBoolConverter"/>
+    </BasePage.Resources>
+
     <BasePage.Content>
         <Grid RowDefinitions="Auto,Auto,*"
               RowSpacing="{StaticResource SpacingXL}"
@@ -35,13 +40,59 @@
                 Command="{Binding ToggleAdvertisingCommand}"/>
 
             <CollectionView
+                Margin="0,-8,0,0"
                 Grid.Row="2"
-                ItemsSource="{Binding AdvertisedEndpoints}"
+                ItemsSource="{Binding AdvertisedDevices}"
                 VerticalScrollBarVisibility="Never"
-                Margin="{StaticResource SpacingLG}">
+                HorizontalScrollBarVisibility="Never">
+                <CollectionView.Header>
+                    <Label
+                        Margin="{StaticResource SpacingSM}"
+                        IsVisible="{Binding AdvertisedDevices.Count, Converter={StaticResource intToBoolConverter}}"
+                        Text="Advertised Devices"
+                        Style="{StaticResource ListHeader}"/>
+                </CollectionView.Header>
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="AdvertisedEndpointViewModel">
-
+                    <DataTemplate x:DataType="AdvertisedDeviceViewModel">
+                        <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
+                            <Grid RowDefinitions="*, *, Auto"
+                                  ColumnDefinitions="*, *"
+                                  RowSpacing="{StaticResource SpacingSM}">
+                                <Label
+                                    HorizontalOptions="Start"
+                                    Grid.ColumnSpan="2"
+                                    Style="{StaticResource CardTitle}"
+                                    Text="{Binding DisplayName}"/>
+                                <Label
+                                    Grid.Row="1"
+                                    Grid.ColumnSpan="2"
+                                    HorizontalOptions="Start"
+                                    Style="{StaticResource CardSubtitle}"
+                                    Text="{Binding InvitedAt, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
+                                <Button
+                                    Grid.Row="2"
+                                    Grid.Column="0"
+                                    HeightRequest="44"
+                                    Text="Decline"
+                                    Command="{Binding DeclineCommand}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource LightSurfaceSecondary}, Dark={StaticResource DarkSurfaceSecondary}}"
+                                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                    FontAttributes="Bold"
+                                    CornerRadius="12"
+                                    FontSize="{StaticResource FontSizeSM}"/>
+                                <Button
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    HeightRequest="44"
+                                    Text="Accept"
+                                    Command="{Binding AcceptCommand}"
+                                    BackgroundColor="{StaticResource AccentDiscovery}"
+                                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                    FontAttributes="Bold"
+                                    CornerRadius="12"
+                                    FontSize="{StaticResource FontSizeSM}"/>
+                            </Grid>
+                        </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
                 <CollectionView.EmptyView>

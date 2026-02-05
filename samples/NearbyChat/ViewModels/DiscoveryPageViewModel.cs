@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Messages;
+using NearbyChat.Models;
 using NearbyChat.Services;
 
 namespace NearbyChat.ViewModels;
@@ -102,9 +103,13 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
     void UpdateRelativeTimeRefreshTimer()
     {
         if (DiscoveredDevices.Count >= 1)
+        {
             StartRelativeTimeRefreshTimer();
+        }
         else
+        {
             StopRelativeTimeRefreshTimer();
+        }
     }
 
     void StartRelativeTimeRefreshTimer()
@@ -124,9 +129,9 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
 
     void OnRelativeTimeRefreshTimerTick(object? sender, EventArgs e)
     {
-        foreach (var device in DiscoveredDevices)
+        foreach (var discoveredDevice in DiscoveredDevices)
         {
-            device.RefreshRelativeTime();
+            discoveredDevice.RefreshRelativeTime();
         }
     }
 }

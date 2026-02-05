@@ -1,13 +1,14 @@
 using CommunityToolkit.Mvvm.Input;
+using NearbyChat.Models;
 using NearbyChat.Services;
 
 namespace NearbyChat.ViewModels;
 
 public partial class DiscoveredDeviceViewModel(
-    DiscoveredDevice device,
-    INearbyConnectionsService nearbyConnectionsService) : NearbyDeviceViewModel(device.Device)
+    DiscoveredDevice discoveredDevice,
+    INearbyConnectionsService nearbyConnectionsService) : NearbyDeviceViewModel(discoveredDevice.Device)
 {
-    public DateTimeOffset FoundAt { get; } = device.FoundAt.ToLocalTime();
+    public DateTimeOffset FoundAt { get; } = discoveredDevice.FoundAt.ToLocalTime();
 
     public void RefreshRelativeTime() => OnPropertyChanged(nameof(FoundAt));
 
