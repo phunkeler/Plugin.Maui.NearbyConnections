@@ -68,7 +68,7 @@
                                     Grid.ColumnSpan="2"
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardSubtitle}"
-                                    Text="{Binding InvitedAt, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
+                                    Text="{Binding FoundAt, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
                                 <Button
                                     Grid.Row="2"
                                     Grid.Column="0"

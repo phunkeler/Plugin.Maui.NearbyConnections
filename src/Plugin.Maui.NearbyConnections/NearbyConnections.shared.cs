@@ -9,7 +9,7 @@ public static class NearbyConnections
     /// Gets the default implementation of the <see cref="INearbyConnections"/> interface.
     /// </summary>
     public static INearbyConnections Current
-        => field ??= new NearbyConnectionsImplementation(new NearbyDeviceManager());
+        => field ??= new NearbyConnectionsImplementation(new NearbyDeviceManager(TimeProvider.System, new NearbyConnectionsEvents()), new NearbyConnectionsEvents());
 }
 
 internal sealed partial class NearbyConnectionsImplementation : INearbyConnections
@@ -23,13 +23,18 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
     Advertiser? _advertiser;
     Discoverer? _discoverer;
 
-    internal NearbyConnectionsImplementation(INearbyDeviceManager deviceManager)
+    public NearbyConnectionsEvents Events { get; }
+
+    internal NearbyConnectionsImplementation(INearbyDeviceManager deviceManager, NearbyConnectionsEvents events)
     {
+        ArgumentNullException.ThrowIfNull(deviceManager);
+        ArgumentNullException.ThrowIfNull(events);
+
         _deviceManager = deviceManager;
+        Events = events;
     }
 
     public IReadOnlyList<NearbyDevice> Devices => _deviceManager.Devices;
-    public NearbyConnectionsEvents Events { get; } = new();
     public NearbyConnectionsOptions Options { get; set; } = new();
 
     public string DisplayName

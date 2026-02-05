@@ -20,6 +20,15 @@ internal interface INearbyDeviceManager
     NearbyDevice DeviceFound(string id, string? displayName);
 
     /// <summary>
+    /// Gets on existing tracked device or adds a new one with the specified initial state.
+    /// </summary>
+    /// <param name="id">The unique device identifier.</param>
+    /// <param name="displayName">The user-friendly display name (used only when creating).</param>
+    /// <param name="initialState">The initial <see cref="NearbyDeviceState"/> for a newly added device.</param>
+    /// <returns></returns>
+    NearbyDevice GetOrAddDevice(string id, string? displayName, NearbyDeviceState initialState);
+
+    /// <summary>
     /// Removes a device that is no longer discoverable.
     /// </summary>
     /// <param name="id">The unique device identifier.</param>

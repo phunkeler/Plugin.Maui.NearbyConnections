@@ -3,8 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Messages;
-using NearbyChat.Models;
 using NearbyChat.Services;
+using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
@@ -39,6 +39,12 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
         _nearbyConnectionsService = nearbyConnectionsService;
 
         IsAdvertising = _nearbyConnectionsService.IsAdvertising;
+
+        foreach (var inbound in _nearbyConnectionsService.Devices.Where(d => d.State == NearbyDeviceState.ConnectionRequestedInbound))
+        {
+            AdvertisedDevices.Add(new AdvertisedDeviceViewModel(inbound, _nearbyConnectionsService));
+            UpdateRelativeTimeRefreshTimer();
+        }
     }
 
     [RelayCommand]
@@ -77,10 +83,11 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
     public void Receive(ConnectionRequestMessage message)
     {
         if (AdvertisedDevices.Any(d => d.Id == message.Value.Id))
+        {
             return;
+        }
 
-        var advertisedDevice = new AdvertisedDevice(message.Value, message.InvitedAt);
-        AdvertisedDevices.Add(new AdvertisedDeviceViewModel(advertisedDevice, _nearbyConnectionsService));
+        AdvertisedDevices.Add(new AdvertisedDeviceViewModel(message.Value, _nearbyConnectionsService));
         UpdateRelativeTimeRefreshTimer();
     }
 

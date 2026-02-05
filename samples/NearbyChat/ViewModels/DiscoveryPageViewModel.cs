@@ -1,15 +1,14 @@
+using Plugin.Maui.NearbyConnections;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Messages;
-using NearbyChat.Models;
 using NearbyChat.Services;
 
 namespace NearbyChat.ViewModels;
 
 public partial class DiscoveryPageViewModel : BasePageViewModel,
-    IRecipient<DiscoveringStateChangedMessage>,
     IRecipient<DeviceFoundMessage>,
     IRecipient<DeviceLostMessage>
 {
@@ -40,9 +39,13 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
 
         IsDiscovering = _nearbyConnectionsService.IsDiscovering;
 
-        foreach (var discovered in _nearbyConnectionsService.DiscoveredDevices)
+        foreach (var discovered in _nearbyConnectionsService.Devices.Where(d => d.State == NearbyDeviceState.Discovered))
         {
-            DiscoveredDevices.Add(new DiscoveredDeviceViewModel(discovered, _nearbyConnectionsService));
+            var vm = new DiscoveredDeviceViewModel(discovered, _nearbyConnectionsService)
+            {
+                IsActive = true,
+            };
+            DiscoveredDevices.Add(vm);
             UpdateRelativeTimeRefreshTimer();
         }
     }
@@ -75,16 +78,28 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
         }
     }
 
-    public void Receive(DiscoveringStateChangedMessage message)
-        => IsDiscovering = message.Value;
+    protected override void NavigatedFrom()
+    {
+        foreach (var device in DiscoveredDevices)
+        {
+            device.IsActive = false;
+        }
+
+        base.NavigatedFrom();
+    }
 
     public void Receive(DeviceFoundMessage message)
     {
         if (DiscoveredDevices.Any(d => d.Id == message.Value.Id))
+        {
             return;
+        }
 
-        var discoveredDevice = new DiscoveredDevice(message.Value, message.FoundAt);
-        DiscoveredDevices.Add(new DiscoveredDeviceViewModel(discoveredDevice, _nearbyConnectionsService));
+        var vm = new DiscoveredDeviceViewModel(message.Value, _nearbyConnectionsService)
+        {
+            IsActive = true,
+        };
+        DiscoveredDevices.Add(vm);
         UpdateRelativeTimeRefreshTimer();
     }
 
@@ -93,6 +108,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
         var device = DiscoveredDevices.FirstOrDefault(d => d.Id == message.Value.Id);
         if (device is not null)
         {
+            device.IsActive = false;
             DiscoveredDevices.Remove(device);
             UpdateRelativeTimeRefreshTimer();
         }

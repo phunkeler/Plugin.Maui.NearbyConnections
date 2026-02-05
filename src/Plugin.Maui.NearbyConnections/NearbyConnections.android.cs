@@ -25,7 +25,7 @@ internal sealed partial class NearbyConnectionsImplementation
 
     #region Advertising
 
-    internal void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
+    internal async void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
         Trace.WriteLine($"Connection initiated: EndpointId={endpointId}, EndpointName={connectionInfo.EndpointName}, IsIncomingConnection={connectionInfo.IsIncomingConnection}");
 
@@ -34,10 +34,16 @@ internal sealed partial class NearbyConnectionsImplementation
             : NearbyDeviceState.ConnectionRequestedOutbound;
 
         var device = _deviceManager.SetState(endpointId, state)
-            ?? _deviceManager.DeviceFound(endpointId, connectionInfo.EndpointName);
+            ?? _deviceManager.GetOrAddDevice(endpointId, connectionInfo.EndpointName, state);
 
-        device.State = state;
-        Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
+        if (connectionInfo.IsIncomingConnection)
+        {
+            Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
+        }
+        else
+        {
+            await PlatformRespondToConnectionAsync(device, accept: true);
+        }
     }
 
     internal void OnConnectionResult(string endpointId, ConnectionResolution resolution)

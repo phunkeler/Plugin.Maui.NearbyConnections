@@ -19,11 +19,14 @@ public static class MauiAppBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        builder.Services.TryAddSingleton<INearbyDeviceManager, NearbyDeviceManager>();
-        builder.Services.TryAddSingleton<INearbyConnections>(sp =>
+        builder.Services.TryAddSingleton(TimeProvider.System);
+        builder.Services.AddSingleton<NearbyConnectionsEvents>();
+        builder.Services.AddSingleton<INearbyDeviceManager, NearbyDeviceManager>();
+        builder.Services.AddSingleton<INearbyConnections>(sp =>
         {
             var deviceManager = sp.GetRequiredService<INearbyDeviceManager>();
-            var instance = new NearbyConnectionsImplementation(deviceManager);
+            var events = sp.GetRequiredService<NearbyConnectionsEvents>();
+            var instance = new NearbyConnectionsImplementation(deviceManager, events);
 
             var options = new NearbyConnectionsOptions();
             configureOptions?.Invoke(options);

@@ -1,16 +1,16 @@
 using CommunityToolkit.Mvvm.Input;
-using NearbyChat.Models;
 using NearbyChat.Services;
+using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
 public partial class AdvertisedDeviceViewModel(
-    AdvertisedDevice advertisedDevice,
-    INearbyConnectionsService nearbyConnectionsService) : NearbyDeviceViewModel(advertisedDevice.Device)
+    NearbyDevice device,
+    INearbyConnectionsService nearbyConnectionsService) : NearbyDeviceViewModel(device)
 {
-    public DateTimeOffset InvitedAt { get; } = advertisedDevice.InvitedAt.ToLocalTime();
+    public DateTimeOffset FoundAt { get; } = device.FoundAt;
 
-    public void RefreshRelativeTime() => OnPropertyChanged(nameof(InvitedAt));
+    public void RefreshRelativeTime() => OnPropertyChanged(nameof(FoundAt));
 
     [RelayCommand]
     async Task Accept()

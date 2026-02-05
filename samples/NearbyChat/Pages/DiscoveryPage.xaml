@@ -55,19 +55,23 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="DiscoveredDeviceViewModel">
                         <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
-                            <Grid RowDefinitions="*, *, Auto"
+                            <Grid RowDefinitions="*, *, *, Auto"
                                   RowSpacing="{StaticResource SpacingSM}">
                                 <Label
+                                    Grid.Row="0"
+                                    Text="{Binding State}"/>
+                                <Label
+                                    Grid.Row="1"
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardTitle}"
                                     Text="{Binding DisplayName}"/>
                                 <Label
-                                    Grid.Row="1"
+                                    Grid.Row="2"
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardSubtitle}"
                                     Text="{Binding FoundAt, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
                                 <Button
-                                    Grid.Row="2"
+                                    Grid.Row="3"
                                     HeightRequest="44"
                                     Text="Connect"
                                     Command="{Binding ConnectCommand}"

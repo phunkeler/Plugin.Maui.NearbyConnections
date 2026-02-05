@@ -9,11 +9,9 @@ namespace NearbyChat.Services;
 
 public interface INearbyConnectionsService : IDisposable
 {
+    IReadOnlyList<NearbyDevice> Devices { get; }
     bool IsAdvertising { get; }
     bool IsDiscovering { get; }
-
-    IReadOnlyCollection<AdvertisedDevice> AdvertisedDevices { get; }
-    IReadOnlyCollection<DiscoveredDevice> DiscoveredDevices { get; }
 
     Task StartAdvertisingAsync(CancellationToken cancellationToken = default);
     Task StopAdvertisingAsync(CancellationToken cancellationToken = default);
@@ -25,22 +23,14 @@ public interface INearbyConnectionsService : IDisposable
 
 public partial class NearbyConnectionsService : INearbyConnectionsService
 {
-    readonly List<AdvertisedDevice> _advertisedDevices = [];
-    readonly List<DiscoveredDevice> _discoveredDevices = [];
-
     readonly INearbyConnections _nearbyConnections;
     readonly IMessenger _messenger;
 
     bool _disposed;
 
+    public IReadOnlyList<NearbyDevice> Devices => _nearbyConnections.Devices;
     public bool IsAdvertising => _nearbyConnections.IsAdvertising;
     public bool IsDiscovering => _nearbyConnections.IsDiscovering;
-
-    public IReadOnlyCollection<AdvertisedDevice> AdvertisedDevices
-        => _advertisedDevices.AsReadOnly();
-
-    public IReadOnlyCollection<DiscoveredDevice> DiscoveredDevices
-        => _discoveredDevices.AsReadOnly();
 
     public NearbyConnectionsService(
         INearbyConnections nearbyConnections,
@@ -57,6 +47,7 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
         _nearbyConnections.Events.DeviceFound += OnDeviceFound;
         _nearbyConnections.Events.DeviceLost += OnDeviceLost;
         _nearbyConnections.Events.ConnectionRequested += OnConnectionRequested;
+        _nearbyConnections.Events.DeviceStateChanged += OnDeviceStateChanged;
     }
 
     public Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
@@ -82,38 +73,28 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
 
     void OnDeviceFound(object? sender, NearbyConnectionsEventArgs e)
     {
-        if (_discoveredDevices.Any(d => d.Device.Id == e.NearbyDevice.Id))
-            return;
-
-        _discoveredDevices.Add(new DiscoveredDevice(e.NearbyDevice, e.Timestamp));
         _messenger.Send(new DeviceFoundMessage(e.NearbyDevice, e.Timestamp));
     }
 
     void OnDeviceLost(object? sender, NearbyConnectionsEventArgs e)
     {
-        var discovered = _discoveredDevices.FirstOrDefault(d => d.Device.Id == e.NearbyDevice.Id);
-
-        if (discovered is not null)
-        {
-            _discoveredDevices.Remove(discovered);
-            _messenger.Send(new DeviceLostMessage(discovered.Device));
-        }
+        _messenger.Send(new DeviceLostMessage(e.NearbyDevice));
     }
 
     void OnConnectionRequested(object? sender, NearbyConnectionsEventArgs e)
     {
-        if (_advertisedDevices.Any(d => d.Device.Id == e.NearbyDevice.Id))
-            return;
-
-        _advertisedDevices.Add(new AdvertisedDevice(e.NearbyDevice, e.Timestamp));
         _messenger.Send(new ConnectionRequestMessage(e.NearbyDevice, e.Timestamp));
+    }
+
+    void OnDeviceStateChanged(object? sender, NearbyDeviceStateChangedEventArgs e)
+    {
+        _messenger.Send(new DeviceStateChangedMessage(e.NearbyDevice));
     }
 
     public Task RespondToConnectionAsync(NearbyDevice device, bool accept)
     {
         return _nearbyConnections.RespondToConnectionAsync(device, accept);
     }
-
 
     protected virtual void Dispose(bool disposing)
     {
@@ -128,6 +109,8 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
             _nearbyConnections.Events.DiscoveringStateChanged -= OnDiscoveringStateChanged;
             _nearbyConnections.Events.DeviceFound -= OnDeviceFound;
             _nearbyConnections.Events.DeviceLost -= OnDeviceLost;
+            _nearbyConnections.Events.ConnectionRequested -= OnConnectionRequested;
+            _nearbyConnections.Events.DeviceStateChanged -= OnDeviceStateChanged;
         }
 
         _disposed = true;

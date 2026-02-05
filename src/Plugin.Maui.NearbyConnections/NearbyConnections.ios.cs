@@ -57,9 +57,7 @@ internal sealed partial class NearbyConnectionsImplementation
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
         var device = _deviceManager.SetState(id, NearbyDeviceState.ConnectionRequestedInbound)
-            ?? _deviceManager.DeviceFound(id, peerID.DisplayName);
-
-        device.State = NearbyDeviceState.ConnectionRequestedInbound;
+            ?? _deviceManager.GetOrAddDevice(id, peerID.DisplayName, NearbyDeviceState.ConnectionRequestedInbound);
 
         Trace.WriteLine($"Received invitation from peer: Id={id}, DisplayName={peerID.DisplayName}");
         Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
