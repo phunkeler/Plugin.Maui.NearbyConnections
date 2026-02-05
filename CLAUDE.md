@@ -6,9 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a .NET MAUI plugin that provides peer-to-peer (P2P) connectivity with nearby devices by unifying Google's Nearby Connections (Android) and Apple's Multipeer Connectivity (iOS) capabilities. The project is in early development phase following an MVP-first approach.
 
-## Build System
+## Tech Stack
+- .NET 10 / C# (modern style)
+- .NET MAUI (Minimal APIs)
 
-- **Framework**: .NET 10.0 (`global.json:3`)
+## Build System
 - **Project Type**: Multi-targeted .NET MAUI plugin
 - **Target Frameworks**: `net10.0`, `net10.0-android`, `net10.0-ios` (`Directory.Build.props:3-8`)
 - **Solution File**: `Plugin.Maui.NearbyConnections.slnx` (Visual Studio solution)
@@ -88,3 +90,10 @@ This project follows an "Anti-Detail-Trap Strategy" focusing on shipping early a
 3. Polish & Growth (Weeks 9-12) - community adoption
 
 Priority is getting a working NuGet package published rather than building comprehensive features initially.
+
+## Key Documentation References
+- Coding Principles: @.claude/rules/coding-principles.md
+- .NET 10 Overview: @.claude/rules/dotnet-10-overview.md
+- MultipeerConnectivity API: @.claude/rules/multipeerconnectivity-api.md
+- MAUI .NET 10 What's New: @.claude/rules/maui-dotnet-10.md
+- MAUI Architecture Patterns: @.claude/rules/maui-architecture-patterns.md
