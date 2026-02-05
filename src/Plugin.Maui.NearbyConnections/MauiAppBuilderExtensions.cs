@@ -18,12 +18,20 @@ public static class MauiAppBuilderExtensions
         Action<NearbyConnectionsOptions>? configureOptions = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        IAppInfo appInfo = AppInfo.Current;
-        var options = new NearbyConnectionsOptions();
-        configureOptions?.Invoke(options);
-        NearbyConnections.Current.Options = options;
 
-        builder.Services.AddSingleton(NearbyConnections.Current);
+        builder.Services.TryAddSingleton<INearbyDeviceManager, NearbyDeviceManager>();
+        builder.Services.TryAddSingleton<INearbyConnections>(sp =>
+        {
+            var deviceManager = sp.GetRequiredService<INearbyDeviceManager>();
+            var instance = new NearbyConnectionsImplementation(deviceManager);
+
+            var options = new NearbyConnectionsOptions();
+            configureOptions?.Invoke(options);
+            instance.Options = options;
+
+            return instance;
+        });
+
         return builder;
     }
 }

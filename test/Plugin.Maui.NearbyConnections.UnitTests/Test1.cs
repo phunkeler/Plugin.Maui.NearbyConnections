@@ -7,7 +7,7 @@ public sealed class NearbyConnectionsTests : IDisposable
 
     public NearbyConnectionsTests()
     {
-        _sut = new NearbyConnectionsImplementation();
+        _sut = new NearbyConnectionsImplementation(new NearbyDeviceManager());
     }
 
     public void Dispose()

@@ -19,6 +19,11 @@ public sealed class NearbyDevice(
     public string? DisplayName { get; } = displayName;
 
     /// <summary>
+    /// Gets the current connection lifecycle state of the device.
+    /// </summary>
+    public NearbyDeviceState State { get; internal set; }
+
+    /// <summary>
     /// Determines whether the specified <see cref="NearbyDevice"/>
     /// is equal to the current object.
     /// </summary>

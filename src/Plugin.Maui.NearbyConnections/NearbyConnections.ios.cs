@@ -14,7 +14,7 @@ internal sealed partial class NearbyConnectionsImplementation
     {
         using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-        var device = new NearbyDevice(id, peerID.DisplayName);
+        var device = _deviceManager.DeviceFound(id, peerID.DisplayName);
 
         Trace.WriteLine($"Found peer: Id={id}, DisplayName={peerID.DisplayName}");
         Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
@@ -24,10 +24,13 @@ internal sealed partial class NearbyConnectionsImplementation
     {
         using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-        var device = new NearbyDevice(id, peerID.DisplayName);
 
         Trace.WriteLine($"Lost peer: Id={id}, DisplayName={peerID.DisplayName}");
-        Events.OnDeviceLost(device, TimeProvider.GetUtcNow());
+        var device = _deviceManager.DeviceLost(id);
+        if (device is not null)
+        {
+            Events.OnDeviceLost(device, TimeProvider.GetUtcNow());
+        }
     }
 
     #endregion Discovery
@@ -52,7 +55,11 @@ internal sealed partial class NearbyConnectionsImplementation
     {
         using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-        var device = new NearbyDevice(id, peerID.DisplayName);
+
+        var device = _deviceManager.SetState(id, NearbyDeviceState.ConnectionRequestedInbound)
+            ?? _deviceManager.DeviceFound(id, peerID.DisplayName);
+
+        device.State = NearbyDeviceState.ConnectionRequestedInbound;
 
         Trace.WriteLine($"Received invitation from peer: Id={id}, DisplayName={peerID.DisplayName}");
         Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
@@ -88,6 +95,8 @@ internal sealed partial class NearbyConnectionsImplementation
             };
         }
 
+        _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
+
         Trace.WriteLine($"Inviting peer: Id={device.Id}, DisplayName={peerID.DisplayName}");
         _discoverer.InvitePeer(peerID, _session, context: null, DefaultInvitationTimeout);
 
@@ -105,17 +114,24 @@ internal sealed partial class NearbyConnectionsImplementation
     {
         using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-        var device = new NearbyDevice(id, peerID.DisplayName);
 
         Trace.WriteLine($"Peer state changed: Id={id}, DisplayName={peerID.DisplayName}, State={state}");
 
         switch (state)
         {
             case MCSessionState.Connected:
-                Events.OnConnectionResponded(device, TimeProvider.GetUtcNow());
+                var connectedDevice = _deviceManager.SetState(id, NearbyDeviceState.Connected);
+                if (connectedDevice is not null)
+                {
+                    Events.OnConnectionResponded(connectedDevice, TimeProvider.GetUtcNow());
+                }
                 break;
             case MCSessionState.NotConnected:
-                Events.OnDeviceDisconnected(device, TimeProvider.GetUtcNow());
+                var disconnectedDevice = _deviceManager.DeviceDisconnected(id);
+                if (disconnectedDevice is not null)
+                {
+                    Events.OnDeviceDisconnected(disconnectedDevice, TimeProvider.GetUtcNow());
+                }
                 break;
             case MCSessionState.Connecting:
                 // Connection in progress - no event needed

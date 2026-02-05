@@ -7,15 +7,18 @@ internal sealed partial class NearbyConnectionsImplementation
     internal void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
         Trace.WriteLine($"Endpoint found: EndpointId={endpointId}, EndpointName={info.EndpointName}");
-        var device = new NearbyDevice(endpointId, info.EndpointName);
+        var device = _deviceManager.DeviceFound(endpointId, info.EndpointName);
         Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
     }
 
     internal void OnEndpointLost(string endpointId)
     {
         Trace.WriteLine($"Endpoint lost: EndpointId={endpointId}");
-        var device = new NearbyDevice(endpointId);
-        Events.OnDeviceLost(device, TimeProvider.GetUtcNow());
+        var device = _deviceManager.DeviceLost(endpointId);
+        if (device is not null)
+        {
+            Events.OnDeviceLost(device, TimeProvider.GetUtcNow());
+        }
     }
 
     #endregion Discovery
@@ -26,7 +29,14 @@ internal sealed partial class NearbyConnectionsImplementation
     {
         Trace.WriteLine($"Connection initiated: EndpointId={endpointId}, EndpointName={connectionInfo.EndpointName}, IsIncomingConnection={connectionInfo.IsIncomingConnection}");
 
-        var device = new NearbyDevice(endpointId, connectionInfo.EndpointName);
+        var state = connectionInfo.IsIncomingConnection
+            ? NearbyDeviceState.ConnectionRequestedInbound
+            : NearbyDeviceState.ConnectionRequestedOutbound;
+
+        var device = _deviceManager.SetState(endpointId, state)
+            ?? _deviceManager.DeviceFound(endpointId, connectionInfo.EndpointName);
+
+        device.State = state;
         Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
     }
 
@@ -34,16 +44,33 @@ internal sealed partial class NearbyConnectionsImplementation
     {
         Trace.WriteLine($"Connection result: EndpointId={endpointId}, StatusCode={resolution.Status.StatusCode}, StatusMessage={resolution.Status.StatusMessage ?? string.Empty}, IsSuccess={resolution.Status.IsSuccess}");
 
-        var device = new NearbyDevice(endpointId);
-        Events.OnConnectionResponded(device, TimeProvider.GetUtcNow());
+        if (resolution.Status.IsSuccess)
+        {
+            var device = _deviceManager.SetState(endpointId, NearbyDeviceState.Connected);
+            if (device is not null)
+            {
+                Events.OnConnectionResponded(device, TimeProvider.GetUtcNow());
+            }
+        }
+        else
+        {
+            var device = _deviceManager.SetState(endpointId, NearbyDeviceState.Discovered);
+            if (device is not null)
+            {
+                Events.OnConnectionResponded(device, TimeProvider.GetUtcNow());
+            }
+        }
     }
 
     internal void OnDisconnected(string endpointId)
     {
         Trace.WriteLine($"Disconnected from EndpointId={endpointId}");
 
-        var device = new NearbyDevice(endpointId);
-        Events.OnDeviceDisconnected(device, TimeProvider.GetUtcNow());
+        var device = _deviceManager.DeviceDisconnected(endpointId);
+        if (device is not null)
+        {
+            Events.OnDeviceDisconnected(device, TimeProvider.GetUtcNow());
+        }
     }
 
     #endregion Advertising
@@ -59,7 +86,10 @@ internal sealed partial class NearbyConnectionsImplementation
     }
 
     Task PlatformRequestConnectionAsync(NearbyDevice device)
-        => NearbyClass
+    {
+        _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
+
+        return NearbyClass
             .GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
             .RequestConnectionAsync(
                 DisplayName,
@@ -68,6 +98,7 @@ internal sealed partial class NearbyConnectionsImplementation
                     OnConnectionInitiated,
                     OnConnectionResult,
                     OnDisconnected));
+    }
 
     static Task PlatformRespondToConnectionAsync(NearbyDevice device, bool accept)
     {

@@ -6,6 +6,11 @@ namespace Plugin.Maui.NearbyConnections;
 public interface INearbyConnections : IDisposable
 {
     /// <summary>
+    /// Gets a read-only snapshot of all currently tracked nearby devices and their connection states.
+    /// </summary>
+    IReadOnlyList<NearbyDevice> Devices { get; }
+
+    /// <summary>
     /// Gets the events related to nearby connections.
     /// </summary>
     NearbyConnectionsEvents Events { get; }

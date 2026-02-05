@@ -9,12 +9,13 @@ public static class NearbyConnections
     /// Gets the default implementation of the <see cref="INearbyConnections"/> interface.
     /// </summary>
     public static INearbyConnections Current
-        => field ??= new NearbyConnectionsImplementation();
+        => field ??= new NearbyConnectionsImplementation(new NearbyDeviceManager());
 }
 
 internal sealed partial class NearbyConnectionsImplementation : INearbyConnections
 {
     internal TimeProvider TimeProvider { get; } = TimeProvider.System;
+    readonly INearbyDeviceManager _deviceManager;
     readonly SemaphoreSlim _advertiseSemaphore = new(initialCount: 1, maxCount: 1);
     readonly SemaphoreSlim _discoverSemaphore = new(initialCount: 1, maxCount: 1);
 
@@ -22,6 +23,12 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
     Advertiser? _advertiser;
     Discoverer? _discoverer;
 
+    internal NearbyConnectionsImplementation(INearbyDeviceManager deviceManager)
+    {
+        _deviceManager = deviceManager;
+    }
+
+    public IReadOnlyList<NearbyDevice> Devices => _deviceManager.Devices;
     public NearbyConnectionsEvents Events { get; } = new();
     public NearbyConnectionsOptions Options { get; set; } = new();
 
@@ -256,6 +263,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             _discoverer = null;
             _discoverSemaphore?.Dispose();
 
+            _deviceManager.Clear();
             Events.ClearAllHandlers();
         }
 
