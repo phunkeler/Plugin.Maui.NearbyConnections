@@ -1,8 +1,5 @@
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Messages;
-using NearbyChat.Models;
 using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.Services;
@@ -65,6 +62,9 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
     public Task RequestConnectionAsync(NearbyDevice device)
         => _nearbyConnections.RequestConnectionAsync(device);
 
+    public Task RespondToConnectionAsync(NearbyDevice device, bool accept)
+        => _nearbyConnections.RespondToConnectionAsync(device, accept);
+
     void OnAdvertisingStateChanged(object? sender, AdvertisingStateChangedEventArgs e)
         => _messenger.Send(new AdvertisingStateChangedMessage(e.IsAdvertising));
 
@@ -89,11 +89,6 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
     void OnDeviceStateChanged(object? sender, NearbyDeviceStateChangedEventArgs e)
     {
         _messenger.Send(new DeviceStateChangedMessage(e.NearbyDevice));
-    }
-
-    public Task RespondToConnectionAsync(NearbyDevice device, bool accept)
-    {
-        return _nearbyConnections.RespondToConnectionAsync(device, accept);
     }
 
     protected virtual void Dispose(bool disposing)

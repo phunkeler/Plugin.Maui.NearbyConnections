@@ -75,10 +75,18 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
         }
     }
 
-    public void Receive(AdvertisingStateChangedMessage message)
+    protected override void NavigatedFrom()
     {
-        IsAdvertising = message.Value;
+        foreach (var device in AdvertisedDevices)
+        {
+            device.IsActive = false;
+        }
+
+        base.NavigatedFrom();
     }
+
+    public void Receive(AdvertisingStateChangedMessage message)
+        => IsAdvertising = message.Value;
 
     public void Receive(ConnectionRequestMessage message)
     {

@@ -9,6 +9,7 @@ using NearbyChat.Services;
 namespace NearbyChat.ViewModels;
 
 public partial class DiscoveryPageViewModel : BasePageViewModel,
+    IRecipient<DiscoveringStateChangedMessage>,
     IRecipient<DeviceFoundMessage>,
     IRecipient<DeviceLostMessage>
 {
@@ -87,6 +88,9 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
 
         base.NavigatedFrom();
     }
+
+    public void Receive(DiscoveringStateChangedMessage message)
+        => IsDiscovering = message.Value;
 
     public void Receive(DeviceFoundMessage message)
     {
