@@ -42,7 +42,11 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
 
         foreach (var inbound in _nearbyConnectionsService.Devices.Where(d => d.State == NearbyDeviceState.ConnectionRequestedInbound))
         {
-            AdvertisedDevices.Add(new AdvertisedDeviceViewModel(inbound, _nearbyConnectionsService));
+            var vm = new AdvertisedDeviceViewModel(inbound, _nearbyConnectionsService)
+            {
+                IsActive = true,
+            };
+            AdvertisedDevices.Add(vm);
             UpdateRelativeTimeRefreshTimer();
         }
     }
@@ -95,7 +99,11 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
             return;
         }
 
-        AdvertisedDevices.Add(new AdvertisedDeviceViewModel(message.Value, _nearbyConnectionsService));
+        var vm = new AdvertisedDeviceViewModel(message.Value, _nearbyConnectionsService)
+        {
+            IsActive = true,
+        };
+        AdvertisedDevices.Add(vm);
         UpdateRelativeTimeRefreshTimer();
     }
 

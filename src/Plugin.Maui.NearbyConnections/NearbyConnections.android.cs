@@ -55,7 +55,7 @@ internal sealed partial class NearbyConnectionsImplementation
             var device = _deviceManager.SetState(endpointId, NearbyDeviceState.Connected);
             if (device is not null)
             {
-                Events.OnConnectionResponded(device, TimeProvider.GetUtcNow());
+                Events.OnConnectionResponded(device, TimeProvider.GetUtcNow(), true);
             }
         }
         else
@@ -63,7 +63,7 @@ internal sealed partial class NearbyConnectionsImplementation
             var device = _deviceManager.SetState(endpointId, NearbyDeviceState.Discovered);
             if (device is not null)
             {
-                Events.OnConnectionResponded(device, TimeProvider.GetUtcNow());
+                Events.OnConnectionResponded(device, TimeProvider.GetUtcNow(), false);
             }
         }
     }

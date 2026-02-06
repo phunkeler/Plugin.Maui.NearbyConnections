@@ -45,6 +45,7 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
         _nearbyConnections.Events.DeviceLost += OnDeviceLost;
         _nearbyConnections.Events.ConnectionRequested += OnConnectionRequested;
         _nearbyConnections.Events.DeviceStateChanged += OnDeviceStateChanged;
+        _nearbyConnections.Events.ConnectionResponded += OnConnectionResponded;
     }
 
     public Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
@@ -91,6 +92,10 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
         _messenger.Send(new DeviceStateChangedMessage(e.NearbyDevice));
     }
 
+    void OnConnectionResponded(object? sender, NearbyDeviceRespondedEventArgs e)
+        => _messenger.Send(new ConnectionResponseMessage(e.NearbyDevice, e.Accepted));
+
+
     protected virtual void Dispose(bool disposing)
     {
         if (_disposed)
@@ -106,6 +111,7 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
             _nearbyConnections.Events.DeviceLost -= OnDeviceLost;
             _nearbyConnections.Events.ConnectionRequested -= OnConnectionRequested;
             _nearbyConnections.Events.DeviceStateChanged -= OnDeviceStateChanged;
+            _nearbyConnections.Events.ConnectionResponded -= OnConnectionResponded;
         }
 
         _disposed = true;

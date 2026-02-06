@@ -38,7 +38,7 @@ public sealed class NearbyConnectionsEvents
     /// <summary>
     /// Event fired when a connection response is received from a nearby device.
     /// </summary>
-    public event EventHandler<NearbyConnectionsEventArgs>? ConnectionResponded;
+    public event EventHandler<NearbyDeviceRespondedEventArgs>? ConnectionResponded;
 
     /// <summary>
     /// Event fired when an operation fails.
@@ -62,8 +62,8 @@ public sealed class NearbyConnectionsEvents
     internal void OnConnectionRequested(NearbyDevice device, DateTimeOffset timeStamp)
         => ConnectionRequested?.Invoke(this, new NearbyConnectionsEventArgs(device, timeStamp));
 
-    internal void OnConnectionResponded(NearbyDevice device, DateTimeOffset timeStamp)
-        => ConnectionResponded?.Invoke(this, new NearbyConnectionsEventArgs(device, timeStamp));
+    internal void OnConnectionResponded(NearbyDevice device, DateTimeOffset timeStamp, bool accepted)
+        => ConnectionResponded?.Invoke(this, new NearbyDeviceRespondedEventArgs(device, timeStamp, accepted));
 
     internal void OnError(string operation, string errorMessage, DateTimeOffset timeStamp)
         => ErrorOccurred?.Invoke(this, new NearbyConnectionsErrorEventArgs(operation, errorMessage, timeStamp));

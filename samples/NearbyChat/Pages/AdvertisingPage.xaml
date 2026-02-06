@@ -55,22 +55,27 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="AdvertisedDeviceViewModel">
                         <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
-                            <Grid RowDefinitions="*, *, Auto"
+                            <Grid RowDefinitions="*, *, *, Auto"
                                   ColumnDefinitions="*, *"
                                   RowSpacing="{StaticResource SpacingSM}">
                                 <Label
+                                    Grid.Row="0"
+                                    Grid.ColumnSpan="2"
+                                    Text="{Binding State}"/>
+                                <Label
+                                    Grid.Row="1"
                                     HorizontalOptions="Start"
                                     Grid.ColumnSpan="2"
                                     Style="{StaticResource CardTitle}"
                                     Text="{Binding DisplayName}"/>
                                 <Label
-                                    Grid.Row="1"
+                                    Grid.Row="2"
                                     Grid.ColumnSpan="2"
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardSubtitle}"
                                     Text="{Binding FoundAt, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
                                 <Button
-                                    Grid.Row="2"
+                                    Grid.Row="3"
                                     Grid.Column="0"
                                     HeightRequest="44"
                                     Text="Decline"
@@ -81,7 +86,7 @@
                                     CornerRadius="12"
                                     FontSize="{StaticResource FontSizeSM}"/>
                                 <Button
-                                    Grid.Row="2"
+                                    Grid.Row="3"
                                     Grid.Column="1"
                                     HeightRequest="44"
                                     Text="Accept"
