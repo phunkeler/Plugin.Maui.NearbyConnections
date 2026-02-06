@@ -8,9 +8,9 @@ public partial class DiscoveredDeviceViewModel(
     NearbyDevice device,
     INearbyConnectionsService nearbyConnectionsService) : NearbyDeviceViewModel(device)
 {
-    public DateTimeOffset FoundAt { get; } = device.FoundAt;
+    public DateTimeOffset LastSeenAt { get; } = device.LastSeenAt;
 
-    public void RefreshRelativeTime() => OnPropertyChanged(nameof(FoundAt));
+    public void RefreshRelativeTime() => OnPropertyChanged(nameof(LastSeenAt));
 
     [RelayCommand]
     async Task Connect()

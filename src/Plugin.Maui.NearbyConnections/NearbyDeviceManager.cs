@@ -24,12 +24,12 @@ sealed class NearbyDeviceManager : INearbyDeviceManager
     {
         var device = _devices.GetOrAdd(id, _ => new NearbyDevice(id, displayName));
         SetState(id, NearbyDeviceState.Discovered);
-        device.FoundAt = _timeProvider.GetUtcNow();
+        device.LastSeenAt = _timeProvider.GetUtcNow();
         return device;
     }
 
     public NearbyDevice GetOrAddDevice(string id, string? displayName, NearbyDeviceState initialState)
-        => _devices.GetOrAdd(id, _ => new NearbyDevice(id, displayName) { State = initialState, FoundAt = _timeProvider.GetUtcNow() });
+        => _devices.GetOrAdd(id, _ => new NearbyDevice(id, displayName) { State = initialState, LastSeenAt = _timeProvider.GetUtcNow() });
 
     public NearbyDevice? DeviceLost(string id)
         => _devices.TryRemove(id, out var device) ? device : null;

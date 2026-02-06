@@ -24,9 +24,9 @@ public sealed class NearbyDevice(
     public NearbyDeviceState State { get; internal set; }
 
     /// <summary>
-    /// Gets the timestamp when the nearby device was first found.
+    /// Gets the timestamp when the nearby device was last seen.
     /// </summary>
-    public DateTimeOffset FoundAt { get; internal set; }
+    public DateTimeOffset LastSeenAt { get; internal set; }
 
     /// <summary>
     /// Determines whether the specified <see cref="NearbyDevice"/>
