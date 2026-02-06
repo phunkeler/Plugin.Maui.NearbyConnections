@@ -1,38 +1,37 @@
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
-internal sealed partial class Advertiser
+sealed partial class Advertiser
 {
     readonly NearbyConnectionsImplementation _nearbyConnections;
 
     bool _disposed;
-    bool _isAdvertising;
 
-    internal Advertiser(NearbyConnectionsImplementation nearbyConnections)
+    public Advertiser(NearbyConnectionsImplementation nearbyConnections)
     {
         ArgumentNullException.ThrowIfNull(nearbyConnections);
 
         _nearbyConnections = nearbyConnections;
     }
 
-    internal bool IsAdvertising
+    public bool IsAdvertising
     {
-        get => _isAdvertising;
+        get;
         private set
         {
-            if (_isAdvertising != value)
+            if (field != value)
             {
-                _isAdvertising = value;
+                field = value;
                 _nearbyConnections.Events.OnAdvertisingStateChanged(value, _nearbyConnections.TimeProvider.GetUtcNow());
             }
         }
     }
 
-    internal Task StartAdvertisingAsync(string displayName)
+    public Task StartAdvertisingAsync(string displayName)
         => PlatformStartAdvertising(displayName);
 
-    internal void StopAdvertising()
+    public void StopAdvertising()
         => PlatformStopAdvertising();
 
-    internal void OnAdvertisingFailed()
+    public void OnAdvertisingFailed()
         => IsAdvertising = false;
 }

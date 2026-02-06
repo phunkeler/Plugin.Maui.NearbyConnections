@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-/// <inheritdoc />
+/// <inheritdoc cref="INearbyDeviceManager"/>
 sealed class NearbyDeviceManager : INearbyDeviceManager
 {
     readonly TimeProvider _timeProvider;

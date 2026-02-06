@@ -1,38 +1,37 @@
 namespace Plugin.Maui.NearbyConnections.Discover;
 
-internal sealed partial class Discoverer
+sealed partial class Discoverer
 {
     readonly NearbyConnectionsImplementation _nearbyConnections;
 
     bool _disposed;
-    bool _isDiscovering;
 
-    internal Discoverer(NearbyConnectionsImplementation nearbyConnections)
+    public Discoverer(NearbyConnectionsImplementation nearbyConnections)
     {
         ArgumentNullException.ThrowIfNull(nearbyConnections);
 
         _nearbyConnections = nearbyConnections;
     }
 
-    internal bool IsDiscovering
+    public bool IsDiscovering
     {
-        get => _isDiscovering;
+        get;
         private set
         {
-            if (_isDiscovering != value)
+            if (field != value)
             {
-                _isDiscovering = value;
+                field = value;
                 _nearbyConnections.Events.OnDiscoveringStateChanged(value, _nearbyConnections.TimeProvider.GetUtcNow());
             }
         }
     }
 
-    internal Task StartDiscoveringAsync()
+    public Task StartDiscoveringAsync()
         => PlatformStartDiscovering();
 
-    internal void StopDiscovering()
+    public void StopDiscovering()
         => PlatformStopDiscovering();
 
-    internal void OnDiscoveryFailed()
+    public void OnDiscoveryFailed()
         => IsDiscovering = false;
 }

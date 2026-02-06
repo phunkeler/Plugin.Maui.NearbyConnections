@@ -121,7 +121,7 @@ internal sealed partial class NearbyConnectionsImplementation
                 var connectedDevice = _deviceManager.SetState(id, NearbyDeviceState.Connected);
                 if (connectedDevice is not null)
                 {
-                    Events.OnConnectionResponded(connectedDevice, TimeProvider.GetUtcNow());
+                    Events.OnConnectionResponded(connectedDevice, TimeProvider.GetUtcNow(), true);
                 }
                 break;
             case MCSessionState.NotConnected:
