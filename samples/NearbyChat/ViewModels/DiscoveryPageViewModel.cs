@@ -15,6 +15,8 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
 {
     readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
+    readonly INearbyDeviceViewModelFactory _nearbyDeviceViewModelFactory;
+
     IDispatcherTimer? _relativeTimeRefreshTimer;
 
     [ObservableProperty]
@@ -30,23 +32,24 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
         IDispatcher dispatcher,
         IMessenger messenger,
         INavigationService navigationService,
-        INearbyConnectionsService nearbyConnectionsService)
+        INearbyConnectionsService nearbyConnectionsService,
+        INearbyDeviceViewModelFactory nearbyDeviceViewModelFactory)
         : base(dispatcher, messenger)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
+        ArgumentNullException.ThrowIfNull(nearbyDeviceViewModelFactory);
 
         _navigationService = navigationService;
         _nearbyConnectionsService = nearbyConnectionsService;
+        _nearbyDeviceViewModelFactory = nearbyDeviceViewModelFactory;
 
         IsDiscovering = _nearbyConnectionsService.IsDiscovering;
 
         foreach (var discovered in _nearbyConnectionsService.Devices.Where(d => d.State == NearbyDeviceState.Discovered))
         {
-            var vm = new DiscoveredDeviceViewModel(discovered, _nearbyConnectionsService)
-            {
-                IsActive = true,
-            };
+            var vm = _nearbyDeviceViewModelFactory.CreateDiscoverer(discovered);
+            vm.IsActive = true;
             DiscoveredDevices.Add(vm);
             UpdateRelativeTimeRefreshTimer();
         }
@@ -93,31 +96,31 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
     public async void Receive(DiscoveringStateChangedMessage message)
         => await Dispatcher.DispatchAsync(() => IsDiscovering = message.Value);
 
-    public void Receive(DeviceFoundMessage message)
-    {
-        if (DiscoveredDevices.Any(d => d.Id == message.Value.Id))
+    public async void Receive(DeviceFoundMessage message)
+        => await Dispatcher.DispatchAsync(() =>
         {
-            return;
-        }
+            if (DiscoveredDevices.Any(d => d.Id == message.Value.Id))
+            {
+                return;
+            }
 
-        var vm = new DiscoveredDeviceViewModel(message.Value, _nearbyConnectionsService)
-        {
-            IsActive = true,
-        };
-        DiscoveredDevices.Add(vm);
-        UpdateRelativeTimeRefreshTimer();
-    }
-
-    public void Receive(DeviceLostMessage message)
-    {
-        var device = DiscoveredDevices.FirstOrDefault(d => d.Id == message.Value.Id);
-        if (device is not null)
-        {
-            device.IsActive = false;
-            DiscoveredDevices.Remove(device);
+            var vm = _nearbyDeviceViewModelFactory.CreateDiscoverer(message.Value);
+            vm.IsActive = true;
+            DiscoveredDevices.Add(vm);
             UpdateRelativeTimeRefreshTimer();
-        }
-    }
+        });
+
+    public async void Receive(DeviceLostMessage message)
+        => await Dispatcher.DispatchAsync(() =>
+        {
+            var device = DiscoveredDevices.FirstOrDefault(d => d.Id == message.Value.Id);
+            if (device is not null)
+            {
+                device.IsActive = false;
+                DiscoveredDevices.Remove(device);
+                UpdateRelativeTimeRefreshTimer();
+            }
+        });
 
     bool CanToggleDiscovery() => !IsBusy;
 
@@ -135,7 +138,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
 
     void StartRelativeTimeRefreshTimer()
     {
-        _relativeTimeRefreshTimer = Application.Current!.Dispatcher.CreateTimer();
+        _relativeTimeRefreshTimer = Dispatcher.CreateTimer();
         _relativeTimeRefreshTimer.Interval = TimeSpan.FromSeconds(30);
         _relativeTimeRefreshTimer.Tick += OnRelativeTimeRefreshTimerTick;
         _relativeTimeRefreshTimer.Start();

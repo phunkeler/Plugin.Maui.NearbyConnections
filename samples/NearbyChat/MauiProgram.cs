@@ -42,6 +42,7 @@ public static class MauiProgram
             return Application.Current?.Dispatcher ?? throw new InvalidOperationException("Dispatcher is not available.");
         });
         builder.Services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
+        builder.Services.AddSingleton<INearbyDeviceViewModelFactory, NearbyDeviceViewModelFactory>();
         builder.Services.AddSingleton<AvatarRepository>();
         builder.Services.AddSingleton<UserRepository>();
         builder.Services.AddSingleton<ISeedDataService, SeedDataService>();

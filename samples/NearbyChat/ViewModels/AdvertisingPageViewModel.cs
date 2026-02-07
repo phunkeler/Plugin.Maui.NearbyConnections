@@ -15,6 +15,8 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
 {
     readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
+    readonly INearbyDeviceViewModelFactory _nearbyDeviceViewModelFactory;
+
     IDispatcherTimer? _relativeTimeRefreshTimer;
 
     [ObservableProperty]
@@ -30,23 +32,24 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
         IDispatcher dispatcher,
         IMessenger messenger,
         INavigationService navigationService,
-        INearbyConnectionsService nearbyConnectionsService)
+        INearbyConnectionsService nearbyConnectionsService,
+        INearbyDeviceViewModelFactory nearbyDeviceViewModelFactory)
         : base(dispatcher, messenger)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
+        ArgumentNullException.ThrowIfNull(nearbyDeviceViewModelFactory);
 
         _navigationService = navigationService;
         _nearbyConnectionsService = nearbyConnectionsService;
+        _nearbyDeviceViewModelFactory = nearbyDeviceViewModelFactory;
 
         IsAdvertising = _nearbyConnectionsService.IsAdvertising;
 
         foreach (var inbound in _nearbyConnectionsService.Devices.Where(d => d.State == NearbyDeviceState.ConnectionRequestedInbound))
         {
-            var vm = new AdvertisedDeviceViewModel(inbound, _nearbyConnectionsService)
-            {
-                IsActive = true,
-            };
+            var vm = _nearbyDeviceViewModelFactory.CreateAdvertiser(inbound);
+            vm.IsActive = true;
             AdvertisedDevices.Add(vm);
             UpdateRelativeTimeRefreshTimer();
         }
@@ -93,27 +96,26 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
     public async void Receive(AdvertisingStateChangedMessage message)
         => await Dispatcher.DispatchAsync(() => IsAdvertising = message.Value);
 
-    public void Receive(ConnectionRequestMessage message)
-    {
-        if (AdvertisedDevices.Any(d => d.Id == message.Value.Id))
+    public async void Receive(ConnectionRequestMessage message)
+        => await Dispatcher.DispatchAsync(() =>
+         {
+             if (AdvertisedDevices.Any(d => d.Id == message.Value.Id))
+             {
+                 return;
+             }
+
+             var vm = _nearbyDeviceViewModelFactory.CreateAdvertiser(message.Value);
+             vm.IsActive = true;
+             AdvertisedDevices.Add(vm);
+             UpdateRelativeTimeRefreshTimer();
+         });
+
+
+    public async void Receive(ConnectionResponseMessage message)
+        => await Dispatcher.DispatchAsync(() =>
         {
-            return;
-        }
 
-        var vm = new AdvertisedDeviceViewModel(message.Value, _nearbyConnectionsService)
-        {
-            IsActive = true,
-        };
-        AdvertisedDevices.Add(vm);
-        UpdateRelativeTimeRefreshTimer();
-    }
-
-    public void Receive(ConnectionResponseMessage message)
-    {
-
-    }
-
-
+        });
 
     bool CanToggleAdvertising() => !IsBusy;
 
@@ -131,7 +133,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
 
     void StartRelativeTimeRefreshTimer()
     {
-        _relativeTimeRefreshTimer = Application.Current!.Dispatcher.CreateTimer();
+        _relativeTimeRefreshTimer = Dispatcher.CreateTimer();
         _relativeTimeRefreshTimer.Interval = TimeSpan.FromSeconds(30);
         _relativeTimeRefreshTimer.Tick += OnRelativeTimeRefreshTimerTick;
         _relativeTimeRefreshTimer.Start();

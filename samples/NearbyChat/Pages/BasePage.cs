@@ -15,8 +15,8 @@ public abstract class BasePage<TViewModel>(TViewModel viewModel) : BasePage(view
 
     protected override void OnNavigatedFrom(NavigatedFromEventArgs args)
     {
-        base.OnNavigatedFrom(args);
         BindingContext.NavigatedFromCommand.Execute(null);
+        base.OnNavigatedFrom(args);
     }
 }
 
