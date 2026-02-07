@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
-internal sealed partial class Advertiser : Java.Lang.Object
+sealed partial class Advertiser : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
@@ -67,17 +67,13 @@ internal sealed partial class Advertiser : Java.Lang.Object
         Action<string, ConnectionResolution> onConnectionResult,
         Action<string> onDisconnected) : ConnectionLifecycleCallback
     {
-        readonly Action<string, ConnectionInfo> _onConnectionInitiated = onConnectionInitiated;
-        readonly Action<string, ConnectionResolution> _onConnectionResult = onConnectionResult;
-        readonly Action<string> _onDisconnected = onDisconnected;
-
         public override void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
-            => _onConnectionInitiated(endpointId, connectionInfo);
+            => onConnectionInitiated(endpointId, connectionInfo);
 
         public override void OnConnectionResult(string endpointId, ConnectionResolution resolution)
-            => _onConnectionResult(endpointId, resolution);
+            => onConnectionResult(endpointId, resolution);
 
         public override void OnDisconnected(string endpointId)
-            => _onDisconnected(endpointId);
+            => onDisconnected(endpointId);
     }
 }

@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
-internal sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
+sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
 {
     MCNearbyServiceAdvertiser? _advertiser;
 

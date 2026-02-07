@@ -21,10 +21,11 @@ public partial class MainPageViewModel : BasePageViewModel,
     public partial bool IsDiscovering { get; set; }
 
     public MainPageViewModel(
+        IDispatcher dispatcher,
         IMessenger messenger,
         AppShell appShell,
         INearbyConnectionsService nearbyConnectionsService)
-        : base(messenger)
+        : base(dispatcher, messenger)
     {
         ArgumentNullException.ThrowIfNull(appShell);
         ArgumentNullException.ThrowIfNull(nearbyConnectionsService);

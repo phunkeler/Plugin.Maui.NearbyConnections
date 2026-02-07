@@ -4,9 +4,13 @@ using CommunityToolkit.Mvvm.Messaging;
 
 namespace NearbyChat.ViewModels;
 
-public abstract partial class BasePageViewModel(IMessenger messenger)
+public abstract partial class BasePageViewModel(
+    IDispatcher dispatcher,
+    IMessenger messenger)
     : ObservableRecipient(messenger)
 {
+    protected IDispatcher Dispatcher { get; } = dispatcher;
+
     [RelayCommand]
     protected virtual void NavigatedTo()
     {

@@ -27,10 +27,11 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
     public ObservableCollection<AdvertisedDeviceViewModel> AdvertisedDevices { get; } = [];
 
     public AdvertisingPageViewModel(
+        IDispatcher dispatcher,
         IMessenger messenger,
         INavigationService navigationService,
         INearbyConnectionsService nearbyConnectionsService)
-        : base(messenger)
+        : base(dispatcher, messenger)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
@@ -89,8 +90,8 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
         base.NavigatedFrom();
     }
 
-    public void Receive(AdvertisingStateChangedMessage message)
-        => IsAdvertising = message.Value;
+    public async void Receive(AdvertisingStateChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => IsAdvertising = message.Value);
 
     public void Receive(ConnectionRequestMessage message)
     {

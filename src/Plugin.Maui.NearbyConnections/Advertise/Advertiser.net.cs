@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections.Advertise;
 
-internal sealed partial class Advertiser : IDisposable
+sealed partial class Advertiser : IDisposable
 {
     Task PlatformStartAdvertising(string displayName)
         => throw new NotImplementedException("Platform-specific advertising start logic must be implemented.");

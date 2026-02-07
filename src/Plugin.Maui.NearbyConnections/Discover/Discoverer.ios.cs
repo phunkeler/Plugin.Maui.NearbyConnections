@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections.Discover;
 
-internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
+sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
 {
     MCNearbyServiceBrowser? _browser;
 
@@ -73,7 +73,7 @@ internal sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDele
     /// <param name="session">The session to join.</param>
     /// <param name="context">Optional context data to send with the invitation.</param>
     /// <param name="timeout">The timeout in seconds for the invitation.</param>
-    internal void InvitePeer(MCPeerID peerID, MCSession session, NSData? context, double timeout)
+    public void InvitePeer(MCPeerID peerID, MCSession session, NSData? context, double timeout)
     {
         if (_browser is null)
         {

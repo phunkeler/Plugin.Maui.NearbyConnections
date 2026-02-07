@@ -4,8 +4,10 @@ namespace NearbyChat.ViewModels;
 
 public partial class ConnectionsPageViewModel : BasePageViewModel
 {
-    public ConnectionsPageViewModel(IMessenger messenger)
-        : base(messenger)
+    public ConnectionsPageViewModel(
+        IDispatcher dispatcher,
+        IMessenger messenger)
+        : base(dispatcher, messenger)
     {
     }
 }

@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections.Discover;
 
-internal sealed partial class Discoverer : Java.Lang.Object
+sealed partial class Discoverer : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
@@ -58,13 +58,10 @@ internal sealed partial class Discoverer : Java.Lang.Object
         Action<string, DiscoveredEndpointInfo> onEndpointFound,
         Action<string> onEndpointLost) : EndpointDiscoveryCallback
     {
-        readonly Action<string, DiscoveredEndpointInfo> _onEndpointFound = onEndpointFound;
-        readonly Action<string> _onEndpointLost = onEndpointLost;
-
         public override void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
-            => _onEndpointFound(endpointId, info);
+            => onEndpointFound(endpointId, info);
 
         public override void OnEndpointLost(string endpointId)
-            => _onEndpointLost(endpointId);
+            => onEndpointLost(endpointId);
     }
 }

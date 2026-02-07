@@ -27,10 +27,11 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
     public ObservableCollection<DiscoveredDeviceViewModel> DiscoveredDevices { get; } = [];
 
     public DiscoveryPageViewModel(
+        IDispatcher dispatcher,
         IMessenger messenger,
         INavigationService navigationService,
         INearbyConnectionsService nearbyConnectionsService)
-        : base(messenger)
+        : base(dispatcher, messenger)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
@@ -89,8 +90,8 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
         base.NavigatedFrom();
     }
 
-    public void Receive(DiscoveringStateChangedMessage message)
-        => IsDiscovering = message.Value;
+    public async void Receive(DiscoveringStateChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => IsDiscovering = message.Value);
 
     public void Receive(DeviceFoundMessage message)
     {

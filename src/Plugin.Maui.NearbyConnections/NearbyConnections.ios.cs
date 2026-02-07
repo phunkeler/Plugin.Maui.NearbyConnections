@@ -147,10 +147,8 @@ internal sealed partial class NearbyConnectionsImplementation
 
     sealed class SessionDelegate(NearbyConnectionsImplementation nearbyConnections) : NSObject, IMCSessionDelegate
     {
-        readonly NearbyConnectionsImplementation _nearbyConnections = nearbyConnections;
-
         public void DidChangeState(MCSession session, MCPeerID peerID, MCSessionState state)
-            => _nearbyConnections.OnPeerStateChanged(peerID, state);
+            => nearbyConnections.OnPeerStateChanged(peerID, state);
 
         public void DidReceiveData(MCSession session, NSData data, MCPeerID peerID)
             => OnDataReceived(data, peerID);
