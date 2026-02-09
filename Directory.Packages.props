@@ -2,7 +2,7 @@
 
   <!-- Library -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.Maui.Core" Version="10.0.30" />
+    <PackageVersion Include="Microsoft.Maui.Core" Version="10.0.31" />
     <PackageVersion Include="Xamarin.GooglePlayServices.Nearby" Version="119.3.0.7" />
   </ItemGroup>
 
