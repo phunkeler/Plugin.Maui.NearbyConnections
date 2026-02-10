@@ -7,6 +7,7 @@ public interface INearbyDeviceViewModelFactory
 {
     AdvertisedDeviceViewModel CreateAdvertiser(NearbyDevice device);
     DiscoveredDeviceViewModel CreateDiscoverer(NearbyDevice device);
+    ConnectedDeviceViewModel CreateConnected(NearbyDevice device);
 }
 
 public class NearbyDeviceViewModelFactory(
@@ -17,5 +18,8 @@ public class NearbyDeviceViewModelFactory(
         => new(device, nearbyConnectionsService, dispatcher);
 
     public DiscoveredDeviceViewModel CreateDiscoverer(NearbyDevice device)
+        => new(device, nearbyConnectionsService, dispatcher);
+
+    public ConnectedDeviceViewModel CreateConnected(NearbyDevice device)
         => new(device, nearbyConnectionsService, dispatcher);
 }

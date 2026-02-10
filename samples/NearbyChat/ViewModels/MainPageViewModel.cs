@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using NearbyChat.Extensions;
 using NearbyChat.Messages;
 using NearbyChat.Services;
 
@@ -11,7 +10,7 @@ public partial class MainPageViewModel : BasePageViewModel,
     IRecipient<AdvertisingStateChangedMessage>,
     IRecipient<DiscoveringStateChangedMessage>
 {
-    readonly AppShell _appShell;
+    readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
 
     [ObservableProperty]
@@ -23,14 +22,14 @@ public partial class MainPageViewModel : BasePageViewModel,
     public MainPageViewModel(
         IDispatcher dispatcher,
         IMessenger messenger,
-        AppShell appShell,
+        INavigationService navigationService,
         INearbyConnectionsService nearbyConnectionsService)
         : base(dispatcher, messenger)
     {
-        ArgumentNullException.ThrowIfNull(appShell);
+        ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
 
-        _appShell = appShell;
+        _navigationService = navigationService;
         _nearbyConnectionsService = nearbyConnectionsService;
     }
 
@@ -42,24 +41,20 @@ public partial class MainPageViewModel : BasePageViewModel,
     }
 
     [RelayCommand]
-    async Task NavigateToAdvertising()
-        => await _appShell.GoToAsync<AdvertisingPageViewModel>();
+    Task NavigateToAdvertising()
+        => _navigationService.GoToAsync<AdvertisingPageViewModel>();
 
     [RelayCommand]
-    async Task NavigateToDiscovery()
-        => await _appShell.GoToAsync<DiscoveryPageViewModel>();
+    Task NavigateToDiscovery()
+        => _navigationService.GoToAsync<DiscoveryPageViewModel>();
 
     [RelayCommand]
-    async Task NavigateToConnections()
-        => await _appShell.GoToAsync<ConnectionsPageViewModel>();
+    Task NavigateToConnections()
+        => _navigationService.GoToAsync<ConnectionsPageViewModel>();
 
     public void Receive(AdvertisingStateChangedMessage message)
-    {
-        IsAdvertising = message.Value;
-    }
+        => IsAdvertising = message.Value;
 
     public void Receive(DiscoveringStateChangedMessage message)
-    {
-        IsDiscovering = message.Value;
-    }
+        => IsDiscovering = message.Value;
 }

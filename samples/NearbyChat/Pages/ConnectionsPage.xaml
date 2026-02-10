@@ -7,11 +7,72 @@
     x:DataType="ConnectionsPageViewModel">
 
     <BasePage.Content>
-        <VerticalStackLayout>
-            <Label
-                Text="Welcome to .NET MAUI!"
-                VerticalOptions="Center"
-                HorizontalOptions="Center"/>
-        </VerticalStackLayout>
+        <Grid RowDefinitions="Auto,*"
+              RowSpacing="{StaticResource SpacingXL}"
+              Margin="{StaticResource SpacingXL}">
+            <Button Text="Back"
+                    Command="{Binding BackCommand}"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Start"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                    FontAttributes="Bold"
+                    BorderWidth="1"
+                    BorderColor="{AppThemeBinding Light=Black, Dark=Gray}"
+                    CornerRadius="12"
+                    FontSize="{StaticResource FontSizeMD}"/>
+
+            <CollectionView
+                Margin="0,-8,0,0"
+                Grid.Row="2"
+                ItemsSource="{Binding ConnectedDevices}"
+                VerticalScrollBarVisibility="Never"
+                HorizontalScrollBarVisibility="Never">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="ConnectedDeviceViewModel">
+                        <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
+                            <Grid ColumnDefinitions="Auto, *"
+                                  ColumnSpacing="{StaticResource SpacingLG}"
+                                  RowSpacing="{StaticResource SpacingLG}"
+                                  RowDefinitions="*, Auto">
+                                <FeatureIconBadge Grid.RowSpan="2"
+                                                  Style="{StaticResource FeatureIconBadgeConnectionsStyle}"/>
+                                <Label
+                                    Grid.Column="1"
+                                    HorizontalOptions="Start"
+                                    Style="{StaticResource CardTitle}"
+                                    Text="{Binding DisplayName}"/>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout Spacing="{StaticResource SpacingLG}">
+                        <Image
+                            x:Name="MessageIcon"
+                            WidthRequest="56"
+                            HeightRequest="56">
+                            <Image.Source>
+                                <FontImageSource x:Name="MessageIconSource"
+                                                 FontFamily="NearbyChatIcons"
+                                                 Glyph="{StaticResource icon-message}"
+                                                 Color="{StaticResource AccentConnections}"/>
+                            </Image.Source>
+                        </Image>
+                        <Label
+                            TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                            Text="Active Connections"
+                            FontSize="{StaticResource FontSizeMD}"
+                            HorizontalTextAlignment="Center">
+                        </Label>
+                        <Label
+                            TextColor="{AppThemeBinding Light={StaticResource LightTextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                            Text="No active connections yet"
+                            HorizontalTextAlignment="Center">
+                        </Label>
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+            </CollectionView>
+        </Grid>
     </BasePage.Content>
 </BasePage>

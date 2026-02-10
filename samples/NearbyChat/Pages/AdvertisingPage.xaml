@@ -22,7 +22,7 @@
                     TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
                     FontAttributes="Bold"
                     BorderWidth="1"
-                    BorderColor="{AppThemeBinding Light=Black, Dark=Gray}}"
+                    BorderColor="{AppThemeBinding Light=Black, Dark=Gray}"
                     CornerRadius="12"
                     FontSize="{StaticResource FontSizeMD}"/>
             <FeatureControlCard
