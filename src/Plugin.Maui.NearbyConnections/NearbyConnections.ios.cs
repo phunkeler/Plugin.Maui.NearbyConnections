@@ -93,7 +93,7 @@ internal sealed partial class NearbyConnectionsImplementation
         // Create or get session
         if (_session is null)
         {
-            var myPeerId = MyMCPeerIDManager.GetPeerId(Options.ServiceId)
+            var myPeerId = MyMCPeerIDManager.GetPeerId(Options.DisplayName)
                 ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
             _session = new MCSession(myPeerId)
@@ -123,7 +123,7 @@ internal sealed partial class NearbyConnectionsImplementation
         // Create or reuse session (same pattern as PlatformRequestConnectionAsync)
         if (_session is null)
         {
-            var myPeerId = MyMCPeerIDManager.GetPeerId(Options.ServiceId)
+            var myPeerId = MyMCPeerIDManager.GetPeerId(Options.DisplayName)
                 ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
             _session = new MCSession(myPeerId)

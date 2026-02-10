@@ -31,14 +31,14 @@ sealed partial class Advertiser : Java.Lang.Object
     void OnDisconnected(string endpointId)
         => _nearbyConnections.OnDisconnected(endpointId);
 
-    async Task PlatformStartAdvertising(string displayName)
+    async Task PlatformStartAdvertising()
     {
         var options = _nearbyConnections.Options;
 
         _connectionClient ??= NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
         await _connectionClient.StartAdvertisingAsync(
-            displayName,
+            options.DisplayName,
             options.ServiceId,
             new AdvertiseCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected),
             new AdvertisingOptions.Builder()

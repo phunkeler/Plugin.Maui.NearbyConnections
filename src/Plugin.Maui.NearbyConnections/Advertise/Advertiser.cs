@@ -26,8 +26,8 @@ sealed partial class Advertiser
         }
     }
 
-    public Task StartAdvertisingAsync(string displayName)
-        => PlatformStartAdvertising(displayName);
+    public Task StartAdvertisingAsync()
+        => PlatformStartAdvertising();
 
     public void StopAdvertising()
         => PlatformStopAdvertising();

@@ -21,13 +21,6 @@ public interface INearbyConnections : IDisposable
     NearbyConnectionsOptions Options { get; set; }
 
     /// <summary>
-    /// Gets or sets the display name shown to nearby devices during advertising.
-    /// Can be changed between advertising sessions.
-    /// Changes take effect on next <see cref="StartAdvertisingAsync"/> call.
-    /// </summary>
-    string DisplayName { get; set; }
-
-    /// <summary>
     /// Gets a value indicating whether this device is currently advertising to nearby devices.
     /// </summary>
     bool IsAdvertising { get; }

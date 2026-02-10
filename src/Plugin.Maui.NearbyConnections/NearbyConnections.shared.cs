@@ -37,16 +37,6 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
     public IReadOnlyList<NearbyDevice> Devices => _deviceManager.Devices;
     public NearbyConnectionsOptions Options { get; set; } = new();
 
-    public string DisplayName
-    {
-        get;
-        set
-        {
-            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(value));
-            field = value;
-        }
-    } = DeviceInfo.Current.Name;
-
     public bool IsAdvertising => _advertiser?.IsAdvertising ?? false;
 
     public bool IsDiscovering => _discoverer?.IsDiscovering ?? false;
@@ -64,11 +54,11 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             await _advertiseSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            Trace.WriteLine($"Starting advertising with ServiceId={Options.ServiceId}, DisplayName={DisplayName}");
+            Trace.WriteLine($"Starting advertising with ServiceId={Options.ServiceId}, DisplayName={Options.DisplayName}");
 
             // Create advertiser if needed (kept alive for reuse on Android)
             _advertiser ??= new Advertiser(this);
-            await _advertiser.StartAdvertisingAsync(DisplayName);
+            await _advertiser.StartAdvertisingAsync();
             cancellationToken.ThrowIfCancellationRequested();
             Trace.WriteLine("Advertising started successfully.");
         }
@@ -82,7 +72,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             _advertiser?.StopAdvertising();
 
             throw new NearbyAdvertisingException(
-                DisplayName,
+                Options.DisplayName,
                 Options,
                 $"Failed to start advertising.",
                 ex);
@@ -167,7 +157,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             _advertiser?.StopAdvertising();
 
             throw new NearbyAdvertisingException(
-                DisplayName,
+                Options.DisplayName,
                 Options,
                 "Failed stopping advertising.",
                 ex);

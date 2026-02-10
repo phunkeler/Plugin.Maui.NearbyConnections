@@ -6,6 +6,19 @@ namespace Plugin.Maui.NearbyConnections;
 public sealed partial class NearbyConnectionsOptions
 {
     /// <summary>
+    /// Gets or sets the display name for this device when advertising and connecting with nearby devices.
+    /// </summary>
+    public string DisplayName
+    {
+        get => field;
+        set
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(DisplayName));
+            field = value;
+        }
+    } = DeviceInfo.Current.Name;
+
+    /// <summary>
     /// Gets or sets the service identifer used to discover and connect with nearby devices.
     /// The default value is the application name (e.g., <see href="https://learn.microsoft.com/en-us/dotnet/api/microsoft.maui.applicationmodel.iappinfo.name">Microsoft.Maui.ApplicationModel.IAppInfo.Name</see>).
     /// </summary>

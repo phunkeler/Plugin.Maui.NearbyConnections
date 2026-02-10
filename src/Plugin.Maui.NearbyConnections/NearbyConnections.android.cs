@@ -128,7 +128,7 @@ sealed partial class NearbyConnectionsImplementation
         return NearbyClass
             .GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
             .RequestConnectionAsync(
-                DisplayName,
+                Options.DisplayName,
                 device.Id,
                 new ConnectionRequestCallback(
                     OnConnectionInitiated,
