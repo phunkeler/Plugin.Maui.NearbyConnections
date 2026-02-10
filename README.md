@@ -12,7 +12,6 @@
 </div>
 <h1>
 </h1>
-</br>
 
 <div align="center">
   <div>
@@ -48,10 +47,11 @@
 
 # Dependencies
 
-| Dependency | iOS | Android | .NET |
-| --- | --- | --- | --- |
-| [Microsoft.Maui.Core](https://www.nuget.org/packages/Microsoft.Maui.Core) | ✓ | ✓ | ✓ |
-| [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) | | ✓ | |
+| Dependency | Android | iOS | .NET |
+| --- | :---: | :---: | :---: |
+| [Microsoft.Extensions.DependencyInjection.Abstractions]() | ✅ | ✅  | ✅  |
+| [Microsoft.Maui.Essentials](https://www.nuget.org/packages/Microsoft.Maui.Essentials) | ✅  | ✅  | ✅  |
+| [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) | ✅ | | |
 
 # Getting Started
 `Plugin.Maui.NearbyConnections` is ~~available~~ on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)

@@ -7,6 +7,7 @@
     <RootNamespace>NearbyChat</RootNamespace>
     <UseMaui>true</UseMaui>
     <SingleProject>true</SingleProject>
+    <PublishTrimmed>true</PublishTrimmed>
 
     <ApplicationTitle>NearbyChat</ApplicationTitle>
     <ApplicationId>com.phunkeler.nearbychat</ApplicationId>
@@ -28,6 +29,8 @@
     <MauiImage Include="..\..\.assets\nuget.svg" />
     <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     <MauiFont Include="Resources\Fonts\*" />
+
+    <TrimmerRootAssembly Include="Plugin.Maui.NearbyConnections" RootMode="all" />
   </ItemGroup>
 
   <ItemGroup>

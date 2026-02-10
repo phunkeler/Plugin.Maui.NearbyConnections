@@ -56,10 +56,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
     }
 
     [RelayCommand]
-    async Task Back()
-    {
-        await _navigationService.GoBackAsync();
-    }
+    Task Back() => _navigationService.GoBackAsync();
 
     [RelayCommand(CanExecute = nameof(CanToggleDiscovery))]
     async Task ToggleDiscovery(CancellationToken cancellationToken)

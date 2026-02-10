@@ -6,6 +6,8 @@ internal sealed partial class NearbyConnectionsImplementation
 
     internal MyPeerIdManager MyMCPeerIDManager { get; } = new();
 
+    readonly ConcurrentDictionary<string, MCNearbyServiceAdvertiserInvitationHandler> _pendingInvitations = new();
+
     MCSession? _session;
 
     #region Discovery
@@ -47,7 +49,7 @@ internal sealed partial class NearbyConnectionsImplementation
             TimeProvider.GetUtcNow());
     }
 
-    internal void DidReceiveInvitationFromPeer(
+    internal async void DidReceiveInvitationFromPeer(
         MCNearbyServiceAdvertiser advertiser,
         MCPeerID peerID,
         NSData? context,
@@ -59,8 +61,15 @@ internal sealed partial class NearbyConnectionsImplementation
         var device = _deviceManager.SetState(id, NearbyDeviceState.ConnectionRequestedInbound)
             ?? _deviceManager.GetOrAddDevice(id, peerID.DisplayName, NearbyDeviceState.ConnectionRequestedInbound);
 
+        _pendingInvitations.TryAdd(id, invitationHandler);
+
         Trace.WriteLine($"Received invitation from peer: Id={id}, DisplayName={peerID.DisplayName}");
         Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
+
+        if (Options.AutoAcceptConnections)
+        {
+            await PlatformRespondToConnectionAsync(device, accept: true);
+        }
     }
 
     #endregion Advertising
@@ -103,7 +112,34 @@ internal sealed partial class NearbyConnectionsImplementation
 
     Task PlatformRespondToConnectionAsync(NearbyDevice device, bool accept)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(device);
+
+        if (!_pendingInvitations.TryRemove(device.Id, out var invitationHandler))
+        {
+            throw new InvalidOperationException(
+                $"No pending invitation found for device: {device.DisplayName}");
+        }
+
+        // Create or reuse session (same pattern as PlatformRequestConnectionAsync)
+        if (_session is null)
+        {
+            var myPeerId = MyMCPeerIDManager.GetPeerId(Options.ServiceId)
+                ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
+
+            _session = new MCSession(myPeerId)
+            {
+                Delegate = new SessionDelegate(this)
+            };
+        }
+
+        invitationHandler(accept, accept ? _session : null);
+
+        if (!accept)
+        {
+            _deviceManager.SetState(device.Id, NearbyDeviceState.Discovered);
+        }
+
+        return Task.CompletedTask;
     }
 
     #region Session Callbacks

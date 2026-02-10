@@ -10,8 +10,6 @@ public partial class DiscoveredDeviceViewModel(
     IDispatcher dispatcher) : NearbyDeviceViewModel(device, nearbyConnectionsService, dispatcher)
 {
     [RelayCommand]
-    async Task Connect()
-    {
-        await NearbyConnectionsService.RequestConnectionAsync(Device);
-    }
+    Task Connect()
+        => NearbyConnectionsService.RequestConnectionAsync(Device);
 }

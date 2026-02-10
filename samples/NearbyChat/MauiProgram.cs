@@ -20,11 +20,12 @@ public static class MauiProgram
             {
                 fonts.AddFont("NearbyChatIcons.ttf", "NearbyChatIcons");
             })
-            .UseMauiCommunityToolkit()
-            .AddNearbyConnections(options =>
-            {
-                options.AutoAcceptConnections = false;
-            });
+            .UseMauiCommunityToolkit();
+
+        builder.Services.AddNearbyConnections(options =>
+        {
+            options.AutoAcceptConnections = false;
+        });
 
 #if DEBUG
         builder.Logging.AddDebug();
@@ -37,7 +38,7 @@ public static class MauiProgram
 
         builder.Services.AddSingleton(FileSystem.Current);
         builder.Services.AddSingleton<AppShell>();
-        builder.Services.AddSingleton(provider =>
+        builder.Services.AddSingleton(_ =>
         {
             return Application.Current?.Dispatcher ?? throw new InvalidOperationException("Dispatcher is not available.");
         });

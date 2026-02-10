@@ -1,12 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<TargetFrameworks>$(MobileTargetFrameworks);$(NetVersion)</TargetFrameworks>
-    <UseMaui>true</UseMaui>
 		<SingleProject>true</SingleProject>
+    <IsTrimmable>true</IsTrimmable>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Maui.Core" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+		<PackageReference Include="Microsoft.Maui.Essentials" />
     <PackageReference Include="Xamarin.GooglePlayServices.Nearby" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
 
     <InternalsVisibleTo Include="Plugin.Maui.NearbyConnections.UnitTests" />

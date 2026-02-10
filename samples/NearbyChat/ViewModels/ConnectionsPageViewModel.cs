@@ -2,12 +2,8 @@ using CommunityToolkit.Mvvm.Messaging;
 
 namespace NearbyChat.ViewModels;
 
-public partial class ConnectionsPageViewModel : BasePageViewModel
+public partial class ConnectionsPageViewModel(
+    IDispatcher dispatcher,
+    IMessenger messenger) : BasePageViewModel(dispatcher, messenger)
 {
-    public ConnectionsPageViewModel(
-        IDispatcher dispatcher,
-        IMessenger messenger)
-        : base(dispatcher, messenger)
-    {
-    }
 }

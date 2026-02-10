@@ -220,11 +220,11 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
         }
     }
 
-    public async Task RequestConnectionAsync(NearbyDevice device)
-        => await PlatformRequestConnectionAsync(device);
+    public Task RequestConnectionAsync(NearbyDevice device)
+        => PlatformRequestConnectionAsync(device);
 
-    public async Task RespondToConnectionAsync(NearbyDevice device, bool accept)
-        => await PlatformRespondToConnectionAsync(device, accept);
+    public Task RespondToConnectionAsync(NearbyDevice device, bool accept)
+        => PlatformRespondToConnectionAsync(device, accept);
 
     public void Dispose(bool disposing)
     {

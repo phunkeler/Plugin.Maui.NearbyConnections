@@ -11,7 +11,8 @@ namespace NearbyChat.ViewModels;
 public partial class AdvertisingPageViewModel : BasePageViewModel,
     IRecipient<AdvertisingStateChangedMessage>,
     IRecipient<ConnectionRequestMessage>,
-    IRecipient<ConnectionResponseMessage>
+    IRecipient<ConnectionResponseMessage>,
+    IRecipient<DeviceLostMessage>
 {
     readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
@@ -56,10 +57,8 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
     }
 
     [RelayCommand]
-    async Task Back()
-    {
-        await _navigationService.GoBackAsync();
-    }
+    Task Back()
+        => _navigationService.GoBackAsync();
 
     [RelayCommand(CanExecute = nameof(CanToggleAdvertising))]
     async Task ToggleAdvertising(CancellationToken cancellationToken)
@@ -110,6 +109,18 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
              UpdateRelativeTimeRefreshTimer();
          });
 
+    public async void Receive(DeviceLostMessage message)
+        => await Dispatcher.DispatchAsync(() =>
+        {
+            var device = AdvertisedDevices.FirstOrDefault(d => d.Id == message.Value.Id);
+
+            if (device is not null)
+            {
+                device.IsActive = false;
+                AdvertisedDevices.Remove(device);
+                UpdateRelativeTimeRefreshTimer();
+            }
+        });
 
     public async void Receive(ConnectionResponseMessage message)
         => await Dispatcher.DispatchAsync(() =>

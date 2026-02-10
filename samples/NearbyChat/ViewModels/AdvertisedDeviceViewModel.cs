@@ -10,14 +10,10 @@ public partial class AdvertisedDeviceViewModel(
     IDispatcher dispatcher) : NearbyDeviceViewModel(device, nearbyConnectionsService, dispatcher)
 {
     [RelayCommand]
-    async Task Accept()
-    {
-        await NearbyConnectionsService.RespondToConnectionAsync(Device, true);
-    }
+    Task Accept()
+        => NearbyConnectionsService.RespondToConnectionAsync(Device, true);
 
     [RelayCommand]
-    async Task Decline()
-    {
-        await NearbyConnectionsService.RespondToConnectionAsync(Device, false);
-    }
+    Task Decline()
+        => NearbyConnectionsService.RespondToConnectionAsync(Device, false);
 }

@@ -3,7 +3,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <summary>
 /// Manages the collection and lifecycle state of nearby devices.
 /// </summary>
-internal interface INearbyDeviceManager
+interface INearbyDeviceManager
 {
     /// <summary>
     /// Gets a snapshot of all currently tracked devices.

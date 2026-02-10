@@ -4,15 +4,29 @@ sealed partial class Discoverer : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
-    void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
+    protected override void Dispose(bool disposing)
     {
-        _nearbyConnections?.OnEndpointFound(endpointId, info);
+        if (!_disposed)
+        {
+            _disposed = true;
+
+            if (disposing)
+            {
+                _connectionClient?.StopDiscovery();
+                _connectionClient?.Dispose();
+                _connectionClient = null;
+                IsDiscovering = false;
+            }
+        }
+
+        base.Dispose(disposing);
     }
 
+    void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
+        => _nearbyConnections.OnEndpointFound(endpointId, info);
+
     void OnEndpointLost(string endpointId)
-    {
-        _nearbyConnections?.OnEndpointLost(endpointId);
-    }
+        => _nearbyConnections?.OnEndpointLost(endpointId);
 
     async Task PlatformStartDiscovering()
     {
@@ -34,24 +48,6 @@ sealed partial class Discoverer : Java.Lang.Object
     {
         _connectionClient?.StopDiscovery();
         IsDiscovering = false;
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (!_disposed)
-        {
-            _disposed = true;
-
-            if (disposing)
-            {
-                _connectionClient?.StopDiscovery();
-                _connectionClient?.Dispose();
-                _connectionClient = null;
-                IsDiscovering = false;
-            }
-        }
-
-        base.Dispose(disposing);
     }
 
     sealed class DiscoveryCallback(

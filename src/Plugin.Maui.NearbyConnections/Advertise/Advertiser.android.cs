@@ -4,20 +4,32 @@ sealed partial class Advertiser : Java.Lang.Object
 {
     IConnectionsClient? _connectionClient;
 
-    void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
+    protected override void Dispose(bool disposing)
     {
-        _nearbyConnections.OnConnectionInitiated(endpointId, connectionInfo);
+        if (!_disposed)
+        {
+            _disposed = true;
+
+            if (disposing)
+            {
+                _connectionClient?.StopAdvertising();
+                _connectionClient?.Dispose();
+                _connectionClient = null;
+                IsAdvertising = false;
+            }
+        }
+
+        base.Dispose(disposing);
     }
+
+    void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
+        => _nearbyConnections.OnConnectionInitiated(endpointId, connectionInfo);
 
     void OnConnectionResult(string endpointId, ConnectionResolution resolution)
-    {
-        _nearbyConnections.OnConnectionResult(endpointId, resolution);
-    }
+        => _nearbyConnections.OnConnectionResult(endpointId, resolution);
 
     void OnDisconnected(string endpointId)
-    {
-        _nearbyConnections.OnDisconnected(endpointId);
-    }
+        => _nearbyConnections.OnDisconnected(endpointId);
 
     async Task PlatformStartAdvertising(string displayName)
     {
@@ -42,24 +54,6 @@ sealed partial class Advertiser : Java.Lang.Object
     {
         _connectionClient?.StopAdvertising();
         IsAdvertising = false;
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (!_disposed)
-        {
-            _disposed = true;
-
-            if (disposing)
-            {
-                _connectionClient?.StopAdvertising();
-                _connectionClient?.Dispose();
-                _connectionClient = null;
-                IsAdvertising = false;
-            }
-        }
-
-        base.Dispose(disposing);
     }
 
     sealed class AdvertiseCallback(
