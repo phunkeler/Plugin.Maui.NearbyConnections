@@ -1,7 +1,8 @@
 <BottomSheet x:Class="NearbyChat.Controls.ChatBottomSheet"
              ShowHeader="True"
-             States="Medium"
+             States="Medium, Large"
              CornerRadius="24"
+             IsDraggable="False"
              x:DataType="ChatViewModel"
              Margin="{StaticResource SpacingXL}">
     <BottomSheet.Header>
@@ -23,13 +24,56 @@
     </BottomSheet.Header>
     <BottomSheet.Content>
         <BottomSheetContent>
-            <BottomSheetContent.ContentTemplate>
-                <DataTemplate x:DataType="ChatViewModel">
-                    <Grid RowDefinitions="*, Auto">
+            <Grid RowDefinitions="*, Auto">
+                <CollectionView ItemsSource="{Binding Messages}"
+                                ItemsUpdatingScrollMode="KeepLastItemInView"
+                                Background="Transparent">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical"
+                                           ItemSpacing="4"/>
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="ChatMessage">
+                            <Grid>
+                                <Border x:Name="Bubble"
+                                        StrokeThickness="0"
+                                        Padding="6"
+                                        MaximumWidthRequest="520"
+                                        Background="#F1F1F1"
+                                        HorizontalOptions="Start"
+                                        StrokeShape="RoundRectangle 14">
+                                    <VerticalStackLayout Spacing="4">
+                                        <Label x:Name="MessageText"
+                                               Text="{Binding Text}"
+                                               TextColor="#222"
+                                               LineBreakMode="WordWrap"/>
+                                        <Label Text="{Binding Timestamp, StringFormat='{0:t}'}"
+                                               FontSize="10"
+                                               TextColor="#888"
+                                               HorizontalTextAlignment="End"/>
+                                    </VerticalStackLayout>
+                                    <Border.Triggers>
+                                        <!-- User messages: right aligned, accent background -->
+                                        <DataTrigger TargetType="Border"
+                                                     Binding="{Binding From}"
+                                                     Value="Me">
+                                            <Setter Property="HorizontalOptions"
+                                                    Value="End"/>
+                                            <Setter Property="Background"
+                                                    Value="#D1E8FF"/>
+                                        </DataTrigger>
+                                    </Border.Triggers>
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
 
-                    </Grid>
-                </DataTemplate>
-            </BottomSheetContent.ContentTemplate>
+                <Entry Grid.Row="1"
+                       HeightRequest="44"
+                       Placeholder="Type a message..."
+                       BackgroundColor="#F1F1F1"/>
+            </Grid>
         </BottomSheetContent>
     </BottomSheet.Content>
 </BottomSheet>

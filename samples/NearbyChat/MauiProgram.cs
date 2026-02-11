@@ -56,8 +56,7 @@ public static class MauiProgram
 
         builder.Services.AddBottomSheet<ChatBottomSheet, ChatViewModel>(nameof(ChatViewModel), (sheet, _) =>
         {
-            sheet.States = [BottomSheetState.Medium];
-            sheet.CurrentState = BottomSheetState.Medium;
+
         });
 
         return builder.Build();
