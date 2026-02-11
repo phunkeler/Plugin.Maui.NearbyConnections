@@ -14,6 +14,7 @@
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.30" />
+    <PackageVersion Include="Plugin.Maui.BottomSheet" Version="10.0.6" />
   </ItemGroup>
 
   <!-- Unit Tests -->

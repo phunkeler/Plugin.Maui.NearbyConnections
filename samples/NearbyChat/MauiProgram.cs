@@ -2,10 +2,12 @@
 using CommunityToolkit.Maui;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
-using NearbyChat.Data;
+using NearbyChat.Controls;
 using NearbyChat.Pages;
 using NearbyChat.Services;
 using NearbyChat.ViewModels;
+using Plugin.BottomSheet;
+using Plugin.Maui.BottomSheet.Hosting;
 using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat;
@@ -20,7 +22,8 @@ public static class MauiProgram
             {
                 fonts.AddFont("NearbyChatIcons.ttf", "NearbyChatIcons");
             })
-            .UseMauiCommunityToolkit();
+            .UseMauiCommunityToolkit()
+            .UseBottomSheet();
 
         builder.Services.AddNearbyConnections(options =>
         {
@@ -44,16 +47,18 @@ public static class MauiProgram
         });
         builder.Services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
         builder.Services.AddSingleton<INearbyDeviceViewModelFactory, NearbyDeviceViewModelFactory>();
-        builder.Services.AddSingleton<AvatarRepository>();
-        builder.Services.AddSingleton<UserRepository>();
-        builder.Services.AddSingleton<ISeedDataService, SeedDataService>();
-        builder.Services.AddSingleton<IUserService, UserService>();
         builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<INearbyConnectionsService, NearbyConnectionsService>();
         builder.Services.AddTransientWithShellRoute<MainPage, MainPageViewModel>();
         builder.Services.AddTransientWithShellRoute<AdvertisingPage, AdvertisingPageViewModel>();
         builder.Services.AddTransientWithShellRoute<DiscoveryPage, DiscoveryPageViewModel>();
         builder.Services.AddTransientWithShellRoute<ConnectionsPage, ConnectionsPageViewModel>();
+
+        builder.Services.AddBottomSheet<ChatBottomSheet, ChatViewModel>(nameof(ChatViewModel), (sheet, _) =>
+        {
+            sheet.States = [BottomSheetState.Medium];
+            sheet.CurrentState = BottomSheetState.Medium;
+        });
 
         return builder.Build();
     }

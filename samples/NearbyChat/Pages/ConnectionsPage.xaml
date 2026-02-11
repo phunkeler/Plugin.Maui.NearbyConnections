@@ -35,13 +35,23 @@
                                   ColumnSpacing="{StaticResource SpacingLG}"
                                   RowSpacing="{StaticResource SpacingLG}"
                                   RowDefinitions="*, Auto">
-                                <FeatureIconBadge Grid.RowSpan="2"
-                                                  Style="{StaticResource FeatureIconBadgeConnectionsStyle}"/>
+                                <FeatureIconBadge
+                                    Style="{StaticResource FeatureIconBadgeConnectionsStyle}"/>
                                 <Label
                                     Grid.Column="1"
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardTitle}"
                                     Text="{Binding DisplayName}"/>
+                                <Button Text="Chat"
+                                        Grid.Row="1"
+                                        Grid.ColumnSpan="2"
+                                        HeightRequest="44"
+                                        Command="{Binding ChatCommand}"
+                                        BackgroundColor="{StaticResource AccentDiscovery}"
+                                        TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                        FontAttributes="Bold"
+                                        CornerRadius="12"
+                                        FontSize="{StaticResource FontSizeSM}"/>
                             </Grid>
                         </Border>
                     </DataTemplate>

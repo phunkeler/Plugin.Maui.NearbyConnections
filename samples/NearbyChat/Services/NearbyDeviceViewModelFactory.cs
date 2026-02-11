@@ -1,4 +1,5 @@
 using NearbyChat.ViewModels;
+using Plugin.Maui.BottomSheet.Navigation;
 using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.Services;
@@ -12,7 +13,8 @@ public interface INearbyDeviceViewModelFactory
 
 public class NearbyDeviceViewModelFactory(
     IDispatcher dispatcher,
-    INearbyConnectionsService nearbyConnectionsService) : INearbyDeviceViewModelFactory
+    INearbyConnectionsService nearbyConnectionsService,
+    IBottomSheetNavigationService bottomSheetNavigationService) : INearbyDeviceViewModelFactory
 {
     public AdvertisedDeviceViewModel CreateAdvertiser(NearbyDevice device)
         => new(device, nearbyConnectionsService, dispatcher);
@@ -21,5 +23,5 @@ public class NearbyDeviceViewModelFactory(
         => new(device, nearbyConnectionsService, dispatcher);
 
     public ConnectedDeviceViewModel CreateConnected(NearbyDevice device)
-        => new(device, nearbyConnectionsService, dispatcher);
+        => new(device, nearbyConnectionsService, dispatcher, bottomSheetNavigationService);
 }

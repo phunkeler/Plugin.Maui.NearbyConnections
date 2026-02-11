@@ -1,0 +1,35 @@
+<BottomSheet x:Class="NearbyChat.Controls.ChatBottomSheet"
+             ShowHeader="True"
+             States="Medium"
+             CornerRadius="24"
+             x:DataType="ChatViewModel"
+             Margin="{StaticResource SpacingXL}">
+    <BottomSheet.Header>
+        <BottomSheetHeader
+            ShowCloseButton="True">
+            <ContentView>
+                <VerticalStackLayout Spacing="{StaticResource SpacingLG}">
+                    <Grid>
+                        <Label Text="{Binding Device.DisplayName}"
+                               HorizontalOptions="Start"
+                               Style="{StaticResource CardTitle}"/>
+                    </Grid>
+                    <BoxView HeightRequest="1"
+                             VerticalOptions="End"
+                             BackgroundColor="Grey"/>
+                </VerticalStackLayout>
+            </ContentView>
+        </BottomSheetHeader>
+    </BottomSheet.Header>
+    <BottomSheet.Content>
+        <BottomSheetContent>
+            <BottomSheetContent.ContentTemplate>
+                <DataTemplate x:DataType="ChatViewModel">
+                    <Grid RowDefinitions="*, Auto">
+
+                    </Grid>
+                </DataTemplate>
+            </BottomSheetContent.ContentTemplate>
+        </BottomSheetContent>
+    </BottomSheet.Content>
+</BottomSheet>
