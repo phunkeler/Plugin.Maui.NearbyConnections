@@ -1,3 +1,4 @@
+using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Messages;
 using Plugin.Maui.NearbyConnections;
@@ -16,6 +17,7 @@ public interface INearbyConnectionsService : IDisposable
     Task StopDiscoveryAsync(CancellationToken cancellationToken = default);
     Task RequestConnectionAsync(NearbyDevice device);
     Task RespondToConnectionAsync(NearbyDevice device, bool accept);
+    Task SendMessage(NearbyDevice device, string message);
 }
 
 public partial class NearbyConnectionsService : INearbyConnectionsService
@@ -47,6 +49,7 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
         _nearbyConnections.Events.DeviceStateChanged += OnDeviceStateChanged;
         _nearbyConnections.Events.ConnectionResponded += OnConnectionResponded;
         _nearbyConnections.Events.DeviceDisconnected += OnDeviceDisconnected;
+        _nearbyConnections.Events.DataReceived += OnDataReceived;
     }
 
     public Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
@@ -66,6 +69,11 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
 
     public Task RespondToConnectionAsync(NearbyDevice device, bool accept)
         => _nearbyConnections.RespondToConnectionAsync(device, accept);
+
+    public Task SendMessage(NearbyDevice device, string message)
+    {
+        return _nearbyConnections.SendAsync(device, new BytesPayload(Encoding.Unicode.GetBytes(message)));
+    }
 
     void OnAdvertisingStateChanged(object? sender, AdvertisingStateChangedEventArgs e)
         => _messenger.Send(new AdvertisingStateChangedMessage(e.IsAdvertising));
@@ -99,6 +107,10 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
     void OnDeviceDisconnected(object? sender, NearbyConnectionsEventArgs e)
         => _messenger.Send(new DeviceDisconnectedMessage(e.NearbyDevice));
 
+    void OnDataReceived(object? sender, DataReceivedEventArgs e)
+        => _messenger.Send(new DataReceivedMessage(e.NearbyDevice, e.Timestamp, e.Payload));
+
+
     protected virtual void Dispose(bool disposing)
     {
         if (_disposed)
@@ -116,6 +128,7 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
             _nearbyConnections.Events.DeviceStateChanged -= OnDeviceStateChanged;
             _nearbyConnections.Events.ConnectionResponded -= OnConnectionResponded;
             _nearbyConnections.Events.DeviceDisconnected -= OnDeviceDisconnected;
+            _nearbyConnections.Events.DataReceived -= OnDataReceived;
         }
 
         _disposed = true;

@@ -72,4 +72,27 @@ public interface INearbyConnections : IDisposable
     /// <param name="accept"><see langword="true"/> to accept the connection; <see langword="false"/> to decline.</param>
     /// <returns>A task that represents the asynchronous operation of responding to the connection request.</returns>
     Task RespondToConnectionAsync(NearbyDevice device, bool accept);
+
+    /// <summary>
+    /// Sends a payload to a connected nearby device.
+    /// </summary>
+    /// <param name="device">The connected device to send data to.</param>
+    /// <param name="payload">
+    /// The data to send. Use <see cref="BytesPayload"/> for small messages (≤32 KB on Android),
+    /// <see cref="FilePayload"/> for large files, or <see cref="StreamPayload"/> for live/generated data.
+    /// </param>
+    /// <param name="progress">
+    /// An optional callback to receive outgoing transfer progress updates.
+    /// For byte payloads this will typically report a single <see cref="NearbyTransferStatus.Success"/>.
+    /// </param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that completes when the transfer is fully enqueued or finished.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown if the device is not in the <see cref="NearbyDeviceState.Connected"/> state.
+    /// </exception>
+    Task SendAsync(
+        NearbyDevice device,
+        NearbyPayload payload,
+        IProgress<NearbyTransferProgress>? progress = null,
+        CancellationToken cancellationToken = default);
 }

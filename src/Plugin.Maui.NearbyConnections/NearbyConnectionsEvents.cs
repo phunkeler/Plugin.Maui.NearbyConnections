@@ -50,6 +50,17 @@ public sealed class NearbyConnectionsEvents
     /// </summary>
     public event EventHandler<NearbyDeviceStateChangedEventArgs>? DeviceStateChanged;
 
+    /// <summary>
+    /// Event fired when data is received from a connected nearby device.
+    /// </summary>
+    public event EventHandler<DataReceivedEventArgs>? DataReceived;
+
+    /// <summary>
+    /// Event fired to report progress on an incoming transfer.
+    /// Not raised for <see cref="BytesPayload"/> transfers, which complete atomically.
+    /// </summary>
+    public event EventHandler<DataTransferProgressEventArgs>? IncomingTransferProgress;
+
     internal void OnDeviceFound(NearbyDevice device, DateTimeOffset timeStamp)
         => DeviceFound?.Invoke(this, new NearbyConnectionsEventArgs(device, timeStamp));
 
@@ -81,6 +92,12 @@ public sealed class NearbyConnectionsEvents
         => DeviceStateChanged?.Invoke(this,
             new NearbyDeviceStateChangedEventArgs(device, timeStamp, previousState));
 
+    internal void OnDataReceived(NearbyDevice device, NearbyPayload payload, DateTimeOffset timeStamp)
+        => DataReceived?.Invoke(this, new DataReceivedEventArgs(device, payload, timeStamp));
+
+    internal void OnIncomingTransferProgress(NearbyDevice device, NearbyTransferProgress progress, DateTimeOffset timeStamp)
+        => IncomingTransferProgress?.Invoke(this, new DataTransferProgressEventArgs(device, progress, timeStamp));
+
     internal void ClearAllHandlers()
     {
         DeviceFound = null;
@@ -91,5 +108,7 @@ public sealed class NearbyConnectionsEvents
         ErrorOccurred = null;
         AdvertisingStateChanged = null;
         DiscoveringStateChanged = null;
+        DataReceived = null;
+        IncomingTransferProgress = null;
     }
 }

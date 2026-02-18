@@ -142,6 +142,151 @@ internal sealed partial class NearbyConnectionsImplementation
         return Task.CompletedTask;
     }
 
+    Task PlatformSendAsync(
+        NearbyDevice device,
+        NearbyPayload payload,
+        IProgress<NearbyTransferProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        if (_session is null)
+        {
+            throw new InvalidOperationException("No active session. Ensure a connection has been established before sending data.");
+        }
+
+        var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
+        var peerID = MyMCPeerIDManager.UnarchivePeerId(peerIdData)
+            ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
+
+        return payload switch
+        {
+            BytesPayload bytes => SendBytesAsync(bytes, peerID, progress, cancellationToken),
+            FilePayload file => SendFileAsync(file, peerID, progress, cancellationToken),
+            StreamPayload stream => SendStreamAsync(stream, peerID, cancellationToken),
+            _ => throw new ArgumentException($"Unsupported payload type: {payload.GetType().Name}", nameof(payload))
+        };
+    }
+
+    Task SendBytesAsync(BytesPayload payload, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var nsData = NSData.FromArray(payload.Data);
+        _session!.SendData(nsData, [peerID], MCSessionSendDataMode.Reliable, out var error);
+
+        if (error is not null)
+        {
+            throw new InvalidOperationException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}");
+        }
+
+        progress?.Report(new NearbyTransferProgress(
+            payloadId: 0,
+            bytesTransferred: payload.Data.Length,
+            totalBytes: payload.Data.Length,
+            NearbyTransferStatus.Success));
+
+        return Task.CompletedTask;
+    }
+
+    async Task SendFileAsync(FilePayload payload, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var resourceUrl = NSUrl.FromFilename(payload.FilePath);
+        var resourceName = Path.GetFileName(payload.FilePath);
+
+        if (progress is null)
+        {
+            await _session!.SendResourceAsync(resourceUrl, resourceName, peerID);
+            return;
+        }
+
+        // Start the transfer — the binding returns the NSProgress via out parameter.
+        // We attach KVO after the call returns the handle, then await the task.
+        var task = _session!.SendResourceAsync(resourceUrl, resourceName, peerID, out var nsProgress);
+
+        // KVO on FractionCompleted to bridge NSProgress → IProgress<NearbyTransferProgress>
+        using var observation = nsProgress?.AddObserver(
+            "fractionCompleted",
+            NSKeyValueObservingOptions.New,
+            _ =>
+            {
+                if (nsProgress is null) return;
+                var transferred = (long)(nsProgress.FractionCompleted * nsProgress.TotalUnitCount);
+                progress.Report(new NearbyTransferProgress(
+                    payloadId: 0,
+                    bytesTransferred: transferred,
+                    totalBytes: nsProgress.TotalUnitCount,
+                    NearbyTransferStatus.InProgress));
+            });
+
+        using var registration = cancellationToken.Register(() => nsProgress?.Cancel());
+
+        try
+        {
+            await task;
+
+            progress.Report(new NearbyTransferProgress(
+                payloadId: 0,
+                bytesTransferred: nsProgress?.TotalUnitCount ?? 0,
+                totalBytes: nsProgress?.TotalUnitCount ?? 0,
+                NearbyTransferStatus.Success));
+        }
+        catch (OperationCanceledException)
+        {
+            progress.Report(new NearbyTransferProgress(
+                payloadId: 0,
+                bytesTransferred: 0,
+                totalBytes: nsProgress?.TotalUnitCount ?? 0,
+                NearbyTransferStatus.Canceled));
+            throw;
+        }
+        catch
+        {
+            progress.Report(new NearbyTransferProgress(
+                payloadId: 0,
+                bytesTransferred: 0,
+                totalBytes: nsProgress?.TotalUnitCount ?? 0,
+                NearbyTransferStatus.Failure));
+            throw;
+        }
+    }
+
+    Task SendStreamAsync(StreamPayload payload, MCPeerID peerID, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var name = string.IsNullOrEmpty(payload.Name) ? Guid.NewGuid().ToString("N") : payload.Name;
+        var outputStream = _session!.StartStream(name, peerID, out var error);
+
+        if (error is not null || outputStream is null)
+        {
+            throw new InvalidOperationException(
+                $"Failed to start stream '{name}' to '{peerID.DisplayName}': {error?.LocalizedDescription ?? "unknown error"}");
+        }
+
+        return Task.Run(async () =>
+        {
+            outputStream.Open();
+            try
+            {
+                using var source = payload.StreamFactory();
+                var buffer = new byte[16 * 1024];
+                int read;
+
+                while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    outputStream.Write(buffer, (nuint)read);
+                }
+            }
+            finally
+            {
+                outputStream.Close();
+                outputStream.Dispose();
+            }
+        }, cancellationToken);
+    }
+
     #region Session Callbacks
 
     internal void OnPeerStateChanged(MCPeerID peerID, MCSessionState state)
@@ -173,10 +318,122 @@ internal sealed partial class NearbyConnectionsImplementation
         }
     }
 
-    static void OnDataReceived(NSData data, MCPeerID peerID)
+    void OnDataReceived(NSData data, MCPeerID peerID)
     {
+        using var archived = MyMCPeerIDManager.ArchivePeerId(peerID);
+        var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+
         Trace.WriteLine($"Data received from peer: DisplayName={peerID.DisplayName}, Length={data.Length}");
-        // TODO: Implement payload handling
+
+        var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
+        if (device is null)
+        {
+            Trace.WriteLine($"Received data from unknown peer: {peerID.DisplayName}");
+            return;
+        }
+
+        var payload = new BytesPayload(data.ToArray());
+        Events.OnDataReceived(device, payload, TimeProvider.GetUtcNow());
+    }
+
+    void OnResourceStarted(string resourceName, MCPeerID fromPeer, NSProgress progress)
+    {
+        using var archived = MyMCPeerIDManager.ArchivePeerId(fromPeer);
+        var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+
+        Trace.WriteLine($"Started receiving resource: {resourceName} from {fromPeer.DisplayName}");
+
+        var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
+        if (device is null)
+        {
+            return;
+        }
+
+        // KVO on the incoming NSProgress to raise IncomingTransferProgress events
+        progress.AddObserver(
+            "fractionCompleted",
+            NSKeyValueObservingOptions.New,
+            _ =>
+            {
+                var transferred = (long)(progress.FractionCompleted * progress.TotalUnitCount);
+                Events.OnIncomingTransferProgress(
+                    device,
+                    new NearbyTransferProgress(
+                        payloadId: 0,
+                        bytesTransferred: transferred,
+                        totalBytes: progress.TotalUnitCount,
+                        NearbyTransferStatus.InProgress),
+                    TimeProvider.GetUtcNow());
+            });
+    }
+
+    void OnResourceFinished(string resourceName, MCPeerID fromPeer, NSUrl? localUrl, NSError? error)
+    {
+        using var archived = MyMCPeerIDManager.ArchivePeerId(fromPeer);
+        var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+
+        Trace.WriteLine($"Finished receiving resource: {resourceName} from {fromPeer.DisplayName}, Error: {error?.LocalizedDescription ?? "None"}");
+
+        var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
+        if (device is null)
+        {
+            return;
+        }
+
+        if (error is not null || localUrl is null)
+        {
+            Events.OnError("ReceiveFile", error?.LocalizedDescription ?? "Unknown error receiving resource", TimeProvider.GetUtcNow());
+            return;
+        }
+
+        var payload = new FilePayload(localUrl.Path!);
+        Events.OnDataReceived(device, payload, TimeProvider.GetUtcNow());
+    }
+
+    void OnStreamReceived(NSInputStream stream, string streamName, MCPeerID fromPeer)
+    {
+        using var archived = MyMCPeerIDManager.ArchivePeerId(fromPeer);
+        var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+
+        Trace.WriteLine($"Received stream: {streamName} from {fromPeer.DisplayName}");
+
+        var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
+        if (device is null)
+        {
+            return;
+        }
+
+        stream.Open();
+        // Wrap the NSInputStream in a MemoryStream by draining it on a background thread,
+        // then raise DataReceived once all bytes are available.
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var buffer = new byte[16 * 1024];
+                using var ms = new MemoryStream();
+
+                while (stream.HasBytesAvailable())
+                {
+                    var read = (int)stream.Read(buffer, (nuint)buffer.Length);
+                    if (read <= 0)
+                    {
+                        break;
+                    }
+
+                    ms.Write(buffer, 0, read);
+                }
+
+                var captured = ms.ToArray();
+                var payload = new StreamPayload(() => new MemoryStream(captured), streamName);
+                Events.OnDataReceived(device, payload, TimeProvider.GetUtcNow());
+            }
+            finally
+            {
+                stream.Close();
+                stream.Dispose();
+            }
+        });
     }
 
     #endregion Session Callbacks
@@ -187,21 +444,15 @@ internal sealed partial class NearbyConnectionsImplementation
             => nearbyConnections.OnPeerStateChanged(peerID, state);
 
         public void DidReceiveData(MCSession session, NSData data, MCPeerID peerID)
-            => OnDataReceived(data, peerID);
+            => nearbyConnections.OnDataReceived(data, peerID);
 
         public void DidStartReceivingResource(MCSession session, string resourceName, MCPeerID fromPeer, NSProgress progress)
-        {
-            Trace.WriteLine($"Started receiving resource: {resourceName} from {fromPeer.DisplayName}");
-        }
+            => nearbyConnections.OnResourceStarted(resourceName, fromPeer, progress);
 
         public void DidFinishReceivingResource(MCSession session, string resourceName, MCPeerID fromPeer, NSUrl? localUrl, NSError? error)
-        {
-            Trace.WriteLine($"Finished receiving resource: {resourceName} from {fromPeer.DisplayName}, Error: {error?.LocalizedDescription ?? "None"}");
-        }
+            => nearbyConnections.OnResourceFinished(resourceName, fromPeer, localUrl, error);
 
         public void DidReceiveStream(MCSession session, NSInputStream stream, string streamName, MCPeerID peerID)
-        {
-            Trace.WriteLine($"Received stream: {streamName} from {peerID.DisplayName}");
-        }
+            => nearbyConnections.OnStreamReceived(stream, streamName, peerID);
     }
 }

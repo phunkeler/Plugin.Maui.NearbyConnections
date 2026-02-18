@@ -26,6 +26,7 @@
     <x:String x:Key="icon-left">&#xe006;</x:String>
     <x:String x:Key="icon-message">&#xe009;</x:String>
     <x:String x:Key="icon-right">&#xe011;</x:String>
+    <x:String x:Key="icon-send">&#xe012;</x:String>
     <x:String x:Key="icon-sonar">&#xe013;</x:String>
 
     <!-- ========================================== -->

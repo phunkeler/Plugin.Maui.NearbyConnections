@@ -9,7 +9,8 @@
         <BottomSheetHeader
             ShowCloseButton="True">
             <ContentView>
-                <VerticalStackLayout Spacing="{StaticResource SpacingLG}">
+                <VerticalStackLayout Spacing="{StaticResource SpacingLG}"
+                                     Margin="10">
                     <Grid>
                         <Label Text="{Binding Device.DisplayName}"
                                HorizontalOptions="Start"
@@ -69,10 +70,25 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
-                <Entry Grid.Row="1"
-                       HeightRequest="44"
-                       Placeholder="Type a message..."
-                       BackgroundColor="#F1F1F1"/>
+                <Grid ColumnDefinitions="*, Auto"
+                      ColumnSpacing="{StaticResource SpacingSM}"
+                      Grid.Row="1">
+                    <Entry
+                        HeightRequest="44"
+                        Placeholder="Type a message..."
+                        Text="{Binding Message}"
+                        BackgroundColor="#F1F1F1"/>
+                    <ImageButton
+                        Grid.Column="1"
+                        Command="{Binding SendCommand}">
+                        <ImageButton.Source>
+                            <FontImageSource x:Name="SendIconSource"
+                                             FontFamily="NearbyChatIcons"
+                                             Glyph="{StaticResource icon-send}"
+                                             Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
+                        </ImageButton.Source>
+                    </ImageButton>
+                </Grid>
             </Grid>
         </BottomSheetContent>
     </BottomSheet.Content>
