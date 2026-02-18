@@ -2,8 +2,6 @@ namespace Plugin.Maui.NearbyConnections;
 
 internal sealed partial class NearbyConnectionsImplementation
 {
-    const double DefaultInvitationTimeout = 30.0;
-
     internal MyPeerIdManager MyMCPeerIDManager { get; } = new();
 
     readonly ConcurrentDictionary<string, MCNearbyServiceAdvertiserInvitationHandler> _pendingInvitations = new();
@@ -105,7 +103,7 @@ internal sealed partial class NearbyConnectionsImplementation
         _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
 
         Trace.WriteLine($"Inviting peer: Id={device.Id}, DisplayName={peerID.DisplayName}");
-        _discoverer.InvitePeer(peerID, _session, context: null, DefaultInvitationTimeout);
+        _discoverer.InvitePeer(peerID, _session, context: null, Options.InvitationTimeout);
 
         return Task.CompletedTask;
     }
