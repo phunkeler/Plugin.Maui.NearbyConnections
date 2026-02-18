@@ -51,6 +51,14 @@ interface INearbyDeviceManager
     NearbyDevice? DeviceDisconnected(string id);
 
     /// <summary>
+    /// Gets a tracked device by its identifier.
+    /// </summary>
+    /// <param name="id">The unique device identifier.</param>
+    /// <param name="device">The tracked <see cref="NearbyDevice" />, or <see langword="null"/> if not found.</param>
+    /// <returns><see langword="true" /> is the device was found; otherwise, <see langword="false"/>.</returns>
+    bool TryGetDevice(string id, [NotNullWhen(true)] out NearbyDevice? device);
+
+    /// <summary>
     /// Removes all tracked devices.
     /// </summary>
     void Clear();

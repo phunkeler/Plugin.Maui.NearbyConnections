@@ -17,6 +17,13 @@ sealed partial class NearbyConnectionsImplementation
     public void OnEndpointLost(string endpointId)
     {
         Trace.WriteLine($"Endpoint lost: EndpointId={endpointId}");
+
+        if (_deviceManager.TryGetDevice(endpointId, out var existingDevice)
+            && existingDevice?.State == NearbyDeviceState.Connected)
+        {
+            return;
+        }
+
         var device = _deviceManager.DeviceLost(endpointId);
         if (device is not null)
         {
@@ -135,9 +142,9 @@ sealed partial class NearbyConnectionsImplementation
             var status = update.TransferStatus switch
             {
                 PayloadTransferUpdate.Status.InProgress => NearbyTransferStatus.InProgress,
-                PayloadTransferUpdate.Status.Success    => NearbyTransferStatus.Success,
-                PayloadTransferUpdate.Status.Failure    => NearbyTransferStatus.Failure,
-                PayloadTransferUpdate.Status.Canceled   => NearbyTransferStatus.Canceled,
+                PayloadTransferUpdate.Status.Success => NearbyTransferStatus.Success,
+                PayloadTransferUpdate.Status.Failure => NearbyTransferStatus.Failure,
+                PayloadTransferUpdate.Status.Canceled => NearbyTransferStatus.Canceled,
                 _ => NearbyTransferStatus.InProgress
             };
 
@@ -159,9 +166,9 @@ sealed partial class NearbyConnectionsImplementation
             var incomingStatus = update.TransferStatus switch
             {
                 PayloadTransferUpdate.Status.InProgress => NearbyTransferStatus.InProgress,
-                PayloadTransferUpdate.Status.Success    => NearbyTransferStatus.Success,
-                PayloadTransferUpdate.Status.Failure    => NearbyTransferStatus.Failure,
-                PayloadTransferUpdate.Status.Canceled   => NearbyTransferStatus.Canceled,
+                PayloadTransferUpdate.Status.Success => NearbyTransferStatus.Success,
+                PayloadTransferUpdate.Status.Failure => NearbyTransferStatus.Failure,
+                PayloadTransferUpdate.Status.Canceled => NearbyTransferStatus.Canceled,
                 _ => NearbyTransferStatus.InProgress
             };
 

@@ -1,6 +1,6 @@
 <BottomSheet x:Class="NearbyChat.Controls.ChatBottomSheet"
              ShowHeader="True"
-             States="Medium, Large"
+             SizeMode="FitToContent"
              CornerRadius="24"
              IsDraggable="False"
              x:DataType="ChatViewModel"
@@ -25,7 +25,8 @@
     </BottomSheet.Header>
     <BottomSheet.Content>
         <BottomSheetContent>
-            <Grid RowDefinitions="*, Auto">
+            <Grid RowDefinitions="*, Auto"
+                    RowSpacing="{StaticResource SpacingXL}">
                 <CollectionView ItemsSource="{Binding Messages}"
                                 ItemsUpdatingScrollMode="KeepLastItemInView"
                                 Background="Transparent">

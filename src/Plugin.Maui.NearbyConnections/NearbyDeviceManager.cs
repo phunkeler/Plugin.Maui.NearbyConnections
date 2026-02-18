@@ -6,7 +6,7 @@ sealed class NearbyDeviceManager : INearbyDeviceManager
     readonly TimeProvider _timeProvider;
     readonly NearbyConnectionsEvents _events;
 
-    readonly ConcurrentDictionary<string, NearbyDevice> _devices = new();
+    readonly ConcurrentDictionary<string, NearbyDevice> _devices = [];
 
     public IReadOnlyList<NearbyDevice> Devices
         => _devices.Values.ToList().AsReadOnly();
@@ -54,6 +54,9 @@ sealed class NearbyDeviceManager : INearbyDeviceManager
 
     public NearbyDevice? DeviceDisconnected(string id)
         => _devices.TryRemove(id, out var device) ? device : null;
+
+    public bool TryGetDevice(string id, [NotNullWhen(true)] out NearbyDevice? device)
+        => _devices.TryGetValue(id, out device);
 
     public void Clear()
         => _devices.Clear();
