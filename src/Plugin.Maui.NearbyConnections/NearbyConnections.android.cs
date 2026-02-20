@@ -2,8 +2,9 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
 {
-    readonly ConcurrentDictionary<long, IProgress<NearbyTransferProgress>> _outgoingProgress = new();
-    readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = new();
+    readonly ConcurrentDictionary<long, (Payload Payload, Stream Stream)> _outgoingPayloads = [];
+    readonly ConcurrentDictionary<long, IProgress<NearbyTransferProgress>> _outgoingProgress = [];
+    readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
 
     #region Discovery
 
@@ -154,6 +155,12 @@ sealed partial class NearbyConnectionsImplementation
             if (status != NearbyTransferStatus.InProgress)
             {
                 _outgoingProgress.TryRemove(update.PayloadId, out _);
+
+                if (_outgoingPayloads.TryRemove(update.PayloadId, out var outgoingPayload))
+                {
+                    outgoingPayload.Payload.Dispose();
+                    outgoingPayload.Stream.Dispose();
+                }
             }
         }
 
@@ -294,10 +301,17 @@ sealed partial class NearbyConnectionsImplementation
         var stream = await streamFactory();
         var payload = Payload.FromStream(stream);
 
+        _outgoingPayloads.TryAdd(payload.Id, (payload, stream));
+
         if (progress is not null)
         {
             _outgoingProgress[payload.Id] = progress;
         }
+
+        cancellationToken.Register(async () =>
+        {
+            await client.CancelPayloadAsync(payload.Id);
+        });
 
         try
         {
@@ -306,6 +320,13 @@ sealed partial class NearbyConnectionsImplementation
         catch
         {
             _outgoingProgress.TryRemove(payload.Id, out _);
+
+            if (_outgoingPayloads.TryRemove(payload.Id, out var outgoingPayload))
+            {
+                outgoingPayload.Payload.Dispose();
+                outgoingPayload.Stream.Dispose();
+            }
+
             throw;
         }
     }
