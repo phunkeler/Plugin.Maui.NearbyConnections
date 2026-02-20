@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-internal sealed partial class NearbyConnectionsImplementation : INearbyConnections
+internal sealed partial class NearbyConnectionsImplementation
 {
     Task PlatformRequestConnectionAsync(NearbyDevice device)
         => throw new NotImplementedException();
@@ -8,6 +8,16 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
     Task PlatformRespondToConnectionAsync(NearbyDevice device, bool accept)
         => throw new NotImplementedException();
 
-    Task PlatformSendAsync(NearbyDevice device, NearbyPayload payload, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
-        => throw new NotImplementedException();
+    Task PlatformSendAsync(
+        NearbyDevice device,
+        byte[] data,
+        IProgress<NearbyTransferProgress>? progress,
+        CancellationToken cancellationToken) => throw new NotImplementedException();
+
+    Task PlatformSendAsync(
+        NearbyDevice device,
+        Func<Task<Stream>> streamFactory,
+        string streamName,
+        IProgress<NearbyTransferProgress>? progress,
+        CancellationToken cancellationToken) => throw new NotImplementedException();
 }

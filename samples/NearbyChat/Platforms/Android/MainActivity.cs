@@ -7,10 +7,21 @@ using AndroidX.Activity.Result;
 using AndroidX.Activity.Result.Contract;
 using static AndroidX.Activity.Result.Contract.ActivityResultContracts;
 using JavaObject = Java.Lang.Object;
+using AndroidUri = Android.Net.Uri;
 
 namespace NearbyChat;
 
-[Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, LaunchMode = LaunchMode.SingleTop, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+[Activity(
+    Theme = "@style/Maui.SplashTheme",
+    MainLauncher = true,
+    LaunchMode = LaunchMode.SingleTop,
+    ConfigurationChanges = ConfigChanges.ScreenSize
+        | ConfigChanges.Orientation
+        | ConfigChanges.UiMode
+        | ConfigChanges.ScreenLayout
+        | ConfigChanges.SmallestScreenSize
+        | ConfigChanges.Density
+)]
 public class MainActivity : MauiAppCompatActivity
 {
     protected override void OnCreate(Bundle? savedInstanceState)
@@ -18,6 +29,7 @@ public class MainActivity : MauiAppCompatActivity
         base.OnCreate(savedInstanceState);
 
         RequestPermissionsForResult.Instance.Register(this);
+        GetContentForResult.Instance.Register(this);
         var permissions = FromArray(GetRequiredPermissions()) ?? new JavaList<string>();
 
         var result = RequestPermissionsForResult.Instance.Launch(permissions);
@@ -79,14 +91,21 @@ public class MainActivity : MauiAppCompatActivity
     }
 }
 
-internal sealed class RequestPermissionsForResult : ActivityForResultRequest<RequestMultiplePermissions, Java.Lang.Boolean>
+public sealed class GetContentForResult : ActivityForResultRequest<GetContent, AndroidUri>
+{
+    static readonly Lazy<GetContentForResult> s_lazyInstance = new(new GetContentForResult());
+
+    public static GetContentForResult Instance => s_lazyInstance.Value;
+}
+
+public sealed class RequestPermissionsForResult : ActivityForResultRequest<RequestMultiplePermissions, Java.Lang.Boolean>
 {
     static readonly Lazy<RequestPermissionsForResult> s_lazyInstance = new(new RequestPermissionsForResult());
 
     public static RequestPermissionsForResult Instance => s_lazyInstance.Value;
 }
 
-internal sealed class ActivityResultCallback<T>(Action<T> onActivityResult) : JavaObject, IActivityResultCallback
+public sealed class ActivityResultCallback<T>(Action<T> onActivityResult) : JavaObject, IActivityResultCallback
    where T : JavaObject
 {
     readonly Action<T> _onActivityResult = onActivityResult;
@@ -101,17 +120,17 @@ internal sealed class ActivityResultCallback<T>(Action<T> onActivityResult) : Ja
     }
 }
 
-internal abstract class ActivityForResultRequest<TContract, TResult>
+public abstract class ActivityForResultRequest<TContract, TResult>
     where TContract : ActivityResultContract, new()
     where TResult : JavaObject
 {
-    protected ActivityResultLauncher? launcher;
-    protected TaskCompletionSource<TResult>? tcs;
+    ActivityResultLauncher? _launcher;
+    TaskCompletionSource<TResult>? _tcs;
 
     /// <summary>
     /// Gets a value indicating whether the request is registered.
     /// </summary>
-    protected bool IsRegistered => launcher is not null;
+    protected bool IsRegistered => _launcher is not null;
 
     /// <summary>
     /// Registers this request to start an activity for a result.
@@ -120,9 +139,9 @@ internal abstract class ActivityForResultRequest<TContract, TResult>
     public void Register(ComponentActivity componentActivity)
     {
         var contract = new TContract();
-        var callback = new ActivityResultCallback<TResult>(result => tcs?.SetResult(result));
+        var callback = new ActivityResultCallback<TResult>(result => _tcs?.SetResult(result));
 
-        launcher = componentActivity.RegisterForActivityResult(contract, callback);
+        _launcher = componentActivity.RegisterForActivityResult(contract, callback);
     }
 
     /// <summary>
@@ -133,26 +152,48 @@ internal abstract class ActivityForResultRequest<TContract, TResult>
     /// <returns>
     /// A task that represents the asynchronous operation, containing the result of the activity.
     /// </returns>
-    public Task<TResult> Launch<T>(T input)
+    public Task<TResult> Launch<T>(T? input)
         where T : JavaObject
     {
-        tcs = new TaskCompletionSource<TResult>();
+        _tcs = new TaskCompletionSource<TResult>();
 
         if (!IsRegistered)
         {
-            tcs.SetCanceled();
-            return tcs.Task;
+            _tcs.SetCanceled();
+            return _tcs.Task;
         }
 
         try
         {
-            launcher?.Launch(input);
+            _launcher?.Launch(input);
         }
         catch (Exception ex)
         {
-            tcs.SetException(ex);
+            _tcs.SetException(ex);
         }
 
-        return tcs.Task;
+        return _tcs.Task;
+    }
+
+    public Task<TResult> Launch()
+    {
+        _tcs = new TaskCompletionSource<TResult>();
+
+        if (!IsRegistered)
+        {
+            _tcs.SetCanceled();
+            return _tcs.Task;
+        }
+
+        try
+        {
+            _launcher?.Launch(null);
+        }
+        catch (Exception ex)
+        {
+            _tcs.SetException(ex);
+        }
+
+        return _tcs.Task;
     }
 }

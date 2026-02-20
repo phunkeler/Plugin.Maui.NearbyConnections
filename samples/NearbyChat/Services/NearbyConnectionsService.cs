@@ -18,6 +18,7 @@ public interface INearbyConnectionsService : IDisposable
     Task RequestConnectionAsync(NearbyDevice device);
     Task RespondToConnectionAsync(NearbyDevice device, bool accept);
     Task SendMessage(NearbyDevice device, string message);
+    Task SendAsync(NearbyDevice device, Func<Task<Stream>> streamFactory, string streamName, CancellationToken cancellationToken = default);
 }
 
 public partial class NearbyConnectionsService : INearbyConnectionsService
@@ -71,9 +72,18 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
         => _nearbyConnections.RespondToConnectionAsync(device, accept);
 
     public Task SendMessage(NearbyDevice device, string message)
-    {
-        return _nearbyConnections.SendAsync(device, new BytesPayload(Encoding.Unicode.GetBytes(message)));
-    }
+        => _nearbyConnections.SendAsync(device, Encoding.UTF8.GetBytes(message));
+
+    public Task SendAsync(
+        NearbyDevice device,
+        Func<Task<Stream>> streamFactory,
+        string streamName,
+        CancellationToken cancellationToken = default)
+        => _nearbyConnections.SendAsync(
+            device,
+            streamFactory,
+            streamName,
+            cancellationToken: cancellationToken);
 
     void OnAdvertisingStateChanged(object? sender, AdvertisingStateChangedEventArgs e)
         => _messenger.Send(new AdvertisingStateChangedMessage(e.IsAdvertising));

@@ -3,14 +3,14 @@
              SizeMode="FitToContent"
              CornerRadius="24"
              IsDraggable="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource LightBackgroundPrimary}, Dark={StaticResource DarkBackgroundPrimary}}"
              x:DataType="ChatViewModel"
              Margin="{StaticResource SpacingXL}">
     <BottomSheet.Header>
         <BottomSheetHeader
             ShowCloseButton="True">
             <ContentView>
-                <VerticalStackLayout Spacing="{StaticResource SpacingLG}"
-                                     Margin="10">
+                <VerticalStackLayout Spacing="{StaticResource SpacingSM}">
                     <Grid>
                         <Label Text="{Binding Device.DisplayName}"
                                HorizontalOptions="Start"
@@ -26,13 +26,13 @@
     <BottomSheet.Content>
         <BottomSheetContent>
             <Grid RowDefinitions="*, Auto"
-                    RowSpacing="{StaticResource SpacingXL}">
+                  RowSpacing="{StaticResource SpacingXL}">
                 <CollectionView ItemsSource="{Binding Messages}"
                                 ItemsUpdatingScrollMode="KeepLastItemInView"
                                 Background="Transparent">
                     <CollectionView.ItemsLayout>
                         <LinearItemsLayout Orientation="Vertical"
-                                           ItemSpacing="4"/>
+                                           ItemSpacing="{StaticResource SpacingXS}"/>
                     </CollectionView.ItemsLayout>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="ChatMessage">
@@ -71,22 +71,32 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
-                <Grid ColumnDefinitions="*, Auto"
+                <Grid ColumnDefinitions="*, Auto, Auto"
                       ColumnSpacing="{StaticResource SpacingSM}"
                       Grid.Row="1">
                     <Entry
                         HeightRequest="44"
                         Placeholder="Type a message..."
                         Text="{Binding Message}"
-                        BackgroundColor="#F1F1F1"/>
+                        TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
                     <ImageButton
                         Grid.Column="1"
                         Command="{Binding SendCommand}">
                         <ImageButton.Source>
-                            <FontImageSource x:Name="SendIconSource"
-                                             FontFamily="NearbyChatIcons"
-                                             Glyph="{StaticResource icon-send}"
-                                             Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
+                            <FontImageSource
+                                FontFamily="NearbyChatIcons"
+                                Glyph="{StaticResource icon-send}"
+                                Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
+                        </ImageButton.Source>
+                    </ImageButton>
+                    <ImageButton
+                        Grid.Column="2"
+                        Command="{Binding AttachCommand}">
+                        <ImageButton.Source>
+                            <FontImageSource
+                                FontFamily="NearbyChatIcons"
+                                Glyph="{StaticResource icon-link}"
+                                Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
                         </ImageButton.Source>
                     </ImageButton>
                 </Grid>

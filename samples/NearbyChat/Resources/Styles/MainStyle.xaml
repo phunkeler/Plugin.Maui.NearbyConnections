@@ -24,6 +24,7 @@
     <!-- ========================================== -->
     <x:String x:Key="icon-antenna">&#xe001;</x:String>
     <x:String x:Key="icon-left">&#xe006;</x:String>
+    <x:String x:Key="icon-link">&#xe007;</x:String>
     <x:String x:Key="icon-message">&#xe009;</x:String>
     <x:String x:Key="icon-right">&#xe011;</x:String>
     <x:String x:Key="icon-send">&#xe012;</x:String>

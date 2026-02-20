@@ -39,6 +39,7 @@ public static class MauiProgram
         });
 #endif
 
+        builder.Services.AddSingleton(MediaPicker.Default);
         builder.Services.AddSingleton(FileSystem.Current);
         builder.Services.AddSingleton<AppShell>();
         builder.Services.AddSingleton(_ =>

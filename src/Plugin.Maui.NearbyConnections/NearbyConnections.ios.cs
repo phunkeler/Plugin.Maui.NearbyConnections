@@ -142,7 +142,7 @@ internal sealed partial class NearbyConnectionsImplementation
 
     Task PlatformSendAsync(
         NearbyDevice device,
-        NearbyPayload payload,
+        byte[] data,
         IProgress<NearbyTransferProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -155,20 +155,14 @@ internal sealed partial class NearbyConnectionsImplementation
         var peerID = MyMCPeerIDManager.UnarchivePeerId(peerIdData)
             ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
 
-        return payload switch
-        {
-            BytesPayload bytes => SendBytesAsync(bytes, peerID, progress, cancellationToken),
-            FilePayload file => SendFileAsync(file, peerID, progress, cancellationToken),
-            StreamPayload stream => SendStreamAsync(stream, peerID, cancellationToken),
-            _ => throw new ArgumentException($"Unsupported payload type: {payload.GetType().Name}", nameof(payload))
-        };
+        return SendBytesAsync(data, peerID, progress, cancellationToken);
     }
 
-    Task SendBytesAsync(BytesPayload payload, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
+    Task SendBytesAsync(byte[] bytes, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        using var nsData = NSData.FromArray(payload.Data);
+        using var nsData = NSData.FromArray(bytes);
         _session!.SendData(nsData, [peerID], MCSessionSendDataMode.Reliable, out var error);
 
         if (error is not null)
@@ -178,11 +172,30 @@ internal sealed partial class NearbyConnectionsImplementation
 
         progress?.Report(new NearbyTransferProgress(
             payloadId: 0,
-            bytesTransferred: payload.Data.Length,
-            totalBytes: payload.Data.Length,
+            bytesTransferred: bytes.Length,
+            totalBytes: bytes.Length,
             NearbyTransferStatus.Success));
 
         return Task.CompletedTask;
+    }
+
+    Task PlatformSendAsync(
+        NearbyDevice device,
+        Func<Task<Stream>> streamFactory,
+        string streamName,
+        IProgress<NearbyTransferProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        if (_session is null)
+        {
+            throw new InvalidOperationException("No active session. Ensure a connection has been established before sending data.");
+        }
+
+        var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
+        var peerID = MyMCPeerIDManager.UnarchivePeerId(peerIdData)
+            ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
+
+        return SendStreamAsync(streamFactory, streamName, peerID, cancellationToken);
     }
 
     async Task SendFileAsync(FilePayload payload, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
@@ -249,11 +262,18 @@ internal sealed partial class NearbyConnectionsImplementation
         }
     }
 
-    Task SendStreamAsync(StreamPayload payload, MCPeerID peerID, CancellationToken cancellationToken)
+    Task SendStreamAsync(
+        Func<Task<Stream>> streamFactory,
+        string streamName,
+        MCPeerID peerID,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var name = string.IsNullOrEmpty(payload.Name) ? Guid.NewGuid().ToString("N") : payload.Name;
+        var name = string.IsNullOrWhiteSpace(streamName)
+            ? Guid.NewGuid().ToString("N")
+            : streamName;
+
         var outputStream = _session!.StartStream(name, peerID, out var error);
 
         if (error is not null || outputStream is null)
@@ -267,7 +287,7 @@ internal sealed partial class NearbyConnectionsImplementation
             outputStream.Open();
             try
             {
-                using var source = payload.StreamFactory();
+                using var source = await streamFactory();
                 var buffer = new byte[16 * 1024];
                 int read;
 

@@ -9,17 +9,17 @@ sealed partial class NearbyConnectionsImplementation
 
     public void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
-        Trace.WriteLine($"Endpoint found: EndpointId={endpointId}, EndpointName={info.EndpointName}");
+        Trace.TraceInformation($"Endpoint found: EndpointId={endpointId}, EndpointName={info.EndpointName}");
         var device = _deviceManager.DeviceFound(endpointId, info.EndpointName);
         Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
     }
 
     public void OnEndpointLost(string endpointId)
     {
-        Trace.WriteLine($"Endpoint lost: EndpointId={endpointId}");
+        Trace.TraceInformation($"Endpoint lost: EndpointId={endpointId}");
 
         if (_deviceManager.TryGetDevice(endpointId, out var existingDevice)
-            && existingDevice?.State == NearbyDeviceState.Connected)
+            && existingDevice.State == NearbyDeviceState.Connected)
         {
             return;
         }
@@ -44,7 +44,7 @@ sealed partial class NearbyConnectionsImplementation
     /// <param name="connectionInfo">Other relevant information about the connection.</param>
     public async void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
-        Trace.WriteLine($"Connection initiated: EndpointId={endpointId}, EndpointName={connectionInfo.EndpointName}, IsIncomingConnection={connectionInfo.IsIncomingConnection}");
+        Trace.TraceInformation($"Connection initiated: EndpointId={endpointId}, EndpointName={connectionInfo.EndpointName}, IsIncomingConnection={connectionInfo.IsIncomingConnection}");
 
         var state = connectionInfo.IsIncomingConnection
             ? NearbyDeviceState.ConnectionRequestedInbound
@@ -64,8 +64,7 @@ sealed partial class NearbyConnectionsImplementation
         }
         else
         {
-            // Skip this extra step. The discoverer already initiated the connection request.
-            // TODO: Consider exposing this extra step as a "security" option and optionally leverages the 4 Digit Auth Token in ConnectionInfo.
+            // Skip this extra step
             await PlatformRespondToConnectionAsync(device, accept: true);
         }
     }
@@ -80,7 +79,7 @@ sealed partial class NearbyConnectionsImplementation
     /// <param name="resolution">The final result after tallying both devices' accept/reject responses</param>
     public void OnConnectionResult(string endpointId, ConnectionResolution resolution)
     {
-        Trace.WriteLine($"Connection result: EndpointId={endpointId}, StatusCode={resolution.Status.StatusCode}, StatusMessage={resolution.Status.StatusMessage ?? string.Empty}, IsSuccess={resolution.Status.IsSuccess}");
+        Trace.TraceInformation($"Connection result: EndpointId={endpointId}, StatusCode={resolution.Status.StatusCode}, StatusMessage={resolution.Status.StatusMessage ?? string.Empty}, IsSuccess={resolution.Status.IsSuccess}");
 
         if (resolution.Status.IsSuccess)
         {
@@ -109,7 +108,7 @@ sealed partial class NearbyConnectionsImplementation
     /// <param name="endpointId"></param>
     public void OnDisconnected(string endpointId)
     {
-        Trace.WriteLine($"Disconnected from EndpointId={endpointId}");
+        Trace.TraceInformation($"Disconnected from EndpointId={endpointId}");
 
         var device = _deviceManager.DeviceDisconnected(endpointId);
 
@@ -123,18 +122,16 @@ sealed partial class NearbyConnectionsImplementation
 
     void OnPayloadReceived(string endpointId, Payload payload)
     {
-        Trace.WriteLine($"Payload received: EndpointId={endpointId}, PayloadId={payload.Id}, PayloadType={payload.PayloadType}");
+        Trace.TraceInformation($"Payload received: EndpointId={endpointId}, PayloadId={payload.Id}, PayloadType={payload.PayloadType}");
 
         // Buffer the payload — we wait for OnPayloadTransferUpdate Success before raising DataReceived.
         // BYTES payloads are complete immediately; FILE/STREAM require the success update.
         _incomingPayloads[payload.Id] = (endpointId, payload);
     }
 
-    void OnPayloadTransferUpdate(string endpointId, PayloadTransferUpdate update)
+    async Task OnPayloadTransferUpdate(string endpointId, PayloadTransferUpdate update)
     {
-        Trace.WriteLine($"Payload transfer update: EndpointId={endpointId}, PayloadId={update.PayloadId}, TransferStatus={update.TransferStatus}, TotalBytes={update.TotalBytes}, BytesTransferred={update.BytesTransferred}");
-
-        var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == endpointId);
+        Trace.TraceInformation($"Payload transfer update: EndpointId={endpointId}, PayloadId={update.PayloadId}, TransferStatus={update.TransferStatus}, TotalBytes={update.TotalBytes}, BytesTransferred={update.BytesTransferred}");
 
         // Route outgoing progress
         if (_outgoingProgress.TryGetValue(update.PayloadId, out var outProgress))
@@ -160,35 +157,38 @@ sealed partial class NearbyConnectionsImplementation
             }
         }
 
-        // Raise incoming transfer progress
-        if (device is not null)
+        if (!_deviceManager.TryGetDevice(endpointId, out var device))
         {
-            var incomingStatus = update.TransferStatus switch
-            {
-                PayloadTransferUpdate.Status.InProgress => NearbyTransferStatus.InProgress,
-                PayloadTransferUpdate.Status.Success => NearbyTransferStatus.Success,
-                PayloadTransferUpdate.Status.Failure => NearbyTransferStatus.Failure,
-                PayloadTransferUpdate.Status.Canceled => NearbyTransferStatus.Canceled,
-                _ => NearbyTransferStatus.InProgress
-            };
-
-            Events.OnIncomingTransferProgress(
-                device,
-                new NearbyTransferProgress(update.PayloadId, update.BytesTransferred, update.TotalBytes, incomingStatus),
-                TimeProvider.GetUtcNow());
+            return;
         }
+
+
+        // Raise incoming transfer progress
+
+        var incomingStatus = update.TransferStatus switch
+        {
+            PayloadTransferUpdate.Status.InProgress => NearbyTransferStatus.InProgress,
+            PayloadTransferUpdate.Status.Success => NearbyTransferStatus.Success,
+            PayloadTransferUpdate.Status.Failure => NearbyTransferStatus.Failure,
+            PayloadTransferUpdate.Status.Canceled => NearbyTransferStatus.Canceled,
+            _ => NearbyTransferStatus.InProgress
+        };
+
+        Events.OnIncomingTransferProgress(
+            device,
+            new NearbyTransferProgress(update.PayloadId, update.BytesTransferred, update.TotalBytes, incomingStatus),
+            TimeProvider.GetUtcNow());
+
 
         // On success, raise DataReceived
         if (update.TransferStatus == PayloadTransferUpdate.Status.Success
-            && _incomingPayloads.TryRemove(update.PayloadId, out var entry)
-            && device is not null)
+            && _incomingPayloads.TryRemove(update.PayloadId, out var entry))
         {
             NearbyPayload? nearbyPayload = entry.Payload.PayloadType switch
             {
                 Payload.Type.Bytes => entry.Payload.AsBytes() is { } bytes
                     ? new BytesPayload(bytes)
                     : null,
-                Payload.Type.File => BuildFilePayload(entry.Payload.AsFile()),
                 Payload.Type.Stream => BuildStreamPayload(entry.Payload.AsStream()),
                 _ => null
             };
@@ -197,27 +197,9 @@ sealed partial class NearbyConnectionsImplementation
             {
                 Events.OnDataReceived(device, nearbyPayload, TimeProvider.GetUtcNow());
             }
-        }
-    }
 
-    static FilePayload? BuildFilePayload(Payload.File? file)
-    {
-        if (file is null)
-        {
-            return null;
+            entry.Payload.Dispose();
         }
-
-        // AsParcelFileDescriptor gives access to the underlying file descriptor.
-        // Map it to a path via /proc/self/fd/<fd> which is a symlink to the actual file.
-        var pfd = file.AsParcelFileDescriptor();
-        if (pfd is null)
-        {
-            return null;
-        }
-
-        var fdPath = $"/proc/self/fd/{pfd.Fd}";
-        var resolved = new Java.IO.File(fdPath).CanonicalPath ?? fdPath;
-        return new FilePayload(resolved);
     }
 
     static StreamPayload? BuildStreamPayload(Payload.Stream? payloadStream)
@@ -227,8 +209,9 @@ sealed partial class NearbyConnectionsImplementation
             return null;
         }
 
-        var javaStream = payloadStream.AsInputStream();
-        if (javaStream is null)
+        var inputStream = payloadStream.AsInputStream();
+
+        if (inputStream is null)
         {
             return null;
         }
@@ -238,7 +221,7 @@ sealed partial class NearbyConnectionsImplementation
         var buffer = new byte[16 * 1024];
         using var ms = new MemoryStream();
         int read;
-        while ((read = javaStream.Read(buffer)) > 0)
+        while ((read = inputStream.Read(buffer)) > 0)
         {
             ms.Write(buffer, 0, read);
         }
@@ -271,58 +254,16 @@ sealed partial class NearbyConnectionsImplementation
             : client.RejectConnectionAsync(device.Id);
     }
 
-    async Task PlatformSendAsync(NearbyDevice device, NearbyPayload payload, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
+    async Task PlatformSendAsync(
+        NearbyDevice device,
+        byte[] data,
+        IProgress<NearbyTransferProgress>? progress,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
-
-        Payload androidPayload;
-        Task? pumpTask = null;
-
-        switch (payload)
-        {
-            case BytesPayload bytes:
-                androidPayload = Payload.FromBytes(bytes.Data);
-                break;
-
-            case FilePayload file:
-                androidPayload = Payload.FromFile(new Java.IO.File(file.FilePath));
-                break;
-
-            case StreamPayload stream:
-                // ParcelFileDescriptor.CreatePipe() returns [readEnd, writeEnd].
-                // Nearby Connections reads from the read end; we pump the .NET stream into the write end.
-                var pipe = Android.OS.ParcelFileDescriptor.CreatePipe()
-                    ?? throw new InvalidOperationException("Failed to create pipe for stream payload.");
-                androidPayload = Payload.FromStream(pipe[0]);
-                pumpTask = Task.Run(async () =>
-                {
-                    try
-                    {
-                        using var writeStream = new Android.OS.ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]);
-                        using var source = stream.StreamFactory();
-                        var buffer = new byte[16 * 1024];
-                        int read;
-                        while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
-                        {
-                            writeStream.Write(buffer, 0, read);
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Expected when cancellation is requested
-                    }
-                    finally
-                    {
-                        pipe[1].Close();
-                    }
-                }, cancellationToken);
-                break;
-
-            default:
-                throw new ArgumentException($"Unsupported payload type: {payload.GetType().Name}", nameof(payload));
-        }
+        var androidPayload = Payload.FromBytes(data);
 
         if (progress is not null)
         {
@@ -332,14 +273,39 @@ sealed partial class NearbyConnectionsImplementation
         try
         {
             await client.SendPayloadAsync(device.Id, androidPayload);
-            if (pumpTask is not null)
-            {
-                await pumpTask;
-            }
         }
         catch
         {
             _outgoingProgress.TryRemove(androidPayload.Id, out _);
+            throw;
+        }
+    }
+
+    async Task PlatformSendAsync(
+        NearbyDevice device,
+        Func<Task<Stream>> streamFactory,
+        string streamName,
+        IProgress<NearbyTransferProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
+        var stream = await streamFactory();
+        var payload = Payload.FromStream(stream);
+
+        if (progress is not null)
+        {
+            _outgoingProgress[payload.Id] = progress;
+        }
+
+        try
+        {
+            await client.SendPayloadAsync(device.Id, payload);
+        }
+        catch
+        {
+            _outgoingProgress.TryRemove(payload.Id, out _);
             throw;
         }
     }
@@ -349,24 +315,24 @@ sealed partial class NearbyConnectionsImplementation
         Action<string, ConnectionResolution> onConnectionResult,
         Action<string> onDisconnected) : ConnectionLifecycleCallback
     {
-        public override void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
-            => onConnectionInitiated(endpointId, connectionInfo);
+        public override void OnConnectionInitiated(string p0, ConnectionInfo p1)
+            => onConnectionInitiated(p0, p1);
 
-        public override void OnConnectionResult(string endpointId, ConnectionResolution resolution)
-            => onConnectionResult(endpointId, resolution);
+        public override void OnConnectionResult(string p0, ConnectionResolution p1)
+            => onConnectionResult(p0, p1);
 
-        public override void OnDisconnected(string endpointId)
-            => onDisconnected(endpointId);
+        public override void OnDisconnected(string p0)
+            => onDisconnected(p0);
     }
 
     sealed class ConnectionCallback(
         Action<string, Payload> onPayloadReceived,
-        Action<string, PayloadTransferUpdate> onPayloadTransferUpdate) : PayloadCallback
+        Func<string, PayloadTransferUpdate, Task> onPayloadTransferUpdate) : PayloadCallback
     {
         public override void OnPayloadReceived(string p0, Payload p1)
             => onPayloadReceived(p0, p1);
 
-        public override void OnPayloadTransferUpdate(string p0, PayloadTransferUpdate p1)
-            => onPayloadTransferUpdate(p0, p1);
+        public override async void OnPayloadTransferUpdate(string p0, PayloadTransferUpdate p1)
+            => await onPayloadTransferUpdate(p0, p1);
     }
 }

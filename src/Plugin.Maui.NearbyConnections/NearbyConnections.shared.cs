@@ -218,12 +218,17 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     public Task SendAsync(
         NearbyDevice device,
-        NearbyPayload payload,
+        byte[] data,
         IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(device);
-        ArgumentNullException.ThrowIfNull(payload);
+        ArgumentNullException.ThrowIfNull(data);
+
+        if (data.Length == 0)
+        {
+            return Task.CompletedTask;
+        }
 
         if (device.State != NearbyDeviceState.Connected)
         {
@@ -231,7 +236,26 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
                 $"Cannot send data: device '{device.DisplayName}' is not connected (current state: {device.State}).");
         }
 
-        return PlatformSendAsync(device, payload, progress, cancellationToken);
+        return PlatformSendAsync(device, data, progress, cancellationToken);
+    }
+
+    public Task SendAsync(
+        NearbyDevice device,
+        Func<Task<Stream>> streamFactory,
+        string streamName,
+        IProgress<NearbyTransferProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        ArgumentNullException.ThrowIfNull(streamFactory);
+
+        if (device.State != NearbyDeviceState.Connected)
+        {
+            throw new InvalidOperationException(
+                $"Cannot send data: device '{device.DisplayName}' is not connected (current state: {device.State}).");
+        }
+
+        return PlatformSendAsync(device, streamFactory, streamName, progress, cancellationToken);
     }
 
     public void Dispose(bool disposing)
