@@ -2,8 +2,11 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
 {
-    readonly ConcurrentDictionary<long, OutgoingStreamTransfer> _outgoingTransfers = [];
+    const uint StreamNameMagic = 0x504D4E43;
+
     readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
+    readonly ConcurrentDictionary<long, IncomingStreamTransfer> _incomingStreams = [];
+    readonly ConcurrentDictionary<long, OutgoingStreamTransfer> _outgoingStreams = [];
 
     #region Discovery
 
@@ -123,7 +126,54 @@ sealed partial class NearbyConnectionsImplementation
     void OnPayloadReceived(string endpointId, Payload payload)
     {
         Trace.TraceInformation($"Payload received: EndpointId={endpointId}, PayloadId={payload.Id}, PayloadType={payload.PayloadType}");
+
+        if (TryHandleStreamNameMetadata(payload))
+        {
+            return;
+        }
+
         _incomingPayloads.TryAdd(payload.Id, (endpointId, payload));
+
+        if (payload.PayloadType == Payload.Type.Stream)
+        {
+            BeginDrainingStreamPayload(payload);
+        }
+    }
+
+    // A bytes payload beginning with StreamNameMagic is a stream-name metadata packet sent
+    // by PlaformSendAsync just before the stream payload. The format is:
+    // [ magic (4 bytes) | payloadId (8 bytes LE) | name (UTF-8) ]
+    bool TryHandleStreamNameMetadata(Payload payload)
+    {
+        if (payload.PayloadType != Payload.Type.Bytes
+            || payload.AsBytes() is not { Length: > 12 } meta
+            || BinaryPrimitives.ReadUInt32LittleEndian(meta) != StreamNameMagic)
+        {
+            return false;
+        }
+
+        var streamPayloadId = BinaryPrimitives.ReadInt64LittleEndian(meta.AsSpan(4));
+        var name = Encoding.UTF8.GetString(meta, 12, meta.Length - 12);
+
+        // Store the name on the transfer if it alreay exists, or create a placeholder so
+        // the name is available regardless of which packet (metadata vs. stream) arrives first.
+        _incomingStreams.AddOrUpdate(
+            streamPayloadId,
+            addValue: new IncomingStreamTransfer(Name: name),
+            updateValueFactory: (_, existing) => existing with { Name = name });
+
+        Trace.TraceInformation($"Stream name metadata received: PayloadId={streamPayloadId}, Name={name}");
+        return true;
+    }
+
+    void BeginDrainingStreamPayload(Payload payload)
+    {
+        var drainTask = Task.Run(() => DrainStreamPayload(payload.AsStream()));
+
+        _incomingStreams.AddOrUpdate(
+            payload.Id,
+            addValue: new IncomingStreamTransfer(DrainTask: drainTask),
+            updateValueFactory: (_, existing) => existing with { DrainTask = drainTask });
     }
 
     async Task OnPayloadTransferUpdate(string endpointId, PayloadTransferUpdate update)
@@ -132,7 +182,7 @@ sealed partial class NearbyConnectionsImplementation
 
         var status = ToNearbyTransferStatus(update.TransferStatus);
 
-        if (_outgoingTransfers.TryGetValue(update.PayloadId, out var transfer))
+        if (_outgoingStreams.TryGetValue(update.PayloadId, out var transfer))
         {
             transfer.ReportProgress(new NearbyTransferProgress(
                 payloadId: update.PayloadId,
@@ -146,45 +196,56 @@ sealed partial class NearbyConnectionsImplementation
             return;
         }
 
-        // Raise incoming transfer progress
-        var incomingStatus = status;
-
         Events.OnIncomingTransferProgress(
             device,
-            new NearbyTransferProgress(update.PayloadId, update.BytesTransferred, update.TotalBytes, incomingStatus),
+            new NearbyTransferProgress(update.PayloadId, update.BytesTransferred, update.TotalBytes, status),
             TimeProvider.GetUtcNow());
 
 
-        // On success, raise DataReceived
-        if (update.TransferStatus == PayloadTransferUpdate.Status.Success
-            && _incomingPayloads.TryRemove(update.PayloadId, out var entry))
+        if (update.TransferStatus == PayloadTransferUpdate.Status.Success)
         {
-            NearbyPayload? nearbyPayload = entry.Payload.PayloadType switch
-            {
-                Payload.Type.Bytes => entry.Payload.AsBytes() is { } bytes
-                    ? new BytesPayload(bytes)
-                    : null,
-                Payload.Type.Stream => BuildStreamPayload(entry.Payload.AsStream()),
-                _ => null
-            };
+            await OnIncomingPayloadSuccess(device, update.PayloadId);
 
-            if (nearbyPayload is not null)
-            {
-                Events.OnDataReceived(device, nearbyPayload, TimeProvider.GetUtcNow());
-            }
-
-            entry.Payload.Dispose();
         }
     }
 
-    static StreamPayload? BuildStreamPayload(Payload.Stream? payloadStream)
+    async Task OnIncomingPayloadSuccess(NearbyDevice device, long payloadId)
     {
-        if (payloadStream is null)
+        if (!_incomingPayloads.TryRemove(payloadId, out var entry))
         {
-            return null;
+            return;
         }
 
-        var inputStream = payloadStream.AsInputStream();
+        NearbyPayload? nearbyPayload;
+
+        if (entry.Payload.PayloadType == Payload.Type.Stream
+            && _incomingStreams.TryRemove(payloadId, out var incomingStream)
+            && incomingStream.DrainTask is not null)
+        {
+            var drained = await incomingStream.DrainTask;
+
+            nearbyPayload = drained is not null
+                ? new StreamPayload(drained.StreamFactory, incomingStream.Name)
+                : null;
+        }
+        else
+        {
+            nearbyPayload = entry.Payload.AsBytes() is { } bytes
+                ? new BytesPayload(bytes)
+                : null;
+        }
+
+        if (nearbyPayload is not null)
+        {
+            Events.OnDataReceived(device, nearbyPayload, TimeProvider.GetUtcNow());
+        }
+
+        entry.Payload.Dispose();
+    }
+
+    static StreamPayload? DrainStreamPayload(Payload.Stream? payloadStream)
+    {
+        var inputStream = payloadStream?.AsInputStream();
 
         if (inputStream is null)
         {
@@ -252,21 +313,23 @@ sealed partial class NearbyConnectionsImplementation
 
     async Task PlatformSendAsync(
         NearbyDevice device,
-        Func<Task<Stream>> streamFactory,
-#pragma warning disable IDE0060 // streamName is not used by the Android Nearby Connections API
-        string streamName,
-#pragma warning restore IDE0060
+        FileResult fileResult,
         IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
-        var stream = await streamFactory();
+        var stream = await fileResult.OpenReadAsync();
         var payload = Payload.FromStream(stream);
+
+        // Send a small metadata bytes payload first so the receiver can associate the stream name
+        // with this payload id.
+        await client.SendPayloadAsync(device.Id, BuildStreamNameBytePayload(payload.Id, fileResult.FileName));
+
         var transfer = new OutgoingStreamTransfer(payload, stream, progress, Options.TransferInactivityTimeout);
 
-        _outgoingTransfers[payload.Id] = transfer;
+        _outgoingStreams[payload.Id] = transfer;
 
         try
         {
@@ -282,10 +345,17 @@ sealed partial class NearbyConnectionsImplementation
         }
         finally
         {
-            _outgoingTransfers.TryRemove(payload.Id, out _);
+            _outgoingStreams.TryRemove(payload.Id, out _);
             transfer.Dispose();
         }
     }
+
+    /// <summary>
+    /// Holds the drain task and optional name for an in-flight incoming stream payload.
+    /// </summary>
+    /// <param name="DrainTask"></param>
+    /// <param name="Name"></param>
+    sealed record IncomingStreamTransfer(Task<StreamPayload?>? DrainTask = null, string Name = "");
 
     /// <summary>
     /// Holds all state for an in-flight outgoing stream transfer so it can be
@@ -337,6 +407,18 @@ sealed partial class NearbyConnectionsImplementation
             payload.Dispose();
             stream.Dispose();
         }
+    }
+
+    static Payload BuildStreamNameBytePayload(long streamPayloadId, string streamName)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(streamName);
+        var metadata = new byte[12 + nameBytes.Length];
+
+        BinaryPrimitives.WriteUInt32LittleEndian(metadata, StreamNameMagic);
+        BinaryPrimitives.WriteInt64LittleEndian(metadata.AsSpan(4), streamPayloadId);
+        nameBytes.CopyTo(metadata, 12);
+
+        return Payload.FromBytes(metadata);
     }
 
     static NearbyTransferStatus ToNearbyTransferStatus(int androidStatus) => androidStatus switch

@@ -47,12 +47,16 @@
       <Using Include="Microsoft.Extensions.DependencyInjection.Extensions" />
       <Using Include="Microsoft.Maui.ApplicationModel" />
       <Using Include="Microsoft.Maui.Devices" />
+      <Using Include="Microsoft.Maui.Media" />
+      <Using Include="Microsoft.Maui.Storage" />
       <Using Include="Plugin.Maui.NearbyConnections" />
       <Using Include="Plugin.Maui.NearbyConnections.Advertise" />
       <Using Include="Plugin.Maui.NearbyConnections.Discover" />
+      <Using Include="System.Buffers.Binary" />
       <Using Include="System.Collections.Concurrent" />
       <Using Include="System.Diagnostics" />
       <Using Include="System.Diagnostics.CodeAnalysis" />
+      <Using Include="System.Text" />
     </ItemGroup>
   </Target>
 </Project>

@@ -160,8 +160,7 @@ sealed partial class NearbyConnectionsImplementation
 
     Task PlatformSendAsync(
         NearbyDevice device,
-        Func<Task<Stream>> streamFactory,
-        string streamName,
+        FileResult fileResult,
         IProgress<NearbyTransferProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -174,7 +173,7 @@ sealed partial class NearbyConnectionsImplementation
         var peerID = MyMCPeerIDManager.UnarchivePeerId(peerIdData)
             ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
 
-        return SendStreamAsync(streamFactory, streamName, peerID, cancellationToken);
+        return SendStreamAsync(fileResult.OpenReadAsync, fileResult.FileName, peerID, cancellationToken);
     }
 
     Task SendBytesAsync(byte[] bytes, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)

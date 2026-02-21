@@ -96,13 +96,13 @@ public interface INearbyConnections : IDisposable
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sends a payload to a connected nearby device.
+    /// Sends a file to a connected nearby device.
     /// </summary>
-    /// <param name="device">The connected device to send data to.</param>
-    /// <param name="streamFactory">
-    /// The bytes to send (≤32 KB on Android).
+    /// <param name="device">The connected device to send the file to.</param>
+    /// <param name="fileResult">
+    /// The file to send. Use <see cref="IFilePicker"/> or <see cref="IMediaPicker"/> to
+    /// obtain a <see cref="FileResult"/>, or construct one directly from a path via <c>new FileResult(path)</c>.
     /// </param>
-    /// <param name="streamName">The name of the stream. Filename, tag, etc...</param>
     /// <param name="progress">
     /// An optional callback to receive outgoing transfer progress updates.
     /// For byte payloads this will typically report a single <see cref="NearbyTransferStatus.Success"/>.
@@ -114,8 +114,7 @@ public interface INearbyConnections : IDisposable
     /// </exception>
     Task SendAsync(
         NearbyDevice device,
-        Func<Task<Stream>> streamFactory,
-        string streamName,
+        FileResult fileResult,
         IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default);
 }

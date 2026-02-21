@@ -69,8 +69,7 @@ public partial class ChatViewModel(
 
             await nearbyConnectionsService.SendAsync(
                 device: Device,
-                streamFactory: file.OpenReadAsync,
-                streamName: file.FileName,
+                fileResult: file,
                 progress: progress,
                 cancellationToken: cancellationToken);
 
@@ -85,7 +84,7 @@ public partial class ChatViewModel(
     [RelayCommand]
     async Task Attach()
     {
-        var fileResult = await mediaPicker.PickPhotosAsync();
+        var fileResult = await mediaPicker.PickVideosAsync();
 
         if (fileResult?.FirstOrDefault() is not FileResult file)
         {
