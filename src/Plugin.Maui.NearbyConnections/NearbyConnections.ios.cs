@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-internal sealed partial class NearbyConnectionsImplementation
+sealed partial class NearbyConnectionsImplementation
 {
     internal MyPeerIdManager MyMCPeerIDManager { get; } = new();
 
@@ -16,7 +16,7 @@ internal sealed partial class NearbyConnectionsImplementation
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
         var device = _deviceManager.DeviceFound(id, peerID.DisplayName);
 
-        Trace.WriteLine($"Found peer: Id={id}, DisplayName={peerID.DisplayName}");
+        Trace.TraceInformation("Found peer: Id={0}, DisplayName={1}", id, peerID.DisplayName);
         Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
     }
 
@@ -25,7 +25,7 @@ internal sealed partial class NearbyConnectionsImplementation
         using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        Trace.WriteLine($"Lost peer: Id={id}, DisplayName={peerID.DisplayName}");
+        Trace.TraceInformation("Lost peer: Id={0}, DisplayName={1}", id, peerID.DisplayName);
         var device = _deviceManager.DeviceLost(id);
         if (device is not null)
         {
@@ -61,7 +61,7 @@ internal sealed partial class NearbyConnectionsImplementation
 
         _pendingInvitations.TryAdd(id, invitationHandler);
 
-        Trace.WriteLine($"Received invitation from peer: Id={id}, DisplayName={peerID.DisplayName}");
+        Trace.TraceInformation("Received invitation from peer: Id={0}, DisplayName={1}", id, peerID.DisplayName);
         Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
 
         if (Options.AutoAcceptConnections)
@@ -102,7 +102,7 @@ internal sealed partial class NearbyConnectionsImplementation
 
         _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
 
-        Trace.WriteLine($"Inviting peer: Id={device.Id}, DisplayName={peerID.DisplayName}");
+        Trace.TraceInformation("Inviting peer: Id={0}, DisplayName={1}", device.Id, peerID.DisplayName);
         _discoverer.InvitePeer(peerID, _session, context: null, Options.InvitationTimeout);
 
         return Task.CompletedTask;
@@ -158,27 +158,6 @@ internal sealed partial class NearbyConnectionsImplementation
         return SendBytesAsync(data, peerID, progress, cancellationToken);
     }
 
-    Task SendBytesAsync(byte[] bytes, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        using var nsData = NSData.FromArray(bytes);
-        _session!.SendData(nsData, [peerID], MCSessionSendDataMode.Reliable, out var error);
-
-        if (error is not null)
-        {
-            throw new InvalidOperationException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}");
-        }
-
-        progress?.Report(new NearbyTransferProgress(
-            payloadId: 0,
-            bytesTransferred: bytes.Length,
-            totalBytes: bytes.Length,
-            NearbyTransferStatus.Success));
-
-        return Task.CompletedTask;
-    }
-
     Task PlatformSendAsync(
         NearbyDevice device,
         Func<Task<Stream>> streamFactory,
@@ -198,68 +177,25 @@ internal sealed partial class NearbyConnectionsImplementation
         return SendStreamAsync(streamFactory, streamName, peerID, cancellationToken);
     }
 
-    async Task SendFileAsync(FilePayload payload, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
+    Task SendBytesAsync(byte[] bytes, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var resourceUrl = NSUrl.FromFilename(payload.FilePath);
-        var resourceName = Path.GetFileName(payload.FilePath);
+        using var nsData = NSData.FromArray(bytes);
+        _session!.SendData(nsData, [peerID], MCSessionSendDataMode.Reliable, out var error);
 
-        if (progress is null)
+        if (error is not null)
         {
-            await _session!.SendResourceAsync(resourceUrl, resourceName, peerID);
-            return;
+            throw new InvalidOperationException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}");
         }
 
-        // Start the transfer — the binding returns the NSProgress via out parameter.
-        // We attach KVO after the call returns the handle, then await the task.
-        var task = _session!.SendResourceAsync(resourceUrl, resourceName, peerID, out var nsProgress);
+        progress?.Report(new NearbyTransferProgress(
+            payloadId: 0,
+            bytesTransferred: bytes.Length,
+            totalBytes: bytes.Length,
+            NearbyTransferStatus.Success));
 
-        // KVO on FractionCompleted to bridge NSProgress → IProgress<NearbyTransferProgress>
-        using var observation = nsProgress?.AddObserver(
-            "fractionCompleted",
-            NSKeyValueObservingOptions.New,
-            _ =>
-            {
-                if (nsProgress is null) return;
-                var transferred = (long)(nsProgress.FractionCompleted * nsProgress.TotalUnitCount);
-                progress.Report(new NearbyTransferProgress(
-                    payloadId: 0,
-                    bytesTransferred: transferred,
-                    totalBytes: nsProgress.TotalUnitCount,
-                    NearbyTransferStatus.InProgress));
-            });
-
-        using var registration = cancellationToken.Register(() => nsProgress?.Cancel());
-
-        try
-        {
-            await task;
-
-            progress.Report(new NearbyTransferProgress(
-                payloadId: 0,
-                bytesTransferred: nsProgress?.TotalUnitCount ?? 0,
-                totalBytes: nsProgress?.TotalUnitCount ?? 0,
-                NearbyTransferStatus.Success));
-        }
-        catch (OperationCanceledException)
-        {
-            progress.Report(new NearbyTransferProgress(
-                payloadId: 0,
-                bytesTransferred: 0,
-                totalBytes: nsProgress?.TotalUnitCount ?? 0,
-                NearbyTransferStatus.Canceled));
-            throw;
-        }
-        catch
-        {
-            progress.Report(new NearbyTransferProgress(
-                payloadId: 0,
-                bytesTransferred: 0,
-                totalBytes: nsProgress?.TotalUnitCount ?? 0,
-                NearbyTransferStatus.Failure));
-            throw;
-        }
+        return Task.CompletedTask;
     }
 
     Task SendStreamAsync(
@@ -307,12 +243,12 @@ internal sealed partial class NearbyConnectionsImplementation
 
     #region Session Callbacks
 
-    internal void OnPeerStateChanged(MCPeerID peerID, MCSessionState state)
+    public void OnPeerStateChanged(MCPeerID peerID, MCSessionState state)
     {
         using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        Trace.WriteLine($"Peer state changed: Id={id}, DisplayName={peerID.DisplayName}, State={state}");
+        Trace.TraceInformation("Peer state changed: Id={0}, DisplayName={1}, State={2}", id, peerID.DisplayName, state);
 
         switch (state)
         {
@@ -341,12 +277,12 @@ internal sealed partial class NearbyConnectionsImplementation
         using var archived = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        Trace.WriteLine($"Data received from peer: DisplayName={peerID.DisplayName}, Length={data.Length}");
+        Trace.TraceInformation("Data received from peer: DisplayName={0}, Length={1}", peerID.DisplayName, data.Length);
 
         var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
         if (device is null)
         {
-            Trace.WriteLine($"Received data from unknown peer: {peerID.DisplayName}");
+            Trace.TraceInformation("Received data from unknown peer: {0}", peerID.DisplayName);
             return;
         }
 
@@ -359,7 +295,7 @@ internal sealed partial class NearbyConnectionsImplementation
         using var archived = MyMCPeerIDManager.ArchivePeerId(fromPeer);
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        Trace.WriteLine($"Started receiving resource: {resourceName} from {fromPeer.DisplayName}");
+        Trace.TraceInformation("Started receiving resource: {0} from {1}", resourceName, fromPeer.DisplayName);
 
         var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
         if (device is null)
@@ -390,7 +326,7 @@ internal sealed partial class NearbyConnectionsImplementation
         using var archived = MyMCPeerIDManager.ArchivePeerId(fromPeer);
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        Trace.WriteLine($"Finished receiving resource: {resourceName} from {fromPeer.DisplayName}, Error: {error?.LocalizedDescription ?? "None"}");
+        Trace.TraceInformation("Finished receiving resource: {0} from {1}, Error: {2}", resourceName, fromPeer.DisplayName, error?.LocalizedDescription ?? "None");
 
         var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
         if (device is null)
@@ -404,7 +340,8 @@ internal sealed partial class NearbyConnectionsImplementation
             return;
         }
 
-        var payload = new FilePayload(localUrl.Path!);
+        var filePath = localUrl.Path!;
+        var payload = new StreamPayload(() => File.OpenRead(filePath), resourceName);
         Events.OnDataReceived(device, payload, TimeProvider.GetUtcNow());
     }
 
@@ -413,7 +350,7 @@ internal sealed partial class NearbyConnectionsImplementation
         using var archived = MyMCPeerIDManager.ArchivePeerId(fromPeer);
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        Trace.WriteLine($"Received stream: {streamName} from {fromPeer.DisplayName}");
+        Trace.TraceInformation("Received stream: {0} from {1}", streamName, fromPeer.DisplayName);
 
         var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
         if (device is null)

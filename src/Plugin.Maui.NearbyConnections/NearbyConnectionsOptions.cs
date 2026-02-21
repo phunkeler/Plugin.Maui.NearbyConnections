@@ -13,7 +13,7 @@ public sealed partial class NearbyConnectionsOptions
         get => field;
         set
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(DisplayName));
+            ArgumentException.ThrowIfNullOrWhiteSpace(value);
             field = value;
         }
     } = DeviceInfo.Current.Name;
@@ -24,7 +24,7 @@ public sealed partial class NearbyConnectionsOptions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// On Android, this is used as the <c>serviceId</c> when interacting with Google Play Service's Nearby Connections API
+    /// On Android, this is used as the <c>serviceId</c> when advertising/discovery Google Play Service's Nearby Connections API
     /// (<see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/package-summary">developers.google.com</see>).
     /// </para>
     /// <para>
@@ -39,7 +39,7 @@ public sealed partial class NearbyConnectionsOptions
         get => field;
         set
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(ServiceId));
+            ArgumentException.ThrowIfNullOrWhiteSpace(value);
             field = value;
         }
     } = AppInfo.Current.Name;
@@ -48,4 +48,11 @@ public sealed partial class NearbyConnectionsOptions
     /// When a nearby device requests a connection, automatically accept it.
     /// </summary>
     public bool AutoAcceptConnections { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the maximum time to wait without receiving a transfer progress update
+    /// before considering a data transfer stalled and aborting it.
+    /// Defaults to 10 seconds. Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.
+    /// </summary>
+    public TimeSpan TransferInactivityTimeout { get; set; } = TimeSpan.FromSeconds(10);
 }

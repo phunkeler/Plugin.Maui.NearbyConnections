@@ -2,8 +2,7 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
 {
-    readonly ConcurrentDictionary<long, (Payload Payload, Stream Stream)> _outgoingPayloads = [];
-    readonly ConcurrentDictionary<long, IProgress<NearbyTransferProgress>> _outgoingProgress = [];
+    readonly ConcurrentDictionary<long, OutgoingStreamTransfer> _outgoingTransfers = [];
     readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
 
     #region Discovery
@@ -124,44 +123,22 @@ sealed partial class NearbyConnectionsImplementation
     void OnPayloadReceived(string endpointId, Payload payload)
     {
         Trace.TraceInformation($"Payload received: EndpointId={endpointId}, PayloadId={payload.Id}, PayloadType={payload.PayloadType}");
-
-        // Buffer the payload — we wait for OnPayloadTransferUpdate Success before raising DataReceived.
-        // BYTES payloads are complete immediately; FILE/STREAM require the success update.
-        _incomingPayloads[payload.Id] = (endpointId, payload);
+        _incomingPayloads.TryAdd(payload.Id, (endpointId, payload));
     }
 
     async Task OnPayloadTransferUpdate(string endpointId, PayloadTransferUpdate update)
     {
         Trace.TraceInformation($"Payload transfer update: EndpointId={endpointId}, PayloadId={update.PayloadId}, TransferStatus={update.TransferStatus}, TotalBytes={update.TotalBytes}, BytesTransferred={update.BytesTransferred}");
 
-        // Route outgoing progress
-        if (_outgoingProgress.TryGetValue(update.PayloadId, out var outProgress))
-        {
-            var status = update.TransferStatus switch
-            {
-                PayloadTransferUpdate.Status.InProgress => NearbyTransferStatus.InProgress,
-                PayloadTransferUpdate.Status.Success => NearbyTransferStatus.Success,
-                PayloadTransferUpdate.Status.Failure => NearbyTransferStatus.Failure,
-                PayloadTransferUpdate.Status.Canceled => NearbyTransferStatus.Canceled,
-                _ => NearbyTransferStatus.InProgress
-            };
+        var status = ToNearbyTransferStatus(update.TransferStatus);
 
-            outProgress.Report(new NearbyTransferProgress(
+        if (_outgoingTransfers.TryGetValue(update.PayloadId, out var transfer))
+        {
+            transfer.ReportProgress(new NearbyTransferProgress(
                 payloadId: update.PayloadId,
                 bytesTransferred: update.BytesTransferred,
                 totalBytes: update.TotalBytes,
                 status));
-
-            if (status != NearbyTransferStatus.InProgress)
-            {
-                _outgoingProgress.TryRemove(update.PayloadId, out _);
-
-                if (_outgoingPayloads.TryRemove(update.PayloadId, out var outgoingPayload))
-                {
-                    outgoingPayload.Payload.Dispose();
-                    outgoingPayload.Stream.Dispose();
-                }
-            }
         }
 
         if (!_deviceManager.TryGetDevice(endpointId, out var device))
@@ -169,17 +146,8 @@ sealed partial class NearbyConnectionsImplementation
             return;
         }
 
-
         // Raise incoming transfer progress
-
-        var incomingStatus = update.TransferStatus switch
-        {
-            PayloadTransferUpdate.Status.InProgress => NearbyTransferStatus.InProgress,
-            PayloadTransferUpdate.Status.Success => NearbyTransferStatus.Success,
-            PayloadTransferUpdate.Status.Failure => NearbyTransferStatus.Failure,
-            PayloadTransferUpdate.Status.Canceled => NearbyTransferStatus.Canceled,
-            _ => NearbyTransferStatus.InProgress
-        };
+        var incomingStatus = status;
 
         Events.OnIncomingTransferProgress(
             device,
@@ -261,7 +229,7 @@ sealed partial class NearbyConnectionsImplementation
             : client.RejectConnectionAsync(device.Id);
     }
 
-    async Task PlatformSendAsync(
+    static async Task PlatformSendAsync(
         NearbyDevice device,
         byte[] data,
         IProgress<NearbyTransferProgress>? progress,
@@ -270,28 +238,24 @@ sealed partial class NearbyConnectionsImplementation
         cancellationToken.ThrowIfCancellationRequested();
 
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
-        var androidPayload = Payload.FromBytes(data);
+        var payload = Payload.FromBytes(data);
 
-        if (progress is not null)
-        {
-            _outgoingProgress[androidPayload.Id] = progress;
-        }
+        await client.SendPayloadAsync(device.Id, payload);
 
-        try
-        {
-            await client.SendPayloadAsync(device.Id, androidPayload);
-        }
-        catch
-        {
-            _outgoingProgress.TryRemove(androidPayload.Id, out _);
-            throw;
-        }
+        // Bytes payloads complete synchronously on enqueue; report success immediately
+        progress?.Report(new NearbyTransferProgress(
+            payloadId: payload.Id,
+            bytesTransferred: data.Length,
+            totalBytes: data.Length,
+            NearbyTransferStatus.Success));
     }
 
     async Task PlatformSendAsync(
         NearbyDevice device,
         Func<Task<Stream>> streamFactory,
+#pragma warning disable IDE0060 // streamName is not used by the Android Nearby Connections API
         string streamName,
+#pragma warning restore IDE0060
         IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -300,36 +264,89 @@ sealed partial class NearbyConnectionsImplementation
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
         var stream = await streamFactory();
         var payload = Payload.FromStream(stream);
+        var transfer = new OutgoingStreamTransfer(payload, stream, progress, Options.TransferInactivityTimeout);
 
-        _outgoingPayloads.TryAdd(payload.Id, (payload, stream));
-
-        if (progress is not null)
-        {
-            _outgoingProgress[payload.Id] = progress;
-        }
-
-        cancellationToken.Register(async () =>
-        {
-            await client.CancelPayloadAsync(payload.Id);
-        });
+        _outgoingTransfers[payload.Id] = transfer;
 
         try
         {
             await client.SendPayloadAsync(device.Id, payload);
+
+            // SendPayloadAsync only enqueues — await the actual transfer completion.
+            // Link the caller's token with the inactivity token so either can abort the transfer.
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                transfer.InactivityToken);
+            using var ctr = linkedCts.Token.Register(() => _ = client.CancelPayloadAsync(payload.Id));
+            await transfer.Completion.WaitAsync(linkedCts.Token);
         }
-        catch
+        finally
         {
-            _outgoingProgress.TryRemove(payload.Id, out _);
-
-            if (_outgoingPayloads.TryRemove(payload.Id, out var outgoingPayload))
-            {
-                outgoingPayload.Payload.Dispose();
-                outgoingPayload.Stream.Dispose();
-            }
-
-            throw;
+            _outgoingTransfers.TryRemove(payload.Id, out _);
+            transfer.Dispose();
         }
     }
+
+    /// <summary>
+    /// Holds all state for an in-flight outgoing stream transfer so it can be
+    /// awaited and cleaned up in a single place.
+    /// </summary>
+    sealed class OutgoingStreamTransfer(
+        Payload payload,
+        Stream stream,
+        IProgress<NearbyTransferProgress>? progress,
+        TimeSpan inactivityTimeout) : IDisposable
+    {
+        readonly TaskCompletionSource _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationTokenSource _inactivityCts = new(inactivityTimeout);
+
+        /// <summary>Awaitable task that completes when the transfer reaches a terminal state.</summary>
+        public Task Completion => _tcs.Task;
+
+        /// <summary>
+        /// Cancelled when no progress update has been received within the configured inactivity timeout.
+        /// Reset on every call to <see cref="ReportProgress"/>.
+        /// </summary>
+        public CancellationToken InactivityToken => _inactivityCts.Token;
+
+        public void ReportProgress(NearbyTransferProgress transferProgress)
+        {
+            // Reset the inactivity timer — transfer is still alive
+            var old = Interlocked.Exchange(ref _inactivityCts, new CancellationTokenSource(inactivityTimeout));
+            old.Dispose();
+
+            progress?.Report(transferProgress);
+
+            switch (transferProgress.Status)
+            {
+                case NearbyTransferStatus.Success:
+                    _tcs.TrySetResult();
+                    break;
+                case NearbyTransferStatus.Failure:
+                    _tcs.TrySetException(new InvalidOperationException($"Transfer {transferProgress.PayloadId} failed."));
+                    break;
+                case NearbyTransferStatus.Canceled:
+                    _tcs.TrySetCanceled();
+                    break;
+            }
+        }
+
+        public void Dispose()
+        {
+            _inactivityCts.Dispose();
+            payload.Dispose();
+            stream.Dispose();
+        }
+    }
+
+    static NearbyTransferStatus ToNearbyTransferStatus(int androidStatus) => androidStatus switch
+    {
+        PayloadTransferUpdate.Status.InProgress => NearbyTransferStatus.InProgress,
+        PayloadTransferUpdate.Status.Success => NearbyTransferStatus.Success,
+        PayloadTransferUpdate.Status.Failure => NearbyTransferStatus.Failure,
+        PayloadTransferUpdate.Status.Canceled => NearbyTransferStatus.Canceled,
+        _ => NearbyTransferStatus.InProgress
+    };
 
     sealed class ConnectionRequestCallback(
         Action<string, ConnectionInfo> onConnectionInitiated,

@@ -22,8 +22,10 @@ public partial class ChatViewModel(
     IRecipient<DeviceStateChangedMessage>
 {
     [MemberNotNullWhen(true, nameof(Message))]
-    public bool CanSend => Device?.State == NearbyDeviceState.Connected
-            && !string.IsNullOrWhiteSpace(Message);
+    public bool CanSend
+        => Device?.State == NearbyDeviceState.Connected
+            && !string.IsNullOrWhiteSpace(Message)
+            && TransferStatus is not NearbyTransferStatus.InProgress;
 
     [ObservableProperty]
     public partial NearbyDevice Device { get; set; }
@@ -31,6 +33,10 @@ public partial class ChatViewModel(
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
     public partial string? Message { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SendCommand))]
+    public partial NearbyTransferStatus? TransferStatus { get; set; }
 
     [ObservableProperty]
     public partial FileResult? SelectedFile { get; set; }
@@ -59,11 +65,14 @@ public partial class ChatViewModel(
             Message = null;
             SelectedFile = null;
 
+            var progress = new Progress<NearbyTransferProgress>(OnNearbyTransferProgress);
+
             await nearbyConnectionsService.SendAsync(
-                Device,
-                file.OpenReadAsync,
+                device: Device,
+                streamFactory: file.OpenReadAsync,
                 streamName: file.FileName,
-                cancellationToken);
+                progress: progress,
+                cancellationToken: cancellationToken);
 
             Trace.TraceInformation("The end");
         }
@@ -113,11 +122,11 @@ public partial class ChatViewModel(
                 Timestamp = msg.Timestamp.ToLocalTime()
             });
         }
-        else if (msg.Payload is FilePayload file)
+        else if (msg.Payload is StreamPayload stream)
         {
             Messages.Add(new ChatMessage
             {
-                Text = file.FilePath,
+                Text = stream.Name,
                 From = Sender.Peer,
                 Timestamp = msg.Timestamp.ToLocalTime()
             });
@@ -132,4 +141,7 @@ public partial class ChatViewModel(
                     SendCommand.NotifyCanExecuteChanged();
                 }
             });
+
+    void OnNearbyTransferProgress(NearbyTransferProgress progress)
+        => TransferStatus = progress.Status;
 }
