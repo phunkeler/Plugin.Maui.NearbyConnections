@@ -16,7 +16,7 @@ internal sealed partial class NearbyConnectionsImplementation
 
     Task PlatformSendAsync(
         NearbyDevice device,
-        FileResult fileResult,
+        string fileUri,
         IProgress<NearbyTransferProgress>? progress,
         CancellationToken cancellationToken) => throw new NotImplementedException();
 }

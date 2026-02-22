@@ -20,8 +20,8 @@ public interface INearbyConnectionsService : IDisposable
     Task SendMessage(NearbyDevice device, string message);
     Task SendAsync(
         NearbyDevice device,
-        FileResult fileResult,
-        IProgress<NearbyTransferProgress> progress,
+        string uri,
+        IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -80,12 +80,12 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
 
     public Task SendAsync(
         NearbyDevice device,
-        FileResult fileResult,
-        IProgress<NearbyTransferProgress> progress,
+        string uri,
+        IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default)
         => _nearbyConnections.SendAsync(
             device,
-            fileResult,
+            uri,
             progress,
             cancellationToken);
 

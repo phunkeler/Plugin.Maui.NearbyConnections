@@ -74,9 +74,9 @@ public interface INearbyConnections : IDisposable
     Task RespondToConnectionAsync(NearbyDevice device, bool accept);
 
     /// <summary>
-    /// Sends a byte payload to a connected nearby device.
+    /// Sends bytes to a connected nearby device.
     /// </summary>
-    /// <param name="device">The connected device to send data to.</param>
+    /// <param name="device">The connected device to send bytes to.</param>
     /// <param name="data">
     /// The bytes to send (≤32 KB on Android).
     /// </param>
@@ -96,16 +96,14 @@ public interface INearbyConnections : IDisposable
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sends a file to a connected nearby device.
+    /// Sends the contents of URI to a connected nearby device.
     /// </summary>
-    /// <param name="device">The connected device to send the file to.</param>
-    /// <param name="fileResult">
-    /// The file to send. Use <see cref="IFilePicker"/> or <see cref="IMediaPicker"/> to
-    /// obtain a <see cref="FileResult"/>, or construct one directly from a path via <c>new FileResult(path)</c>.
+    /// <param name="device">The connected device to send the resource to.</param>
+    /// <param name="uri">
+    /// A URI string identifying the resource to send.
     /// </param>
     /// <param name="progress">
     /// An optional callback to receive outgoing transfer progress updates.
-    /// For byte payloads this will typically report a single <see cref="NearbyTransferStatus.Success"/>.
     /// </param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task that completes when the transfer is fully enqueued or finished.</returns>
@@ -114,7 +112,7 @@ public interface INearbyConnections : IDisposable
     /// </exception>
     Task SendAsync(
         NearbyDevice device,
-        FileResult fileResult,
+        string uri,
         IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default);
 }

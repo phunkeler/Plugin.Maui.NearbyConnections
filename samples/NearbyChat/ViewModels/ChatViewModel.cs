@@ -69,7 +69,7 @@ public partial class ChatViewModel(
 
             await nearbyConnectionsService.SendAsync(
                 device: Device,
-                fileResult: file,
+                file.FullPath,
                 progress: progress,
                 cancellationToken: cancellationToken);
 

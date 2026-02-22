@@ -1,12 +1,17 @@
+using Android.Content;
+using AndroidUri = Android.Net.Uri;
+using Path = System.IO.Path;
+
 namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
 {
-    const uint StreamNameMagic = 0x504D4E43;
+    const uint MetadataSignature = 0x504D4E43; // PMNC (Plugin.Maui.NearbyConnections)
 
     readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
     readonly ConcurrentDictionary<long, IncomingStreamTransfer> _incomingStreams = [];
     readonly ConcurrentDictionary<long, OutgoingStreamTransfer> _outgoingStreams = [];
+    readonly ConcurrentDictionary<long, OutgoingTransfer> _outgoingTransfers = [];
 
     #region Discovery
 
@@ -127,53 +132,7 @@ sealed partial class NearbyConnectionsImplementation
     {
         Trace.TraceInformation($"Payload received: EndpointId={endpointId}, PayloadId={payload.Id}, PayloadType={payload.PayloadType}");
 
-        if (TryHandleStreamNameMetadata(payload))
-        {
-            return;
-        }
-
         _incomingPayloads.TryAdd(payload.Id, (endpointId, payload));
-
-        if (payload.PayloadType == Payload.Type.Stream)
-        {
-            BeginDrainingStreamPayload(payload);
-        }
-    }
-
-    // A bytes payload beginning with StreamNameMagic is a stream-name metadata packet sent
-    // by PlaformSendAsync just before the stream payload. The format is:
-    // [ magic (4 bytes) | payloadId (8 bytes LE) | name (UTF-8) ]
-    bool TryHandleStreamNameMetadata(Payload payload)
-    {
-        if (payload.PayloadType != Payload.Type.Bytes
-            || payload.AsBytes() is not { Length: > 12 } meta
-            || BinaryPrimitives.ReadUInt32LittleEndian(meta) != StreamNameMagic)
-        {
-            return false;
-        }
-
-        var streamPayloadId = BinaryPrimitives.ReadInt64LittleEndian(meta.AsSpan(4));
-        var name = Encoding.UTF8.GetString(meta, 12, meta.Length - 12);
-
-        // Store the name on the transfer if it alreay exists, or create a placeholder so
-        // the name is available regardless of which packet (metadata vs. stream) arrives first.
-        _incomingStreams.AddOrUpdate(
-            streamPayloadId,
-            addValue: new IncomingStreamTransfer(Name: name),
-            updateValueFactory: (_, existing) => existing with { Name = name });
-
-        Trace.TraceInformation($"Stream name metadata received: PayloadId={streamPayloadId}, Name={name}");
-        return true;
-    }
-
-    void BeginDrainingStreamPayload(Payload payload)
-    {
-        var drainTask = Task.Run(() => DrainStreamPayload(payload.AsStream()));
-
-        _incomingStreams.AddOrUpdate(
-            payload.Id,
-            addValue: new IncomingStreamTransfer(DrainTask: drainTask),
-            updateValueFactory: (_, existing) => existing with { DrainTask = drainTask });
     }
 
     async Task OnPayloadTransferUpdate(string endpointId, PayloadTransferUpdate update)
@@ -182,9 +141,9 @@ sealed partial class NearbyConnectionsImplementation
 
         var status = ToNearbyTransferStatus(update.TransferStatus);
 
-        if (_outgoingStreams.TryGetValue(update.PayloadId, out var transfer))
+        if (_outgoingTransfers.TryGetValue(update.PayloadId, out var outgoingTransfer))
         {
-            transfer.ReportProgress(new NearbyTransferProgress(
+            outgoingTransfer.OnUpdate(new NearbyTransferProgress(
                 payloadId: update.PayloadId,
                 bytesTransferred: update.BytesTransferred,
                 totalBytes: update.TotalBytes,
@@ -243,29 +202,6 @@ sealed partial class NearbyConnectionsImplementation
         entry.Payload.Dispose();
     }
 
-    static StreamPayload? DrainStreamPayload(Payload.Stream? payloadStream)
-    {
-        var inputStream = payloadStream?.AsInputStream();
-
-        if (inputStream is null)
-        {
-            return null;
-        }
-
-        // Drain the Java InputStream into a MemoryStream synchronously (we are already on a
-        // background callback thread) so the caller gets a replayable Stream factory.
-        var buffer = new byte[16 * 1024];
-        using var ms = new MemoryStream();
-        int read;
-        while ((read = inputStream.Read(buffer)) > 0)
-        {
-            ms.Write(buffer, 0, read);
-        }
-
-        var captured = ms.ToArray();
-        return new StreamPayload(() => new MemoryStream(captured));
-    }
-
     Task PlatformRequestConnectionAsync(NearbyDevice device)
     {
         _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
@@ -299,7 +235,7 @@ sealed partial class NearbyConnectionsImplementation
         cancellationToken.ThrowIfCancellationRequested();
 
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
-        var payload = Payload.FromBytes(data);
+        using var payload = Payload.FromBytes(data);
 
         await client.SendPayloadAsync(device.Id, payload);
 
@@ -311,42 +247,107 @@ sealed partial class NearbyConnectionsImplementation
             NearbyTransferStatus.Success));
     }
 
+    static AndroidUri? TryCreateUri(string fileUri)
+    {
+        if (string.IsNullOrWhiteSpace(fileUri))
+        {
+            return null;
+        }
+
+        try
+        {
+            AndroidUri? uri;
+
+            if (Path.IsPathRooted(fileUri))
+            {
+                using var file = new Java.IO.File(fileUri);
+                uri = AndroidUri.FromFile(file);
+            }
+            else
+            {
+                uri = AndroidUri.Parse(fileUri);
+            }
+
+            return IsSupportedScheme(uri)
+                ? uri
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    static bool IsSupportedScheme(AndroidUri? uri)
+        => uri?.Scheme is { } scheme
+            && (scheme.Equals(ContentResolver.SchemeFile, StringComparison.OrdinalIgnoreCase)
+                || scheme.Equals(ContentResolver.SchemeContent, StringComparison.OrdinalIgnoreCase));
+
+    static Payload? BuildFilePayload(AndroidUri uri)
+    {
+        try
+        {
+            var parcelFileDescriptor = Application.Context.ContentResolver?.OpenFileDescriptor(uri, "r");
+            var payload = parcelFileDescriptor is not null
+                ? Payload.FromFile(parcelFileDescriptor)
+                : null;
+            var fileName = ResolveResourceName(uri);
+
+            payload?.SetFileName(fileName);
+
+            return payload;
+
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"{nameof(BuildFilePayload)}: Error building file payload. Message: {ex.Message}");
+        }
+
+        return null;
+    }
+
     async Task PlatformSendAsync(
         NearbyDevice device,
-        FileResult fileResult,
+        string uri,
         IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        using var androidUri = TryCreateUri(uri);
+
+        if (androidUri is null)
+        {
+            Trace.TraceWarning($"{nameof(PlatformSendAsync)}: Cannot send file: '{uri}' is not a valid URI. Only 'file://' and 'content://' schemes are supported.");
+            return;
+        }
+
+        var filePayload = BuildFilePayload(androidUri);
+
+        if (filePayload is null)
+        {
+            return;
+        }
+
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
-        var stream = await fileResult.OpenReadAsync();
-        var payload = Payload.FromStream(stream);
+        var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
 
-        // Send a small metadata bytes payload first so the receiver can associate the stream name
-        // with this payload id.
-        await client.SendPayloadAsync(device.Id, BuildStreamNameBytePayload(payload.Id, fileResult.FileName));
-
-        var transfer = new OutgoingStreamTransfer(payload, stream, progress, Options.TransferInactivityTimeout);
-
-        _outgoingStreams[payload.Id] = transfer;
+        _outgoingTransfers.TryAdd(filePayload.Id, transfer);
 
         try
         {
-            await client.SendPayloadAsync(device.Id, payload);
-
-            // SendPayloadAsync only enqueues — await the actual transfer completion.
-            // Link the caller's token with the inactivity token so either can abort the transfer.
+            await client.SendPayloadAsync(device.Id, filePayload);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken,
                 transfer.InactivityToken);
-            using var ctr = linkedCts.Token.Register(() => _ = client.CancelPayloadAsync(payload.Id));
+            using var ctr = linkedCts.Token.Register(() => _ = client.CancelPayloadAsync(filePayload.Id));
             await transfer.Completion.WaitAsync(linkedCts.Token);
         }
         finally
         {
-            _outgoingStreams.TryRemove(payload.Id, out _);
+            _outgoingTransfers.TryRemove(filePayload.Id, out _);
             transfer.Dispose();
+            filePayload.Dispose();
         }
     }
 
@@ -356,6 +357,57 @@ sealed partial class NearbyConnectionsImplementation
     /// <param name="DrainTask"></param>
     /// <param name="Name"></param>
     sealed record IncomingStreamTransfer(Task<StreamPayload?>? DrainTask = null, string Name = "");
+
+    class OutgoingTransfer(
+        IProgress<NearbyTransferProgress>? progress,
+        TimeSpan inactivityTimeout) : IDisposable
+    {
+        readonly TaskCompletionSource _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationTokenSource _inactivityCts = new(inactivityTimeout);
+
+        /// <summary>
+        /// Awaitable task that completes when the transfer reaches a terminal state.
+        /// </summary>
+        public Task Completion => _tcs.Task;
+
+        /// <summary>
+        /// Cancelled when no transfer updates have been received within the configured inactivity timeout.
+        /// Reset on every call to <see cref="OnUpdate"/>.
+        /// </summary>
+        public CancellationToken InactivityToken => _inactivityCts.Token;
+
+        public void OnUpdate(NearbyTransferProgress transferProgress)
+        {
+            var old = Interlocked.Exchange(ref _inactivityCts, new CancellationTokenSource(inactivityTimeout));
+            old.Dispose();
+
+            progress?.Report(transferProgress);
+
+            switch (transferProgress.Status)
+            {
+                case NearbyTransferStatus.Success:
+                    _tcs.TrySetResult();
+                    break;
+                case NearbyTransferStatus.Failure:
+                    _tcs.TrySetException(new InvalidOperationException($"Transfer {transferProgress.PayloadId} failed."));
+                    break;
+                case NearbyTransferStatus.Canceled:
+                    _tcs.TrySetCanceled();
+                    break;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            _inactivityCts.Dispose();
+        }
+    }
 
     /// <summary>
     /// Holds all state for an in-flight outgoing stream transfer so it can be
@@ -409,13 +461,139 @@ sealed partial class NearbyConnectionsImplementation
         }
     }
 
-    static Payload BuildStreamNameBytePayload(long streamPayloadId, string streamName)
+    /// <summary>
+    /// Best-effort resolution of a human-readable resource name (including extension) from a URI.
+    /// <para>
+    /// For <c>content://</c> URIs the following sources are tried in order:
+    /// <list type="number">
+    ///   <item><description><c>_display_name</c> — already contains the extension for well-behaved providers (MediaStore, SAF, Downloads).</description></item>
+    ///   <item><description><c>_data</c> — the underlying file path; its filename gives a reliable name + extension for MediaStore URIs.</description></item>
+    ///   <item><description><see cref="ContentResolver.GetType"/> — maps the MIME type to an extension via <see cref="Android.Webkit.MimeTypeMap"/>.</description></item>
+    ///   <item><description>Decoded <c>LastPathSegment</c> — opaque but human-readable.</description></item>
+    /// </list>
+    /// </para>
+    /// For <c>file://</c> URIs, the real filesystem path is used directly.
+    /// </summary>
+    static string ResolveResourceName(AndroidUri uri) =>
+        ContentResolver.SchemeContent.Equals(uri.Scheme, StringComparison.OrdinalIgnoreCase)
+            ? ResolveContentUriName(uri)
+            : ResolveFileUriName(uri);
+
+    static string ResolveContentUriName(AndroidUri uri)
     {
-        var nameBytes = Encoding.UTF8.GetBytes(streamName);
+        try
+        {
+            var (displayName, dataPath) = QueryContentColumns(uri);
+
+            return NameWithExtension(displayName)
+                ?? NameFromDataPath(dataPath)
+                ?? NameFromMimeType(uri, displayName)
+                ?? displayName
+                ?? uri.LastPathSegment
+                ?? Guid.NewGuid().ToString("N");
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceWarning($"Could not resolve display name from content URI: {ex.Message}");
+            return Guid.NewGuid().ToString("N");
+        }
+    }
+
+    static (string? displayName, string? dataPath) QueryContentColumns(AndroidUri uri)
+    {
+        string? displayName = null;
+        string? dataPath = null;
+
+        using var cursor = Application.Context.ContentResolver?.Query(
+            uri,
+            [Android.Provider.IOpenableColumns.DisplayName, Android.Provider.MediaStore.IMediaColumns.Data],
+            selection: null,
+            selectionArgs: null,
+            sortOrder: null);
+
+        if (cursor is null)
+        {
+            return (displayName, dataPath);
+        }
+
+        if (!cursor.MoveToFirst())
+        {
+            return (displayName, dataPath);
+        }
+
+        var nameIndex = cursor.GetColumnIndex(Android.Provider.IOpenableColumns.DisplayName);
+
+        if (nameIndex >= 0)
+        {
+            displayName = cursor.GetString(nameIndex);
+        }
+
+        var dataIndex = cursor.GetColumnIndex(Android.Provider.MediaStore.IMediaColumns.Data);
+
+        if (dataIndex >= 0)
+        {
+            dataPath = cursor.GetString(dataIndex);
+        }
+
+        return (displayName, dataPath);
+    }
+
+    // Returns displayName only when it already carries an extension.
+    static string? NameWithExtension(string? displayName) =>
+        !string.IsNullOrWhiteSpace(displayName)
+        && Path.GetExtension(displayName).Length > 0
+            ? displayName
+            : null;
+
+    // Returns the filename from the _data column (real filesystem path).
+    static string? NameFromDataPath(string? dataPath) =>
+        !string.IsNullOrEmpty(dataPath)
+            ? Path.GetFileName(dataPath) is { Length: > 0 } n ? n : null
+            : null;
+
+    // Derives an extension from the MIME type and pairs it with the display name stem.
+    static string? NameFromMimeType(AndroidUri uri, string? displayName)
+    {
+        var mimeType = Application.Context.ContentResolver?.GetType(uri);
+
+        if (string.IsNullOrWhiteSpace(mimeType))
+        {
+            return null;
+        }
+
+        var ext = Android.Webkit.MimeTypeMap.Singleton?.GetExtensionFromMimeType(mimeType);
+
+        if (string.IsNullOrWhiteSpace(ext))
+        {
+            return null;
+        }
+
+        var stem = !string.IsNullOrWhiteSpace(displayName)
+            ? Path.GetFileNameWithoutExtension(displayName)
+            : Guid.NewGuid().ToString("N");
+
+        return $"{stem}.{ext}";
+    }
+
+    static string ResolveFileUriName(AndroidUri uri)
+    {
+        if (uri?.Path is { Length: > 0 } filePath)
+        {
+            return Path.GetFileName(filePath) is { Length: > 0 } fileName
+                ? fileName
+                : filePath;
+        }
+
+        return Guid.NewGuid().ToString("N");
+    }
+
+    static Payload BuildFileNamePayload(long filePayloadId, string fileName)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(fileName);
         var metadata = new byte[12 + nameBytes.Length];
 
-        BinaryPrimitives.WriteUInt32LittleEndian(metadata, StreamNameMagic);
-        BinaryPrimitives.WriteInt64LittleEndian(metadata.AsSpan(4), streamPayloadId);
+        BinaryPrimitives.WriteUInt32LittleEndian(metadata, MetadataSignature);
+        BinaryPrimitives.WriteInt64LittleEndian(metadata.AsSpan(4), filePayloadId);
         nameBytes.CopyTo(metadata, 12);
 
         return Payload.FromBytes(metadata);

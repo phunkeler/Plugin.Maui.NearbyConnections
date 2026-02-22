@@ -241,12 +241,12 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     public Task SendAsync(
         NearbyDevice device,
-        FileResult fileResult,
+        string uri,
         IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(device);
-        ArgumentNullException.ThrowIfNull(fileResult);
+        ArgumentException.ThrowIfNullOrWhiteSpace(uri);
 
         if (device.State != NearbyDeviceState.Connected)
         {
@@ -254,7 +254,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
                 $"Cannot send data: device '{device.DisplayName}' is not connected (current state: {device.State}).");
         }
 
-        return PlatformSendAsync(device, fileResult, progress, cancellationToken);
+        return PlatformSendAsync(device, uri, progress, cancellationToken);
     }
 
     public void Dispose(bool disposing)

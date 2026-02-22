@@ -160,7 +160,7 @@ sealed partial class NearbyConnectionsImplementation
 
     Task PlatformSendAsync(
         NearbyDevice device,
-        FileResult fileResult,
+        string uri,
         IProgress<NearbyTransferProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -173,7 +173,7 @@ sealed partial class NearbyConnectionsImplementation
         var peerID = MyMCPeerIDManager.UnarchivePeerId(peerIdData)
             ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
 
-        return SendStreamAsync(fileResult.OpenReadAsync, fileResult.FileName, peerID, cancellationToken);
+        return Task.CompletedTask;
     }
 
     Task SendBytesAsync(byte[] bytes, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
@@ -195,49 +195,6 @@ sealed partial class NearbyConnectionsImplementation
             NearbyTransferStatus.Success));
 
         return Task.CompletedTask;
-    }
-
-    Task SendStreamAsync(
-        Func<Task<Stream>> streamFactory,
-        string streamName,
-        MCPeerID peerID,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var name = string.IsNullOrWhiteSpace(streamName)
-            ? Guid.NewGuid().ToString("N")
-            : streamName;
-
-        var outputStream = _session!.StartStream(name, peerID, out var error);
-
-        if (error is not null || outputStream is null)
-        {
-            throw new InvalidOperationException(
-                $"Failed to start stream '{name}' to '{peerID.DisplayName}': {error?.LocalizedDescription ?? "unknown error"}");
-        }
-
-        return Task.Run(async () =>
-        {
-            outputStream.Open();
-            try
-            {
-                using var source = await streamFactory();
-                var buffer = new byte[16 * 1024];
-                int read;
-
-                while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    outputStream.Write(buffer, (nuint)read);
-                }
-            }
-            finally
-            {
-                outputStream.Close();
-                outputStream.Dispose();
-            }
-        }, cancellationToken);
     }
 
     #region Session Callbacks
