@@ -225,15 +225,15 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(data);
 
-        if (data.Length == 0)
-        {
-            return Task.CompletedTask;
-        }
-
         if (device.State != NearbyDeviceState.Connected)
         {
             throw new InvalidOperationException(
                 $"Cannot send data: device '{device.DisplayName}' is not connected (current state: {device.State}).");
+        }
+
+        if (data.Length == 0)
+        {
+            return Task.CompletedTask;
         }
 
         return PlatformSendAsync(device, data, progress, cancellationToken);

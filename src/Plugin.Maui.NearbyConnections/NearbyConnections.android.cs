@@ -9,8 +9,6 @@ sealed partial class NearbyConnectionsImplementation
     const uint MetadataSignature = 0x504D4E43; // PMNC (Plugin.Maui.NearbyConnections)
 
     readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
-    readonly ConcurrentDictionary<long, IncomingStreamTransfer> _incomingStreams = [];
-    readonly ConcurrentDictionary<long, OutgoingStreamTransfer> _outgoingStreams = [];
     readonly ConcurrentDictionary<long, OutgoingTransfer> _outgoingTransfers = [];
 
     #region Discovery
@@ -148,6 +146,8 @@ sealed partial class NearbyConnectionsImplementation
                 bytesTransferred: update.BytesTransferred,
                 totalBytes: update.TotalBytes,
                 status));
+
+            return;
         }
 
         if (!_deviceManager.TryGetDevice(endpointId, out var device))
@@ -177,17 +177,7 @@ sealed partial class NearbyConnectionsImplementation
 
         NearbyPayload? nearbyPayload = null;
 
-        if (entry.Payload.PayloadType == Payload.Type.Stream
-            && _incomingStreams.TryRemove(payloadId, out var incomingStream)
-            && incomingStream.DrainTask is not null)
-        {
-            var drained = await incomingStream.DrainTask;
-
-            nearbyPayload = drained is not null
-                ? new StreamPayload(drained.StreamFactory, incomingStream.Name)
-                : null;
-        }
-        else if (entry.Payload.PayloadType == Payload.Type.File)
+        if (entry.Payload.PayloadType == Payload.Type.File)
         {
             nearbyPayload = await CopyFilePayloadAsync(entry.Payload, CancellationToken.None);
         }
@@ -227,7 +217,7 @@ sealed partial class NearbyConnectionsImplementation
                 return null;
             }
 
-            await using var outputStream = File.OpenWrite(destinationPath);
+            using var outputStream = File.OpenWrite(destinationPath);
             await inputStream.CopyToAsync(outputStream, cancellationToken);
         }
         catch (Exception ex)
@@ -275,7 +265,7 @@ sealed partial class NearbyConnectionsImplementation
             : client.RejectConnectionAsync(device.Id);
     }
 
-    static async Task PlatformSendAsync(
+    static Task PlatformSendAsync(
         NearbyDevice device,
         byte[] data,
         IProgress<NearbyTransferProgress>? progress,
@@ -283,17 +273,10 @@ sealed partial class NearbyConnectionsImplementation
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
         using var payload = Payload.FromBytes(data);
+        var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
-        await client.SendPayloadAsync(device.Id, payload);
-
-        // Bytes payloads complete synchronously on enqueue; report success immediately
-        progress?.Report(new NearbyTransferProgress(
-            payloadId: payload.Id,
-            bytesTransferred: data.Length,
-            totalBytes: data.Length,
-            NearbyTransferStatus.Success));
+        return client.SendPayloadAsync(device.Id, payload);
     }
 
     static AndroidUri? TryCreateUri(string fileUri)
@@ -401,13 +384,6 @@ sealed partial class NearbyConnectionsImplementation
         }
     }
 
-    /// <summary>
-    /// Holds the drain task and optional name for an in-flight incoming stream payload.
-    /// </summary>
-    /// <param name="DrainTask"></param>
-    /// <param name="Name"></param>
-    sealed record IncomingStreamTransfer(Task<StreamPayload?>? DrainTask = null, string Name = "");
-
     class OutgoingTransfer(
         IProgress<NearbyTransferProgress>? progress,
         TimeSpan inactivityTimeout) : IDisposable
@@ -456,58 +432,6 @@ sealed partial class NearbyConnectionsImplementation
         protected virtual void Dispose(bool disposing)
         {
             _inactivityCts.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// Holds all state for an in-flight outgoing stream transfer so it can be
-    /// awaited and cleaned up in a single place.
-    /// </summary>
-    sealed class OutgoingStreamTransfer(
-        Payload payload,
-        Stream stream,
-        IProgress<NearbyTransferProgress>? progress,
-        TimeSpan inactivityTimeout) : IDisposable
-    {
-        readonly TaskCompletionSource _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        CancellationTokenSource _inactivityCts = new(inactivityTimeout);
-
-        /// <summary>Awaitable task that completes when the transfer reaches a terminal state.</summary>
-        public Task Completion => _tcs.Task;
-
-        /// <summary>
-        /// Cancelled when no progress update has been received within the configured inactivity timeout.
-        /// Reset on every call to <see cref="ReportProgress"/>.
-        /// </summary>
-        public CancellationToken InactivityToken => _inactivityCts.Token;
-
-        public void ReportProgress(NearbyTransferProgress transferProgress)
-        {
-            // Reset the inactivity timer — transfer is still alive
-            var old = Interlocked.Exchange(ref _inactivityCts, new CancellationTokenSource(inactivityTimeout));
-            old.Dispose();
-
-            progress?.Report(transferProgress);
-
-            switch (transferProgress.Status)
-            {
-                case NearbyTransferStatus.Success:
-                    _tcs.TrySetResult();
-                    break;
-                case NearbyTransferStatus.Failure:
-                    _tcs.TrySetException(new InvalidOperationException($"Transfer {transferProgress.PayloadId} failed."));
-                    break;
-                case NearbyTransferStatus.Canceled:
-                    _tcs.TrySetCanceled();
-                    break;
-            }
-        }
-
-        public void Dispose()
-        {
-            _inactivityCts.Dispose();
-            payload.Dispose();
-            stream.Dispose();
         }
     }
 
@@ -635,18 +559,6 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         return Guid.NewGuid().ToString("N");
-    }
-
-    static Payload BuildFileNamePayload(long filePayloadId, string fileName)
-    {
-        var nameBytes = Encoding.UTF8.GetBytes(fileName);
-        var metadata = new byte[12 + nameBytes.Length];
-
-        BinaryPrimitives.WriteUInt32LittleEndian(metadata, MetadataSignature);
-        BinaryPrimitives.WriteInt64LittleEndian(metadata.AsSpan(4), filePayloadId);
-        nameBytes.CopyTo(metadata, 12);
-
-        return Payload.FromBytes(metadata);
     }
 
     static NearbyTransferStatus ToNearbyTransferStatus(int androidStatus) => androidStatus switch

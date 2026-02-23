@@ -77,18 +77,12 @@ public interface INearbyConnections : IDisposable
     /// Sends bytes to a connected nearby device.
     /// </summary>
     /// <param name="device">The connected device to send bytes to.</param>
-    /// <param name="data">
-    /// The bytes to send (≤32 KB on Android).
-    /// </param>
-    /// <param name="progress">
-    /// An optional callback to receive outgoing transfer progress updates.
-    /// For byte payloads this will typically report a single <see cref="NearbyTransferStatus.Success"/>.
-    /// </param>
+    /// <param name="data">The bytes to send (≤32 KB on Android).</param>
+    /// <param name="progress">An optional callback to receive outgoing transfer progress updates.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task that completes when the transfer is fully enqueued or finished.</returns>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown if the device is not in the <see cref="NearbyDeviceState.Connected"/> state.
-    /// </exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="data"/> or <paramref name="device"/> is null.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if the device is not in the <see cref="NearbyDeviceState.Connected"/> state.</exception>
     Task SendAsync(
         NearbyDevice device,
         byte[] data,
