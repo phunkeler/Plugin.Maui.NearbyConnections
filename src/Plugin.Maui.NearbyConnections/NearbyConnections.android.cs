@@ -175,7 +175,7 @@ sealed partial class NearbyConnectionsImplementation
             return;
         }
 
-        NearbyPayload? nearbyPayload;
+        NearbyPayload? nearbyPayload = null;
 
         if (entry.Payload.PayloadType == Payload.Type.Stream
             && _incomingStreams.TryRemove(payloadId, out var incomingStream)
@@ -186,6 +186,10 @@ sealed partial class NearbyConnectionsImplementation
             nearbyPayload = drained is not null
                 ? new StreamPayload(drained.StreamFactory, incomingStream.Name)
                 : null;
+        }
+        else if (entry.Payload.PayloadType == Payload.Type.File)
+        {
+            nearbyPayload = await CopyFilePayloadAsync(entry.Payload, CancellationToken.None);
         }
         else
         {
@@ -200,6 +204,51 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         entry.Payload.Dispose();
+    }
+
+    static async Task<FilePayload?> CopyFilePayloadAsync(Payload payload, CancellationToken cancellationToken)
+    {
+        var sourceUri = payload.AsFile()?.AsUri();
+
+        if (sourceUri is null)
+        {
+            return null;
+        }
+
+        var fileName = ResolveResourceName(sourceUri);
+        var destinationPath = Path.Combine(FileSystem.CacheDirectory, fileName);
+
+        try
+        {
+            using var inputStream = Application.Context.ContentResolver?.OpenInputStream(sourceUri);
+
+            if (inputStream is null)
+            {
+                return null;
+            }
+
+            await using var outputStream = File.OpenWrite(destinationPath);
+            await inputStream.CopyToAsync(outputStream, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"{nameof(CopyFilePayloadAsync)}: Failed to copy file. Message: {ex.Message}");
+            return null;
+        }
+        finally
+        {
+            try
+            {
+                Application.Context.ContentResolver?.Delete(sourceUri, null, null);
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError($"{nameof(CopyFilePayloadAsync)}: Failed to delete source URI. Message: {ex.Message}");
+            }
+        }
+
+
+        return new FilePayload(new FileResult(destinationPath));
     }
 
     Task PlatformRequestConnectionAsync(NearbyDevice device)
@@ -294,6 +343,7 @@ sealed partial class NearbyConnectionsImplementation
             var fileName = ResolveResourceName(uri);
 
             payload?.SetFileName(fileName);
+            payload?.SetSensitive(true);
 
             return payload;
 

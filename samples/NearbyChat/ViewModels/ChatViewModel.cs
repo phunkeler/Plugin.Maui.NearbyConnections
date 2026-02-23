@@ -121,6 +121,15 @@ public partial class ChatViewModel(
                 Timestamp = msg.Timestamp.ToLocalTime()
             });
         }
+        else if (msg.Payload is FilePayload file)
+        {
+            Messages.Add(new ChatMessage
+            {
+                Text = file.FileResult.FullPath,
+                From = Sender.Peer,
+                Timestamp = msg.Timestamp.ToLocalTime()
+            });
+        }
         else if (msg.Payload is StreamPayload stream)
         {
             Messages.Add(new ChatMessage

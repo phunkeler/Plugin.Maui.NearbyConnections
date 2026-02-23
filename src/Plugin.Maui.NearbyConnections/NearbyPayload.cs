@@ -19,6 +19,18 @@ public sealed class BytesPayload(byte[] data) : NearbyPayload
 }
 
 /// <summary>
+/// A payload representing a received file. Consumers are responsible for deleting <see cref="FileResult"/> when finished with it.
+/// </summary>
+/// <param name="fileResult">The received file.</param>
+public sealed class FilePayload(FileResult fileResult) : NearbyPayload
+{
+    /// <summary>
+    /// Gets the received file.
+    /// </summary>
+    public FileResult FileResult { get; } = fileResult;
+}
+
+/// <summary>
 /// A payload backed by a <see cref="Stream"/>. Suitable for live or generated data
 /// of unknown length. The factory is invoked once by the platform implementation when
 /// the transfer begins.
