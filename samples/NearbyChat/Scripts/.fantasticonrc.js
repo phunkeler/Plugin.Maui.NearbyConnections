@@ -1,7 +1,7 @@
 export const name = 'NearbyChatIcons';
 export const fontHeight = 256;
 export const normalize = true;
-export const inputDir = '../.assets/icons';
+export const inputDir = '../Resources/FontIcons';
 export const outputDir = './tmp/NearbyChatIcons';
 export const fontTypes = ['ttf'];
 export const assetTypes = ['css', 'json', 'html'];

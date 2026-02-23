@@ -413,3 +413,4 @@ FodyWeavers.xsd
 .DS_Store
 
 scripts/tmp
+samples/NearbyChat/Scripts/tmp/
