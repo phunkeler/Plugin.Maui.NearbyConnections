@@ -6,8 +6,6 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
 {
-    const uint MetadataSignature = 0x504D4E43; // PMNC (Plugin.Maui.NearbyConnections)
-
     readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
     readonly ConcurrentDictionary<long, OutgoingTransfer> _outgoingTransfers = [];
 
@@ -191,6 +189,14 @@ sealed partial class NearbyConnectionsImplementation
         if (nearbyPayload is not null)
         {
             Events.OnDataReceived(device, nearbyPayload, TimeProvider.GetUtcNow());
+        }
+        else
+        {
+            Events.OnError(
+                operation: nameof(OnIncomingPayloadSuccess),
+                errorMessage: $"Failed to process incoming payload with ID {payloadId}.",
+                timeStamp: TimeProvider.GetUtcNow(),
+                device);
         }
 
         entry.Payload.Dispose();

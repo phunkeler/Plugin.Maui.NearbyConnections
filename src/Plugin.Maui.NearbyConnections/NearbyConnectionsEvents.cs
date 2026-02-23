@@ -79,6 +79,9 @@ public sealed class NearbyConnectionsEvents
     internal void OnError(string operation, string errorMessage, DateTimeOffset timeStamp)
         => ErrorOccurred?.Invoke(this, new NearbyConnectionsErrorEventArgs(operation, errorMessage, timeStamp));
 
+    internal void OnError(string operation, string errorMessage, DateTimeOffset timeStamp, NearbyDevice device)
+        => ErrorOccurred?.Invoke(this, new NearbyConnectionsErrorEventArgs(operation, errorMessage, timeStamp, device));
+
     internal void OnAdvertisingStateChanged(bool isAdvertising, DateTimeOffset timeStamp)
         => AdvertisingStateChanged?.Invoke(this, new AdvertisingStateChangedEventArgs(isAdvertising, timeStamp));
 
