@@ -73,6 +73,14 @@ public partial class ChatViewModel(
                 progress: progress,
                 cancellationToken: cancellationToken);
 
+            Messages.Add(new ChatMessage
+            {
+                Text = file.FileName,
+                FilePath = file.FullPath,
+                From = Sender.Me,
+                Timestamp = DateTimeOffset.Now
+            });
+
             Trace.TraceInformation("The end");
         }
         else
@@ -84,7 +92,7 @@ public partial class ChatViewModel(
     [RelayCommand]
     async Task Attach()
     {
-        var fileResult = await mediaPicker.PickVideosAsync();
+        var fileResult = await mediaPicker.PickPhotosAsync();
 
         if (fileResult?.FirstOrDefault() is not FileResult file)
         {
@@ -94,6 +102,14 @@ public partial class ChatViewModel(
         SelectedFile = file;
         Message = SelectedFile.FileName;
     }
+
+    [RelayCommand]
+    Task<bool> OpenFile(string filePath)
+        => Launcher.Default.OpenAsync(new OpenFileRequest
+        {
+            Title = Path.GetFileName(filePath),
+            File = new ReadOnlyFile(filePath)
+        });
 
     public void OnNavigatedFrom(IBottomSheetNavigationParameters parameters)
         => IsActive = false;
@@ -125,7 +141,8 @@ public partial class ChatViewModel(
         {
             Messages.Add(new ChatMessage
             {
-                Text = file.FileResult.FullPath,
+                Text = file.FileResult.FileName,
+                FilePath = file.FileResult.FullPath,
                 From = Sender.Peer,
                 Timestamp = msg.Timestamp.ToLocalTime()
             });

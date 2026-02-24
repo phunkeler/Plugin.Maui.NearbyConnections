@@ -5,7 +5,86 @@
              IsDraggable="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource LightBackgroundPrimary}, Dark={StaticResource DarkBackgroundPrimary}}"
              x:DataType="ChatViewModel"
+             x:Name="this"
              Margin="{StaticResource SpacingXL}">
+
+    <BottomSheet.Resources>
+        <ChatMessageDataTemplateSelector x:Key="ChatMessageSelector">
+            <ChatMessageDataTemplateSelector.TextTemplate>
+                <DataTemplate x:DataType="ChatMessage">
+                    <Border StrokeThickness="0"
+                            Padding="{StaticResource SpacingSM}"
+                            Background="#F1F1F1"
+                            HorizontalOptions="Start"
+                            StrokeShape="RoundRectangle 16">
+                        <VerticalStackLayout Spacing="4">
+                            <Label
+                                Text="{Binding Text}"
+                                TextColor="#222"
+                                LineBreakMode="WordWrap"/>
+                            <Label Text="{Binding Timestamp, StringFormat='{0:t}'}"
+                                   FontSize="10"
+                                   TextColor="#888"
+                                   HorizontalTextAlignment="End"/>
+                        </VerticalStackLayout>
+                        <Border.Triggers>
+                            <!-- User messages: right aligned, accent background -->
+                            <DataTrigger TargetType="Border"
+                                         Binding="{Binding From}"
+                                         Value="Me">
+                                <Setter Property="HorizontalOptions"
+                                        Value="End"/>
+                                <Setter Property="Background"
+                                        Value="#D1E8FF"/>
+                            </DataTrigger>
+                        </Border.Triggers>
+                    </Border>
+                </DataTemplate>
+            </ChatMessageDataTemplateSelector.TextTemplate>
+            <ChatMessageDataTemplateSelector.FileTemplate>
+                <DataTemplate x:DataType="ChatMessage">
+                    <Border StrokeThickness="0"
+                            Margin="0,8,0,0"
+                            Padding="{StaticResource SpacingSM}"
+                            Background="#F1F1F1"
+                            HorizontalOptions="Start"
+                            StrokeShape="RoundRectangle 16">
+
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding BindingContext.OpenFileCommand, Source={x:Reference ChatList}, x:DataType={x:Null}}"
+                                                  CommandParameter="{Binding FilePath}"/>
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Spacing="4">
+                            <Image Source="{Binding FilePath}"
+                                   Aspect="AspectFit"
+                                   WidthRequest="200"
+                                   HeightRequest="200"/>
+                            <Label
+                                Text="{Binding Text}"
+                                TextColor="#555"
+                                LineBreakMode="TailTruncation"/>
+                            <Label Text="{Binding Timestamp, StringFormat='{0:t}'}"
+                                   FontSize="10"
+                                   TextColor="#888"
+                                   HorizontalTextAlignment="End"/>
+                        </VerticalStackLayout>
+                        <Border.Triggers>
+                            <!-- User messages: right aligned, accent background -->
+                            <DataTrigger TargetType="Border"
+                                         Binding="{Binding From}"
+                                         Value="Me">
+                                <Setter Property="HorizontalOptions"
+                                        Value="End"/>
+                                <Setter Property="Background"
+                                        Value="#D1E8FF"/>
+                            </DataTrigger>
+                        </Border.Triggers>
+                    </Border>
+                </DataTemplate>
+            </ChatMessageDataTemplateSelector.FileTemplate>
+        </ChatMessageDataTemplateSelector>
+    </BottomSheet.Resources>
+
     <BottomSheet.Header>
         <BottomSheetHeader
             ShowCloseButton="True">
@@ -27,52 +106,20 @@
         <BottomSheetContent>
             <Grid RowDefinitions="*, Auto"
                   RowSpacing="{StaticResource SpacingXL}">
-                <CollectionView ItemsSource="{Binding Messages}"
-                                ItemsUpdatingScrollMode="KeepLastItemInView"
-                                Background="Transparent">
+                <CollectionView
+                    x:Name="ChatList"
+                    ItemsSource="{Binding Messages}"
+                    ItemsUpdatingScrollMode="KeepLastItemInView"
+                    Background="Transparent"
+                    ItemTemplate="{StaticResource ChatMessageSelector}">
                     <CollectionView.ItemsLayout>
                         <LinearItemsLayout Orientation="Vertical"
                                            ItemSpacing="{StaticResource SpacingXS}"/>
                     </CollectionView.ItemsLayout>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="ChatMessage">
-                            <Grid>
-                                <Border x:Name="Bubble"
-                                        StrokeThickness="0"
-                                        Padding="6"
-                                        MaximumWidthRequest="520"
-                                        Background="#F1F1F1"
-                                        HorizontalOptions="Start"
-                                        StrokeShape="RoundRectangle 14">
-                                    <VerticalStackLayout Spacing="4">
-                                        <Label x:Name="MessageText"
-                                               Text="{Binding Text}"
-                                               TextColor="#222"
-                                               LineBreakMode="WordWrap"/>
-                                        <Label Text="{Binding Timestamp, StringFormat='{0:t}'}"
-                                               FontSize="10"
-                                               TextColor="#888"
-                                               HorizontalTextAlignment="End"/>
-                                    </VerticalStackLayout>
-                                    <Border.Triggers>
-                                        <!-- User messages: right aligned, accent background -->
-                                        <DataTrigger TargetType="Border"
-                                                     Binding="{Binding From}"
-                                                     Value="Me">
-                                            <Setter Property="HorizontalOptions"
-                                                    Value="End"/>
-                                            <Setter Property="Background"
-                                                    Value="#D1E8FF"/>
-                                        </DataTrigger>
-                                    </Border.Triggers>
-                                </Border>
-                            </Grid>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
                 </CollectionView>
 
                 <Grid ColumnDefinitions="*, Auto, Auto"
-                      ColumnSpacing="{StaticResource SpacingSM}"
+                      ColumnSpacing="{StaticResource SpacingLG}"
                       Grid.Row="1">
                     <Entry
                         HeightRequest="44"
@@ -84,6 +131,7 @@
                         Command="{Binding SendCommand}">
                         <ImageButton.Source>
                             <FontImageSource
+                                Size="{StaticResource SpacingXL}"
                                 FontFamily="NearbyChatIcons"
                                 Glyph="{StaticResource icon-send}"
                                 Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
@@ -94,8 +142,9 @@
                         Command="{Binding AttachCommand}">
                         <ImageButton.Source>
                             <FontImageSource
+                                Size="{StaticResource SpacingXL}"
                                 FontFamily="NearbyChatIcons"
-                                Glyph="{StaticResource icon-link}"
+                                Glyph="{StaticResource icon-attachment}"
                                 Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
                         </ImageButton.Source>
                     </ImageButton>
