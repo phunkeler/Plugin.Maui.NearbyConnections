@@ -5,6 +5,7 @@ sealed partial class NearbyConnectionsImplementation
     internal MyPeerIdManager MyMCPeerIDManager { get; } = new();
 
     readonly ConcurrentDictionary<string, MCNearbyServiceAdvertiserInvitationHandler> _pendingInvitations = new();
+    readonly ConcurrentDictionary<string, IDisposable> _progressObservers = new();
 
     MCSession? _session;
 
@@ -24,9 +25,9 @@ sealed partial class NearbyConnectionsImplementation
     {
         using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+        var device = _deviceManager.DeviceLost(id);
 
         Trace.TraceInformation("Lost peer: Id={0}, DisplayName={1}", id, peerID.DisplayName);
-        var device = _deviceManager.DeviceLost(id);
         if (device is not null)
         {
             Events.OnDeviceLost(device, TimeProvider.GetUtcNow());
@@ -265,7 +266,7 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         // KVO on the incoming NSProgress to raise IncomingTransferProgress events
-        progress.AddObserver(
+        var observer = progress.AddObserver(
             "fractionCompleted",
             NSKeyValueObservingOptions.New,
             _ =>
@@ -280,6 +281,7 @@ sealed partial class NearbyConnectionsImplementation
                         NearbyTransferStatus.InProgress),
                     TimeProvider.GetUtcNow());
             });
+        _progressObservers[resourceName] = observer;
     }
 
     void OnResourceFinished(string resourceName, MCPeerID fromPeer, NSUrl? localUrl, NSError? error)
@@ -288,6 +290,11 @@ sealed partial class NearbyConnectionsImplementation
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
         Trace.TraceInformation("Finished receiving resource: {0} from {1}, Error: {2}", resourceName, fromPeer.DisplayName, error?.LocalizedDescription ?? "None");
+
+        if (_progressObservers.TryRemove(resourceName, out var observer))
+        {
+            observer.Dispose();
+        }
 
         var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
         if (device is null)
@@ -301,8 +308,19 @@ sealed partial class NearbyConnectionsImplementation
             return;
         }
 
-        var filePath = localUrl.Path!;
-        var payload = new StreamPayload(() => File.OpenRead(filePath), resourceName);
+        var sourcePath = localUrl.Path!;
+        var destinationPath = Path.Combine(Options.ReceivedFilesDirectory, resourceName);
+
+        try
+        {
+            File.Copy(sourcePath, destinationPath, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(sourcePath);
+        }
+
+        var payload = new FilePayload(new FileResult(destinationPath));
         Events.OnDataReceived(device, payload, TimeProvider.GetUtcNow());
     }
 

@@ -177,7 +177,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (entry.Payload.PayloadType == Payload.Type.File)
         {
-            nearbyPayload = await CopyFilePayloadAsync(entry.Payload, CancellationToken.None);
+            nearbyPayload = await CopyFilePayloadAsync(entry.Payload, Options.ReceivedFilesDirectory, CancellationToken.None);
         }
         else
         {
@@ -202,7 +202,7 @@ sealed partial class NearbyConnectionsImplementation
         entry.Payload.Dispose();
     }
 
-    static async Task<FilePayload?> CopyFilePayloadAsync(Payload payload, CancellationToken cancellationToken)
+    static async Task<FilePayload?> CopyFilePayloadAsync(Payload payload, string destinationDirectory, CancellationToken cancellationToken)
     {
         var sourceUri = payload.AsFile()?.AsUri();
 
@@ -212,7 +212,7 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         var fileName = ResolveResourceName(sourceUri);
-        var destinationPath = Path.Combine(FileSystem.CacheDirectory, fileName);
+        var destinationPath = Path.Combine(destinationDirectory, fileName);
 
         try
         {

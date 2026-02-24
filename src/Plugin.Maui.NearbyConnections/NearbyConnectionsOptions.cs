@@ -50,6 +50,22 @@ public sealed partial class NearbyConnectionsOptions
     public bool AutoAcceptConnections { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets the directory where received files are saved after transfer.
+    /// Defaults to <see cref="FileSystem.CacheDirectory"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Thrown when setting a null value.</exception>
+    /// <exception cref="ArgumentException">Thrown when setting an empty string or whitespace value.</exception>
+    public string ReceivedFilesDirectory
+    {
+        get => field;
+        set
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            field = value;
+        }
+    } = FileSystem.CacheDirectory;
+
+    /// <summary>
     /// Gets or sets the maximum time to wait without receiving a transfer progress update
     /// before considering a data transfer stalled and aborting it.
     /// Defaults to 10 seconds. Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.

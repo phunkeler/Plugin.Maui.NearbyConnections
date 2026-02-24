@@ -32,7 +32,9 @@ sealed class NearbyDeviceManager : INearbyDeviceManager
         => _devices.GetOrAdd(id, _ => new NearbyDevice(id, displayName) { State = initialState, LastSeenAt = _timeProvider.GetUtcNow() });
 
     public NearbyDevice? DeviceLost(string id)
-        => _devices.TryRemove(id, out var device) ? device : null;
+        => _devices.TryRemove(id, out var device)
+            ? device
+            : null;
 
     public NearbyDevice? SetState(string id, NearbyDeviceState state)
     {
