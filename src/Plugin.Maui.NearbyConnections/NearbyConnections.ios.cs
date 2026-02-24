@@ -158,7 +158,7 @@ sealed partial class NearbyConnectionsImplementation
         return SendBytesAsync(data, peerID, progress, cancellationToken);
     }
 
-    Task PlatformSendAsync(
+    async Task PlatformSendAsync(
         NearbyDevice device,
         string uri,
         IProgress<NearbyTransferProgress>? progress,
@@ -169,11 +169,16 @@ sealed partial class NearbyConnectionsImplementation
             throw new InvalidOperationException("No active session. Ensure a connection has been established before sending data.");
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Get PeerID
         var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
         var peerID = MyMCPeerIDManager.UnarchivePeerId(peerIdData)
             ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
 
-        return Task.CompletedTask;
+        using var nsUrl = new NSUrl(uri);
+        var resourceName = nsUrl.LastPathComponent ?? Path.GetFileName(uri);
+        await _session!.SendResourceAsync(nsUrl, resourceName, peerID, out var progress);
     }
 
     Task SendBytesAsync(byte[] bytes, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
