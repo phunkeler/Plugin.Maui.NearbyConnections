@@ -65,18 +65,26 @@ public partial class ChatViewModel(
             Message = null;
             SelectedFile = null;
 
+            // On iOS simulator, FullPath may be just a filename. Copy via stream to a known local path.
+            var localPath = Path.Combine(FileSystem.CacheDirectory, file.FileName);
+            using (var source = await file.OpenReadAsync())
+            using (var dest = File.Create(localPath))
+            {
+                await source.CopyToAsync(dest, cancellationToken);
+            }
+
             var progress = new Progress<NearbyTransferProgress>(OnNearbyTransferProgress);
 
             await nearbyConnectionsService.SendAsync(
                 device: Device,
-                file.FullPath,
+                localPath,
                 progress: progress,
                 cancellationToken: cancellationToken);
 
             Messages.Add(new ChatMessage
             {
                 Text = file.FileName,
-                FilePath = file.FullPath,
+                FilePath = localPath,
                 From = Sender.Me,
                 Timestamp = DateTimeOffset.Now
             });

@@ -176,9 +176,9 @@ sealed partial class NearbyConnectionsImplementation
         var peerID = MyMCPeerIDManager.UnarchivePeerId(peerIdData)
             ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
 
-        using var nsUrl = new NSUrl(uri);
+        using var nsUrl = NSUrl.FromFilename(uri);
         var resourceName = nsUrl.LastPathComponent ?? Path.GetFileName(uri);
-        await _session!.SendResourceAsync(nsUrl, resourceName, peerID, out var progress);
+        await _session!.SendResourceAsync(nsUrl, resourceName, peerID, out var p);
     }
 
     Task SendBytesAsync(byte[] bytes, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
