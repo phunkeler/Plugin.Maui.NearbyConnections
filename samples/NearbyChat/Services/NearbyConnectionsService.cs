@@ -96,24 +96,16 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
         => _messenger.Send(new DiscoveringStateChangedMessage(e.IsDiscovering));
 
     void OnDeviceFound(object? sender, NearbyConnectionsEventArgs e)
-    {
-        _messenger.Send(new DeviceFoundMessage(e.NearbyDevice, e.Timestamp));
-    }
+        => _messenger.Send(new DeviceFoundMessage(e.NearbyDevice, e.Timestamp));
 
     void OnDeviceLost(object? sender, NearbyConnectionsEventArgs e)
-    {
-        _messenger.Send(new DeviceLostMessage(e.NearbyDevice));
-    }
+        => _messenger.Send(new DeviceLostMessage(e.NearbyDevice));
 
     void OnConnectionRequested(object? sender, NearbyConnectionsEventArgs e)
-    {
-        _messenger.Send(new ConnectionRequestMessage(e.NearbyDevice, e.Timestamp));
-    }
+        => _messenger.Send(new ConnectionRequestMessage(e.NearbyDevice, e.Timestamp));
 
     void OnDeviceStateChanged(object? sender, NearbyDeviceStateChangedEventArgs e)
-    {
-        _messenger.Send(new DeviceStateChangedMessage(e.NearbyDevice));
-    }
+        => _messenger.Send(new DeviceStateChangedMessage(e.NearbyDevice));
 
     void OnConnectionResponded(object? sender, NearbyDeviceRespondedEventArgs e)
         => _messenger.Send(new ConnectionResponseMessage(e.NearbyDevice, e.Accepted));
@@ -123,7 +115,6 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
 
     void OnDataReceived(object? sender, DataReceivedEventArgs e)
         => _messenger.Send(new DataReceivedMessage(e.NearbyDevice, e.Timestamp, e.Payload));
-
 
     protected virtual void Dispose(bool disposing)
     {

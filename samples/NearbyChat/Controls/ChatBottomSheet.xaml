@@ -13,6 +13,7 @@
             <ChatMessageDataTemplateSelector.TextTemplate>
                 <DataTemplate x:DataType="ChatMessage">
                     <Border StrokeThickness="0"
+                            Margin="0,8,0,0"
                             Padding="{StaticResource SpacingSM}"
                             Background="#F1F1F1"
                             HorizontalOptions="Start"
