@@ -57,7 +57,7 @@
                                                   CommandParameter="{Binding FilePath}"/>
                         </Border.GestureRecognizers>
                         <VerticalStackLayout Spacing="4">
-                            <Image Source="{Binding FilePath}"
+                            <Image Source="{Binding VideoThumbnail, TargetNullValue={Binding FilePath}}"
                                    Aspect="AspectFit"
                                    WidthRequest="200"
                                    HeightRequest="200"/>
@@ -159,7 +159,8 @@
                                     Color="White"/>
                             </ImageButton.Source>
                         </ImageButton>
-                        <ImageButton IsVisible="{Binding CanSend, Converter={StaticResource InvertedBoolConverter}}">
+                        <ImageButton IsVisible="{Binding CanSend, Converter={StaticResource InvertedBoolConverter}}"
+                                     Command="{Binding CapturePhotoCommand}">
                             <ImageButton.Source>
                                 <FontImageSource
                                     Size="24"
@@ -168,7 +169,8 @@
                                     Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
                             </ImageButton.Source>
                         </ImageButton>
-                        <ImageButton IsVisible="{Binding CanSend, Converter={StaticResource InvertedBoolConverter}}">
+                        <ImageButton IsVisible="{Binding CanSend, Converter={StaticResource InvertedBoolConverter}}"
+                                     Command="{Binding CaptureVideoCommand}">
                             <ImageButton.Source>
                                 <FontImageSource
                                     Size="24"

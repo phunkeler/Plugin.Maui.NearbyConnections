@@ -50,6 +50,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<INearbyDeviceViewModelFactory, NearbyDeviceViewModelFactory>();
         builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<INearbyConnectionsService, NearbyConnectionsService>();
+        builder.Services.AddSingleton<IThumbnailService, ThumbnailService>();
 
         builder.Services.AddTransientWithShellRoute<AdvertisingPage, AdvertisingPageViewModel>();
         builder.Services.AddTransientWithShellRoute<ConnectionsPage, ConnectionsPageViewModel>();

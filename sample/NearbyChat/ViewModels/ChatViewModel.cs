@@ -16,7 +16,8 @@ namespace NearbyChat.ViewModels;
 public partial class ChatViewModel(
     IDispatcher dispatcher,
     IMediaPicker mediaPicker,
-    INearbyConnectionsService nearbyConnectionsService) : ObservableRecipient,
+    INearbyConnectionsService nearbyConnectionsService,
+    IThumbnailService thumbnailService) : ObservableRecipient,
     INavigationAware,
     IRecipient<DataReceivedMessage>,
     IRecipient<DeviceStateChangedMessage>
@@ -87,13 +88,7 @@ public partial class ChatViewModel(
                 progress: progress,
                 cancellationToken: cancellationToken);
 
-            Messages.Add(new ChatMessage
-            {
-                Text = file.FileName,
-                FilePath = localPath,
-                From = Sender.Me,
-                Timestamp = DateTimeOffset.Now
-            });
+            Messages.Add(await CreateFileMessageAsync(file.FileName, localPath, Sender.Me, DateTimeOffset.Now));
         }
         else
         {
@@ -104,9 +99,60 @@ public partial class ChatViewModel(
     [RelayCommand]
     async Task Attach()
     {
-        var fileResult = await mediaPicker.PickPhotosAsync();
+        const string photoOption = "Photo";
+        const string videoOption = "Video";
 
-        if (fileResult?.FirstOrDefault() is not FileResult file)
+        var choice = await Shell.Current.DisplayActionSheetAsync(
+            title: "Attach",
+            cancel: "Cancel",
+            destruction: null,
+            photoOption,
+            videoOption);
+
+        var file = choice switch
+        {
+            photoOption => (await mediaPicker.PickPhotosAsync())?.FirstOrDefault(),
+            videoOption => (await mediaPicker.PickVideosAsync())?.FirstOrDefault(),
+            _ => null
+        };
+
+        if (file is null)
+        {
+            return;
+        }
+
+        SelectedFile = file;
+        Message = SelectedFile.FileName;
+    }
+
+    [RelayCommand]
+    async Task CapturePhoto()
+    {
+        var file = await mediaPicker.CapturePhotoAsync(new MediaPickerOptions
+        {
+            MaximumHeight = 200,
+            MaximumWidth = 200
+        });
+
+        if (file is null)
+        {
+            return;
+        }
+
+        SelectedFile = file;
+        Message = SelectedFile.FileName;
+    }
+
+    [RelayCommand]
+    async Task CaptureVideo()
+    {
+        var file = await mediaPicker.CaptureVideoAsync(new MediaPickerOptions
+        {
+            MaximumHeight = 200,
+            MaximumWidth = 200
+        });
+
+        if (file is null)
         {
             return;
         }
@@ -137,7 +183,7 @@ public partial class ChatViewModel(
         }
     }
 
-    public void Receive(DataReceivedMessage msg)
+    public async void Receive(DataReceivedMessage msg)
     {
         if (msg.Payload is BytesPayload bytes)
         {
@@ -151,13 +197,7 @@ public partial class ChatViewModel(
         }
         else if (msg.Payload is FilePayload file)
         {
-            Messages.Add(new ChatMessage
-            {
-                Text = file.FileResult.FileName,
-                FilePath = file.FileResult.FullPath,
-                From = Sender.Peer,
-                Timestamp = msg.Timestamp.ToLocalTime()
-            });
+            Messages.Add(await CreateFileMessageAsync(file.FileResult.FileName, file.FileResult.FullPath, Sender.Peer, msg.Timestamp.ToLocalTime()));
         }
         else if (msg.Payload is StreamPayload stream)
         {
@@ -178,6 +218,19 @@ public partial class ChatViewModel(
                     SendCommand.NotifyCanExecuteChanged();
                 }
             });
+
+    async Task<ChatMessage> CreateFileMessageAsync(string fileName, string filePath, Sender sender, DateTimeOffset timestamp)
+    {
+        var thumbnail = await thumbnailService.GetVideoThumbnailAsync(filePath);
+        return new ChatMessage
+        {
+            Text = fileName,
+            FilePath = filePath,
+            VideoThumbnail = thumbnail,
+            From = sender,
+            Timestamp = timestamp
+        };
+    }
 
     void OnNearbyTransferProgress(NearbyTransferProgress progress)
         => TransferStatus = progress.Status;
