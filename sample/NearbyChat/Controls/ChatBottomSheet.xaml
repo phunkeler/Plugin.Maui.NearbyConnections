@@ -9,6 +9,7 @@
              Margin="{StaticResource SpacingXL}">
 
     <BottomSheet.Resources>
+        <InvertedBoolConverter x:Key="InvertedBoolConverter"/>
         <ChatMessageDataTemplateSelector x:Key="ChatMessageSelector">
             <ChatMessageDataTemplateSelector.TextTemplate>
                 <DataTemplate x:DataType="ChatMessage">
@@ -119,36 +120,64 @@
                     </CollectionView.ItemsLayout>
                 </CollectionView>
 
-                <Grid ColumnDefinitions="*, Auto, Auto"
+                <Grid ColumnDefinitions="Auto, *, Auto"
                       ColumnSpacing="{StaticResource SpacingLG}"
                       Grid.Row="1">
-                    <Entry
-                        HeightRequest="44"
-                        Placeholder="Type a message..."
-                        Text="{Binding Message}"
-                        TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
                     <ImageButton
-                        Grid.Column="1"
-                        Command="{Binding SendCommand}">
-                        <ImageButton.Source>
-                            <FontImageSource
-                                Size="{StaticResource SpacingXL}"
-                                FontFamily="NearbyChatIcons"
-                                Glyph="{StaticResource icon-send}"
-                                Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
-                        </ImageButton.Source>
-                    </ImageButton>
-                    <ImageButton
-                        Grid.Column="2"
                         Command="{Binding AttachCommand}">
                         <ImageButton.Source>
                             <FontImageSource
-                                Size="{StaticResource SpacingXL}"
+                                Size="24"
                                 FontFamily="NearbyChatIcons"
                                 Glyph="{StaticResource icon-attachment}"
                                 Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
                         </ImageButton.Source>
                     </ImageButton>
+                    <Entry
+                        Grid.Column="1"
+                        HeightRequest="44"
+                        Placeholder="Type a message..."
+                        Text="{Binding Message}"
+                        TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
+                    <HorizontalStackLayout Grid.Column="2"
+                                           Spacing="{StaticResource SpacingXL}"
+                                           VerticalOptions="Center">
+                        <ImageButton
+                            IsVisible="{Binding CanSend}"
+                            BackgroundColor="Blue"
+                            WidthRequest="44"
+                            HeightRequest="44"
+                            CornerRadius="22"
+                            Aspect="Center"
+                            Padding="5"
+                            Command="{Binding SendCommand}">
+                            <ImageButton.Source>
+                                <FontImageSource
+                                    Size="20"
+                                    FontFamily="NearbyChatIcons"
+                                    Glyph="{StaticResource icon-send}"
+                                    Color="White"/>
+                            </ImageButton.Source>
+                        </ImageButton>
+                        <ImageButton IsVisible="{Binding CanSend, Converter={StaticResource InvertedBoolConverter}}">
+                            <ImageButton.Source>
+                                <FontImageSource
+                                    Size="24"
+                                    FontFamily="NearbyChatIcons"
+                                    Glyph="{StaticResource icon-camera}"
+                                    Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
+                            </ImageButton.Source>
+                        </ImageButton>
+                        <ImageButton IsVisible="{Binding CanSend, Converter={StaticResource InvertedBoolConverter}}">
+                            <ImageButton.Source>
+                                <FontImageSource
+                                    Size="24"
+                                    FontFamily="NearbyChatIcons"
+                                    Glyph="{StaticResource icon-video}"
+                                    Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
+                            </ImageButton.Source>
+                        </ImageButton>
+                    </HorizontalStackLayout>
                 </Grid>
             </Grid>
         </BottomSheetContent>

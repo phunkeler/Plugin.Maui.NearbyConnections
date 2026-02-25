@@ -390,57 +390,6 @@ sealed partial class NearbyConnectionsImplementation
         }
     }
 
-    class OutgoingTransfer(
-        IProgress<NearbyTransferProgress>? progress,
-        TimeSpan inactivityTimeout) : IDisposable
-    {
-        readonly TaskCompletionSource _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        CancellationTokenSource _inactivityCts = new(inactivityTimeout);
-
-        /// <summary>
-        /// Awaitable task that completes when the transfer reaches a terminal state.
-        /// </summary>
-        public Task Completion => _tcs.Task;
-
-        /// <summary>
-        /// Cancelled when no transfer updates have been received within the configured inactivity timeout.
-        /// Reset on every call to <see cref="OnUpdate"/>.
-        /// </summary>
-        public CancellationToken InactivityToken => _inactivityCts.Token;
-
-        public void OnUpdate(NearbyTransferProgress transferProgress)
-        {
-            var old = Interlocked.Exchange(ref _inactivityCts, new CancellationTokenSource(inactivityTimeout));
-            old.Dispose();
-
-            progress?.Report(transferProgress);
-
-            switch (transferProgress.Status)
-            {
-                case NearbyTransferStatus.Success:
-                    _tcs.TrySetResult();
-                    break;
-                case NearbyTransferStatus.Failure:
-                    _tcs.TrySetException(new InvalidOperationException($"Transfer {transferProgress.PayloadId} failed."));
-                    break;
-                case NearbyTransferStatus.Canceled:
-                    _tcs.TrySetCanceled();
-                    break;
-            }
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            _inactivityCts.Dispose();
-        }
-    }
-
     /// <summary>
     /// Best-effort resolution of a human-readable resource name (including extension) from a URI.
     /// <para>

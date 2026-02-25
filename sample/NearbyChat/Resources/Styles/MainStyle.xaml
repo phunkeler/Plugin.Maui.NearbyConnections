@@ -24,12 +24,14 @@
     <!-- ========================================== -->
     <x:String x:Key="icon-antenna">&#xe001;</x:String>
     <x:String x:Key="icon-attachment">&#xe002;</x:String>
-    <x:String x:Key="icon-left">&#xe007;</x:String>
-    <x:String x:Key="icon-link">&#xe008;</x:String>
-    <x:String x:Key="icon-message">&#xe010;</x:String>
-    <x:String x:Key="icon-right">&#xe012;</x:String>
-    <x:String x:Key="icon-send">&#xe013;</x:String>
-    <x:String x:Key="icon-sonar">&#xe014;</x:String>
+    <x:String x:Key="icon-camera">&#xe003;</x:String>
+    <x:String x:Key="icon-left">&#xe008;</x:String>
+    <x:String x:Key="icon-link">&#xe009;</x:String>
+    <x:String x:Key="icon-message">&#xe011;</x:String>
+    <x:String x:Key="icon-right">&#xe013;</x:String>
+    <x:String x:Key="icon-send">&#xe014;</x:String>
+    <x:String x:Key="icon-sonar">&#xe015;</x:String>
+    <x:String x:Key="icon-video">&#xe017;</x:String>
 
     <!-- ========================================== -->
     <!--          FEATURE ICON BADGE PARTS          -->

@@ -19,6 +19,7 @@
     <NoWarn>CA1822</NoWarn>
     <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
     <DefineConstants>$(DefineConstants);MauiAllowImplicitXmlnsDeclaration</DefineConstants>
+    <DefineConstants Condition="$(RuntimeIdentifier.Contains('simulator'))">$(DefineConstants);IOS_SIMULATOR</DefineConstants>
     <EnablePreviewFeatures>true</EnablePreviewFeatures>
   </PropertyGroup>
 

@@ -172,14 +172,68 @@ sealed partial class NearbyConnectionsImplementation
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Get PeerID
         var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
         var peerID = MyMCPeerIDManager.UnarchivePeerId(peerIdData)
             ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
 
         using var nsUrl = NSUrl.FromFilename(uri);
         var resourceName = nsUrl.LastPathComponent ?? Path.GetFileName(uri);
-        await _session!.SendResourceAsync(nsUrl, resourceName, peerID, out var p);
+
+        var sendTask = _session.SendResourceAsync(nsUrl, resourceName, peerID, out var nsProgress);
+
+        // iOS has no platform-driven inactivity concept — the native Task owns the lifetime.
+        using var transfer = new OutgoingTransfer(progress, Timeout.InfiniteTimeSpan);
+
+        IDisposable? observer = null;
+        if (nsProgress is not null)
+        {
+            observer = nsProgress.AddObserver(
+                "fractionCompleted",
+                NSKeyValueObservingOptions.New,
+                _ =>
+                {
+                    var transferred = (long)(nsProgress.FractionCompleted * nsProgress.TotalUnitCount);
+                    transfer.OnUpdate(new NearbyTransferProgress(
+                        payloadId: 0,
+                        bytesTransferred: transferred,
+                        totalBytes: nsProgress.TotalUnitCount,
+                        NearbyTransferStatus.InProgress));
+                });
+        }
+
+        try
+        {
+            using var ctr = cancellationToken.Register(() => nsProgress?.Cancel());
+            await sendTask;
+
+            transfer.OnUpdate(new NearbyTransferProgress(
+                payloadId: 0,
+                bytesTransferred: nsProgress?.TotalUnitCount ?? 0,
+                totalBytes: nsProgress?.TotalUnitCount ?? 0,
+                NearbyTransferStatus.Success));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            transfer.OnUpdate(new NearbyTransferProgress(
+                payloadId: 0,
+                bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
+                totalBytes: nsProgress?.TotalUnitCount ?? 0,
+                NearbyTransferStatus.Canceled));
+            throw;
+        }
+        catch
+        {
+            transfer.OnUpdate(new NearbyTransferProgress(
+                payloadId: 0,
+                bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
+                totalBytes: nsProgress?.TotalUnitCount ?? 0,
+                NearbyTransferStatus.Failure));
+            throw;
+        }
+        finally
+        {
+            observer?.Dispose();
+        }
     }
 
     Task SendBytesAsync(byte[] bytes, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)

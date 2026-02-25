@@ -32,6 +32,7 @@ public partial class ChatViewModel(
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
+    [NotifyPropertyChangedFor(nameof(CanSend))]
     public partial string? Message { get; set; }
 
     [ObservableProperty]
@@ -65,13 +66,18 @@ public partial class ChatViewModel(
             Message = null;
             SelectedFile = null;
 
-            // On iOS simulator, FullPath may be just a filename. Copy via stream to a known local path.
+#if IOS
+            // On iOS, FullPath may be just a filename.
+            // Copy via stream to a known local path before sending.
             var localPath = Path.Combine(FileSystem.CacheDirectory, file.FileName);
             using (var source = await file.OpenReadAsync())
             using (var dest = File.Create(localPath))
             {
                 await source.CopyToAsync(dest, cancellationToken);
             }
+#else
+            var localPath = file.FullPath;
+#endif
 
             var progress = new Progress<NearbyTransferProgress>(OnNearbyTransferProgress);
 
@@ -88,8 +94,6 @@ public partial class ChatViewModel(
                 From = Sender.Me,
                 Timestamp = DateTimeOffset.Now
             });
-
-            Trace.TraceInformation("The end");
         }
         else
         {

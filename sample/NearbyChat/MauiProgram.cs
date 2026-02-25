@@ -6,7 +6,6 @@ using NearbyChat.Controls;
 using NearbyChat.Pages;
 using NearbyChat.Services;
 using NearbyChat.ViewModels;
-using Plugin.BottomSheet;
 using Plugin.Maui.BottomSheet.Hosting;
 using Plugin.Maui.NearbyConnections;
 
@@ -39,8 +38,9 @@ public static class MauiProgram
         });
 #endif
 
-        builder.Services.AddSingleton(MediaPicker.Default);
+        builder.Services.AddSingleton(DeviceInfo.Current);
         builder.Services.AddSingleton(FileSystem.Current);
+        builder.Services.AddSingleton(MediaPicker.Default);
         builder.Services.AddSingleton<AppShell>();
         builder.Services.AddSingleton(_ =>
         {
@@ -50,10 +50,12 @@ public static class MauiProgram
         builder.Services.AddSingleton<INearbyDeviceViewModelFactory, NearbyDeviceViewModelFactory>();
         builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<INearbyConnectionsService, NearbyConnectionsService>();
-        builder.Services.AddTransientWithShellRoute<MainPage, MainPageViewModel>();
+
         builder.Services.AddTransientWithShellRoute<AdvertisingPage, AdvertisingPageViewModel>();
-        builder.Services.AddTransientWithShellRoute<DiscoveryPage, DiscoveryPageViewModel>();
         builder.Services.AddTransientWithShellRoute<ConnectionsPage, ConnectionsPageViewModel>();
+        builder.Services.AddTransientWithShellRoute<DiscoveryPage, DiscoveryPageViewModel>();
+        builder.Services.AddTransientWithShellRoute<MainPage, MainPageViewModel>();
+
         builder.Services.AddBottomSheet<ChatBottomSheet, ChatViewModel>(nameof(ChatViewModel));
 
 
