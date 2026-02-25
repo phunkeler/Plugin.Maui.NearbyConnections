@@ -181,8 +181,7 @@ sealed partial class NearbyConnectionsImplementation
 
         var sendTask = _session.SendResourceAsync(nsUrl, resourceName, peerID, out var nsProgress);
 
-        // iOS has no platform-driven inactivity concept — the native Task owns the lifetime.
-        using var transfer = new OutgoingTransfer(progress, Timeout.InfiniteTimeSpan);
+        using var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
 
         IDisposable? observer = null;
         if (nsProgress is not null)
@@ -203,7 +202,9 @@ sealed partial class NearbyConnectionsImplementation
 
         try
         {
-            using var ctr = cancellationToken.Register(() => nsProgress?.Cancel());
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken, transfer.InactivityToken);
+            using var ctr = linkedCts.Token.Register(() => nsProgress?.Cancel());
             await sendTask;
 
             transfer.OnUpdate(new NearbyTransferProgress(
@@ -220,6 +221,16 @@ sealed partial class NearbyConnectionsImplementation
                 totalBytes: nsProgress?.TotalUnitCount ?? 0,
                 NearbyTransferStatus.Canceled));
             throw;
+        }
+        catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
+        {
+            transfer.OnUpdate(new NearbyTransferProgress(
+                payloadId: 0,
+                bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
+                totalBytes: nsProgress?.TotalUnitCount ?? 0,
+                NearbyTransferStatus.Failure));
+            throw new TimeoutException(
+                $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
         }
         catch
         {

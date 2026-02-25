@@ -6,7 +6,8 @@ namespace Plugin.Maui.NearbyConnections;
 public sealed partial class NearbyConnectionsOptions
 {
     /// <summary>
-    /// Gets or sets the display name for this device when advertising and connecting with nearby devices.
+    /// Gets or sets the name to display when advertising/discovering.
+    /// Defaults to <see cref="DeviceInfo.Name"/>.
     /// </summary>
     public string DisplayName
     {
@@ -16,11 +17,11 @@ public sealed partial class NearbyConnectionsOptions
             ArgumentException.ThrowIfNullOrWhiteSpace(value);
             field = value;
         }
-    } = DeviceInfo.Current.Name;
+    } = DeviceInfo.Name;
 
     /// <summary>
     /// Gets or sets the service identifer used to discover and connect with nearby devices.
-    /// The default value is the application name (e.g., <see href="https://learn.microsoft.com/en-us/dotnet/api/microsoft.maui.applicationmodel.iappinfo.name">Microsoft.Maui.ApplicationModel.IAppInfo.Name</see>).
+    /// Defaults to <see cref="AppInfo.Name"/>.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -42,11 +43,16 @@ public sealed partial class NearbyConnectionsOptions
             ArgumentException.ThrowIfNullOrWhiteSpace(value);
             field = value;
         }
-    } = AppInfo.Current.Name;
+    } = AppInfo.Name;
 
     /// <summary>
-    /// When a nearby device requests a connection, automatically accept it.
+    /// Gets or sets a value indicating that incoming connection requests, from nearby discoverers, should automatically be accepted.
+    /// Defaults to <see langword="true"/>.
     /// </summary>
+    /// <remarks>
+    /// When set to <see langword="false"/>, the <see cref="INearbyConnections.RespondToConnectionAsync"/>
+    /// method must be called to accept or reject the request.
+    /// </remarks>
     public bool AutoAcceptConnections { get; set; } = true;
 
     /// <summary>
