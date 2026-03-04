@@ -1,41 +1,63 @@
 using Android.Graphics;
 using Android.Media;
+using Android.Provider;
 
 namespace NearbyChat.Services;
 
 public class ThumbnailService : IThumbnailService
 {
-    public Task<ImageSource?> GetVideoThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
+    public Task<ImageSource> GetVideoThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
-            using var retriever = new MediaMetadataRetriever();
-            retriever.SetDataSource(filePath);
-
-            // Seek to 1 second (in microseconds); fall back to frame 0 if the video is shorter
-            var bitmap = retriever.GetFrameAtTime(1_000_000) ?? retriever.GetFrameAtTime(0);
+            using var bitmap = CreateThumbnail(filePath);
 
             if (bitmap is null)
             {
-                return Task.FromResult<ImageSource?>(null);
+                return Task.FromResult(ImageSource.FromFile(""));
             }
 
-            using var stream = new MemoryStream();
-            bitmap.Compress(Bitmap.CompressFormat.Png!, quality: 100, stream);
-            bitmap.Recycle();
+            var tempFilePath = SaveBitmapToCache(bitmap);
 
-            var bytes = stream.ToArray();
-            return Task.FromResult<ImageSource?>(ImageSource.FromStream(() => new MemoryStream(bytes)));
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
+            if (string.IsNullOrWhiteSpace(tempFilePath))
+            {
+                return Task.FromResult(ImageSource.FromFile(""));
+            }
+
+            return Task.FromResult(ImageSource.FromFile(tempFilePath));
+
         }
         catch
         {
-            return Task.FromResult<ImageSource?>(null);
+            return Task.FromResult(ImageSource.FromFile(""));
         }
+
+    }
+
+    public static Bitmap? CreateThumbnail(string filePath)
+    {
+        if (OperatingSystem.IsAndroidVersionAtLeast(29))
+        {
+            return ThumbnailUtils.CreateVideoThumbnail(new Java.IO.File(filePath), new Android.Util.Size(200, 200), null);
+        }
+        else
+        {
+            return ThumbnailUtils.CreateVideoThumbnail(filePath, ThumbnailKind.MiniKind);
+        }
+    }
+
+    public static string SaveBitmapToCache(Bitmap bitmap, string extension = ".png")
+    {
+        var fileName = $"thumb_{Guid.NewGuid():N}{extension}";
+        var filePath = System.IO.Path.Combine(FileSystem.CacheDirectory, fileName);
+
+        using (var fileStream = new FileStream(filePath, FileMode.Create))
+        {
+            bitmap.Compress(Bitmap.CompressFormat.Png!, 90, fileStream);
+        }
+
+        return filePath; // Use this path for your PhotoAttachment
     }
 }

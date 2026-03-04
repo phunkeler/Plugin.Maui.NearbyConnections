@@ -1,6 +1,8 @@
 using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
+using NearbyChat.Data;
 using NearbyChat.Messages;
+using NearbyChat.Models;
 using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.Services;
@@ -27,8 +29,10 @@ public interface INearbyConnectionsService : IDisposable
 
 public partial class NearbyConnectionsService : INearbyConnectionsService
 {
+    readonly IChatMessageRepository _chatMessageRepository;
     readonly INearbyConnections _nearbyConnections;
     readonly IMessenger _messenger;
+    readonly IThumbnailService _thumbnailService;
 
     bool _disposed;
 
@@ -37,14 +41,20 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
     public bool IsDiscovering => _nearbyConnections.IsDiscovering;
 
     public NearbyConnectionsService(
+        IChatMessageRepository chatMessageRepository,
         INearbyConnections nearbyConnections,
-        IMessenger messenger)
+        IMessenger messenger,
+        IThumbnailService thumbnailService)
     {
+        ArgumentNullException.ThrowIfNull(chatMessageRepository);
         ArgumentNullException.ThrowIfNull(nearbyConnections);
         ArgumentNullException.ThrowIfNull(messenger);
+        ArgumentNullException.ThrowIfNull(thumbnailService);
 
+        _chatMessageRepository = chatMessageRepository;
         _nearbyConnections = nearbyConnections;
         _messenger = messenger;
+        _thumbnailService = thumbnailService;
 
         _nearbyConnections.Events.AdvertisingStateChanged += OnAdvertisingStateChanged;
         _nearbyConnections.Events.DiscoveringStateChanged += OnDiscoveringStateChanged;
@@ -113,8 +123,51 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
     void OnDeviceDisconnected(object? sender, NearbyConnectionsEventArgs e)
         => _messenger.Send(new DeviceDisconnectedMessage(e.NearbyDevice));
 
-    void OnDataReceived(object? sender, DataReceivedEventArgs e)
-        => _messenger.Send(new DataReceivedMessage(e.NearbyDevice, e.Timestamp, e.Payload));
+    async void OnDataReceived(object? sender, DataReceivedEventArgs e)
+    {
+        // Convert to ChatMessage and forward via MVVM Messenger for processing by ChatMessageService.
+        ChatMessage? message = null;
+
+        if (e.Payload is BytesPayload bytesPayload)
+        {
+            message = new ChatMessage(
+                Encoding.UTF8.GetString(bytesPayload.Data),
+                NearbyDirection.Incoming,
+                e.Timestamp);
+        }
+        else if (e.Payload is FilePayload filePayload)
+        {
+            message = new ChatMessage(
+                filePayload.FileResult.FileName,
+                NearbyDirection.Incoming,
+                e.Timestamp);
+
+            if (filePayload.FileResult.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
+                message.Attachments.Add(new PhotoAttachment
+                {
+                    FilePath = filePayload.FileResult.FullPath,
+                    Thumbnail = ImageSource.FromFile(filePayload.FileResult.FullPath)
+                });
+            }
+            else
+            {
+                var thumbnail = await _thumbnailService.GetVideoThumbnailAsync(filePayload.FileResult.FullPath);
+
+                message.Attachments.Add(new PhotoAttachment
+                {
+                    FilePath = filePayload.FileResult.FullPath,
+                    Thumbnail = thumbnail
+                });
+            }
+        }
+
+        if (message is not null)
+        {
+            _chatMessageRepository.Save(e.NearbyDevice, message);
+            _messenger.Send(new ChatMessageReceived(e.NearbyDevice, message));
+        }
+    }
 
     protected virtual void Dispose(bool disposing)
     {

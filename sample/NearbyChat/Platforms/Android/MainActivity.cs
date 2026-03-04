@@ -7,7 +7,6 @@ using AndroidX.Activity.Result;
 using AndroidX.Activity.Result.Contract;
 using static AndroidX.Activity.Result.Contract.ActivityResultContracts;
 using JavaObject = Java.Lang.Object;
-using AndroidUri = Android.Net.Uri;
 
 namespace NearbyChat;
 
@@ -29,12 +28,9 @@ public class MainActivity : MauiAppCompatActivity
         base.OnCreate(savedInstanceState);
 
         RequestPermissionsForResult.Instance.Register(this);
-        GetContentForResult.Instance.Register(this);
         var permissions = FromArray(GetRequiredPermissions()) ?? new JavaList<string>();
 
-        var result = RequestPermissionsForResult.Instance.Launch(permissions);
-
-        var r = result;
+        RequestPermissionsForResult.Instance.Launch(permissions);
     }
 
     static string[] GetRequiredPermissions()
@@ -89,13 +85,6 @@ public class MainActivity : MauiAppCompatActivity
         }
 
     }
-}
-
-public sealed class GetContentForResult : ActivityForResultRequest<GetContent, AndroidUri>
-{
-    static readonly Lazy<GetContentForResult> s_lazyInstance = new(new GetContentForResult());
-
-    public static GetContentForResult Instance => s_lazyInstance.Value;
 }
 
 public sealed class RequestPermissionsForResult : ActivityForResultRequest<RequestMultiplePermissions, Java.Lang.Boolean>

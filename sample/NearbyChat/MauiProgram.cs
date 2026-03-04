@@ -3,6 +3,7 @@ using CommunityToolkit.Maui;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using NearbyChat.Controls;
+using NearbyChat.Data;
 using NearbyChat.Pages;
 using NearbyChat.Services;
 using NearbyChat.ViewModels;
@@ -48,9 +49,12 @@ public static class MauiProgram
         });
         builder.Services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
         builder.Services.AddSingleton<INearbyDeviceViewModelFactory, NearbyDeviceViewModelFactory>();
+        builder.Services.AddSingleton<IChatMessageViewModelFactory, ChatMessageViewModelFactory>();
         builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<INearbyConnectionsService, NearbyConnectionsService>();
         builder.Services.AddSingleton<IThumbnailService, ThumbnailService>();
+        builder.Services.AddSingleton<IChatMessageRepository, ChatMessageRepository>();
+        builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
 
         builder.Services.AddTransientWithShellRoute<AdvertisingPage, AdvertisingPageViewModel>();
         builder.Services.AddTransientWithShellRoute<ConnectionsPage, ConnectionsPageViewModel>();

@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using NearbyChat.Data;
 using NearbyChat.Messages;
 using NearbyChat.Models;
 using NearbyChat.Services;
@@ -15,10 +15,12 @@ namespace NearbyChat.ViewModels;
 public partial class ChatViewModel(
     IDispatcher dispatcher,
     IMediaPicker mediaPicker,
-    INearbyConnectionsService nearbyConnectionsService,
-    IThumbnailService thumbnailService) : ObservableRecipient,
+    IThumbnailService thumbnailService,
+    IChatMessageRepository chatMessageRepository,
+    IChatMessageViewModelFactory chatMessageViewModelFactory,
+    IChatMessageService chatMessageService) : ObservableRecipient,
     INavigationAware,
-    IRecipient<DataReceivedMessage>,
+    IRecipient<ChatMessageReceived>,
     IRecipient<DeviceStateChangedMessage>
 {
     [MemberNotNullWhen(true, nameof(Message))]
@@ -42,13 +44,10 @@ public partial class ChatViewModel(
     [ObservableProperty]
     public partial FileResult? SelectedFile { get; set; }
 
-    public ObservableCollection<ChatMessage> Messages { get; } =
-    [
-        new ChatMessage { Text = "Hello!", From = Sender.Peer , Timestamp = DateTimeOffset.Now.AddMinutes(-5)},
-        new ChatMessage { Text = "Hi there!", From = Sender.Me, Timestamp = DateTimeOffset.Now.AddMinutes(-4)},
-        new ChatMessage { Text = "How are you?", From = Sender.Peer, Timestamp = DateTimeOffset.Now.AddMinutes(-3)},
-        new ChatMessage { Text = "I'm good, thanks! How about you?", From = Sender.Me, Timestamp = DateTimeOffset.Now.AddMinutes(-2)},
-    ];
+    [ObservableProperty]
+    public partial MediaAttachment? MediaAttachment { get; set; }
+
+    public ObservableCollection<ChatMessageViewModel> Messages { get; } = [];
 
     [RelayCommand(
         CanExecute = nameof(CanSend),
@@ -60,39 +59,19 @@ public partial class ChatViewModel(
             return;
         }
 
-        if (SelectedFile is not null)
+        var chatMessage = new ChatMessage(Message, NearbyDirection.Outgoing, DateTimeOffset.Now)
         {
-            var file = SelectedFile;
-            Message = null;
-            SelectedFile = null;
+            Timestamp = DateTimeOffset.Now
+        };
 
-#if IOS
-            // On iOS, FullPath may be just a filename.
-            // Copy via stream to a known local path before sending.
-            var localPath = Path.Combine(FileSystem.CacheDirectory, file.FileName);
-            using (var source = await file.OpenReadAsync())
-            using (var dest = File.Create(localPath))
-            {
-                await source.CopyToAsync(dest, cancellationToken);
-            }
-#else
-            var localPath = file.FullPath;
-#endif
-
-            var progress = new Progress<NearbyTransferProgress>(OnNearbyTransferProgress);
-
-            await nearbyConnectionsService.SendAsync(
-                device: Device,
-                localPath,
-                progress: progress,
-                cancellationToken: cancellationToken);
-
-            Messages.Add(await CreateFileMessageAsync(file.FileName, localPath, Sender.Me, DateTimeOffset.Now));
-        }
-        else
+        if (MediaAttachment is not null)
         {
-            await nearbyConnectionsService.SendMessage(Device, Message);
+            chatMessage.Attachments.Add(MediaAttachment);
         }
+
+        await chatMessageService.SendChatMessage(Device, chatMessage);
+        var vm = chatMessageViewModelFactory.Create(chatMessage);
+        Messages.Add(vm);
     }
 
     [RelayCommand]
@@ -108,65 +87,55 @@ public partial class ChatViewModel(
             photoOption,
             videoOption);
 
-        var file = choice switch
+        if (choice is photoOption)
         {
-            photoOption => (await mediaPicker.PickPhotosAsync())?.FirstOrDefault(),
-            videoOption => (await mediaPicker.PickVideosAsync())?.FirstOrDefault(),
-            _ => null
-        };
+            var photo = await mediaPicker.PickPhotosAsync();
 
-        if (file is null)
-        {
-            return;
+            if (photo?.FirstOrDefault() is FileResult fileResult)
+            {
+                var fullPath = fileResult.FullPath;
+
+                if (OperatingSystem.IsIOS())
+                {
+                    fullPath = await CreateTempFile(fileResult);
+                }
+
+                var photoAttachment = new PhotoAttachment
+                {
+                    FilePath = fullPath,
+                    Thumbnail = ImageSource.FromFile(fullPath)
+                };
+
+                MediaAttachment = photoAttachment;
+                Message = fileResult.FileName;
+            }
         }
-
-        SelectedFile = file;
-        Message = SelectedFile.FileName;
-    }
-
-    [RelayCommand]
-    async Task CapturePhoto()
-    {
-        var file = await mediaPicker.CapturePhotoAsync(new MediaPickerOptions
+        else
         {
-            MaximumHeight = 200,
-            MaximumWidth = 200
-        });
+            var video = await mediaPicker.PickVideosAsync();
 
-        if (file is null)
-        {
-            return;
+            if (video?.FirstOrDefault() is FileResult fileResult)
+            {
+                var fullPath = fileResult.FullPath;
+
+                if (OperatingSystem.IsIOS())
+                {
+                    fullPath = await CreateTempFile(fileResult);
+                }
+
+                var thumbnail = await thumbnailService.GetVideoThumbnailAsync(fullPath);
+
+                var videoAttachment = new VideoAttachment
+                {
+                    FilePath = fullPath,
+                    Thumbnail = thumbnail
+                };
+
+                MediaAttachment = videoAttachment;
+                Message = fileResult.FileName;
+            }
         }
-
-        SelectedFile = file;
-        Message = SelectedFile.FileName;
     }
-
-    [RelayCommand]
-    async Task CaptureVideo()
-    {
-        var file = await mediaPicker.CaptureVideoAsync(new MediaPickerOptions
-        {
-            MaximumHeight = 200,
-            MaximumWidth = 200
-        });
-
-        if (file is null)
-        {
-            return;
-        }
-
-        SelectedFile = file;
-        Message = SelectedFile.FileName;
-    }
-
-    [RelayCommand]
-    Task<bool> OpenFile(string filePath)
-        => Launcher.Default.OpenAsync(new OpenFileRequest
-        {
-            Title = Path.GetFileName(filePath),
-            File = new ReadOnlyFile(filePath)
-        });
 
     public void OnNavigatedFrom(IBottomSheetNavigationParameters parameters)
         => IsActive = false;
@@ -179,34 +148,54 @@ public partial class ChatViewModel(
             && device is NearbyDevice nearbyDevice)
         {
             Device = nearbyDevice;
+            _ = Task.Run(() => LoadHistoryAsync(nearbyDevice));
         }
     }
 
-    public async void Receive(DataReceivedMessage msg)
+    static async Task<string> CreateTempFile(FileResult fileResult)
     {
-        if (msg.Payload is BytesPayload bytes)
+        // On iOS, FullPath may be just a filename.
+        // Copy via stream to a known local path before sending.
+        var localPath = Path.Combine(FileSystem.CacheDirectory, fileResult.FileName);
+        using (var source = await fileResult.OpenReadAsync())
+        using (var dest = File.Create(localPath))
         {
-            var text = Encoding.UTF8.GetString(bytes.Data);
-            Messages.Add(new ChatMessage
-            {
-                Text = text,
-                From = Sender.Peer,
-                Timestamp = msg.Timestamp.ToLocalTime()
-            });
+            await source.CopyToAsync(dest);
         }
-        else if (msg.Payload is FilePayload file)
+
+        return localPath;
+    }
+
+    Task LoadHistoryAsync(NearbyDevice device)
+    {
+        Messages.Clear();
+
+        foreach (var message in chatMessageRepository.GetAll(device))
         {
-            Messages.Add(await CreateFileMessageAsync(file.FileResult.FileName, file.FileResult.FullPath, Sender.Peer, msg.Timestamp.ToLocalTime()));
+            var vm = chatMessageViewModelFactory.Create(message);
+            Messages.Add(vm);
         }
-        else if (msg.Payload is StreamPayload stream)
+
+        return Task.CompletedTask;
+    }
+
+    public void Receive(ChatMessageReceived receivedMsg)
+    {
+        if (receivedMsg.Value.Id != Device?.Id)
         {
-            Messages.Add(new ChatMessage
-            {
-                Text = stream.Name,
-                From = Sender.Peer,
-                Timestamp = msg.Timestamp.ToLocalTime()
-            });
+            return;
         }
+
+        var stored = chatMessageRepository.GetAll(receivedMsg.Value);
+
+        if (stored.Count <= 0)
+        {
+            return;
+        }
+
+        var message = stored[^1];
+        var vm = chatMessageViewModelFactory.Create(message);
+        Messages.Add(vm);
     }
 
     public async void Receive(DeviceStateChangedMessage message)
@@ -217,19 +206,6 @@ public partial class ChatViewModel(
                     SendCommand.NotifyCanExecuteChanged();
                 }
             });
-
-    async Task<ChatMessage> CreateFileMessageAsync(string fileName, string filePath, Sender sender, DateTimeOffset timestamp)
-    {
-        var thumbnail = await thumbnailService.GetVideoThumbnailAsync(filePath);
-        return new ChatMessage
-        {
-            Text = fileName,
-            FilePath = filePath,
-            VideoThumbnail = thumbnail,
-            From = sender,
-            Timestamp = timestamp
-        };
-    }
 
     void OnNearbyTransferProgress(NearbyTransferProgress progress)
         => TransferStatus = progress.Status;

@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:controls="clr-namespace:NearbyChat.Controls"
+    xmlns:vm="clr-namespace:NearbyChat.ViewModels"
     x:Class="NearbyChat.Resources.Styles.MainStyle">
 
     <!-- Layout Spacing -->
@@ -304,5 +305,138 @@
                     Opacity="0.2"/>
         </Setter>
     </Style>
+
+    <!-- Data Templates -->
+    <controls:ChatMessageViewModelDataTemplateSelector x:Key="ChatMessageViewModelDataTemplateSelector">
+        <controls:ChatMessageViewModelDataTemplateSelector.TextTemplate>
+            <DataTemplate x:DataType="vm:ChatMessageViewModel">
+                <Border StrokeThickness="0"
+                        Margin="0,8,0,0"
+                        Padding="{StaticResource SpacingSM}"
+                        Background="#F1F1F1"
+                        HorizontalOptions="Start"
+                        StrokeShape="RoundRectangle 16">
+                    <VerticalStackLayout Spacing="4">
+                        <Label
+                            Text="{Binding Model.Text}"
+                            TextColor="#222"
+                            LineBreakMode="WordWrap"/>
+                        <Label Text="{Binding Model.Timestamp, StringFormat='{0:t}'}"
+                               FontSize="10"
+                               TextColor="#888"
+                               HorizontalTextAlignment="End"/>
+                    </VerticalStackLayout>
+                    <Border.Triggers>
+                        <!-- User messages: right aligned, accent background -->
+                        <DataTrigger TargetType="Border"
+                                     Binding="{Binding Model.Direction}"
+                                     Value="Outgoing">
+                            <Setter Property="HorizontalOptions"
+                                    Value="End"/>
+                            <Setter Property="Background"
+                                    Value="#D1E8FF"/>
+                        </DataTrigger>
+                    </Border.Triggers>
+                </Border>
+            </DataTemplate>
+        </controls:ChatMessageViewModelDataTemplateSelector.TextTemplate>
+        <controls:ChatMessageViewModelDataTemplateSelector.PhotoTemplate>
+            <DataTemplate x:DataType="vm:PhotoMessageViewModel">
+                <Border StrokeThickness="0"
+                        Margin="0,8,0,0"
+                        Padding="{StaticResource SpacingSM}"
+                        Background="#F1F1F1"
+                        HorizontalOptions="Start"
+                        StrokeShape="RoundRectangle 16">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenFileCommand}"
+                                              CommandParameter="{Binding MediaAttachment.FilePath}"/>
+                    </Border.GestureRecognizers>
+                    <VerticalStackLayout Spacing="4">
+                        <Grid>
+                            <Image Source="{Binding Thumbnail}"
+                                   Aspect="AspectFit"
+                                   WidthRequest="200"
+                                   HeightRequest="200"/>
+                            <ActivityIndicator IsRunning="True"
+                                               HeightRequest="36"
+                                               WidthRequest="36"
+                                               IsVisible="{Binding IsLoading}"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"/>
+                        </Grid>
+                        <Label
+                            Text="{Binding Model.Text}"
+                            TextColor="#555"
+                            LineBreakMode="TailTruncation"/>
+                        <Label Text="{Binding Model.Timestamp, StringFormat='{0:t}'}"
+                               FontSize="10"
+                               TextColor="#888"
+                               HorizontalTextAlignment="End"/>
+                    </VerticalStackLayout>
+                    <Border.Triggers>
+                        <!-- User messages: right aligned, accent background -->
+                        <DataTrigger TargetType="Border"
+                                     Binding="{Binding Model.Direction}"
+                                     Value="Outgoing">
+                            <Setter Property="HorizontalOptions"
+                                    Value="End"/>
+                            <Setter Property="Background"
+                                    Value="#D1E8FF"/>
+                        </DataTrigger>
+                    </Border.Triggers>
+                </Border>
+            </DataTemplate>
+
+        </controls:ChatMessageViewModelDataTemplateSelector.PhotoTemplate>
+        <controls:ChatMessageViewModelDataTemplateSelector.VideoTemplate>
+            <DataTemplate x:DataType="vm:VideoMessageViewModel">
+                <Border StrokeThickness="0"
+                        Margin="0,8,0,0"
+                        Padding="{StaticResource SpacingSM}"
+                        Background="#F1F1F1"
+                        HorizontalOptions="Start"
+                        StrokeShape="RoundRectangle 16">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenFileCommand}"
+                                              CommandParameter="{Binding MediaAttachment.FilePath}"/>
+                    </Border.GestureRecognizers>
+                    <VerticalStackLayout Spacing="4">
+                        <Grid>
+                            <Image Source="{Binding Thumbnail}"
+                                   Aspect="AspectFit"
+                                   WidthRequest="200"
+                                   HeightRequest="200"/>
+                            <ActivityIndicator IsRunning="True"
+                                               HeightRequest="36"
+                                               WidthRequest="36"
+                                               IsVisible="{Binding IsLoading}"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"/>
+                        </Grid>
+                        <Label
+                            Text="{Binding Model.Text}"
+                            TextColor="#555"
+                            LineBreakMode="TailTruncation"/>
+                        <Label Text="{Binding Model.Timestamp, StringFormat='{0:t}'}"
+                               FontSize="10"
+                               TextColor="#888"
+                               HorizontalTextAlignment="End"/>
+                    </VerticalStackLayout>
+                    <Border.Triggers>
+                        <!-- User messages: right aligned, accent background -->
+                        <DataTrigger TargetType="Border"
+                                     Binding="{Binding Model.Direction}"
+                                     Value="Outgoing">
+                            <Setter Property="HorizontalOptions"
+                                    Value="End"/>
+                            <Setter Property="Background"
+                                    Value="#D1E8FF"/>
+                        </DataTrigger>
+                    </Border.Triggers>
+                </Border>
+            </DataTemplate>
+        </controls:ChatMessageViewModelDataTemplateSelector.VideoTemplate>
+    </controls:ChatMessageViewModelDataTemplateSelector>
 
 </ResourceDictionary>

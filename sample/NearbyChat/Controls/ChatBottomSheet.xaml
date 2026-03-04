@@ -8,85 +8,6 @@
              x:Name="this"
              Margin="{StaticResource SpacingXL}">
 
-    <BottomSheet.Resources>
-        <InvertedBoolConverter x:Key="InvertedBoolConverter"/>
-        <ChatMessageDataTemplateSelector x:Key="ChatMessageSelector">
-            <ChatMessageDataTemplateSelector.TextTemplate>
-                <DataTemplate x:DataType="ChatMessage">
-                    <Border StrokeThickness="0"
-                            Margin="0,8,0,0"
-                            Padding="{StaticResource SpacingSM}"
-                            Background="#F1F1F1"
-                            HorizontalOptions="Start"
-                            StrokeShape="RoundRectangle 16">
-                        <VerticalStackLayout Spacing="4">
-                            <Label
-                                Text="{Binding Text}"
-                                TextColor="#222"
-                                LineBreakMode="WordWrap"/>
-                            <Label Text="{Binding Timestamp, StringFormat='{0:t}'}"
-                                   FontSize="10"
-                                   TextColor="#888"
-                                   HorizontalTextAlignment="End"/>
-                        </VerticalStackLayout>
-                        <Border.Triggers>
-                            <!-- User messages: right aligned, accent background -->
-                            <DataTrigger TargetType="Border"
-                                         Binding="{Binding From}"
-                                         Value="Me">
-                                <Setter Property="HorizontalOptions"
-                                        Value="End"/>
-                                <Setter Property="Background"
-                                        Value="#D1E8FF"/>
-                            </DataTrigger>
-                        </Border.Triggers>
-                    </Border>
-                </DataTemplate>
-            </ChatMessageDataTemplateSelector.TextTemplate>
-            <ChatMessageDataTemplateSelector.FileTemplate>
-                <DataTemplate x:DataType="ChatMessage">
-                    <Border StrokeThickness="0"
-                            Margin="0,8,0,0"
-                            Padding="{StaticResource SpacingSM}"
-                            Background="#F1F1F1"
-                            HorizontalOptions="Start"
-                            StrokeShape="RoundRectangle 16">
-
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding BindingContext.OpenFileCommand, Source={x:Reference ChatList}, x:DataType={x:Null}}"
-                                                  CommandParameter="{Binding FilePath}"/>
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Spacing="4">
-                            <Image Source="{Binding VideoThumbnail, TargetNullValue={Binding FilePath}}"
-                                   Aspect="AspectFit"
-                                   WidthRequest="200"
-                                   HeightRequest="200"/>
-                            <Label
-                                Text="{Binding Text}"
-                                TextColor="#555"
-                                LineBreakMode="TailTruncation"/>
-                            <Label Text="{Binding Timestamp, StringFormat='{0:t}'}"
-                                   FontSize="10"
-                                   TextColor="#888"
-                                   HorizontalTextAlignment="End"/>
-                        </VerticalStackLayout>
-                        <Border.Triggers>
-                            <!-- User messages: right aligned, accent background -->
-                            <DataTrigger TargetType="Border"
-                                         Binding="{Binding From}"
-                                         Value="Me">
-                                <Setter Property="HorizontalOptions"
-                                        Value="End"/>
-                                <Setter Property="Background"
-                                        Value="#D1E8FF"/>
-                            </DataTrigger>
-                        </Border.Triggers>
-                    </Border>
-                </DataTemplate>
-            </ChatMessageDataTemplateSelector.FileTemplate>
-        </ChatMessageDataTemplateSelector>
-    </BottomSheet.Resources>
-
     <BottomSheet.Header>
         <BottomSheetHeader
             ShowCloseButton="True">
@@ -104,6 +25,7 @@
             </ContentView>
         </BottomSheetHeader>
     </BottomSheet.Header>
+
     <BottomSheet.Content>
         <BottomSheetContent>
             <Grid RowDefinitions="*, Auto"
@@ -113,75 +35,46 @@
                     ItemsSource="{Binding Messages}"
                     ItemsUpdatingScrollMode="KeepLastItemInView"
                     Background="Transparent"
-                    ItemTemplate="{StaticResource ChatMessageSelector}">
+                    ItemTemplate="{StaticResource ChatMessageViewModelDataTemplateSelector}">
                     <CollectionView.ItemsLayout>
                         <LinearItemsLayout Orientation="Vertical"
                                            ItemSpacing="{StaticResource SpacingXS}"/>
                     </CollectionView.ItemsLayout>
                 </CollectionView>
 
-                <Grid ColumnDefinitions="Auto, *, Auto"
+                <Grid ColumnDefinitions="*, Auto, Auto"
                       ColumnSpacing="{StaticResource SpacingLG}"
                       Grid.Row="1">
+                    <Entry
+                        HeightRequest="44"
+                        Placeholder="Type a message..."
+                        Text="{Binding Message}"
+                        TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
                     <ImageButton
+                        Grid.Column="1"
+                        Command="{Binding SendCommand}">
+                        <ImageButton.Source>
+                            <FontImageSource
+                                Size="{StaticResource SpacingXL}"
+                                FontFamily="NearbyChatIcons"
+                                Glyph="{StaticResource icon-send}"
+                                Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
+                        </ImageButton.Source>
+                    </ImageButton>
+                    <ImageButton
+                        Grid.Column="2"
                         Command="{Binding AttachCommand}">
                         <ImageButton.Source>
                             <FontImageSource
-                                Size="24"
+                                Size="{StaticResource SpacingXL}"
                                 FontFamily="NearbyChatIcons"
                                 Glyph="{StaticResource icon-attachment}"
                                 Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
                         </ImageButton.Source>
                     </ImageButton>
-                    <Entry
-                        Grid.Column="1"
-                        HeightRequest="44"
-                        Placeholder="Type a message..."
-                        Text="{Binding Message}"
-                        TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
-                    <HorizontalStackLayout Grid.Column="2"
-                                           Spacing="{StaticResource SpacingXL}"
-                                           VerticalOptions="Center">
-                        <ImageButton
-                            IsVisible="{Binding CanSend}"
-                            BackgroundColor="Blue"
-                            WidthRequest="44"
-                            HeightRequest="44"
-                            CornerRadius="22"
-                            Aspect="Center"
-                            Padding="5"
-                            Command="{Binding SendCommand}">
-                            <ImageButton.Source>
-                                <FontImageSource
-                                    Size="20"
-                                    FontFamily="NearbyChatIcons"
-                                    Glyph="{StaticResource icon-send}"
-                                    Color="White"/>
-                            </ImageButton.Source>
-                        </ImageButton>
-                        <ImageButton IsVisible="{Binding CanSend, Converter={StaticResource InvertedBoolConverter}}"
-                                     Command="{Binding CapturePhotoCommand}">
-                            <ImageButton.Source>
-                                <FontImageSource
-                                    Size="24"
-                                    FontFamily="NearbyChatIcons"
-                                    Glyph="{StaticResource icon-camera}"
-                                    Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
-                            </ImageButton.Source>
-                        </ImageButton>
-                        <ImageButton IsVisible="{Binding CanSend, Converter={StaticResource InvertedBoolConverter}}"
-                                     Command="{Binding CaptureVideoCommand}">
-                            <ImageButton.Source>
-                                <FontImageSource
-                                    Size="24"
-                                    FontFamily="NearbyChatIcons"
-                                    Glyph="{StaticResource icon-video}"
-                                    Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
-                            </ImageButton.Source>
-                        </ImageButton>
-                    </HorizontalStackLayout>
                 </Grid>
             </Grid>
         </BottomSheetContent>
     </BottomSheet.Content>
+
 </BottomSheet>

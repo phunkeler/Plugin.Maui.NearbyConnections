@@ -1,19 +1,42 @@
 namespace NearbyChat.Models;
 
-public enum Sender
+public enum NearbyDirection
 {
-    Me,
-    Peer
+    Incoming,
+    Outgoing
 }
 
-public class ChatMessage
+public record ChatMessage(string? Text, NearbyDirection Direction, DateTimeOffset Timestamp)
 {
-    public required string Text { get; set; }
-    public required Sender From { get; set; }
-    public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.Now;
+    public IList<IAttachment> Attachments { get; } = [];
+}
 
+public interface IAttachment
+{
+    AttachmentType Type { get; }
+}
+
+public enum AttachmentType
+{
+    Photo,
+    Video,
+    Other
+}
+
+public abstract class MediaAttachment : IAttachment
+{
+    public abstract AttachmentType Type { get; }
     public string? FilePath { get; set; }
-    public ImageSource? VideoThumbnail { get; set; }
+    public ImageSource? Thumbnail { get; set; }
+}
 
-    public bool IsFileMessage => !string.IsNullOrWhiteSpace(FilePath);
+public sealed class PhotoAttachment : MediaAttachment
+{
+    public override AttachmentType Type => AttachmentType.Photo;
+}
+
+public sealed class VideoAttachment : MediaAttachment
+{
+    public override AttachmentType Type => AttachmentType.Video;
+    public TimeSpan? Duration { get; set; }
 }
