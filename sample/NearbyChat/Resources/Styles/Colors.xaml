@@ -119,6 +119,16 @@
     <!-- slate-400 with 20% opacity -->
     <Color x:Key="LightShadowLight">#ffffffe6</Color>
     <!-- white with 90% opacity -->
+    <Color x:Key="LightCardShadow">#0f172a4d</Color>
+    <!-- slate-900 with 30% opacity - card shadow for light theme -->
+    <Color x:Key="LightButtonShadow">#0f172a33</Color>
+    <!-- slate-900 with 20% opacity - button shadow for light theme -->
+    <Color x:Key="LightAccentAdvertisingShadow">#1d4ed81a</Color>
+    <!-- blue-700 with 10% opacity -->
+    <Color x:Key="LightAccentDiscoveryShadow">#15803d1a</Color>
+    <!-- green-700 with 10% opacity -->
+    <Color x:Key="LightAccentConnectionsShadow">#7e22ce1a</Color>
+    <!-- purple-700 with 10% opacity -->
 
     <!-- Light Theme - Status Colors -->
     <Color x:Key="LightStatusActive">#16a34a</Color>

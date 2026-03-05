@@ -55,7 +55,7 @@
         <Setter Property="BackgroundColor"
                 Value="{StaticResource AccentAdvertising}"/>
         <Setter Property="Shadow">
-            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentAdvertisingDark}, Dark={StaticResource DarkAccentAdvertisingLight}}"
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentAdvertisingShadow}, Dark={StaticResource DarkAccentAdvertisingLight}}"
                     Offset="0,4"
                     Radius="12"
                     Opacity="0.3"/>
@@ -68,7 +68,7 @@
         <Setter Property="BackgroundColor"
                 Value="{StaticResource AccentDiscovery}"/>
         <Setter Property="Shadow">
-            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentDiscoveryDark}, Dark={StaticResource DarkAccentDiscoveryLight}}"
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentDiscoveryShadow}, Dark={StaticResource DarkAccentDiscoveryLight}}"
                     Offset="0,4"
                     Radius="12"
                     Opacity="0.3"/>
@@ -81,7 +81,7 @@
         <Setter Property="BackgroundColor"
                 Value="{StaticResource AccentConnections}"/>
         <Setter Property="Shadow">
-            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentConnectionsDark}, Dark={StaticResource DarkAccentConnectionsLight}}"
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentConnectionsShadow}, Dark={StaticResource DarkAccentConnectionsLight}}"
                     Offset="0,4"
                     Radius="12"
                     Opacity="0.3"/>
@@ -212,10 +212,10 @@
         <Setter Property="StrokeShape"
                 Value="RoundRectangle 24"/>
         <Setter Property="Shadow">
-            <Shadow Brush="Black"
-                    Offset="12,12"
-                    Radius="24"
-                    Opacity="0.4"/>
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightCardShadow}, Dark=Black}"
+                    Offset="0,6"
+                    Radius="16"
+                    Opacity="0.6"/>
         </Setter>
     </Style>
 
@@ -233,7 +233,7 @@
         <Setter Property="StrokeShape"
                 Value="RoundRectangle 16"/>
         <Setter Property="Shadow">
-            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentAdvertisingDark}, Dark={StaticResource DarkAccentAdvertisingLight}}"
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentAdvertisingShadow}, Dark={StaticResource DarkAccentAdvertisingLight}}"
                     Offset="0,4"
                     Radius="12"
                     Opacity="0.3"/>
@@ -254,7 +254,7 @@
         <Setter Property="StrokeShape"
                 Value="RoundRectangle 16"/>
         <Setter Property="Shadow">
-            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentDiscoveryDark}, Dark={StaticResource DarkAccentDiscoveryLight}}"
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentDiscoveryShadow}, Dark={StaticResource DarkAccentDiscoveryLight}}"
                     Offset="0,4"
                     Radius="12"
                     Opacity="0.3"/>
@@ -275,7 +275,7 @@
         <Setter Property="StrokeShape"
                 Value="RoundRectangle 16"/>
         <Setter Property="Shadow">
-            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentConnectionsDark}, Dark={StaticResource DarkAccentConnectionsLight}}"
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentConnectionsShadow}, Dark={StaticResource DarkAccentConnectionsLight}}"
                     Offset="0,4"
                     Radius="12"
                     Opacity="0.3"/>
@@ -299,7 +299,7 @@
         <Setter Property="BorderColor"
                 Value="{AppThemeBinding Light=Black, Dark=White}"/>
         <Setter Property="Shadow">
-            <Shadow Brush="{AppThemeBinding Light={StaticResource DarkShadowDark}, Dark={StaticResource DarkShadowLight}}"
+            <Shadow Brush="{AppThemeBinding Light={StaticResource LightButtonShadow}, Dark={StaticResource DarkShadowLight}}"
                     Offset="0,2"
                     Radius="4"
                     Opacity="0.2"/>

@@ -46,6 +46,11 @@ sealed class NearbyDeviceManager : INearbyDeviceManager
         var previousState = device.State;
         device.State = state;
 
+        if (state == NearbyDeviceState.Discovered)
+        {
+            device.LastSeenAt = _timeProvider.GetUtcNow();
+        }
+
         if (previousState != state)
         {
             _events.OnDeviceStateChanged(device, previousState, _timeProvider.GetUtcNow());

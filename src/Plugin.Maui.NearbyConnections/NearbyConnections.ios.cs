@@ -4,7 +4,7 @@ sealed partial class NearbyConnectionsImplementation
 {
     internal MyPeerIdManager MyMCPeerIDManager { get; } = new();
 
-    readonly ConcurrentDictionary<string, MCNearbyServiceAdvertiserInvitationHandler> _pendingInvitations = new();
+    readonly ConcurrentDictionary<string, (MCNearbyServiceAdvertiserInvitationHandler Handler, CancellationTokenSource Expiry)> _pendingInvitations = new();
     readonly ConcurrentDictionary<string, IDisposable> _progressObservers = new();
 
     MCSession? _session;
@@ -60,7 +60,9 @@ sealed partial class NearbyConnectionsImplementation
         var device = _deviceManager.SetState(id, NearbyDeviceState.ConnectionRequestedInbound)
             ?? _deviceManager.GetOrAddDevice(id, peerID.DisplayName, NearbyDeviceState.ConnectionRequestedInbound);
 
-        _pendingInvitations.TryAdd(id, invitationHandler);
+        var expiry = new CancellationTokenSource(TimeSpan.FromSeconds(Options.InvitationTimeout));
+        expiry.Token.Register(() => OnInvitationExpired(id));
+        _pendingInvitations.TryAdd(id, (invitationHandler, expiry));
 
         Trace.TraceInformation("Received invitation from peer: Id={0}, DisplayName={1}", id, peerID.DisplayName);
         Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
@@ -113,11 +115,14 @@ sealed partial class NearbyConnectionsImplementation
     {
         ArgumentNullException.ThrowIfNull(device);
 
-        if (!_pendingInvitations.TryRemove(device.Id, out var invitationHandler))
+        if (!_pendingInvitations.TryRemove(device.Id, out var pending))
         {
             throw new InvalidOperationException(
                 $"No pending invitation found for device: {device.DisplayName}");
         }
+
+        pending.Expiry.Cancel();
+        pending.Expiry.Dispose();
 
         // Create or reuse session (same pattern as PlatformRequestConnectionAsync)
         if (_session is null)
@@ -131,7 +136,7 @@ sealed partial class NearbyConnectionsImplementation
             };
         }
 
-        invitationHandler(accept, accept ? _session : null);
+        pending.Handler(accept, accept ? _session : null);
 
         if (!accept)
         {
@@ -268,6 +273,28 @@ sealed partial class NearbyConnectionsImplementation
         return Task.CompletedTask;
     }
 
+    void OnInvitationExpired(string id)
+    {
+        if (!_pendingInvitations.TryRemove(id, out var expired))
+        {
+            return;
+        }
+
+        Trace.TraceInformation("Invitation expired: Id={0}", id);
+
+        expired.Expiry.Dispose();
+        expired.Handler(false, null);
+
+        // Reset to Discovered so the browser doesn't need to re-fire FoundPeer
+        // (MPC browser still considers this peer "known" — it never fired LostPeer)
+        var device = _deviceManager.SetState(id, NearbyDeviceState.Discovered);
+        if (device is not null)
+        {
+            Events.OnConnectionResponded(device, TimeProvider.GetUtcNow(), false);
+            Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
+        }
+    }
+
     #region Session Callbacks
 
     public void OnPeerStateChanged(MCPeerID peerID, MCSessionState state)
@@ -281,16 +308,53 @@ sealed partial class NearbyConnectionsImplementation
         {
             case MCSessionState.Connected:
                 var connectedDevice = _deviceManager.SetState(id, NearbyDeviceState.Connected);
+
                 if (connectedDevice is not null)
                 {
                     Events.OnConnectionResponded(connectedDevice, TimeProvider.GetUtcNow(), true);
                 }
+
                 break;
             case MCSessionState.NotConnected:
-                var disconnectedDevice = _deviceManager.DeviceDisconnected(id);
-                if (disconnectedDevice is not null)
+                if (_pendingInvitations.TryRemove(id, out var stale))
                 {
-                    Events.OnDeviceDisconnected(disconnectedDevice, TimeProvider.GetUtcNow());
+                    // Advertiser side: a pending inbound invite went NotConnected
+                    // (remote disappeared mid-handshake before we responded).
+                    stale.Expiry.Cancel();
+                    stale.Expiry.Dispose();
+                    stale.Handler(false, null);
+
+                    // Reset to Discovered — LostPeer will clean up if the peer truly disappeared.
+                    // If it's still advertising, the UI can reconnect without waiting for FoundPeer.
+                    var pendingDevice = _deviceManager.SetState(id, NearbyDeviceState.Discovered);
+                    if (pendingDevice is not null)
+                    {
+                        Events.OnConnectionResponded(pendingDevice, TimeProvider.GetUtcNow(), false);
+                        Events.OnDeviceFound(pendingDevice, TimeProvider.GetUtcNow());
+                    }
+                }
+                else if (_deviceManager.TryGetDevice(id, out var outboundDevice)
+                    && outboundDevice.State == NearbyDeviceState.ConnectionRequestedOutbound)
+                {
+                    // Discoverer side: our outbound invite was rejected or expired.
+                    // Reset to Discovered so the UI can reconnect immediately.
+                    _deviceManager.SetState(id, NearbyDeviceState.Discovered);
+                    Events.OnConnectionResponded(outboundDevice, TimeProvider.GetUtcNow(), false);
+                    Events.OnDeviceFound(outboundDevice, TimeProvider.GetUtcNow());
+                }
+                else
+                {
+                    var disconnectedDevice = _deviceManager.DeviceDisconnected(id);
+                    if (disconnectedDevice is not null)
+                    {
+                        Events.OnDeviceDisconnected(disconnectedDevice, TimeProvider.GetUtcNow());
+                    }
+
+                    if (_session is not null && _session.ConnectedPeers.Length == 0)
+                    {
+                        _session.Dispose();
+                        _session = null;
+                    }
                 }
                 break;
             case MCSessionState.Connecting:

@@ -20,7 +20,7 @@
                 <!-- Advertise -->
                 <FeatureNavigationCard
                     FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeAdvertiseStyle}"
-                    Title="Advertising"
+                    Title="Advertise"
                     Subtitle="Be discoverable"
                     FeatureIsActive="{Binding IsAdvertising}"
                     ActiveSubtitle="Broadcasting..."
@@ -29,7 +29,7 @@
                 <!-- Discover -->
                 <FeatureNavigationCard
                     FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeDiscoverStyle}"
-                    Title="Discovery"
+                    Title="Discover"
                     Subtitle="Find nearby devices"
                     FeatureIsActive="{Binding IsDiscovering}"
                     ActiveSubtitle="Scanning..."
@@ -38,7 +38,7 @@
                 <!-- Connections -->
                 <FeatureNavigationCard
                     FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeConnectionsStyle}"
-                    Title="Connections"
+                    Title="Connect"
                     Subtitle="No connections"
                     Command="{Binding NavigateToConnectionsCommand}"/>
 

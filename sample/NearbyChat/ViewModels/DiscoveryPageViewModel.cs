@@ -11,7 +11,9 @@ namespace NearbyChat.ViewModels;
 public partial class DiscoveryPageViewModel : BasePageViewModel,
     IRecipient<DiscoveringStateChangedMessage>,
     IRecipient<DeviceFoundMessage>,
-    IRecipient<DeviceLostMessage>
+    IRecipient<DeviceLostMessage>,
+    IRecipient<DeviceDisconnectedMessage>,
+    IRecipient<ConnectionResponseMessage>
 {
     readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
@@ -111,12 +113,41 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
         => await Dispatcher.DispatchAsync(() =>
         {
             var device = DiscoveredDevices.FirstOrDefault(d => d.Id == message.Value.Id);
+
             if (device is not null)
             {
                 device.IsActive = false;
                 DiscoveredDevices.Remove(device);
                 UpdateRelativeTimeRefreshTimer();
             }
+        });
+
+    public async void Receive(DeviceDisconnectedMessage message)
+        => await Dispatcher.DispatchAsync(() =>
+        {
+            var device = DiscoveredDevices.FirstOrDefault(d => d.Id == message.Value.Id);
+
+            if (device is not null)
+            {
+                device.IsActive = false;
+                DiscoveredDevices.Remove(device);
+                UpdateRelativeTimeRefreshTimer();
+            }
+        });
+
+    public async void Receive(ConnectionResponseMessage message)
+        => await Dispatcher.DispatchAsync(() =>
+        {
+            if (message.Accepted)
+            {
+                return;
+            }
+
+            // Invitation was rejected or expired — the plugin resets the device to Discovered
+            // and fires DeviceFound, but the duplicate guard in Receive(DeviceFoundMessage)
+            // skips re-add when the VM is still in the list. So we keep the device here;
+            // the DeviceStateChanged message will reset its State to Discovered automatically,
+            // restoring the Connect button.
         });
 
     bool CanToggleDiscovery() => !IsBusy;

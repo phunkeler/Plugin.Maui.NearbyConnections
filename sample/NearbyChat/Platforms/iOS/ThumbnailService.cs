@@ -6,7 +6,7 @@ namespace NearbyChat.Services;
 
 public class ThumbnailService : IThumbnailService
 {
-    public async Task<ImageSource?> GetVideoThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
+    public async Task<ImageSource> GetVideoThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
     {
         using var url = NSUrl.FromFilename(filePath);
         using var asset = AVAsset.FromUrl(url);
@@ -38,6 +38,6 @@ public class ThumbnailService : IThumbnailService
         });
 #pragma warning restore CA1416 // Validate platform compatibility
 
-        return await tcs.Task;
+        return await tcs.Task ?? ImageSource.FromFile("");
     }
 }

@@ -12,7 +12,8 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
     IRecipient<AdvertisingStateChangedMessage>,
     IRecipient<ConnectionRequestMessage>,
     IRecipient<ConnectionResponseMessage>,
-    IRecipient<DeviceLostMessage>
+    IRecipient<DeviceLostMessage>,
+    IRecipient<DeviceDisconnectedMessage>
 {
     readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
@@ -125,7 +126,28 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
     public async void Receive(ConnectionResponseMessage message)
         => await Dispatcher.DispatchAsync(() =>
         {
+            var device = AdvertisedDevices.FirstOrDefault(d => d.Id == message.Value.Id);
 
+            if (device is not null
+                && !message.Accepted)
+            {
+                device.IsActive = false;
+                AdvertisedDevices.Remove(device);
+                UpdateRelativeTimeRefreshTimer();
+            }
+        });
+
+    public async void Receive(DeviceDisconnectedMessage message)
+        => await Dispatcher.DispatchAsync(() =>
+        {
+            var device = AdvertisedDevices.FirstOrDefault(d => d.Id == message.Value.Id);
+
+            if (device is not null)
+            {
+                device.IsActive = false;
+                AdvertisedDevices.Remove(device);
+                UpdateRelativeTimeRefreshTimer();
+            }
         });
 
     bool CanToggleAdvertising() => !IsBusy;

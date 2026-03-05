@@ -49,7 +49,7 @@
                     <Label
                         Margin="{StaticResource SpacingSM}"
                         IsVisible="{Binding AdvertisedDevices.Count, Converter={StaticResource intToBoolConverter}}"
-                        Text="Advertised Devices"
+                        Text="Nearby Devices"
                         Style="{StaticResource ListHeader}"/>
                 </CollectionView.Header>
                 <CollectionView.ItemTemplate>

@@ -41,6 +41,10 @@ public abstract partial class NearbyDeviceViewModel : ObservableRecipient,
             if (message.Value.Id == Device.Id)
             {
                 State = message.Value.State;
+                if (message.Value.State == NearbyDeviceState.Discovered)
+                {
+                    RefreshRelativeTime();
+                }
             }
         });
 
