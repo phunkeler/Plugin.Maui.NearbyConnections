@@ -1,3 +1,5 @@
+using Microsoft.Maui.Hosting;
+
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
@@ -10,19 +12,19 @@ public static class MauiAppBuilderExtensions
     /// Adds <see cref="INearbyConnections"/> as a singleton to the MAUI app's service collection
     /// and optional configuration of <see cref="NearbyConnectionsOptions"/>.
     /// </summary>
-    /// <param name="serviceCollection">The <see cref="IServiceCollection"/> to register the Plugin.Maui.NearbyConnections plugin with.</param>
+    /// <param name="builder">The <see cref="MauiAppBuilder"/> to register the Plugin.Maui.NearbyConnections plugin with.</param>
     /// <param name="configureOptions">Optional action to configure plugin options</param>
     /// <returns>The <see cref="IServiceCollection"/> for chaining</returns>
-    public static IServiceCollection AddNearbyConnections(
-        this IServiceCollection serviceCollection,
+    public static MauiAppBuilder AddNearbyConnections(
+        this MauiAppBuilder builder,
         Action<NearbyConnectionsOptions>? configureOptions = null)
     {
-        ArgumentNullException.ThrowIfNull(serviceCollection);
+        ArgumentNullException.ThrowIfNull(builder);
 
-        serviceCollection.TryAddSingleton(TimeProvider.System);
-        serviceCollection.AddSingleton<NearbyConnectionsEvents>();
-        serviceCollection.AddSingleton<INearbyDeviceManager, NearbyDeviceManager>();
-        serviceCollection.AddSingleton<INearbyConnections>(sp =>
+        builder.Services.TryAddSingleton(TimeProvider.System);
+        builder.Services.AddSingleton<NearbyConnectionsEvents>();
+        builder.Services.AddSingleton<INearbyDeviceManager, NearbyDeviceManager>();
+        builder.Services.AddSingleton<INearbyConnections>(sp =>
         {
             var deviceManager = sp.GetRequiredService<INearbyDeviceManager>();
             var events = sp.GetRequiredService<NearbyConnectionsEvents>();
@@ -35,6 +37,6 @@ public static class MauiAppBuilderExtensions
             return instance;
         });
 
-        return serviceCollection;
+        return builder;
     }
 }

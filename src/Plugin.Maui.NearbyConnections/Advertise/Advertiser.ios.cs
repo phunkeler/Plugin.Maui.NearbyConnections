@@ -8,7 +8,7 @@ sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     {
         var options = _nearbyConnections.Options;
 
-        var myPeerId = _nearbyConnections.MyMCPeerIDManager.GetPeerId(options.DisplayName)
+        var myPeerId = PeerIdManager.GetLocalPeerId(options.DisplayName)
             ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
         // TODO: Future enhancement - support custom advertisement info

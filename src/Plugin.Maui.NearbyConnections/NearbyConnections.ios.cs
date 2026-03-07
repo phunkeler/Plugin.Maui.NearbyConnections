@@ -2,8 +2,6 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
 {
-    internal MyPeerIdManager MyMCPeerIDManager { get; } = new();
-
     readonly ConcurrentDictionary<string, (MCNearbyServiceAdvertiserInvitationHandler Handler, CancellationTokenSource Expiry)> _pendingInvitations = new();
     readonly ConcurrentDictionary<string, IDisposable> _progressObservers = new();
 
@@ -13,7 +11,7 @@ sealed partial class NearbyConnectionsImplementation
 
     internal void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
     {
-        using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
+        using var data = PeerIdManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
         var device = _deviceManager.DeviceFound(id, peerID.DisplayName);
 
@@ -23,7 +21,7 @@ sealed partial class NearbyConnectionsImplementation
 
     internal void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
     {
-        using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
+        using var data = PeerIdManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
         var device = _deviceManager.DeviceLost(id);
 
@@ -54,7 +52,7 @@ sealed partial class NearbyConnectionsImplementation
         NSData? context,
         MCNearbyServiceAdvertiserInvitationHandler invitationHandler)
     {
-        using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
+        using var data = PeerIdManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
         var device = _deviceManager.SetState(id, NearbyDeviceState.ConnectionRequestedInbound)
@@ -88,13 +86,13 @@ sealed partial class NearbyConnectionsImplementation
         var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
 
         // Unarchive the MCPeerID
-        var peerID = MyMCPeerIDManager.UnarchivePeerId(peerIdData)
+        var peerID = PeerIdManager.UnarchivePeerId(peerIdData)
             ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
 
         // Create or get session
         if (_session is null)
         {
-            var myPeerId = MyMCPeerIDManager.GetPeerId(Options.DisplayName)
+            var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName)
                 ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
             _session = new MCSession(myPeerId)
@@ -127,7 +125,7 @@ sealed partial class NearbyConnectionsImplementation
         // Create or reuse session (same pattern as PlatformRequestConnectionAsync)
         if (_session is null)
         {
-            var myPeerId = MyMCPeerIDManager.GetPeerId(Options.DisplayName)
+            var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName)
                 ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
 
             _session = new MCSession(myPeerId)
@@ -158,7 +156,7 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
-        var peerID = MyMCPeerIDManager.UnarchivePeerId(peerIdData)
+        var peerID = PeerIdManager.UnarchivePeerId(peerIdData)
             ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
 
         return SendBytesAsync(data, peerID, progress, cancellationToken);
@@ -178,7 +176,7 @@ sealed partial class NearbyConnectionsImplementation
         cancellationToken.ThrowIfCancellationRequested();
 
         var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
-        var peerID = MyMCPeerIDManager.UnarchivePeerId(peerIdData)
+        var peerID = PeerIdManager.UnarchivePeerId(peerIdData)
             ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
 
         using var nsUrl = NSUrl.FromFilename(uri);
@@ -299,7 +297,7 @@ sealed partial class NearbyConnectionsImplementation
 
     public void OnPeerStateChanged(MCPeerID peerID, MCSessionState state)
     {
-        using var data = MyMCPeerIDManager.ArchivePeerId(peerID);
+        using var data = PeerIdManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
         Trace.TraceInformation("Peer state changed: Id={0}, DisplayName={1}, State={2}", id, peerID.DisplayName, state);
@@ -365,7 +363,7 @@ sealed partial class NearbyConnectionsImplementation
 
     void OnDataReceived(NSData data, MCPeerID peerID)
     {
-        using var archived = MyMCPeerIDManager.ArchivePeerId(peerID);
+        using var archived = PeerIdManager.ArchivePeerId(peerID);
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
         Trace.TraceInformation("Data received from peer: DisplayName={0}, Length={1}", peerID.DisplayName, data.Length);
@@ -383,7 +381,7 @@ sealed partial class NearbyConnectionsImplementation
 
     void OnResourceStarted(string resourceName, MCPeerID fromPeer, NSProgress progress)
     {
-        using var archived = MyMCPeerIDManager.ArchivePeerId(fromPeer);
+        using var archived = PeerIdManager.ArchivePeerId(fromPeer);
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
         Trace.TraceInformation("Started receiving resource: {0} from {1}", resourceName, fromPeer.DisplayName);
@@ -415,7 +413,7 @@ sealed partial class NearbyConnectionsImplementation
 
     void OnResourceFinished(string resourceName, MCPeerID fromPeer, NSUrl? localUrl, NSError? error)
     {
-        using var archived = MyMCPeerIDManager.ArchivePeerId(fromPeer);
+        using var archived = PeerIdManager.ArchivePeerId(fromPeer);
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
         Trace.TraceInformation("Finished receiving resource: {0} from {1}, Error: {2}", resourceName, fromPeer.DisplayName, error?.LocalizedDescription ?? "None");
@@ -455,7 +453,7 @@ sealed partial class NearbyConnectionsImplementation
 
     void OnStreamReceived(NSInputStream stream, string streamName, MCPeerID fromPeer)
     {
-        using var archived = MyMCPeerIDManager.ArchivePeerId(fromPeer);
+        using var archived = PeerIdManager.ArchivePeerId(fromPeer);
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
         Trace.TraceInformation("Received stream: {0} from {1}", streamName, fromPeer.DisplayName);
