@@ -14,7 +14,7 @@ sealed partial class NearbyConnectionsImplementation
     public void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
         Trace.TraceInformation($"Endpoint found: EndpointId={endpointId}, EndpointName={info.EndpointName}");
-        var device = _deviceManager.DeviceFound(endpointId, info.EndpointName);
+        var device = _deviceManager.RecordDeviceFound(endpointId, info.EndpointName);
         Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
     }
 

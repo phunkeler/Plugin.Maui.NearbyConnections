@@ -13,7 +13,7 @@ sealed partial class NearbyConnectionsImplementation
     {
         using var data = PeerIdManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-        var device = _deviceManager.DeviceFound(id, peerID.DisplayName);
+        var device = _deviceManager.RecordDeviceFound(id, peerID.DisplayName);
 
         Trace.TraceInformation("Found peer: Id={0}, DisplayName={1}", id, peerID.DisplayName);
         Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
