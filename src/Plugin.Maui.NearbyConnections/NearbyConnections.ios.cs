@@ -23,7 +23,7 @@ sealed partial class NearbyConnectionsImplementation
     {
         using var data = PeerIdManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-        var device = _deviceManager.DeviceLost(id);
+        var device = _deviceManager.RemoveDevice(id);
 
         Trace.TraceInformation("Lost peer: Id={0}, DisplayName={1}", id, peerID.DisplayName);
         if (device is not null)
@@ -342,7 +342,7 @@ sealed partial class NearbyConnectionsImplementation
                 }
                 else
                 {
-                    var disconnectedDevice = _deviceManager.DeviceDisconnected(id);
+                    var disconnectedDevice = _deviceManager.RemoveDevice(id);
                     if (disconnectedDevice is not null)
                     {
                         Events.OnDeviceDisconnected(disconnectedDevice, TimeProvider.GetUtcNow());

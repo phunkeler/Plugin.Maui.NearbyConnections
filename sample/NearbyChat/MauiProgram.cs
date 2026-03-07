@@ -23,12 +23,11 @@ public static class MauiProgram
                 fonts.AddFont("NearbyChatIcons.ttf", "NearbyChatIcons");
             })
             .UseMauiCommunityToolkit()
-            .UseBottomSheet();
-
-        builder.Services.AddNearbyConnections(options =>
-        {
-            options.AutoAcceptConnections = false;
-        });
+            .UseBottomSheet()
+            .AddNearbyConnections(options =>
+            {
+                options.AutoAcceptConnections = false;
+            });
 
 #if DEBUG
         builder.Logging.AddDebug();

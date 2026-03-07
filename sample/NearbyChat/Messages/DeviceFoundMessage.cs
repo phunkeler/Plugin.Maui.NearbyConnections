@@ -3,8 +3,8 @@ using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.Messages;
 
-public class DeviceFoundMessage(NearbyDevice device, DateTimeOffset lastSeenAt)
+public class DeviceFoundMessage(NearbyDevice device, DateTimeOffset lastSeen)
     : ValueChangedMessage<NearbyDevice>(device)
 {
-    public DateTimeOffset LastSeenAt { get; } = lastSeenAt;
+    public DateTimeOffset LastSeen { get; } = lastSeen;
 }

@@ -1,6 +1,5 @@
 namespace Plugin.Maui.NearbyConnections;
 
-/// <inheritdoc cref="INearbyDeviceManager"/>
 sealed class NearbyDeviceManager : INearbyDeviceManager
 {
     readonly TimeProvider _timeProvider;
@@ -22,16 +21,17 @@ sealed class NearbyDeviceManager : INearbyDeviceManager
 
     public NearbyDevice DeviceFound(string id, string? displayName)
     {
-        var device = _devices.GetOrAdd(id, _ => new NearbyDevice(id, displayName));
-        SetState(id, NearbyDeviceState.Discovered);
-        device.LastSeenAt = _timeProvider.GetUtcNow();
-        return device;
+        var now = _timeProvider.GetUtcNow();
+        return _devices.AddOrUpdate(
+            id,
+            addValueFactory: x => new NearbyDevice(x, displayName) { State = NearbyDeviceState.Discovered, LastSeen = now },
+            updateValueFactory: (_, existing) => { existing.LastSeen = now; return existing; });
     }
 
     public NearbyDevice GetOrAddDevice(string id, string? displayName, NearbyDeviceState initialState)
-        => _devices.GetOrAdd(id, _ => new NearbyDevice(id, displayName) { State = initialState, LastSeenAt = _timeProvider.GetUtcNow() });
+        => _devices.GetOrAdd(id, x => new NearbyDevice(x, displayName) { State = initialState, LastSeen = _timeProvider.GetUtcNow() });
 
-    public NearbyDevice? DeviceLost(string id)
+    public NearbyDevice? RemoveDevice(string id)
         => _devices.TryRemove(id, out var device)
             ? device
             : null;
@@ -48,19 +48,19 @@ sealed class NearbyDeviceManager : INearbyDeviceManager
 
         if (state == NearbyDeviceState.Discovered)
         {
-            device.LastSeenAt = _timeProvider.GetUtcNow();
+            device.LastSeen = _timeProvider.GetUtcNow();
         }
 
-        if (previousState != state)
+        // Confirm the device is still tracked before firing the event.
+        // A concurrent RemoveDevice between TryGetValue and here would otherwise
+        // fire DeviceStateChanged for a device that has already been removed.
+        if (previousState != state && _devices.ContainsKey(id))
         {
             _events.OnDeviceStateChanged(device, previousState, _timeProvider.GetUtcNow());
         }
 
         return device;
     }
-
-    public NearbyDevice? DeviceDisconnected(string id)
-        => _devices.TryRemove(id, out var device) ? device : null;
 
     public bool TryGetDevice(string id, [NotNullWhen(true)] out NearbyDevice? device)
         => _devices.TryGetValue(id, out device);

@@ -64,7 +64,6 @@ static class PeerIdManager
         var defaults = NSUserDefaults.StandardUserDefaults;
         defaults.SetString(displayName, KEY_DISPLAYNAME);
         defaults.SetValueForKey(peerIdData, new NSString(KEY_MCPEERID));
-        defaults.Synchronize();
     }
 
     static bool TryGetStoredDisplayName(string displayName, [NotNullWhen(true)] out MCPeerID? mCPeerID)

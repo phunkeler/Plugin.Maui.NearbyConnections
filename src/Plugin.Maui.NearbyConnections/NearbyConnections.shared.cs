@@ -9,7 +9,13 @@ public static class NearbyConnections
     /// Gets the default implementation of the <see cref="INearbyConnections"/> interface.
     /// </summary>
     public static INearbyConnections Current
-        => field ??= new NearbyConnectionsImplementation(new NearbyDeviceManager(TimeProvider.System, new NearbyConnectionsEvents()), new NearbyConnectionsEvents());
+        => field ??= CreateDefault();
+
+    static NearbyConnectionsImplementation CreateDefault()
+    {
+        var events = new NearbyConnectionsEvents();
+        return new NearbyConnectionsImplementation(new NearbyDeviceManager(TimeProvider.System, events), events);
+    }
 }
 
 internal sealed partial class NearbyConnectionsImplementation : INearbyConnections

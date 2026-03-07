@@ -28,7 +28,7 @@ sealed partial class NearbyConnectionsImplementation
             return;
         }
 
-        var device = _deviceManager.DeviceLost(endpointId);
+        var device = _deviceManager.RemoveDevice(endpointId);
         if (device is not null)
         {
             Events.OnDeviceLost(device, TimeProvider.GetUtcNow());
@@ -114,7 +114,7 @@ sealed partial class NearbyConnectionsImplementation
     {
         Trace.TraceInformation($"Disconnected from EndpointId={endpointId}");
 
-        var device = _deviceManager.DeviceDisconnected(endpointId);
+        var device = _deviceManager.RemoveDevice(endpointId);
 
         if (device is not null)
         {

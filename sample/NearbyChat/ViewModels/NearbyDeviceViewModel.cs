@@ -15,12 +15,12 @@ public abstract partial class NearbyDeviceViewModel : ObservableRecipient,
 
     public string Id => Device.Id;
     public string DisplayName => Device.DisplayName ?? "Unknown";
-    public DateTimeOffset LastSeenAt => Device.LastSeenAt;
+    public DateTimeOffset LastSeen => Device.LastSeen;
 
     [ObservableProperty]
     public partial NearbyDeviceState State { get; set; }
 
-    public NearbyDeviceViewModel(
+    protected NearbyDeviceViewModel(
         NearbyDevice device,
         INearbyConnectionsService nearbyConnectionsService,
         IDispatcher dispatcher)
@@ -48,6 +48,6 @@ public abstract partial class NearbyDeviceViewModel : ObservableRecipient,
             }
         });
 
-    public void RefreshRelativeTime() => OnPropertyChanged(nameof(LastSeenAt));
+    public void RefreshRelativeTime() => OnPropertyChanged(nameof(LastSeen));
 
 }

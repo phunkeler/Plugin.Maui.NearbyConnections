@@ -12,7 +12,7 @@ interface INearbyDeviceManager
 
     /// <summary>
     /// Tracks a newly discovered device or returns the existing one if already tracked.
-    /// Sets state to <see cref="NearbyDeviceState.Discovered"/>.
+    /// For a new device, sets state to Discovered. For an already-tracked device, only updates LastSeen.
     /// </summary>
     /// <param name="id">The unique device identifier.</param>
     /// <param name="displayName">The user-friendly display name.</param>
@@ -20,20 +20,22 @@ interface INearbyDeviceManager
     NearbyDevice DeviceFound(string id, string? displayName);
 
     /// <summary>
-    /// Gets on existing tracked device or adds a new one with the specified initial state.
+    /// Gets an existing tracked device or adds a new one with the specified initial state.
     /// </summary>
     /// <param name="id">The unique device identifier.</param>
     /// <param name="displayName">The user-friendly display name (used only when creating).</param>
     /// <param name="initialState">The initial <see cref="NearbyDeviceState"/> for a newly added device.</param>
-    /// <returns></returns>
+    /// <returns>Returns the newly tracked <see cref="NearbyDevice"/> or the existing one, if the key exists.</returns>
     NearbyDevice GetOrAddDevice(string id, string? displayName, NearbyDeviceState initialState);
 
     /// <summary>
-    /// Removes a device that is no longer discoverable.
+    /// Removes a tracked device by identifier.
+    /// Use this for both "lost during discovery" and "session disconnected" scenarios;
+    /// callers are responsible for firing the appropriate event.
     /// </summary>
     /// <param name="id">The unique device identifier.</param>
     /// <returns>The removed <see cref="NearbyDevice"/>, or <see langword="null"/> if not found.</returns>
-    NearbyDevice? DeviceLost(string id);
+    NearbyDevice? RemoveDevice(string id);
 
     /// <summary>
     /// Transitions a tracked device to the specified state.
@@ -42,13 +44,6 @@ interface INearbyDeviceManager
     /// <param name="state">The new <see cref="NearbyDeviceState"/>.</param>
     /// <returns>The updated <see cref="NearbyDevice"/>, or <see langword="null"/> if not found.</returns>
     NearbyDevice? SetState(string id, NearbyDeviceState state);
-
-    /// <summary>
-    /// Removes a device that has disconnected.
-    /// </summary>
-    /// <param name="id">The unique device identifier.</param>
-    /// <returns>The removed <see cref="NearbyDevice"/>, or <see langword="null"/> if not found.</returns>
-    NearbyDevice? DeviceDisconnected(string id);
 
     /// <summary>
     /// Gets a tracked device by its identifier.
