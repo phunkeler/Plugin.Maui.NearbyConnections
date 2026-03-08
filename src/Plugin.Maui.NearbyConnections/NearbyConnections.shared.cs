@@ -51,7 +51,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
     {
         if (IsAdvertising)
         {
-            Trace.WriteLine("Advertising is already active, skipping StartAdvertisingAsync.");
+            Trace.TraceInformation("Advertising is already active, skipping StartAdvertisingAsync.");
             return;
         }
 
@@ -60,13 +60,13 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             await _advertiseSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            Trace.WriteLine($"Starting advertising with ServiceId={Options.ServiceId}, DisplayName={Options.DisplayName}");
+            Trace.TraceInformation($"Starting advertising with ServiceId={Options.ServiceId}, DisplayName={Options.DisplayName}");
 
             // Create advertiser if needed (kept alive for reuse on Android)
             _advertiser ??= new Advertiser(this);
             await _advertiser.StartAdvertisingAsync();
             cancellationToken.ThrowIfCancellationRequested();
-            Trace.WriteLine("Advertising started successfully.");
+            Trace.TraceInformation("Advertising started successfully.");
         }
         catch (OperationCanceledException)
         {
@@ -94,7 +94,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
         // Guard: prevent starting if already discovering
         if (IsDiscovering)
         {
-            Trace.WriteLine("Discovery is already active, skipping StartDiscoveryAsync.");
+            Trace.TraceInformation("Discovery is already active, skipping StartDiscoveryAsync.");
             return;
         }
 
@@ -103,13 +103,13 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             await _discoverSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            Trace.WriteLine($"Starting discovery with ServiceId={Options.ServiceId}");
+            Trace.TraceInformation($"Starting discovery with ServiceId={Options.ServiceId}");
 
             // Create discoverer if needed (kept alive for reuse on Android)
             _discoverer ??= new Discoverer(this);
             await _discoverer.StartDiscoveringAsync();
             cancellationToken.ThrowIfCancellationRequested();
-            Trace.WriteLine("Discovery started successfully.");
+            Trace.TraceInformation("Discovery started successfully.");
         }
         catch (OperationCanceledException)
         {
@@ -136,7 +136,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
         // Guard: prevent stopping if not advertising
         if (!IsAdvertising)
         {
-            Trace.WriteLine("Advertising is not active, skipping StopAdvertisingAsync.");
+            Trace.TraceInformation("Advertising is not active, skipping StopAdvertisingAsync.");
             return;
         }
 
@@ -147,10 +147,10 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             if (_advertiser is not null)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Trace.WriteLine("Stopping advertising.");
+                Trace.TraceInformation("Stopping advertising.");
                 _advertiser.StopAdvertising();
                 cancellationToken.ThrowIfCancellationRequested();
-                Trace.WriteLine("Advertising stopped.");
+                Trace.TraceInformation("Advertising stopped.");
             }
         }
         catch (OperationCanceledException)
@@ -179,7 +179,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
         // Guard: prevent stopping if not discovering
         if (!IsDiscovering)
         {
-            Trace.WriteLine("Discovery is not active, skipping StopDiscoveryAsync.");
+            Trace.TraceInformation("Discovery is not active, skipping StopDiscoveryAsync.");
             return;
         }
 
@@ -190,10 +190,10 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             if (_discoverer is not null)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Trace.WriteLine("Stopping discovery.");
+                Trace.TraceInformation("Stopping discovery.");
                 _discoverer.StopDiscovering();
                 cancellationToken.ThrowIfCancellationRequested();
-                Trace.WriteLine("Discovery stopped.");
+                Trace.TraceInformation("Discovery stopped.");
             }
         }
         catch (OperationCanceledException)
@@ -272,7 +272,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
         if (disposing)
         {
-            Trace.WriteLine("Disposing NearbyConnectionsImplementation.");
+            Trace.TraceInformation("Disposing NearbyConnectionsImplementation.");
 
             try
             {
@@ -280,8 +280,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             }
             catch (Exception ex)
             {
-                Trace.WriteLine($"Failed to wait for advertise semaphore: {ex.Message}");
-                Trace.WriteLine(ex.StackTrace);
+                Trace.TraceError($"Failed to wait for advertise semaphore: {ex.Message}{Environment.NewLine}{ex.StackTrace}");
             }
 
             _advertiser?.StopAdvertising();
@@ -296,8 +295,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             catch (Exception ex)
             {
 
-                Trace.WriteLine($"Failed to wait for discover semaphore: {ex.Message}");
-                Trace.WriteLine(ex.StackTrace);
+                Trace.TraceError($"Failed to wait for discover semaphore: {ex.Message}{Environment.NewLine}{ex.StackTrace}");
             }
 
             _discoverer?.StopDiscovering();

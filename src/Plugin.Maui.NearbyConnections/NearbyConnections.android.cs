@@ -467,18 +467,22 @@ sealed partial class NearbyConnectionsImplementation
         return (displayName, dataPath);
     }
 
-    // Returns displayName only when it already carries an extension.
     static string? NameWithExtension(string? displayName) =>
         !string.IsNullOrWhiteSpace(displayName)
         && Path.GetExtension(displayName).Length > 0
             ? displayName
             : null;
 
-    // Returns the filename from the _data column (real filesystem path).
-    static string? NameFromDataPath(string? dataPath) =>
-        !string.IsNullOrEmpty(dataPath)
-            ? Path.GetFileName(dataPath) is { Length: > 0 } n ? n : null
-            : null;
+    static string? NameFromDataPath(string? dataPath)
+    {
+        if (!string.IsNullOrEmpty(dataPath)
+            && Path.GetFileName(dataPath) is { Length: > 0 } name)
+        {
+            return name;
+        }
+
+        return null;
+    }
 
     // Derives an extension from the MIME type and pairs it with the display name stem.
     static string? NameFromMimeType(AndroidUri uri, string? displayName)

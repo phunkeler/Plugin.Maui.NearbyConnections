@@ -61,13 +61,13 @@ sealed partial class Advertiser : Java.Lang.Object
         Action<string, ConnectionResolution> onConnectionResult,
         Action<string> onDisconnected) : ConnectionLifecycleCallback
     {
-        public override void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
-            => onConnectionInitiated(endpointId, connectionInfo);
+        public override void OnConnectionInitiated(string p0, ConnectionInfo p1)
+            => onConnectionInitiated(p0, p1);
 
-        public override void OnConnectionResult(string endpointId, ConnectionResolution resolution)
-            => onConnectionResult(endpointId, resolution);
+        public override void OnConnectionResult(string p0, ConnectionResolution p1)
+            => onConnectionResult(p0, p1);
 
-        public override void OnDisconnected(string endpointId)
-            => onDisconnected(endpointId);
+        public override void OnDisconnected(string p0)
+            => onDisconnected(p0);
     }
 }

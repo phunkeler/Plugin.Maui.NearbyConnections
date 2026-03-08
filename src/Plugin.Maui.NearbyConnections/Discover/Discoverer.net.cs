@@ -2,11 +2,15 @@ namespace Plugin.Maui.NearbyConnections.Discover;
 
 sealed partial class Discoverer : IDisposable
 {
+#pragma warning disable CA1822, S2325
     Task PlatformStartDiscovering()
-        => throw new NotImplementedException("Platform-specific discovering start logic must be implemented.");
+#pragma warning restore CA1822, S2325
+        => throw new PlatformNotSupportedException("This functionality is not supported in this platform implementation.");
 
+#pragma warning disable CA1822, S2325
     void PlatformStopDiscovering()
-        => throw new NotImplementedException("Platform-specific discovering stop logic must be implemented.");
+#pragma warning restore CA1822, S2325
+        => throw new PlatformNotSupportedException("This functionality is not supported in this platform implementation.");
 
     public void Dispose()
     {

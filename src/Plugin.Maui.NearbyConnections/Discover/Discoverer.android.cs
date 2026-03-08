@@ -54,10 +54,10 @@ sealed partial class Discoverer : Java.Lang.Object
         Action<string, DiscoveredEndpointInfo> onEndpointFound,
         Action<string> onEndpointLost) : EndpointDiscoveryCallback
     {
-        public override void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
-            => onEndpointFound(endpointId, info);
+        public override void OnEndpointFound(string p0, DiscoveredEndpointInfo p1)
+            => onEndpointFound(p0, p1);
 
-        public override void OnEndpointLost(string endpointId)
-            => onEndpointLost(endpointId);
+        public override void OnEndpointLost(string p0)
+            => onEndpointLost(p0);
     }
 }

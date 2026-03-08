@@ -26,10 +26,14 @@ sealed partial class Discoverer
         }
     }
 
+#pragma warning disable CA1822, S2325
     public Task StartDiscoveringAsync()
+#pragma warning restore CA1822, S2325
         => PlatformStartDiscovering();
 
+#pragma warning disable CA1822, S2325
     public void StopDiscovering()
+#pragma warning restore CA1822, S2325
         => PlatformStopDiscovering();
 
     public void OnDiscoveryFailed()

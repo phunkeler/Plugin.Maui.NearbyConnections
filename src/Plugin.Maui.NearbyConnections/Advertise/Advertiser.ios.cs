@@ -60,5 +60,5 @@ sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
         MCPeerID peerID,
         NSData? context,
         MCNearbyServiceAdvertiserInvitationHandler invitationHandler)
-        => _nearbyConnections.DidReceiveInvitationFromPeer(advertiser, peerID, context, invitationHandler);
+        => _ = _nearbyConnections.DidReceiveInvitationFromPeer(advertiser, peerID, context, invitationHandler);
 }

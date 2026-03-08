@@ -26,10 +26,14 @@ sealed partial class Advertiser
         }
     }
 
+#pragma warning disable CA1822, S2325
     public Task StartAdvertisingAsync()
+#pragma warning restore CA1822, S2325
         => PlatformStartAdvertising();
 
+#pragma warning disable CA1822, S2325
     public void StopAdvertising()
+#pragma warning restore CA1822, S2325
         => PlatformStopAdvertising();
 
     public void OnAdvertisingFailed()

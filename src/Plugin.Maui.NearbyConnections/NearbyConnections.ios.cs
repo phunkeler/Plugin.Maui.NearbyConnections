@@ -46,7 +46,7 @@ sealed partial class NearbyConnectionsImplementation
             TimeProvider.GetUtcNow());
     }
 
-    internal async void DidReceiveInvitationFromPeer(
+    internal async Task DidReceiveInvitationFromPeer(
         MCNearbyServiceAdvertiser advertiser,
         MCPeerID peerID,
         NSData? context,
@@ -499,6 +499,7 @@ sealed partial class NearbyConnectionsImplementation
 
     #endregion Session Callbacks
 
+#pragma warning disable S1144, S1172
     sealed class SessionDelegate(NearbyConnectionsImplementation nearbyConnections) : NSObject, IMCSessionDelegate
     {
         public void DidChangeState(MCSession session, MCPeerID peerID, MCSessionState state)
@@ -516,4 +517,5 @@ sealed partial class NearbyConnectionsImplementation
         public void DidReceiveStream(MCSession session, NSInputStream stream, string streamName, MCPeerID peerID)
             => nearbyConnections.OnStreamReceived(stream, streamName, peerID);
     }
+#pragma warning restore S1144, S1172
 }
