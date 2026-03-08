@@ -49,11 +49,14 @@ jobs:
           New-Item -Path ${{ runner.temp }}\scanner -ItemType Directory
           dotnet tool update dotnet-sonarscanner --tool-path ${{ runner.temp }}\scanner
 
+      - name: Restore Workloads
+        run: dotnet workload restore src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj
+
       - name: Build and analyze
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
           ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"phunkeler_Plugin.Maui.NearbyConnections" /o:"phunkeler" /d:sonar.token="$env:SONAR_TOKEN"
-          dotnet build
+          dotnet build -c Release src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj
           ${{ runner.temp }}\scanner\dotnet-sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
