@@ -57,6 +57,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
-          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"phunkeler_Plugin.Maui.NearbyConnections" /o:"phunkeler" /d:sonar.token="$env:SONAR_TOKEN"
+          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"phunkeler_Plugin.Maui.NearbyConnections" /o:"phunkeler" /d:sonar.token="$env:SONAR_TOKEN" /d:"sonar.projectBaseDir=src"
           dotnet build -c Release src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj --no-incremental
           ${{ runner.temp }}\scanner\dotnet-sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
