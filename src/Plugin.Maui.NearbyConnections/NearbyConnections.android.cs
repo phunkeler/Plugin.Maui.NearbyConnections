@@ -20,15 +20,21 @@ sealed partial class NearbyConnectionsImplementation
 
     public void OnEndpointLost(string endpointId)
     {
-        Trace.TraceInformation($"Endpoint lost: EndpointId={endpointId}");
-
         if (_deviceManager.TryGetDevice(endpointId, out var existingDevice)
             && existingDevice.State == NearbyDeviceState.Connected)
         {
+            Trace.TraceInformation("Connected device stopped advertising (connection remains): Id={0}, DisplayName={1}",
+                existingDevice.Id,
+                existingDevice.DisplayName);
+
             return;
         }
 
         var device = _deviceManager.RemoveDevice(endpointId);
+        Trace.TraceInformation("Device lost: Id={0}, DisplayName={1}",
+            endpointId,
+            device?.DisplayName);
+
         if (device is not null)
         {
             Events.OnDeviceLost(device, TimeProvider.GetUtcNow());

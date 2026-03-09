@@ -4,8 +4,12 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     xmlns:controls="clr-namespace:NearbyChat.Controls"
+    xmlns:converters="clr-namespace:NearbyChat.Converters"
     xmlns:vm="clr-namespace:NearbyChat.ViewModels"
     x:Class="NearbyChat.Resources.Styles.MainStyle">
+
+    <!-- Converters -->
+    <converters:LocalTimeConverter x:Key="localTimeConverter"/>
 
     <!-- Layout Spacing -->
     <x:Double x:Key="SpacingXS">4</x:Double>
@@ -321,7 +325,7 @@
                             Text="{Binding Model.Text}"
                             TextColor="#222"
                             LineBreakMode="WordWrap"/>
-                        <Label Text="{Binding Model.Timestamp, StringFormat='{0:t}'}"
+                        <Label Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"
                                FontSize="10"
                                TextColor="#888"
                                HorizontalTextAlignment="End"/>
@@ -369,7 +373,7 @@
                             Text="{Binding Model.Text}"
                             TextColor="#555"
                             LineBreakMode="TailTruncation"/>
-                        <Label Text="{Binding Model.Timestamp, StringFormat='{0:t}'}"
+                        <Label Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"
                                FontSize="10"
                                TextColor="#888"
                                HorizontalTextAlignment="End"/>
@@ -418,7 +422,7 @@
                             Text="{Binding Model.Text}"
                             TextColor="#555"
                             LineBreakMode="TailTruncation"/>
-                        <Label Text="{Binding Model.Timestamp, StringFormat='{0:t}'}"
+                        <Label Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"
                                FontSize="10"
                                TextColor="#888"
                                HorizontalTextAlignment="End"/>

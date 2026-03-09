@@ -59,10 +59,7 @@ public partial class ChatViewModel(
             return;
         }
 
-        var chatMessage = new ChatMessage(Message, NearbyDirection.Outgoing, DateTimeOffset.Now)
-        {
-            Timestamp = DateTimeOffset.Now
-        };
+        var chatMessage = new ChatMessage(Message, NearbyDirection.Outgoing, DateTimeOffset.UtcNow);
 
         if (MediaAttachment is not null)
         {

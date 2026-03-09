@@ -39,18 +39,18 @@
 
 # Supported Platforms
 
-| Platform | Minimum Version Supported |
-| -------- | ------------------------- |
-| iOS      | Not set in project.       |
-| Android  | Not set in project        |
-|          |                           |
+| Platform | Target Framework    |
+| -------- | ------------------- |
+| Android  | `net10.0-android`   |
+| iOS      | `net10.0-ios`       |
+| .NET     | `net10.0`           |
 
 # Dependencies
 
 | Dependency | Android | iOS | .NET |
 | --- | :---: | :---: | :---: |
 | [Microsoft.Extensions.DependencyInjection.Abstractions]() | ✅ | ✅  | ✅  |
-| [Microsoft.Maui.Essentials](https://www.nuget.org/packages/Microsoft.Maui.Essentials) | ✅  | ✅  | ✅  |
+| [Microsoft.Maui.Core](https://www.nuget.org/packages/Microsoft.Maui.Core) | ✅  | ✅  | ✅  |
 | [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) | ✅ | | |
 
 # Getting Started

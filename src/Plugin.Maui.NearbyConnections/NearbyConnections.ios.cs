@@ -23,9 +23,22 @@ sealed partial class NearbyConnectionsImplementation
     {
         using var data = PeerIdManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-        var device = _deviceManager.RemoveDevice(id);
 
-        Trace.TraceInformation("Lost peer: Id={0}, DisplayName={1}", id, peerID.DisplayName);
+        if (_deviceManager.TryGetDevice(id, out var existingDevice)
+            && existingDevice.State == NearbyDeviceState.Connected)
+        {
+            Trace.TraceInformation("Connected device stopped advertising (connection remains): Id={0}, DisplayName={1}",
+                existingDevice.Id,
+                existingDevice.DisplayName);
+
+            return;
+        }
+
+        var device = _deviceManager.RemoveDevice(id);
+        Trace.TraceInformation("Device lost: Id={0}, DisplayName={1}",
+            id,
+            device?.DisplayName);
+
         if (device is not null)
         {
             Events.OnDeviceLost(device, TimeProvider.GetUtcNow());
