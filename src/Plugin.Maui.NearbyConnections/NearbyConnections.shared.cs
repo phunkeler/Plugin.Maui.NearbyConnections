@@ -43,15 +43,17 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
     public IReadOnlyList<NearbyDevice> Devices => _deviceManager.Devices;
     public NearbyConnectionsOptions Options { get; set; } = new();
 
+    [MemberNotNullWhen(true, nameof(_advertiser))]
     public bool IsAdvertising => _advertiser?.IsAdvertising ?? false;
 
+    [MemberNotNullWhen(true, nameof(_discoverer))]
     public bool IsDiscovering => _discoverer?.IsDiscovering ?? false;
 
     public async Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
     {
         if (IsAdvertising)
         {
-            Trace.TraceInformation("Advertising is already active, skipping StartAdvertisingAsync.");
+            Trace.TraceWarning("{0} - Advertising is already active.", nameof(StartAdvertisingAsync));
             return;
         }
 
@@ -60,13 +62,19 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             await _advertiseSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            Trace.TraceInformation($"Starting advertising with ServiceId={Options.ServiceId}, DisplayName={Options.DisplayName}");
+            Trace.TraceInformation("{0} - Starting advertising: ServiceId={1}, DisplayName={2}",
+                nameof(StartAdvertisingAsync),
+                Options.ServiceId,
+                Options.DisplayName);
 
-            // Create advertiser if needed (kept alive for reuse on Android)
             _advertiser ??= new Advertiser(this);
             await _advertiser.StartAdvertisingAsync();
             cancellationToken.ThrowIfCancellationRequested();
-            Trace.TraceInformation("Advertising started successfully.");
+
+            Trace.TraceInformation("{0} - Advertising started: ServiceId={1}, DisplayName={2}",
+                nameof(StartAdvertisingAsync),
+                Options.ServiceId,
+                Options.DisplayName);
         }
         catch (OperationCanceledException)
         {
@@ -91,10 +99,9 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     public async Task StartDiscoveryAsync(CancellationToken cancellationToken = default)
     {
-        // Guard: prevent starting if already discovering
         if (IsDiscovering)
         {
-            Trace.TraceInformation("Discovery is already active, skipping StartDiscoveryAsync.");
+            Trace.TraceWarning("{0} - Discovery is already active.", nameof(StartDiscoveryAsync));
             return;
         }
 
@@ -103,13 +110,17 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             await _discoverSemaphore.WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
-            Trace.TraceInformation($"Starting discovery with ServiceId={Options.ServiceId}");
+            Trace.TraceInformation("{0} - Starting discovery: ServiceId={1}",
+                nameof(StartDiscoveryAsync),
+                Options.ServiceId);
 
-            // Create discoverer if needed (kept alive for reuse on Android)
             _discoverer ??= new Discoverer(this);
             await _discoverer.StartDiscoveringAsync();
             cancellationToken.ThrowIfCancellationRequested();
-            Trace.TraceInformation("Discovery started successfully.");
+
+            Trace.TraceInformation("{0} - Discovery started: ServiceId={1}",
+                nameof(StartDiscoveryAsync),
+                Options.ServiceId);
         }
         catch (OperationCanceledException)
         {
@@ -133,34 +144,38 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     public async Task StopAdvertisingAsync(CancellationToken cancellationToken = default)
     {
-        // Guard: prevent stopping if not advertising
         if (!IsAdvertising)
         {
-            Trace.TraceInformation("Advertising is not active, skipping StopAdvertisingAsync.");
+            Trace.TraceInformation("{0} - Advertising is not currently active.", nameof(StopAdvertisingAsync));
             return;
         }
 
         try
         {
             await _advertiseSemaphore.WaitAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            if (_advertiser is not null)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                Trace.TraceInformation("Stopping advertising.");
-                _advertiser.StopAdvertising();
-                cancellationToken.ThrowIfCancellationRequested();
-                Trace.TraceInformation("Advertising stopped.");
-            }
+            Trace.TraceInformation("{0} - Stopping advertising: ServiceId={1}, DisplayName={2}",
+                nameof(StopAdvertisingAsync),
+                Options.ServiceId,
+                Options.DisplayName);
+
+            _advertiser.StopAdvertising();
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Trace.TraceInformation("{0} - Advertising stopped: ServiceId={1}, DisplayName={2}",
+                nameof(StopAdvertisingAsync),
+                Options.ServiceId,
+                Options.DisplayName);
         }
         catch (OperationCanceledException)
         {
-            _advertiser?.StopAdvertising();
+            _advertiser.StopAdvertising();
             throw;
         }
         catch (Exception ex)
         {
-            _advertiser?.StopAdvertising();
+            _advertiser.StopAdvertising();
 
             throw new NearbyAdvertisingException(
                 Options.DisplayName,
@@ -176,34 +191,36 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     public async Task StopDiscoveryAsync(CancellationToken cancellationToken = default)
     {
-        // Guard: prevent stopping if not discovering
         if (!IsDiscovering)
         {
-            Trace.TraceInformation("Discovery is not active, skipping StopDiscoveryAsync.");
+            Trace.TraceWarning("{0} - Discovery is not currently active.", nameof(StopDiscoveryAsync));
             return;
         }
 
         try
         {
             await _discoverSemaphore.WaitAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            if (_discoverer is not null)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                Trace.TraceInformation("Stopping discovery.");
-                _discoverer.StopDiscovering();
-                cancellationToken.ThrowIfCancellationRequested();
-                Trace.TraceInformation("Discovery stopped.");
-            }
+            Trace.TraceInformation("{0} - Stopping discovery: ServiceId={1}",
+                nameof(StopDiscoveryAsync),
+                Options.ServiceId);
+
+            _discoverer.StopDiscovering();
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Trace.TraceInformation("{0} - Discovery stopped: ServiceId={1}",
+                nameof(StopDiscoveryAsync),
+                Options.ServiceId);
         }
         catch (OperationCanceledException)
         {
-            _discoverer?.StopDiscovering();
+            _discoverer.StopDiscovering();
             throw;
         }
         catch (Exception ex)
         {
-            _discoverer?.StopDiscovering();
+            _discoverer.StopDiscovering();
 
             throw new NearbyDiscoveryException(
                 Options,
@@ -223,10 +240,26 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
     }
 
     public Task RequestConnectionAsync(NearbyDevice device)
-        => PlatformRequestConnectionAsync(device);
+    {
+        Trace.TraceInformation("{0} - Requesting connection with: Id={1}, DisplayName={2}",
+            nameof(RequestConnectionAsync),
+            device.Id,
+            device.DisplayName);
+
+        return PlatformRequestConnectionAsync(device);
+    }
 
     public Task RespondToConnectionAsync(NearbyDevice device, bool accept)
-        => PlatformRespondToConnectionAsync(device, accept);
+    {
+        var response = accept ? "Accepting" : "Rejecting";
+        Trace.TraceInformation("{0} - {1} connection request from: Id={2}, DisplayName={3}",
+            nameof(RespondToConnectionAsync),
+            response,
+            device.Id,
+            device.DisplayName);
+
+        return PlatformRespondToConnectionAsync(device, accept);
+    }
 
     public Task SendAsync(
         NearbyDevice device,

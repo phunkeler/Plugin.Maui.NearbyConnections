@@ -26,7 +26,6 @@ public static class MauiProgram
             .UseBottomSheet()
             .AddNearbyConnections(options =>
             {
-                options.AutoAcceptConnections = false;
             });
 
 #if DEBUG
