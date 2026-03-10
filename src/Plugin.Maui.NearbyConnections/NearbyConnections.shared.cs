@@ -216,6 +216,12 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
         }
     }
 
+    public Task DisconnectAsync(NearbyDevice device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        return PlatformDisconnectAsync(device);
+    }
+
     public Task RequestConnectionAsync(NearbyDevice device)
         => PlatformRequestConnectionAsync(device);
 
@@ -302,6 +308,8 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             _discoverer?.Dispose();
             _discoverer = null;
             _discoverSemaphore?.Dispose();
+
+            PlatformDispose();
 
             _deviceManager.Clear();
             Events.ClearAllHandlers();

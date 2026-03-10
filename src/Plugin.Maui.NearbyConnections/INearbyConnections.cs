@@ -59,6 +59,18 @@ public interface INearbyConnections : IDisposable
     Task StopDiscoveryAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Disconnects from a connected nearby device.
+    /// </summary>
+    /// <param name="device">The device to disconnect from. Cannot be null.</param>
+    /// <returns>A task that represents the asynchronous disconnect operation.</returns>
+    /// <remarks>
+    /// On Android, background connectivity requires a foreground service. Call this method
+    /// when your app is backgrounded without a foreground service to allow clean reconnection
+    /// when the app resumes.
+    /// </remarks>
+    Task DisconnectAsync(NearbyDevice device);
+
+    /// <summary>
     /// Send an invitation to connect to the specified <see cref="NearbyDevice"/>.
     /// </summary>
     /// <param name="device">The device to which the invitation will be sent. Cannot be null.</param>

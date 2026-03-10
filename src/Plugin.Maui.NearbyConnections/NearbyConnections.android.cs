@@ -253,6 +253,20 @@ sealed partial class NearbyConnectionsImplementation
         return new FilePayload(new FileResult(destinationPath));
     }
 
+    Task PlatformDisconnectAsync(NearbyDevice device)
+    {
+        var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
+        client.DisconnectFromEndpoint(device.Id);
+
+        var disconnectedDevice = _deviceManager.RemoveDevice(device.Id);
+        if (disconnectedDevice is not null)
+        {
+            Events.OnDeviceDisconnected(disconnectedDevice, TimeProvider.GetUtcNow());
+        }
+
+        return Task.CompletedTask;
+    }
+
     Task PlatformRequestConnectionAsync(NearbyDevice device)
     {
         _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
@@ -524,6 +538,21 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         return Guid.NewGuid().ToString("N");
+    }
+
+    void PlatformDispose()
+    {
+        foreach (var (_, entry) in _incomingPayloads)
+        {
+            entry.Payload.Dispose();
+        }
+        _incomingPayloads.Clear();
+
+        foreach (var (_, transfer) in _outgoingTransfers)
+        {
+            transfer.Dispose();
+        }
+        _outgoingTransfers.Clear();
     }
 
     static NearbyTransferStatus ToNearbyTransferStatus(int androidStatus) => androidStatus switch

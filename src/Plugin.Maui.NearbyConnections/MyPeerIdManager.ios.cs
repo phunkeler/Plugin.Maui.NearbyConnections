@@ -74,7 +74,7 @@ static class PeerIdManager
             .StandardUserDefaults
             .StringForKey(KEY_DISPLAYNAME);
 
-        if (storedDisplayName?.Equals(displayName, StringComparison.OrdinalIgnoreCase) ?? false)
+        if (storedDisplayName?.Equals(displayName, StringComparison.Ordinal) ?? false)
         {
             var storedPeerId = NSUserDefaults
                 .StandardUserDefaults

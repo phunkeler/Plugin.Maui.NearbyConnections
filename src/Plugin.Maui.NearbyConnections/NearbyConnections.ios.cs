@@ -71,7 +71,7 @@ sealed partial class NearbyConnectionsImplementation
         var device = _deviceManager.SetState(id, NearbyDeviceState.ConnectionRequestedInbound)
             ?? _deviceManager.GetOrAddDevice(id, peerID.DisplayName, NearbyDeviceState.ConnectionRequestedInbound);
 
-        var expiry = new CancellationTokenSource(TimeSpan.FromSeconds(Options.InvitationTimeout));
+        var expiry = new CancellationTokenSource(Options.InvitationTimeout);
         expiry.Token.Register(() => OnInvitationExpired(id));
         _pendingInvitations.TryAdd(id, (invitationHandler, expiry));
 
@@ -80,11 +80,59 @@ sealed partial class NearbyConnectionsImplementation
 
         if (Options.AutoAcceptConnections)
         {
-            await PlatformRespondToConnectionAsync(device, accept: true);
+            // Use TryRemove directly rather than PlatformRespondToConnectionAsync: if MPC fires
+            // NotConnected before we respond (peer disappeared mid-handshake), the pending entry
+            // is already gone and there is nothing left to accept — silently discard.
+            if (_pendingInvitations.TryRemove(id, out var pending))
+            {
+                pending.Expiry.Cancel();
+                pending.Expiry.Dispose();
+
+                _session ??= new MCSession(
+                    PeerIdManager.GetLocalPeerId(Options.DisplayName)
+                        ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID"))
+                {
+                    Delegate = new SessionDelegate(this)
+                };
+
+                pending.Handler(true, _session);
+            }
         }
     }
 
     #endregion Advertising
+
+    Task PlatformDisconnectAsync(NearbyDevice device)
+    {
+        // MCSession has no per-peer disconnect API — Disconnect() ends the session for all peers.
+        // We only call it when this is the last (or only) connected peer to avoid
+        // dropping other active connections.
+        //
+        // Use ConnectedPeers as the source of truth before touching _deviceManager, so the
+        // "last peer?" check is not affected by our own removal.
+        var isLastPeer = _session is not null
+            && _session.ConnectedPeers.All(p =>
+            {
+                using var archived = PeerIdManager.ArchivePeerId(p);
+                return archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None) == device.Id;
+            });
+
+        var disconnectedDevice = _deviceManager.RemoveDevice(device.Id);
+
+        if (isLastPeer)
+        {
+            _session!.Disconnect();
+            _session.Dispose();
+            _session = null;
+        }
+
+        if (disconnectedDevice is not null)
+        {
+            Events.OnDeviceDisconnected(disconnectedDevice, TimeProvider.GetUtcNow());
+        }
+
+        return Task.CompletedTask;
+    }
 
     Task PlatformRequestConnectionAsync(NearbyDevice device)
     {
@@ -117,7 +165,7 @@ sealed partial class NearbyConnectionsImplementation
         _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
 
         Trace.TraceInformation("Inviting peer: Id={0}, DisplayName={1}", device.Id, peerID.DisplayName);
-        _discoverer.InvitePeer(peerID, _session, context: null, Options.InvitationTimeout);
+        _discoverer.InvitePeer(peerID, _session, context: null, Options.InvitationTimeout.TotalSeconds);
 
         return Task.CompletedTask;
     }
@@ -286,7 +334,7 @@ sealed partial class NearbyConnectionsImplementation
 
     void OnInvitationExpired(string id)
     {
-        if (!_pendingInvitations.TryRemove(id, out var expired))
+        if (_isDisposed || !_pendingInvitations.TryRemove(id, out var expired))
         {
             return;
         }
@@ -303,6 +351,30 @@ sealed partial class NearbyConnectionsImplementation
         {
             Events.OnConnectionResponded(device, TimeProvider.GetUtcNow(), false);
             Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
+        }
+    }
+
+    void PlatformDispose()
+    {
+        foreach (var (_, pending) in _pendingInvitations)
+        {
+            pending.Expiry.Cancel();
+            pending.Expiry.Dispose();
+            pending.Handler(false, null);
+        }
+        _pendingInvitations.Clear();
+
+        foreach (var (_, observer) in _progressObservers)
+        {
+            observer.Dispose();
+        }
+        _progressObservers.Clear();
+
+        if (_session is not null)
+        {
+            _session.Disconnect();
+            _session.Dispose();
+            _session = null;
         }
     }
 
@@ -355,15 +427,25 @@ sealed partial class NearbyConnectionsImplementation
                 }
                 else
                 {
+                    // MPC fires NotConnected for the departing peer before removing it from
+                    // ConnectedPeers, so check whether this peer was the only remaining one
+                    // while it is still present in the session's list.
+                    var isLastPeer = _session is not null
+                        && _session.ConnectedPeers.All(p =>
+                        {
+                            using var archived = PeerIdManager.ArchivePeerId(p);
+                            return archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None) == id;
+                        });
+
                     var disconnectedDevice = _deviceManager.RemoveDevice(id);
                     if (disconnectedDevice is not null)
                     {
                         Events.OnDeviceDisconnected(disconnectedDevice, TimeProvider.GetUtcNow());
                     }
 
-                    if (_session is not null && _session.ConnectedPeers.Length == 0)
+                    if (isLastPeer)
                     {
-                        _session.Dispose();
+                        _session!.Dispose();
                         _session = null;
                     }
                 }
@@ -512,9 +594,9 @@ sealed partial class NearbyConnectionsImplementation
 
     #endregion Session Callbacks
 
-#pragma warning disable S1144, S1172
     sealed class SessionDelegate(NearbyConnectionsImplementation nearbyConnections) : NSObject, IMCSessionDelegate
     {
+#pragma warning disable S1144, S1172
         public void DidChangeState(MCSession session, MCPeerID peerID, MCSessionState state)
             => nearbyConnections.OnPeerStateChanged(peerID, state);
 
@@ -529,6 +611,6 @@ sealed partial class NearbyConnectionsImplementation
 
         public void DidReceiveStream(MCSession session, NSInputStream stream, string streamName, MCPeerID peerID)
             => nearbyConnections.OnStreamReceived(stream, streamName, peerID);
-    }
 #pragma warning restore S1144, S1172
+    }
 }
