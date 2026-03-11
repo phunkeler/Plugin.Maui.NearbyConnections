@@ -530,52 +530,6 @@ sealed partial class NearbyConnectionsImplementation
         Events.OnDataReceived(device, payload, TimeProvider.GetUtcNow());
     }
 
-    void OnStreamReceived(NSInputStream stream, string streamName, MCPeerID fromPeer)
-    {
-        using var archived = PeerIdManager.ArchivePeerId(fromPeer);
-        var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
-
-        Trace.TraceInformation("Received stream: {0} from {1}", streamName, fromPeer.DisplayName);
-
-        var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
-        if (device is null)
-        {
-            return;
-        }
-
-        stream.Open();
-        // Wrap the NSInputStream in a MemoryStream by draining it on a background thread,
-        // then raise DataReceived once all bytes are available.
-        _ = Task.Run(() =>
-        {
-            try
-            {
-                var buffer = new byte[16 * 1024];
-                using var ms = new MemoryStream();
-
-                while (stream.HasBytesAvailable())
-                {
-                    var read = (int)stream.Read(buffer, (nuint)buffer.Length);
-                    if (read <= 0)
-                    {
-                        break;
-                    }
-
-                    ms.Write(buffer, 0, read);
-                }
-
-                var captured = ms.ToArray();
-                var payload = new StreamPayload(() => new MemoryStream(captured), streamName);
-                Events.OnDataReceived(device, payload, TimeProvider.GetUtcNow());
-            }
-            finally
-            {
-                stream.Close();
-                stream.Dispose();
-            }
-        });
-    }
-
     #endregion Session Callbacks
 
     sealed class SessionDelegate(NearbyConnectionsImplementation nearbyConnections) : NSObject, IMCSessionDelegate
@@ -592,9 +546,6 @@ sealed partial class NearbyConnectionsImplementation
 
         public void DidFinishReceivingResource(MCSession session, string resourceName, MCPeerID fromPeer, NSUrl? localUrl, NSError? error)
             => nearbyConnections.OnResourceFinished(resourceName, fromPeer, localUrl, error);
-
-        public void DidReceiveStream(MCSession session, NSInputStream stream, string streamName, MCPeerID peerID)
-            => nearbyConnections.OnStreamReceived(stream, streamName, peerID);
 #pragma warning restore S1144, S1172
     }
 }
