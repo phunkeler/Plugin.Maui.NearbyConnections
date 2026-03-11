@@ -14,13 +14,13 @@ public static class NearbyConnections
     static NearbyConnectionsImplementation CreateDefault()
     {
         var events = new NearbyConnectionsEvents();
-        return new NearbyConnectionsImplementation(new NearbyDeviceManager(TimeProvider.System, events), events);
+        var timeProvider = TimeProvider.System;
+        return new NearbyConnectionsImplementation(new NearbyDeviceManager(timeProvider, events), timeProvider, events);
     }
 }
 
 internal sealed partial class NearbyConnectionsImplementation : INearbyConnections
 {
-    internal TimeProvider TimeProvider { get; } = TimeProvider.System;
     readonly INearbyDeviceManager _deviceManager;
     readonly SemaphoreSlim _advertiseSemaphore = new(initialCount: 1, maxCount: 1);
     readonly SemaphoreSlim _discoverSemaphore = new(initialCount: 1, maxCount: 1);
@@ -29,16 +29,8 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
     Advertiser? _advertiser;
     Discoverer? _discoverer;
 
+    internal TimeProvider TimeProvider { get; }
     public NearbyConnectionsEvents Events { get; }
-
-    internal NearbyConnectionsImplementation(INearbyDeviceManager deviceManager, NearbyConnectionsEvents events)
-    {
-        ArgumentNullException.ThrowIfNull(deviceManager);
-        ArgumentNullException.ThrowIfNull(events);
-
-        _deviceManager = deviceManager;
-        Events = events;
-    }
 
     public IReadOnlyList<NearbyDevice> Devices => _deviceManager.Devices;
     public NearbyConnectionsOptions Options { get; set; } = new();
@@ -48,6 +40,20 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     [MemberNotNullWhen(true, nameof(_discoverer))]
     public bool IsDiscovering => _discoverer?.IsDiscovering ?? false;
+
+    internal NearbyConnectionsImplementation(
+        INearbyDeviceManager deviceManager,
+        TimeProvider timeProvider,
+        NearbyConnectionsEvents events)
+    {
+        ArgumentNullException.ThrowIfNull(deviceManager);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentNullException.ThrowIfNull(events);
+
+        _deviceManager = deviceManager;
+        TimeProvider = timeProvider;
+        Events = events;
+    }
 
     public async Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
     {

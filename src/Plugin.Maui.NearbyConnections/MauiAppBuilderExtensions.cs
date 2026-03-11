@@ -28,7 +28,7 @@ public static class MauiAppBuilderExtensions
             var timeProvider = sp.GetRequiredService<TimeProvider>();
             var events = sp.GetRequiredService<NearbyConnectionsEvents>();
             var deviceManager = new NearbyDeviceManager(timeProvider, events);
-            var instance = new NearbyConnectionsImplementation(deviceManager, events);
+            var instance = new NearbyConnectionsImplementation(deviceManager, timeProvider, events);
 
             var options = new NearbyConnectionsOptions();
             configureOptions?.Invoke(options);
