@@ -13,8 +13,13 @@ sealed partial class NearbyConnectionsImplementation
 
     public void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
-        Trace.TraceInformation($"Endpoint found: EndpointId={endpointId}, EndpointName={info.EndpointName}");
         var device = _deviceManager.RecordDeviceFound(endpointId, info.EndpointName);
+
+        Trace.TraceInformation("{0} - Discovered nearby device: Id={1}, DisplayName={2}",
+            nameof(OnEndpointFound),
+            device.Id,
+            device.DisplayName);
+
         Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
     }
 
@@ -23,7 +28,8 @@ sealed partial class NearbyConnectionsImplementation
         if (_deviceManager.TryGetDevice(endpointId, out var existingDevice)
             && existingDevice.State == NearbyDeviceState.Connected)
         {
-            Trace.TraceInformation("Connected device stopped advertising (connection remains): Id={0}, DisplayName={1}",
+            Trace.TraceInformation("{0} - Connected device stopped advertising (connection remains): Id={1}, DisplayName={2}",
+                nameof(OnEndpointLost),
                 existingDevice.Id,
                 existingDevice.DisplayName);
 
@@ -31,7 +37,9 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         var device = _deviceManager.RemoveDevice(endpointId);
-        Trace.TraceInformation("Device lost: Id={0}, DisplayName={1}",
+
+        Trace.TraceInformation("{0} - Device lost: Id={1}, DisplayName={2}",
+            nameof(OnEndpointLost),
             endpointId,
             device?.DisplayName);
 
@@ -54,8 +62,6 @@ sealed partial class NearbyConnectionsImplementation
     /// <param name="connectionInfo">Other relevant information about the connection.</param>
     public async void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
-        Trace.TraceInformation($"Connection initiated: EndpointId={endpointId}, EndpointName={connectionInfo.EndpointName}, IsIncomingConnection={connectionInfo.IsIncomingConnection}");
-
         var state = connectionInfo.IsIncomingConnection
             ? NearbyDeviceState.ConnectionRequestedInbound
             : NearbyDeviceState.ConnectionRequestedOutbound;
@@ -65,16 +71,26 @@ sealed partial class NearbyConnectionsImplementation
 
         if (connectionInfo.IsIncomingConnection)
         {
+            Trace.TraceInformation("{0} - Connection request received from: Id={1}, DisplayName={2}",
+                nameof(OnConnectionInitiated),
+                device.Id,
+                device.DisplayName);
+
             Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
 
             if (Options.AutoAcceptConnections)
             {
+                Trace.TraceInformation("{0} - Auto-accepting connection request from: Id={1}, DisplayName={2}",
+                    nameof(OnConnectionInitiated),
+                    device.Id,
+                    device.DisplayName);
+
                 await PlatformRespondToConnectionAsync(device, accept: true);
             }
         }
         else
         {
-            // Skip this extra step
+            // Skip this extra step - we, as the discoverer, initiated the request
             await PlatformRespondToConnectionAsync(device, accept: true);
         }
     }

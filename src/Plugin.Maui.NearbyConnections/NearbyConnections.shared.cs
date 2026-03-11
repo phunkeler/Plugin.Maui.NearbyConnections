@@ -247,7 +247,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     public Task RequestConnectionAsync(NearbyDevice device)
     {
-        Trace.TraceInformation("{0} - Requesting connection with: Id={1}, DisplayName={2}",
+        Trace.TraceInformation("{0} - Sending connection request to: Id={1}, DisplayName={2}",
             nameof(RequestConnectionAsync),
             device.Id,
             device.DisplayName);

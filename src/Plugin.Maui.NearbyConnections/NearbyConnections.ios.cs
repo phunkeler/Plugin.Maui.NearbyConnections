@@ -15,7 +15,11 @@ sealed partial class NearbyConnectionsImplementation
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
         var device = _deviceManager.RecordDeviceFound(id, peerID.DisplayName);
 
-        Trace.TraceInformation("Found peer: Id={0}, DisplayName={1}", id, peerID.DisplayName);
+        Trace.TraceInformation("{0} - Discovered nearby device: Id={1}, DisplayName={2}",
+            nameof(FoundPeer),
+            device.Id,
+            device.DisplayName);
+
         Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
     }
 
@@ -27,7 +31,8 @@ sealed partial class NearbyConnectionsImplementation
         if (_deviceManager.TryGetDevice(id, out var existingDevice)
             && existingDevice.State == NearbyDeviceState.Connected)
         {
-            Trace.TraceInformation("Connected device stopped advertising (connection remains): Id={0}, DisplayName={1}",
+            Trace.TraceInformation("{0} - Connected device stopped advertising (connection remains): Id={1}, DisplayName={2}",
+                nameof(LostPeer),
                 existingDevice.Id,
                 existingDevice.DisplayName);
 
@@ -35,7 +40,9 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         var device = _deviceManager.RemoveDevice(id);
-        Trace.TraceInformation("Device lost: Id={0}, DisplayName={1}",
+
+        Trace.TraceInformation("{0} - Device lost: Id={1}, DisplayName={2}",
+            nameof(LostPeer),
             id,
             device?.DisplayName);
 
@@ -75,28 +82,30 @@ sealed partial class NearbyConnectionsImplementation
         expiry.Token.Register(() => OnInvitationExpired(id));
         _pendingInvitations.TryAdd(id, (invitationHandler, expiry));
 
-        Trace.TraceInformation("Received invitation from peer: Id={0}, DisplayName={1}", id, peerID.DisplayName);
+        Trace.TraceInformation("{0} - Connection request received from: Id={1}, DisplayName={2}",
+                nameof(DidReceiveInvitationFromPeer),
+                device.Id,
+                device.DisplayName);
+
         Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
 
-        if (Options.AutoAcceptConnections)
+        if (Options.AutoAcceptConnections
+            && _pendingInvitations.TryRemove(id, out var pending))
         {
-            // Use TryRemove directly rather than PlatformRespondToConnectionAsync: if MPC fires
-            // NotConnected before we respond (peer disappeared mid-handshake), the pending entry
-            // is already gone and there is nothing left to accept — silently discard.
-            if (_pendingInvitations.TryRemove(id, out var pending))
+            Trace.TraceInformation("{0} - Auto-accepting connection request from: Id={1}, DisplayName={2}",
+                nameof(DidReceiveInvitationFromPeer),
+                device.Id,
+                device.DisplayName);
+
+            await pending.Expiry.CancelAsync();
+            pending.Expiry.Dispose();
+
+            _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName))
             {
-                pending.Expiry.Cancel();
-                pending.Expiry.Dispose();
+                Delegate = new SessionDelegate(this)
+            };
 
-                _session ??= new MCSession(
-                    PeerIdManager.GetLocalPeerId(Options.DisplayName)
-                        ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID"))
-                {
-                    Delegate = new SessionDelegate(this)
-                };
-
-                pending.Handler(true, _session);
-            }
+            pending.Handler(true, _session);
         }
     }
 
@@ -104,12 +113,7 @@ sealed partial class NearbyConnectionsImplementation
 
     Task PlatformDisconnectAsync(NearbyDevice device)
     {
-        // MCSession has no per-peer disconnect API — Disconnect() ends the session for all peers.
-        // We only call it when this is the last (or only) connected peer to avoid
-        // dropping other active connections.
-        //
-        // Use ConnectedPeers as the source of truth before touching _deviceManager, so the
-        // "last peer?" check is not affected by our own removal.
+        // TODO: Send/Receive control message for individual device disconnect
         var isLastPeer = _session is not null
             && _session.ConnectedPeers.All(p =>
             {
@@ -140,31 +144,19 @@ sealed partial class NearbyConnectionsImplementation
 
         if (_discoverer is null || !IsDiscovering)
         {
-            throw new InvalidOperationException("Cannot request connection: discovery is not active. Start discovery first.");
+            return Task.CompletedTask;
         }
 
-        // Decode the base64 device ID back to NSData
         var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
-
-        // Unarchive the MCPeerID
         var peerID = PeerIdManager.UnarchivePeerId(peerIdData)
             ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
 
-        // Create or get session
-        if (_session is null)
+        _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName))
         {
-            var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName)
-                ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
-
-            _session = new MCSession(myPeerId)
-            {
-                Delegate = new SessionDelegate(this)
-            };
-        }
+            Delegate = new SessionDelegate(this)
+        };
 
         _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
-
-        Trace.TraceInformation("Inviting peer: Id={0}, DisplayName={1}", device.Id, peerID.DisplayName);
         _discoverer.InvitePeer(peerID, _session, context: null, Options.InvitationTimeout.TotalSeconds);
 
         return Task.CompletedTask;
@@ -176,24 +168,16 @@ sealed partial class NearbyConnectionsImplementation
 
         if (!_pendingInvitations.TryRemove(device.Id, out var pending))
         {
-            throw new InvalidOperationException(
-                $"No pending invitation found for device: {device.DisplayName}");
+            return Task.CompletedTask;
         }
 
         pending.Expiry.Cancel();
         pending.Expiry.Dispose();
 
-        // Create or reuse session (same pattern as PlatformRequestConnectionAsync)
-        if (_session is null)
+        _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName))
         {
-            var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName)
-                ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
-
-            _session = new MCSession(myPeerId)
-            {
-                Delegate = new SessionDelegate(this)
-            };
-        }
+            Delegate = new SessionDelegate(this)
+        };
 
         pending.Handler(accept, accept ? _session : null);
 

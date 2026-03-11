@@ -39,7 +39,7 @@ static class PeerIdManager
     const string KEY_DISPLAYNAME = KEYPREFIX + "." + "DisplayName";
     const string KEY_MCPEERID = KEYPREFIX + "." + "MCPeerId";
 
-    public static MCPeerID? GetLocalPeerId(string displayName)
+    public static MCPeerID GetLocalPeerId(string displayName)
     {
         if (TryGetStoredDisplayName(displayName, out var mCPeerID))
         {

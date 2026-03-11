@@ -2,14 +2,14 @@
 
   <!-- Library -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.2" />
-    <PackageVersion Include="Microsoft.Maui.Core" Version="10.0.41" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.4" />
+    <PackageVersion Include="Microsoft.Maui.Core" Version="10.0.50" />
     <PackageVersion Include="Xamarin.GooglePlayServices.Nearby" Version="119.3.0.7" />
   </ItemGroup>
 
   <!-- Sample -->
   <ItemGroup>
-    <PackageVersion Include="CommunityToolkit.Maui" Version="14.0.0" />
+    <PackageVersion Include="CommunityToolkit.Maui" Version="14.0.1" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.2" />

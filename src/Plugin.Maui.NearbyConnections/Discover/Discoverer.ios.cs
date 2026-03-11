@@ -7,9 +7,7 @@ sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
     Task PlatformStartDiscovering()
     {
         var options = _nearbyConnections.Options;
-
-        var myPeerId = PeerIdManager.GetLocalPeerId(options.DisplayName)
-            ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
+        var myPeerId = PeerIdManager.GetLocalPeerId(options.DisplayName);
 
         _browser = new MCNearbyServiceBrowser(
             myPeerID: myPeerId,
@@ -66,20 +64,10 @@ sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
             _nearbyConnections.TimeProvider.GetUtcNow());
     }
 
-    /// <summary>
-    /// Invites a peer to join the specified session.
-    /// </summary>
-    /// <param name="peerID">The peer to invite.</param>
-    /// <param name="session">The session to join.</param>
-    /// <param name="context">Optional context data to send with the invitation.</param>
-    /// <param name="timeout">The timeout in seconds for the invitation.</param>
-    public void InvitePeer(MCPeerID peerID, MCSession session, NSData? context, double timeout)
-    {
-        if (_browser is null)
-        {
-            throw new InvalidOperationException("Cannot invite peer: browser is not active. Start discovery first.");
-        }
-
-        _browser.InvitePeer(peerID, session, context, timeout);
-    }
+    public void InvitePeer(
+        MCPeerID peerID,
+        MCSession session,
+        NSData? context,
+        double timeout)
+        => _browser?.InvitePeer(peerID, session, context, timeout);
 }

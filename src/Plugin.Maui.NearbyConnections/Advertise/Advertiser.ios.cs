@@ -7,9 +7,7 @@ sealed partial class Advertiser : NSObject, IMCNearbyServiceAdvertiserDelegate
     Task PlatformStartAdvertising()
     {
         var options = _nearbyConnections.Options;
-
-        var myPeerId = PeerIdManager.GetLocalPeerId(options.DisplayName)
-            ?? throw new InvalidOperationException("Failed to create or retrieve my peer ID");
+        var myPeerId = PeerIdManager.GetLocalPeerId(options.DisplayName);
 
         _advertiser = new MCNearbyServiceAdvertiser(
             myPeerID: myPeerId,
