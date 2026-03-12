@@ -26,9 +26,10 @@ export const codepoints = {
     'right': 0xe013,
     'send': 0xe014,
     'sonar': 0xe015,
-    'users': 0xe016,
-    'video': 0xe017,
-    'wifi': 0xe018,
+    'up': 0xe016,
+    'users': 0xe017,
+    'video': 0xe018,
+    'wifi': 0xe019,
 };
 export function getIconId({
     basename, // `string` - Example: 'foo';

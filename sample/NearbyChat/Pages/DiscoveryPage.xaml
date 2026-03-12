@@ -55,23 +55,37 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="DiscoveredDeviceViewModel">
                         <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
-                            <Grid RowDefinitions="*, *, *, Auto"
+                            <Grid RowDefinitions="*, *, Auto"
                                   RowSpacing="{StaticResource SpacingSM}">
                                 <Label
-                                    Grid.Row="0"
-                                    Text="{Binding State}"/>
-                                <Label
-                                    Grid.Row="1"
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardTitle}"
                                     Text="{Binding DisplayName}"/>
+                                <Border
+                                    Stroke="Transparent"
+                                    WidthRequest="20"
+                                    HeightRequest="20"
+                                    HorizontalOptions="End"
+                                    StrokeShape="RoundRectangle 10"
+                                    Background="{Binding State, Converter={StaticResource nearbyDeviceStateColorConverter}}">
+                                    <Image
+                                        WidthRequest="10"
+                                        HeightRequest="10">
+                                        <Image.Source>
+                                            <FontImageSource
+                                                FontFamily="NearbyChatIcons"
+                                                Glyph="{Binding State, Converter={StaticResource nearbyDeviceStateGlyphConverter}}"
+                                                Color="White"/>
+                                        </Image.Source>
+                                    </Image>
+                                </Border>
                                 <Label
-                                    Grid.Row="2"
+                                    Grid.Row="1"
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardSubtitle}"
                                     Text="{Binding LastSeen, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
                                 <Button
-                                    Grid.Row="3"
+                                    Grid.Row="2"
                                     HeightRequest="44"
                                     Text="Connect"
                                     Command="{Binding ConnectCommand}"

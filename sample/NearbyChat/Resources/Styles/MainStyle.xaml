@@ -10,6 +10,8 @@
 
     <!-- Converters -->
     <converters:LocalTimeConverter x:Key="localTimeConverter"/>
+    <converters:NearbyDeviceStateGlyphConverter x:Key="nearbyDeviceStateGlyphConverter"/>
+    <converters:NearbyDeviceStateColorConverter x:Key="nearbyDeviceStateColorConverter"/>
 
     <!-- Layout Spacing -->
     <x:Double x:Key="SpacingXS">4</x:Double>
@@ -30,13 +32,17 @@
     <x:String x:Key="icon-antenna">&#xe001;</x:String>
     <x:String x:Key="icon-attachment">&#xe002;</x:String>
     <x:String x:Key="icon-camera">&#xe003;</x:String>
+    <x:String x:Key="icon-check">&#xe005;</x:String>
+    <x:String x:Key="icon-down">&#xe006;</x:String>
     <x:String x:Key="icon-left">&#xe008;</x:String>
     <x:String x:Key="icon-link">&#xe009;</x:String>
+    <x:String x:Key="icon-magnify">&#xe010;</x:String>
     <x:String x:Key="icon-message">&#xe011;</x:String>
     <x:String x:Key="icon-right">&#xe013;</x:String>
     <x:String x:Key="icon-send">&#xe014;</x:String>
     <x:String x:Key="icon-sonar">&#xe015;</x:String>
-    <x:String x:Key="icon-video">&#xe017;</x:String>
+    <x:String x:Key="icon-up">&#xe016;</x:String>
+    <x:String x:Key="icon-video">&#xe018;</x:String>
 
     <!-- ========================================== -->
     <!--          FEATURE ICON BADGE PARTS          -->

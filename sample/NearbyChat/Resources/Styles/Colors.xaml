@@ -3,6 +3,10 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
                     x:Class="NearbyChat.Resources.Styles.Colors">
 
+    <Color x:Key="Inbound">#FF9500</Color>
+    <Color x:Key="Outbound">#007AFF</Color>
+    <Color x:Key="Success">#28DD1F</Color>
+
     <!-- ========================================== -->
     <!-- DARK THEME COLORS (Layered Design)         -->
     <!-- ========================================== -->
