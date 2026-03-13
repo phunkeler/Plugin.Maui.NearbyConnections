@@ -26,6 +26,11 @@ public static class MauiProgram
             .UseBottomSheet()
             .AddNearbyConnections(options =>
             {
+                options.AutoAcceptConnections = false;
+
+#if IOS
+                options.InvitationTimeout = TimeSpan.FromSeconds(10);
+#endif
             });
 
 #if DEBUG

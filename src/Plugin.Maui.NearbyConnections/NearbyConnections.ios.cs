@@ -79,7 +79,7 @@ sealed partial class NearbyConnectionsImplementation
             ?? _deviceManager.GetOrAddDevice(id, peerID.DisplayName, NearbyDeviceState.ConnectionRequestedInbound);
 
         var expiry = new CancellationTokenSource(Options.InvitationTimeout);
-        expiry.Token.Register(() => OnInvitationExpired(id));
+        expiry.Token.Register(() => OnInvitationExpired(device));
         _pendingInvitations.TryAdd(id, (invitationHandler, expiry));
 
         Trace.TraceInformation("{0} - Connection request received from: Id={1}, DisplayName={2}",
@@ -113,22 +113,26 @@ sealed partial class NearbyConnectionsImplementation
 
     Task PlatformDisconnectAsync(NearbyDevice device)
     {
-        // TODO: Send/Receive control message for individual device disconnect
-        var isLastPeer = _session is not null
-            && _session.ConnectedPeers.All(p =>
+        if (_session is not null)
+        {
+            var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
+            var peerID = PeerIdManager.UnarchivePeerId(peerIdData);
+
+            if (peerID is not null)
             {
-                using var archived = PeerIdManager.ArchivePeerId(p);
-                return archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None) == device.Id;
-            });
+                using var controlData = NSData.FromArray(ControlMessage.Encode(ControlMessageType.Disconnect));
+                _session.SendData(controlData, [peerID], MCSessionSendDataMode.Reliable, out var error);
+
+                if (error is not null)
+                {
+                    Trace.TraceWarning("Failed to send disconnect control message to '{0}': {1}",
+                        device.DisplayName,
+                        error.LocalizedDescription);
+                }
+            }
+        }
 
         var disconnectedDevice = _deviceManager.RemoveDevice(device.Id);
-
-        if (isLastPeer)
-        {
-            _session!.Disconnect();
-            _session.Dispose();
-            _session = null;
-        }
 
         if (disconnectedDevice is not null)
         {
@@ -316,22 +320,27 @@ sealed partial class NearbyConnectionsImplementation
         return Task.CompletedTask;
     }
 
-    void OnInvitationExpired(string id)
+    void OnInvitationExpired(NearbyDevice device)
     {
-        if (_isDisposed || !_pendingInvitations.TryRemove(id, out var expired))
+        if (_isDisposed || !_pendingInvitations.TryRemove(device.Id, out var expired))
         {
             return;
         }
 
-        Trace.TraceInformation("Invitation expired: Id={0}", id);
+        Trace.TraceInformation("{0} - Invitation from: Id={1}, DisplayName={2}, expired after {3} seconds",
+            nameof(OnInvitationExpired),
+            device.Id,
+            device.DisplayName,
+            Options.InvitationTimeout.TotalSeconds);
 
         expired.Expiry.Dispose();
         expired.Handler(false, null);
 
         // Reset to Discovered so the browser doesn't need to re-fire FoundPeer
         // (MPC browser still considers this peer "known" — it never fired LostPeer)
-        var device = _deviceManager.SetState(id, NearbyDeviceState.Discovered);
-        if (device is not null)
+        var d = _deviceManager.SetState(device.Id, NearbyDeviceState.Discovered);
+
+        if (d is not null)
         {
             Events.OnConnectionResponded(device, TimeProvider.GetUtcNow(), false);
             Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
@@ -369,7 +378,11 @@ sealed partial class NearbyConnectionsImplementation
         using var data = PeerIdManager.ArchivePeerId(peerID);
         var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        Trace.TraceInformation("Peer state changed: Id={0}, DisplayName={1}, State={2}", id, peerID.DisplayName, state);
+        Trace.TraceInformation("{0} - Peer state changed: Id={1}, DisplayName={2}, State={3}",
+            nameof(OnPeerStateChanged),
+            id,
+            peerID.DisplayName,
+            state);
 
         switch (state)
         {
@@ -445,17 +458,56 @@ sealed partial class NearbyConnectionsImplementation
         using var archived = PeerIdManager.ArchivePeerId(peerID);
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        Trace.TraceInformation("Data received from peer: DisplayName={0}, Length={1}", peerID.DisplayName, data.Length);
+        Trace.TraceInformation("{0} - Data received from peer: Id={1}, DisplayName={2}, Length={3:N0} bytes",
+            nameof(OnDataReceived),
+            id,
+            peerID.DisplayName,
+            data.Length);
 
-        var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
-        if (device is null)
+        var bytes = data.ToArray();
+
+        if (ControlMessage.TryDecode(bytes, out var controlType))
         {
-            Trace.TraceInformation("Received data from unknown peer: {0}", peerID.DisplayName);
+            Trace.TraceInformation("{0} - Control message received from peer: Id={1}, DisplayName={2}, Type={3}",
+                nameof(OnDataReceived),
+                id,
+                peerID.DisplayName,
+                controlType);
+
+            HandleControlMessage(controlType);
             return;
         }
 
-        var payload = new BytesPayload(data.ToArray());
+        var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
+
+        if (device is null)
+        {
+            Trace.TraceWarning("{0} - Dropping received data from unknown peer: Id={1}, DisplayName={2}",
+                nameof(OnDataReceived),
+                id,
+                peerID.DisplayName);
+
+            return;
+        }
+
+        var payload = new BytesPayload(bytes);
         Events.OnDataReceived(device, payload, TimeProvider.GetUtcNow());
+    }
+
+    void HandleControlMessage(ControlMessageType type)
+    {
+        switch (type)
+        {
+            case ControlMessageType.Disconnect:
+                Trace.TraceInformation("{0} - Disconnecting from session.", nameof(HandleControlMessage));
+                _session?.Disconnect();
+                break;
+            default:
+                Trace.TraceWarning("{0} - Unknown control message type: {1}",
+                    nameof(HandleControlMessage),
+                    type);
+                break;
+        }
     }
 
     void OnResourceStarted(string resourceName, MCPeerID fromPeer, NSProgress progress)
@@ -463,7 +515,11 @@ sealed partial class NearbyConnectionsImplementation
         using var archived = PeerIdManager.ArchivePeerId(fromPeer);
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        Trace.TraceInformation("Started receiving resource: {0} from {1}", resourceName, fromPeer.DisplayName);
+        Trace.TraceInformation("{0} - Started receiving resource from: Id={1}, DisplayName={2}, ResourceName={3}",
+            nameof(OnResourceStarted),
+            id,
+            fromPeer.DisplayName,
+            resourceName);
 
         var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
         if (device is null)
@@ -471,7 +527,6 @@ sealed partial class NearbyConnectionsImplementation
             return;
         }
 
-        // KVO on the incoming NSProgress to raise IncomingTransferProgress events
         var observer = progress.AddObserver(
             "fractionCompleted",
             NSKeyValueObservingOptions.New,
@@ -487,6 +542,7 @@ sealed partial class NearbyConnectionsImplementation
                         NearbyTransferStatus.InProgress),
                     TimeProvider.GetUtcNow());
             });
+
         _progressObservers[resourceName] = observer;
     }
 
@@ -495,7 +551,14 @@ sealed partial class NearbyConnectionsImplementation
         using var archived = PeerIdManager.ArchivePeerId(fromPeer);
         var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
 
-        Trace.TraceInformation("Finished receiving resource: {0} from {1}, Error: {2}", resourceName, fromPeer.DisplayName, error?.LocalizedDescription ?? "None");
+        Trace.TraceInformation("{0} - Finished receiving resource from: Id={1}, DisplayName={2}, ResourceName={3}, Location={4}, Error={5}",
+            nameof(OnResourceFinished),
+            id,
+            fromPeer.DisplayName,
+            resourceName,
+            localUrl,
+            error);
+
 
         if (_progressObservers.TryRemove(resourceName, out var observer))
         {

@@ -17,4 +17,8 @@ public partial class ConnectedDeviceViewModel(
         {
             { nameof(NearbyDevice), Device }
         });
+
+    [RelayCommand]
+    Task Disconnect()
+        => NearbyConnectionsService.DisconnectAsync(Device);
 }

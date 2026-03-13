@@ -25,6 +25,7 @@ public interface INearbyConnectionsService : IDisposable
         string uri,
         IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default);
+    Task DisconnectAsync(NearbyDevice device);
 }
 
 public partial class NearbyConnectionsService : INearbyConnectionsService
@@ -98,6 +99,9 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
             uri,
             progress,
             cancellationToken);
+
+    public Task DisconnectAsync(NearbyDevice device)
+        => _nearbyConnections.DisconnectAsync(device);
 
     void OnAdvertisingStateChanged(object? sender, AdvertisingStateChangedEventArgs e)
         => _messenger.Send(new AdvertisingStateChangedMessage(e.IsAdvertising));
