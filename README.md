@@ -20,11 +20,6 @@
     </a>
   </div>
   <div>
-    <a href="https://codecov.io/gh/phunkeler/Plugin.Maui.NearbyConnections">
-      <img alt="Codecov Report" src="https://img.shields.io/codecov/c/gh/phunkeler/Plugin.Maui.NearbyConnections/main?">
-    </a>
-  </div>
-  <div>
     <a href="https://github.com/phunkeler/Plugin.Maui.NearbyConnections/actions/workflows/codeql.yml">
         <img alt="CodeQL Report" src="https://github.com/phunkeler/Plugin.Maui.NearbyConnections/actions/workflows/codeql.yml/badge.svg">
     </a>
