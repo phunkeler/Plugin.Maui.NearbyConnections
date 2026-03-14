@@ -12,6 +12,8 @@
     <converters:LocalTimeConverter x:Key="localTimeConverter"/>
     <converters:NearbyDeviceStateGlyphConverter x:Key="nearbyDeviceStateGlyphConverter"/>
     <converters:NearbyDeviceStateColorConverter x:Key="nearbyDeviceStateColorConverter"/>
+    <converters:RelativeTimeConverter x:Key="relativeTimeConverter" />
+    <toolkit:IntToBoolConverter x:Key="intToBoolConverter"/>
 
     <!-- Layout Spacing -->
     <x:Double x:Key="SpacingXS">4</x:Double>
@@ -42,6 +44,7 @@
     <x:String x:Key="icon-send">&#xe014;</x:String>
     <x:String x:Key="icon-sonar">&#xe015;</x:String>
     <x:String x:Key="icon-up">&#xe016;</x:String>
+    <x:String x:Key="icon-users">&#xe017;</x:String>
     <x:String x:Key="icon-video">&#xe018;</x:String>
 
     <!-- ========================================== -->

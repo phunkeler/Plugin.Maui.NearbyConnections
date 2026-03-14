@@ -5,11 +5,6 @@
     Background="{AppThemeBinding Light={StaticResource LightBackgroundGradient}, Dark={StaticResource DarkBackgroundGradient}}"
     x:DataType="AdvertisingPageViewModel">
 
-    <BasePage.Resources>
-        <RelativeTimeConverter x:Key="relativeTimeConverter"/>
-        <IntToBoolConverter x:Key="intToBoolConverter"/>
-    </BasePage.Resources>
-
     <BasePage.Content>
         <Grid RowDefinitions="Auto,Auto,*"
               RowSpacing="{StaticResource SpacingXL}"
@@ -25,6 +20,11 @@
                     BorderColor="{AppThemeBinding Light=Black, Dark=Gray}"
                     CornerRadius="12"
                     FontSize="{StaticResource FontSizeMD}"/>
+            <ConnectedDevicesChip
+                Count="{Binding ConnectedDevicesCount}"
+                Command="{Binding NavigateToConnectionsCommand}"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>
             <FeatureControlCard
                 VerticalOptions="Start"
                 Grid.Row="1"

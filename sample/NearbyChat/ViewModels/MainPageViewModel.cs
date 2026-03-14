@@ -3,12 +3,14 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Messages;
 using NearbyChat.Services;
+using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
 public partial class MainPageViewModel : BasePageViewModel,
     IRecipient<AdvertisingStateChangedMessage>,
-    IRecipient<DiscoveringStateChangedMessage>
+    IRecipient<DiscoveringStateChangedMessage>,
+    IRecipient<ConnectedDevicesCountChangedMessage>
 {
     readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
@@ -18,6 +20,9 @@ public partial class MainPageViewModel : BasePageViewModel,
 
     [ObservableProperty]
     public partial bool IsDiscovering { get; set; }
+
+    [ObservableProperty]
+    public partial int ConnectedDevicesCount { get; set; }
 
     public MainPageViewModel(
         IDispatcher dispatcher,
@@ -37,6 +42,7 @@ public partial class MainPageViewModel : BasePageViewModel,
     {
         IsAdvertising = _nearbyConnectionsService.IsAdvertising;
         IsDiscovering = _nearbyConnectionsService.IsDiscovering;
+        ConnectedDevicesCount = _nearbyConnectionsService.Devices.Count(d => d.State == NearbyDeviceState.Connected);
         base.NavigatedTo();
     }
 
@@ -52,9 +58,12 @@ public partial class MainPageViewModel : BasePageViewModel,
     Task NavigateToConnections()
         => _navigationService.GoToAsync<ConnectionsPageViewModel>();
 
-    public void Receive(AdvertisingStateChangedMessage message)
-        => IsAdvertising = message.Value;
+    public async void Receive(AdvertisingStateChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => IsAdvertising = message.Value);
 
-    public void Receive(DiscoveringStateChangedMessage message)
-        => IsDiscovering = message.Value;
+    public async void Receive(ConnectedDevicesCountChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => ConnectedDevicesCount = message.Value);
+
+    public async void Receive(DiscoveringStateChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => IsDiscovering = message.Value);
 }

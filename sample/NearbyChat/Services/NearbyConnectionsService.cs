@@ -122,10 +122,26 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
         => _messenger.Send(new DeviceStateChangedMessage(e.NearbyDevice));
 
     void OnConnectionResponded(object? sender, NearbyDeviceRespondedEventArgs e)
-        => _messenger.Send(new ConnectionResponseMessage(e.NearbyDevice, e.Accepted));
+    {
+        _messenger.Send(new ConnectionResponseMessage(e.NearbyDevice, e.Accepted));
+
+        if (e.Accepted)
+        {
+            PublishConnectedDevicesCount();
+        }
+    }
 
     void OnDeviceDisconnected(object? sender, NearbyConnectionsEventArgs e)
-        => _messenger.Send(new DeviceDisconnectedMessage(e.NearbyDevice));
+    {
+        _messenger.Send(new DeviceDisconnectedMessage(e.NearbyDevice));
+        PublishConnectedDevicesCount();
+    }
+
+    void PublishConnectedDevicesCount()
+    {
+        var count = _nearbyConnections.Devices.Count(d => d.State == NearbyDeviceState.Connected);
+        _messenger.Send(new ConnectedDevicesCountChangedMessage(count));
+    }
 
     async void OnDataReceived(object? sender, DataReceivedEventArgs e)
     {

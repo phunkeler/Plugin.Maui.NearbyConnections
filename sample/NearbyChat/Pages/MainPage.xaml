@@ -7,42 +7,52 @@
     x:DataType="MainPageViewModel">
 
     <BasePage.Content>
-        <ScrollView>
-            <StackLayout VerticalOptions="Center"
-                         Margin="{StaticResource SpacingXL}"
-                         Spacing="{StaticResource SpacingLG}">
-                <Label Text="NearbyChat"
-                       FontSize="28"
-                       FontAttributes="Bold"
-                       HorizontalOptions="Center"
-                       TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
+        <Grid>
+            <ScrollView>
+                <StackLayout VerticalOptions="Center"
+                             Margin="{StaticResource SpacingXL}"
+                             Spacing="{StaticResource SpacingLG}">
+                    <Label Text="NearbyChat"
+                           FontSize="28"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
 
-                <!-- Advertise -->
-                <FeatureNavigationCard
-                    FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeAdvertiseStyle}"
-                    Title="Advertise"
-                    Subtitle="Be discoverable"
-                    FeatureIsActive="{Binding IsAdvertising}"
-                    ActiveSubtitle="Broadcasting..."
-                    Command="{Binding NavigateToAdvertisingCommand}"/>
+                    <!-- Advertise -->
+                    <FeatureNavigationCard
+                        FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeAdvertiseStyle}"
+                        Title="Advertise"
+                        Subtitle="Be discoverable"
+                        FeatureIsActive="{Binding IsAdvertising}"
+                        ActiveSubtitle="Broadcasting..."
+                        Command="{Binding NavigateToAdvertisingCommand}"/>
 
-                <!-- Discover -->
-                <FeatureNavigationCard
-                    FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeDiscoverStyle}"
-                    Title="Discover"
-                    Subtitle="Find nearby devices"
-                    FeatureIsActive="{Binding IsDiscovering}"
-                    ActiveSubtitle="Scanning..."
-                    Command="{Binding NavigateToDiscoveryCommand}"/>
+                    <!-- Discover -->
+                    <FeatureNavigationCard
+                        FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeDiscoverStyle}"
+                        Title="Discover"
+                        Subtitle="Find nearby devices"
+                        FeatureIsActive="{Binding IsDiscovering}"
+                        ActiveSubtitle="Scanning..."
+                        Command="{Binding NavigateToDiscoveryCommand}"/>
 
-                <!-- Connections -->
-                <FeatureNavigationCard
-                    FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeConnectionsStyle}"
-                    Title="Connect"
-                    Subtitle="No connections"
-                    Command="{Binding NavigateToConnectionsCommand}"/>
+                    <!-- Connections -->
+                    <FeatureNavigationCard
+                        FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeConnectionsStyle}"
+                        Title="Connect"
+                        Subtitle="No connections"
+                        FeatureIsActive="{Binding ConnectedDevicesCount, Converter={StaticResource intToBoolConverter}}"
+                        ActiveSubtitle="{Binding ConnectedDevicesCount, StringFormat='{0} connected'}"
+                        Command="{Binding NavigateToConnectionsCommand}"/>
 
-            </StackLayout>
-        </ScrollView>
+                </StackLayout>
+            </ScrollView>
+            <ConnectedDevicesChip
+                Count="{Binding ConnectedDevicesCount}"
+                Command="{Binding NavigateToConnectionsCommand}"
+                HorizontalOptions="End"
+                VerticalOptions="Start"
+                Margin="{StaticResource SpacingXL}"/>
+        </Grid>
     </BasePage.Content>
 </BasePage>

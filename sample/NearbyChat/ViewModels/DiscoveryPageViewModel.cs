@@ -13,7 +13,8 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
     IRecipient<DeviceFoundMessage>,
     IRecipient<DeviceLostMessage>,
     IRecipient<DeviceDisconnectedMessage>,
-    IRecipient<ConnectionResponseMessage>
+    IRecipient<ConnectionResponseMessage>,
+    IRecipient<ConnectedDevicesCountChangedMessage>
 {
     readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
@@ -27,6 +28,9 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
 
     [ObservableProperty]
     public partial bool IsDiscovering { get; set; }
+
+    [ObservableProperty]
+    public partial int ConnectedDevicesCount { get; set; }
 
     public ObservableCollection<DiscoveredDeviceViewModel> DiscoveredDevices { get; } = [];
 
@@ -47,6 +51,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
         _nearbyDeviceViewModelFactory = nearbyDeviceViewModelFactory;
 
         IsDiscovering = _nearbyConnectionsService.IsDiscovering;
+        ConnectedDevicesCount = _nearbyConnectionsService.Devices.Count(d => d.State == NearbyDeviceState.Connected);
 
         foreach (var discovered in _nearbyConnectionsService.Devices.Where(d => d.State == NearbyDeviceState.Discovered))
         {
@@ -58,7 +63,12 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
     }
 
     [RelayCommand]
-    Task Back() => _navigationService.GoBackAsync();
+    Task Back()
+        => _navigationService.GoBackAsync();
+
+    [RelayCommand]
+    Task NavigateToConnections()
+        => _navigationService.GoToAsync<ConnectionsPageViewModel>();
 
     [RelayCommand(CanExecute = nameof(CanToggleDiscovery))]
     async Task ToggleDiscovery(CancellationToken cancellationToken)
@@ -91,6 +101,9 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
 
         base.NavigatedFrom();
     }
+
+    public async void Receive(ConnectedDevicesCountChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => ConnectedDevicesCount = message.Value);
 
     public async void Receive(DiscoveringStateChangedMessage message)
         => await Dispatcher.DispatchAsync(() => IsDiscovering = message.Value);

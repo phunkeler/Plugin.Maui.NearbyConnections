@@ -13,7 +13,8 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
     IRecipient<ConnectionRequestMessage>,
     IRecipient<ConnectionResponseMessage>,
     IRecipient<DeviceLostMessage>,
-    IRecipient<DeviceDisconnectedMessage>
+    IRecipient<DeviceDisconnectedMessage>,
+    IRecipient<ConnectedDevicesCountChangedMessage>
 {
     readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
@@ -27,6 +28,9 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
 
     [ObservableProperty]
     public partial bool IsAdvertising { get; set; }
+
+    [ObservableProperty]
+    public partial int ConnectedDevicesCount { get; set; }
 
     public ObservableCollection<AdvertisedDeviceViewModel> AdvertisedDevices { get; } = [];
 
@@ -47,6 +51,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
         _nearbyDeviceViewModelFactory = nearbyDeviceViewModelFactory;
 
         IsAdvertising = _nearbyConnectionsService.IsAdvertising;
+        ConnectedDevicesCount = _nearbyConnectionsService.Devices.Count(d => d.State == NearbyDeviceState.Connected);
 
         foreach (var inbound in _nearbyConnectionsService.Devices.Where(d => d.State == NearbyDeviceState.ConnectionRequestedInbound))
         {
@@ -60,6 +65,10 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
     [RelayCommand]
     Task Back()
         => _navigationService.GoBackAsync();
+
+    [RelayCommand]
+    Task NavigateToConnections()
+        => _navigationService.GoToAsync<ConnectionsPageViewModel>();
 
     [RelayCommand(CanExecute = nameof(CanToggleAdvertising))]
     async Task ToggleAdvertising(CancellationToken cancellationToken)
@@ -109,6 +118,9 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
              AdvertisedDevices.Add(vm);
              UpdateRelativeTimeRefreshTimer();
          });
+
+    public async void Receive(ConnectedDevicesCountChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => ConnectedDevicesCount = message.Value);
 
     public async void Receive(DeviceLostMessage message)
         => await Dispatcher.DispatchAsync(() =>
