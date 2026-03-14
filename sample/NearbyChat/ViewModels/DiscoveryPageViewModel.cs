@@ -138,16 +138,30 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
     public async void Receive(ConnectionResponseMessage message)
         => await Dispatcher.DispatchAsync(() =>
         {
-            if (message.Accepted)
+            var device = DiscoveredDevices.FirstOrDefault(d => d.Id == message.Value.Id);
+
+            if (device is null)
             {
                 return;
             }
 
-            // Invitation was rejected or expired — the plugin resets the device to Discovered
-            // and fires DeviceFound, but the duplicate guard in Receive(DeviceFoundMessage)
-            // skips re-add when the VM is still in the list. So we keep the device here;
-            // the DeviceStateChanged message will reset its State to Discovered automatically,
-            // restoring the Connect button.
+            if (message.Accepted && device.State == NearbyDeviceState.Connected)
+            {
+                Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(5), async () =>
+                {
+                    // Update "Connections" badge
+
+                    device.IsActive = false;
+                    DiscoveredDevices.Remove(device);
+                    UpdateRelativeTimeRefreshTimer();
+                });
+            }
+            else if (!message.Accepted)
+            {
+                device.IsActive = false;
+                DiscoveredDevices.Remove(device);
+                UpdateRelativeTimeRefreshTimer();
+            }
         });
 
     bool CanToggleDiscovery() => !IsBusy;

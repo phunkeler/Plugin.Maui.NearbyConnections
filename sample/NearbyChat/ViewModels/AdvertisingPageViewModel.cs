@@ -128,8 +128,23 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
         {
             var device = AdvertisedDevices.FirstOrDefault(d => d.Id == message.Value.Id);
 
-            if (device is not null
-                && !message.Accepted)
+            if (device is null)
+            {
+                return;
+            }
+
+            if (message.Accepted && device.State == NearbyDeviceState.Connected)
+            {
+                Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(5), async () =>
+                {
+                    // Update "Connections" badge
+
+                    device.IsActive = false;
+                    AdvertisedDevices.Remove(device);
+                    UpdateRelativeTimeRefreshTimer();
+                });
+            }
+            else if (!message.Accepted)
             {
                 device.IsActive = false;
                 AdvertisedDevices.Remove(device);
