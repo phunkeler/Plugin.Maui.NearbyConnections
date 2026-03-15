@@ -11,8 +11,7 @@ sealed partial class NearbyConnectionsImplementation
 
     internal void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
     {
-        using var data = PeerIdManager.ArchivePeerId(peerID);
-        var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+        var id = PeerIdManager.TrackRemotePeer(peerID);
         var device = _deviceManager.RecordDeviceFound(id, peerID.DisplayName);
 
         Trace.TraceInformation("{0} - Discovered nearby device: Id={1}, DisplayName={2}",
@@ -25,8 +24,7 @@ sealed partial class NearbyConnectionsImplementation
 
     internal void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
     {
-        using var data = PeerIdManager.ArchivePeerId(peerID);
-        var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+        var id = PeerIdManager.PeerKey(peerID);
 
         if (_deviceManager.TryGetDevice(id, out var existingDevice)
             && existingDevice.State == NearbyDeviceState.Connected)
@@ -39,6 +37,7 @@ sealed partial class NearbyConnectionsImplementation
             return;
         }
 
+        PeerIdManager.RemoveRemotePeer(id);
         var device = _deviceManager.RemoveDevice(id);
 
         Trace.TraceInformation("{0} - Device lost: Id={1}, DisplayName={2}",
@@ -72,8 +71,7 @@ sealed partial class NearbyConnectionsImplementation
         NSData? context,
         MCNearbyServiceAdvertiserInvitationHandler invitationHandler)
     {
-        using var data = PeerIdManager.ArchivePeerId(peerID);
-        var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+        var id = PeerIdManager.TrackRemotePeer(peerID);
 
         var device = _deviceManager.SetState(id, NearbyDeviceState.ConnectionRequestedInbound)
             ?? _deviceManager.GetOrAddDevice(id, peerID.DisplayName, NearbyDeviceState.ConnectionRequestedInbound);
@@ -113,25 +111,25 @@ sealed partial class NearbyConnectionsImplementation
 
     Task PlatformDisconnectAsync(NearbyDevice device)
     {
-        if (_session is not null)
+        if (_session is not null
+            && PeerIdManager.TryGetRemotePeer(device.Id, out var peerID))
         {
-            var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
-            var peerID = PeerIdManager.UnarchivePeerId(peerIdData);
+            using var controlData = NSData.FromArray(ControlMessage.Encode(ControlMessageType.Disconnect));
+            _session.SendData(controlData, [peerID], MCSessionSendDataMode.Reliable, out var error);
 
-            if (peerID is not null)
+            if (error is not null)
             {
-                using var controlData = NSData.FromArray(ControlMessage.Encode(ControlMessageType.Disconnect));
-                _session.SendData(controlData, [peerID], MCSessionSendDataMode.Reliable, out var error);
+                Trace.TraceWarning("{0} - Failed to send disconnect message to device: Id={1}, DisplayName={2}, Error={3}",
+                    nameof(PlatformDisconnectAsync),
+                    device.Id,
+                    device.DisplayName,
+                    error.LocalizedDescription);
 
-                if (error is not null)
-                {
-                    Trace.TraceWarning("Failed to send disconnect control message to '{0}': {1}",
-                        device.DisplayName,
-                        error.LocalizedDescription);
-                }
+                throw new InvalidOperationException($"Failed to send disconnect message to device: Id={device.Id}, DisplayName={device.DisplayName}, Error={error.LocalizedDescription}");
             }
         }
 
+        PeerIdManager.RemoveRemotePeer(device.Id);
         var disconnectedDevice = _deviceManager.RemoveDevice(device.Id);
 
         if (disconnectedDevice is not null)
@@ -151,9 +149,15 @@ sealed partial class NearbyConnectionsImplementation
             return Task.CompletedTask;
         }
 
-        var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
-        var peerID = PeerIdManager.UnarchivePeerId(peerIdData)
-            ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
+        if (!PeerIdManager.TryGetRemotePeer(device.Id, out var peerID))
+        {
+            Trace.TraceWarning("{0} - No peer found for device: Id={1}, DisplayName{2}",
+                nameof(PlatformRequestConnectionAsync),
+                device.Id,
+                device.DisplayName);
+
+            return Task.CompletedTask;
+        }
 
         _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName))
         {
@@ -204,9 +208,10 @@ sealed partial class NearbyConnectionsImplementation
             throw new InvalidOperationException("No active session. Ensure a connection has been established before sending data.");
         }
 
-        var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
-        var peerID = PeerIdManager.UnarchivePeerId(peerIdData)
-            ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
+        if (!PeerIdManager.TryGetRemotePeer(device.Id, out var peerID))
+        {
+            throw new InvalidOperationException($"No peer found for device: Id={device.Id}, DisplayName={device.DisplayName}");
+        }
 
         return SendBytesAsync(data, peerID, progress, cancellationToken);
     }
@@ -222,20 +227,18 @@ sealed partial class NearbyConnectionsImplementation
             throw new InvalidOperationException("No active session. Ensure a connection has been established before sending data.");
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var peerIdData = new NSData(device.Id, NSDataBase64DecodingOptions.None);
-        var peerID = PeerIdManager.UnarchivePeerId(peerIdData)
-            ?? throw new InvalidOperationException($"Failed to unarchive peer ID for device: {device.DisplayName}");
+        if (!PeerIdManager.TryGetRemotePeer(device.Id, out var peerID))
+        {
+            throw new InvalidOperationException($"No peer found for device: Id={device.Id}, DisplayName={device.DisplayName}");
+        }
 
         using var nsUrl = NSUrl.FromFilename(uri);
+        using var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
         var resourceName = nsUrl.LastPathComponent ?? Path.GetFileName(uri);
-
         var sendTask = _session.SendResourceAsync(nsUrl, resourceName, peerID, out var nsProgress);
 
-        using var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
-
         IDisposable? observer = null;
+
         if (nsProgress is not null)
         {
             observer = nsProgress.AddObserver(
@@ -281,6 +284,7 @@ sealed partial class NearbyConnectionsImplementation
                 bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
                 totalBytes: nsProgress?.TotalUnitCount ?? 0,
                 NearbyTransferStatus.Failure));
+
             throw new TimeoutException(
                 $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
         }
@@ -299,7 +303,11 @@ sealed partial class NearbyConnectionsImplementation
         }
     }
 
-    Task SendBytesAsync(byte[] bytes, MCPeerID peerID, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken)
+    Task SendBytesAsync(
+        byte[] bytes,
+        MCPeerID peerID,
+        IProgress<NearbyTransferProgress>? progress,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -362,6 +370,7 @@ sealed partial class NearbyConnectionsImplementation
             observer.Dispose();
         }
         _progressObservers.Clear();
+        PeerIdManager.ClearRemotePeers();
 
         if (_session is not null)
         {
@@ -375,8 +384,7 @@ sealed partial class NearbyConnectionsImplementation
 
     public void OnPeerStateChanged(MCPeerID peerID, MCSessionState state)
     {
-        using var data = PeerIdManager.ArchivePeerId(peerID);
-        var id = data.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+        var id = PeerIdManager.PeerKey(peerID);
 
         Trace.TraceInformation("{0} - Peer state changed: Id={1}, DisplayName={2}, State={3}",
             nameof(OnPeerStateChanged),
@@ -428,12 +436,9 @@ sealed partial class NearbyConnectionsImplementation
                     // ConnectedPeers, so check whether this peer was the only remaining one
                     // while it is still present in the session's list.
                     var isLastPeer = _session is not null
-                        && _session.ConnectedPeers.All(p =>
-                        {
-                            using var archived = PeerIdManager.ArchivePeerId(p);
-                            return archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None) == id;
-                        });
+                        && _session.ConnectedPeers.All(p => PeerIdManager.PeerKey(p) == id);
 
+                    PeerIdManager.RemoveRemotePeer(id);
                     var disconnectedDevice = _deviceManager.RemoveDevice(id);
                     if (disconnectedDevice is not null)
                     {
@@ -455,8 +460,7 @@ sealed partial class NearbyConnectionsImplementation
 
     void OnDataReceived(NSData data, MCPeerID peerID)
     {
-        using var archived = PeerIdManager.ArchivePeerId(peerID);
-        var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+        var id = PeerIdManager.PeerKey(peerID);
 
         Trace.TraceInformation("{0} - Data received from peer: Id={1}, DisplayName={2}, Length={3:N0} bytes",
             nameof(OnDataReceived),
@@ -512,8 +516,7 @@ sealed partial class NearbyConnectionsImplementation
 
     void OnResourceStarted(string resourceName, MCPeerID fromPeer, NSProgress progress)
     {
-        using var archived = PeerIdManager.ArchivePeerId(fromPeer);
-        var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+        var id = PeerIdManager.PeerKey(fromPeer);
 
         Trace.TraceInformation("{0} - Started receiving resource from: Id={1}, DisplayName={2}, ResourceName={3}",
             nameof(OnResourceStarted),
@@ -522,8 +525,14 @@ sealed partial class NearbyConnectionsImplementation
             resourceName);
 
         var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
+
         if (device is null)
         {
+            Trace.TraceWarning("{0} - No peer found for device: Id={1}, DisplayName={2}",
+                nameof(OnResourceStarted),
+                id,
+                fromPeer.DisplayName);
+
             return;
         }
 
@@ -546,10 +555,13 @@ sealed partial class NearbyConnectionsImplementation
         _progressObservers[resourceName] = observer;
     }
 
-    void OnResourceFinished(string resourceName, MCPeerID fromPeer, NSUrl? localUrl, NSError? error)
+    void OnResourceFinished(
+        string resourceName,
+        MCPeerID fromPeer,
+        NSUrl? localUrl,
+        NSError? error)
     {
-        using var archived = PeerIdManager.ArchivePeerId(fromPeer);
-        var id = archived.GetBase64EncodedString(NSDataBase64EncodingOptions.None);
+        var id = PeerIdManager.PeerKey(fromPeer);
 
         Trace.TraceInformation("{0} - Finished receiving resource from: Id={1}, DisplayName={2}, ResourceName={3}, Location={4}, Error={5}",
             nameof(OnResourceFinished),
@@ -566,27 +578,59 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
+
         if (device is null)
         {
+            Trace.TraceWarning("{0} - No peer found for device: Id={1}, DisplayName={2}",
+                nameof(OnResourceFinished),
+                id,
+                fromPeer.DisplayName);
+
             return;
         }
 
-        if (error is not null || localUrl is null)
+        if (error is not null)
         {
-            Events.OnError("ReceiveFile", error?.LocalizedDescription ?? "Unknown error receiving resource", TimeProvider.GetUtcNow());
+            Events.OnError("ReceiveFile", error.LocalizedDescription, TimeProvider.GetUtcNow());
             return;
         }
 
-        var sourcePath = localUrl.Path!;
+        if (localUrl?.Path is not string sourcePath)
+        {
+            Events.OnError("ReceiveFile", "Resource URL has no file path.", TimeProvider.GetUtcNow());
+            return;
+        }
+
         var destinationPath = Path.Combine(Options.ReceivedFilesDirectory, resourceName);
 
         try
         {
             File.Copy(sourcePath, destinationPath, overwrite: true);
         }
+        catch (Exception ex)
+        {
+            Trace.TraceError("{0} - Error copying received file: Source={1}, Destination={2}, Error={3}",
+                nameof(OnResourceFinished),
+                sourcePath,
+                destinationPath,
+                ex.Message);
+
+            Events.OnError("ReceiveFile", ex.Message, TimeProvider.GetUtcNow());
+            return;
+        }
         finally
         {
-            File.Delete(sourcePath);
+            try
+            {
+                File.Delete(sourcePath);
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError("{0} - Error deleting received file: Path={1}, Error={2}",
+                    nameof(OnResourceFinished),
+                    sourcePath,
+                    ex.Message);
+            }
         }
 
         var payload = new FilePayload(new FileResult(destinationPath));

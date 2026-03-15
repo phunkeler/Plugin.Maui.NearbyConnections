@@ -41,8 +41,28 @@ public sealed class NearbyConnectionsEvents
     public event EventHandler<NearbyDeviceRespondedEventArgs>? ConnectionResponded;
 
     /// <summary>
-    /// Event fired when an operation fails.
+    /// Fired when an error occurs inside a platform callback that the caller cannot catch.
     /// </summary>
+    /// <remarks>
+    /// This library uses two error-surfacing strategies:
+    /// <list type="bullet">
+    ///   <item>
+    ///     <description>
+    ///       <b>Exceptions</b> — thrown from methods the caller directly invokes (e.g.
+    ///       <c>SendAsync</c>, <c>RequestConnectionAsync</c>). The caller is responsible
+    ///       for catching these.
+    ///     </description>
+    ///   </item>
+    ///   <item>
+    ///     <description>
+    ///       <b><see cref="ErrorOccurred"/></b> — raised for errors that originate inside
+    ///       platform callbacks (e.g. advertising/discovery failures, receive errors).
+    ///       Because these fire on platform threads outside the caller's call stack,
+    ///       exceptions cannot be caught by the caller, so the error is surfaced here instead.
+    ///     </description>
+    ///   </item>
+    /// </list>
+    /// </remarks>
     public event EventHandler<NearbyConnectionsErrorEventArgs>? ErrorOccurred;
 
     /// <summary>
