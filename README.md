@@ -34,32 +34,29 @@
 
 # Supported Platforms
 
-| Platform | Target Framework    |
-| -------- | ------------------- |
-| Android  | `net10.0-android`   |
-| iOS      | `net10.0-ios`       |
-| .NET     | `net10.0`           |
+| Platform | Minimum Version |
+| --- | --- |
+| Android | API 24 (_Android 7.0_) |
+| iOS | iOS 13.0 |
 
 # Dependencies
 
-| Dependency | Android | iOS | .NET |
-| --- | :---: | :---: | :---: |
-| [Microsoft.Extensions.DependencyInjection.Abstractions]() | ✅ | ✅  | ✅  |
-| [Microsoft.Maui.Core](https://www.nuget.org/packages/Microsoft.Maui.Core) | ✅  | ✅  | ✅  |
-| [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) | ✅ | | |
+| Dependency | Android | iOS |
+| --- | :---: | :---: |
+| [Microsoft.Extensions.DependencyInjection.Abstractions]() | ✅ | ✅ |
+| [Microsoft.Maui.Core](https://www.nuget.org/packages/Microsoft.Maui.Core) | ✅  | ✅ |
+| [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) | ✅ | |
 
-# Getting Started
+# Installation
 `Plugin.Maui.NearbyConnections` is ~~available~~ on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
 
-## **dotnet**
-
 ```bash
-dotnet add package Plugin.Maui.NearbyConnections -s https://api.nuget.org/v3/index.json
+dotnet add package Plugin.Maui.NearbyConnections
 ```
 
 </details>
 
-# Usage
+# Getting Started
 
 ## MauiProgram.cs
 
@@ -67,22 +64,8 @@ dotnet add package Plugin.Maui.NearbyConnections -s https://api.nuget.org/v3/ind
 public static MauiApp CreateMauiApp()
     => MauiApp.CreateBuilder()
         .UseMauiApp<App>()
-        .AddNearbyConnections() // Defaults
+        .AddNearbyConnections()
         .Build();
-
-```
-
-```csharp
-public static MauiApp CreateMauiApp()
-    => MauiApp.CreateBuilder()
-        .UseMauiApp<App>()
-        .AddNearbyConnections(options => // Custom Config
-        {
-            options.ServiceName = "MyService";
-            options.AutoAcceptConnections = false;
-        })
-        .Build();
-
 ```
 
 # Acknowledgements

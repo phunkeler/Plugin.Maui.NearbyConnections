@@ -67,6 +67,7 @@ public partial class ChatViewModel(
         }
 
         await chatMessageService.SendChatMessage(Device, chatMessage);
+        Message = null;
         var vm = chatMessageViewModelFactory.Create(chatMessage);
         Messages.Add(vm);
     }

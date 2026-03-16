@@ -23,11 +23,12 @@ public static class MauiAppBuilderExtensions
 
         builder.Services.TryAddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<NearbyConnectionsEvents>();
+        builder.Services.AddSingleton<INearbyDeviceManager, NearbyDeviceManager>();
         builder.Services.AddSingleton<INearbyConnections>(sp =>
         {
             var timeProvider = sp.GetRequiredService<TimeProvider>();
             var events = sp.GetRequiredService<NearbyConnectionsEvents>();
-            var deviceManager = new NearbyDeviceManager(timeProvider, events);
+            var deviceManager = sp.GetRequiredService<INearbyDeviceManager>();
             var instance = new NearbyConnectionsImplementation(deviceManager, timeProvider, events);
 
             var options = new NearbyConnectionsOptions();
