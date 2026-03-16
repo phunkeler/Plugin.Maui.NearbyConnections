@@ -9,7 +9,8 @@ public class NearbyDeviceRespondedEventArgs(
     bool accepted) : NearbyConnectionsEventArgs(nearbyDevice, timestamp)
 {
     /// <summary>
-    /// Gets a value indicating whether the connection request was accepted.
+    /// Gets a value indicating whether the connection request was accepted
+    /// or rejected.
     /// </summary>
     public bool Accepted { get; } = accepted;
 }

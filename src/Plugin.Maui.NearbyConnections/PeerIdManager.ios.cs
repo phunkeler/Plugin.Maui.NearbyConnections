@@ -26,7 +26,17 @@ static class PeerIdManager
         }
 
         peerId = new MCPeerID(displayName);
-        StorePeerId(displayName, Archive(peerId));
+
+        try
+        {
+            StorePeerId(displayName, Archive(peerId));
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError("Failed to store local peer: DisplayName={0}, Error={1}",
+                displayName,
+                ex.Message);
+        }
 
         return peerId;
     }
@@ -51,7 +61,7 @@ static class PeerIdManager
         }
         catch (Exception ex)
         {
-            Trace.TraceWarning("Failed to derive peer key for '{0}', falling back to DisplayName: {1}",
+            Trace.TraceError("Failed to derive peer key for '{0}', falling back to DisplayName: {1}",
                 peerID.DisplayName,
                 ex.Message);
 
@@ -66,7 +76,7 @@ static class PeerIdManager
     public static string TrackRemotePeer(MCPeerID peerID)
     {
         var key = PeerKey(peerID);
-        s_remotePeers[key] = peerID;
+        s_remotePeers.TryAdd(key, peerID);
         return key;
     }
 
