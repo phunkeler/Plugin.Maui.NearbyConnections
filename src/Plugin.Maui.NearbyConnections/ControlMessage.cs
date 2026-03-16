@@ -1,20 +1,10 @@
 namespace Plugin.Maui.NearbyConnections;
 
-/// <summary>
-/// Identifies the type of an internal control message.
-/// </summary>
 enum ControlMessageType : byte
 {
-    /// <summary>
-    /// Instructs the receiving peer to disconnect itself from the session.
-    /// </summary>
     Disconnect = 0x01,
 }
 
-/// <summary>
-/// Encodes and decodes internal PMNC control messages.
-/// Wire format: [uint32-LE signature] [byte type]
-/// </summary>
 internal static class ControlMessage
 {
     const uint SIGNATURE = 0x504D4E43; // = "PMNC" (Plugin.Maui.NearbyConnections)

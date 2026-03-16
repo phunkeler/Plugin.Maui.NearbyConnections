@@ -12,6 +12,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/phunkeler/Plugin.Maui.NearbyConnections</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <PackageTags>offline-first;peer-to-peer;nearby-devices;cross-platform;android;ios;dotnet-maui;maui;plugin;google-nearby;google-nearby-connections;multipeer-connectivity;wifi;bluetooth;bluetooth-ble</PackageTags>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <RepositoryType>git</RepositoryType>

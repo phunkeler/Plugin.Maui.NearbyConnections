@@ -92,7 +92,6 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             _advertiser?.StopAdvertising();
 
             throw new NearbyAdvertisingException(
-                Options.DisplayName,
                 Options,
                 $"Failed to start advertising.",
                 ex);
@@ -184,7 +183,6 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             _advertiser.StopAdvertising();
 
             throw new NearbyAdvertisingException(
-                Options.DisplayName,
                 Options,
                 "Failed stopping advertising.",
                 ex);
