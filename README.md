@@ -104,20 +104,7 @@ Add to `Info.plist`:
 
 The service ID in `NSBonjourServices` must match `NearbyConnectionsOptions.ServiceId` (_**default**: app name_).
 
-## 3. Configure options (optional)
-
-```csharp
-var nearbyConnections = NearbyConnections.Current;
-
-nearbyConnections.Options = new NearbyConnectionsOptions
-{
-    DisplayName = "My Device",    // shown to peers (default: device name)
-    ServiceId = "myapp",          // must match across all peers
-    AutoAcceptConnections = false // manually accept/reject connection requests
-};
-```
-
-## 4. Discover and connect
+## 3. Discover and connect
 
 Devices in range must advertise and/or discover simultaneously. Typically one device advertises while another discovers, or both do both.
 
@@ -154,7 +141,7 @@ nearbyConnections.Events.ConnectionRequested += async (s, e) =>
 };
 ```
 
-## 5. Send and receive data
+## 4. Send and receive data
 
 ### Send bytes
 
@@ -202,7 +189,7 @@ nearbyConnections.Events.DataReceived += (s, e) =>
 
 Received files are saved to `NearbyConnectionsOptions.ReceivedFilesDirectory` (default: `FileSystem.CacheDirectory`).
 
-## 6. Disconnect and clean up
+## 5. Disconnect and clean up
 
 ```csharp
 // Disconnect a specific peer
