@@ -24,12 +24,11 @@ public static class MauiProgram
             })
             .UseMauiCommunityToolkit()
             .UseBottomSheet()
-            .AddNearbyConnections(options =>
+            .AddNearbyConnections(new()
             {
-                options.AutoAcceptConnections = false;
-
+                AutoAcceptConnections = false,
 #if IOS
-                options.InvitationTimeout = TimeSpan.FromSeconds(10);
+                InvitationTimeout = TimeSpan.FromSeconds(10),
 #endif
             });
 

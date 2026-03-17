@@ -13,29 +13,20 @@ public static class MauiAppBuilderExtensions
     /// and optional configuration of <see cref="NearbyConnectionsOptions"/>.
     /// </summary>
     /// <param name="builder">The <see cref="MauiAppBuilder"/> to register the Plugin.Maui.NearbyConnections plugin with.</param>
-    /// <param name="configureOptions">Optional action to configure plugin options</param>
-    /// <returns>The <see cref="IServiceCollection"/> for chaining</returns>
+    /// <param name="options">Optional options to configure the plugin. If not provided, defaults are used.</param>
+    /// <returns>The <see cref="MauiAppBuilder"/> for chaining</returns>
     public static MauiAppBuilder AddNearbyConnections(
         this MauiAppBuilder builder,
-        Action<NearbyConnectionsOptions>? configureOptions = null)
+        NearbyConnectionsOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        builder.Services.TryAddSingleton(TimeProvider.System);
-        builder.Services.AddSingleton<NearbyConnectionsEvents>();
-        builder.Services.AddSingleton<INearbyDeviceManager, NearbyDeviceManager>();
-        builder.Services.AddSingleton<INearbyConnections>(sp =>
+        builder.Services.AddSingleton<INearbyConnections>(_ =>
         {
-            var timeProvider = sp.GetRequiredService<TimeProvider>();
-            var events = sp.GetRequiredService<NearbyConnectionsEvents>();
-            var deviceManager = sp.GetRequiredService<INearbyDeviceManager>();
-            var instance = new NearbyConnectionsImplementation(deviceManager, timeProvider, events);
+            var events = new NearbyConnectionsEvents();
+            var deviceManager = new NearbyDeviceManager(TimeProvider.System, events);
 
-            var options = new NearbyConnectionsOptions();
-            configureOptions?.Invoke(options);
-            instance.Options = options;
-
-            return instance;
+            return new NearbyConnectionsImplementation(deviceManager, TimeProvider.System, events, options ?? new());
         });
 
         return builder;

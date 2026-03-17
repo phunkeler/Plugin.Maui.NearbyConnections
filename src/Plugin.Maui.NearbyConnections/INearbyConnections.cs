@@ -16,11 +16,6 @@ public interface INearbyConnections : IDisposable
     NearbyConnectionsEvents Events { get; }
 
     /// <summary>
-    /// Gets or sets the options used to configure the Nearby Connections functionality.
-    /// </summary>
-    NearbyConnectionsOptions Options { get; set; }
-
-    /// <summary>
     /// Gets a value indicating whether this device is currently advertising to nearby devices.
     /// </summary>
     bool IsAdvertising { get; }

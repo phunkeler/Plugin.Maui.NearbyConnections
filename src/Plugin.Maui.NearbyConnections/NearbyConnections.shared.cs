@@ -1,24 +1,5 @@
 namespace Plugin.Maui.NearbyConnections;
 
-/// <summary>
-/// Static access to the Plugin.Maui.NearbyConnections API.
-/// </summary>
-public static class NearbyConnections
-{
-    /// <summary>
-    /// Gets the default implementation of the <see cref="INearbyConnections"/> interface.
-    /// </summary>
-    public static INearbyConnections Current
-        => field ??= CreateDefault();
-
-    static NearbyConnectionsImplementation CreateDefault()
-    {
-        var events = new NearbyConnectionsEvents();
-        var timeProvider = TimeProvider.System;
-        return new NearbyConnectionsImplementation(new NearbyDeviceManager(timeProvider, events), timeProvider, events);
-    }
-}
-
 internal sealed partial class NearbyConnectionsImplementation : INearbyConnections
 {
     readonly INearbyDeviceManager _deviceManager;
@@ -33,7 +14,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
     public NearbyConnectionsEvents Events { get; }
 
     public IReadOnlyList<NearbyDevice> Devices => _deviceManager.Devices;
-    public NearbyConnectionsOptions Options { get; set; } = new();
+    public NearbyConnectionsOptions Options { get; }
 
     [MemberNotNullWhen(true, nameof(_advertiser))]
     public bool IsAdvertising => _advertiser?.IsAdvertising ?? false;
@@ -44,15 +25,18 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
     internal NearbyConnectionsImplementation(
         INearbyDeviceManager deviceManager,
         TimeProvider timeProvider,
-        NearbyConnectionsEvents events)
+        NearbyConnectionsEvents events,
+        NearbyConnectionsOptions options)
     {
         ArgumentNullException.ThrowIfNull(deviceManager);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(events);
+        ArgumentNullException.ThrowIfNull(options);
 
         _deviceManager = deviceManager;
         TimeProvider = timeProvider;
         Events = events;
+        Options = options;
     }
 
     public async Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
