@@ -98,7 +98,7 @@ sealed partial class NearbyConnectionsImplementation
             await pending.Expiry.CancelAsync();
             pending.Expiry.Dispose();
 
-            _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName))
+            _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName), identity: null!, Options.EncryptionPreference)
             {
                 Delegate = new SessionDelegate(this)
             };
@@ -159,7 +159,7 @@ sealed partial class NearbyConnectionsImplementation
             return Task.CompletedTask;
         }
 
-        _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName))
+        _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName), identity: null!, Options.EncryptionPreference)
         {
             Delegate = new SessionDelegate(this)
         };
@@ -182,7 +182,7 @@ sealed partial class NearbyConnectionsImplementation
         pending.Expiry.Cancel();
         pending.Expiry.Dispose();
 
-        _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName))
+        _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName), identity: null!, Options.EncryptionPreference)
         {
             Delegate = new SessionDelegate(this)
         };

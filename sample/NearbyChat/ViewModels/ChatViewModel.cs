@@ -108,7 +108,7 @@ public partial class ChatViewModel(
                 Message = fileResult.FileName;
             }
         }
-        else
+        else if (choice is videoOption)
         {
             var video = await mediaPicker.PickVideosAsync();
 

@@ -31,17 +31,20 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="ConnectedDeviceViewModel">
                         <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
-                            <Grid ColumnDefinitions="Auto, *"
+                            <Grid ColumnDefinitions="*, *"
                                   ColumnSpacing="{StaticResource SpacingLG}"
                                   RowSpacing="{StaticResource SpacingLG}"
                                   RowDefinitions="*, Auto">
-                                <FeatureIconBadge
-                                    Style="{StaticResource FeatureIconBadgeConnectionsStyle}"/>
-                                <Label
-                                    Grid.Column="1"
-                                    HorizontalOptions="Start"
-                                    Style="{StaticResource CardTitle}"
-                                    Text="{Binding DisplayName}"/>
+                                <HorizontalStackLayout Grid.ColumnSpan="2"
+                                                       Spacing="{StaticResource SpacingLG}"
+                                                       HorizontalOptions="Start">
+                                    <FeatureIconBadge
+                                        Style="{StaticResource FeatureIconBadgeConnectionsStyle}"/>
+                                    <Label
+                                        HorizontalOptions="Start"
+                                        Style="{StaticResource CardTitle}"
+                                        Text="{Binding DisplayName}"/>
+                                </HorizontalStackLayout>
                                 <Button Text="Disconnect"
                                         Grid.Row="1"
                                         HeightRequest="44"
