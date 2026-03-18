@@ -200,7 +200,6 @@ sealed partial class NearbyConnectionsImplementation
     Task PlatformSendAsync(
         NearbyDevice device,
         byte[] data,
-        IProgress<NearbyTransferProgress>? progress,
         CancellationToken cancellationToken)
     {
         if (_session is null)
@@ -213,7 +212,7 @@ sealed partial class NearbyConnectionsImplementation
             throw new InvalidOperationException($"No peer found for device: Id={device.Id}, DisplayName={device.DisplayName}");
         }
 
-        return SendBytesAsync(data, peerID, progress, cancellationToken);
+        return SendBytesAsync(data, peerID, cancellationToken);
     }
 
     async Task PlatformSendAsync(
@@ -306,7 +305,6 @@ sealed partial class NearbyConnectionsImplementation
     Task SendBytesAsync(
         byte[] bytes,
         MCPeerID peerID,
-        IProgress<NearbyTransferProgress>? progress,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -318,12 +316,6 @@ sealed partial class NearbyConnectionsImplementation
         {
             throw new InvalidOperationException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}");
         }
-
-        progress?.Report(new NearbyTransferProgress(
-            payloadId: 0,
-            bytesTransferred: bytes.Length,
-            totalBytes: bytes.Length,
-            NearbyTransferStatus.Success));
 
         return Task.CompletedTask;
     }

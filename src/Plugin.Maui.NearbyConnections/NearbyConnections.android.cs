@@ -310,7 +310,6 @@ sealed partial class NearbyConnectionsImplementation
     static Task PlatformSendAsync(
         NearbyDevice device,
         byte[] data,
-        IProgress<NearbyTransferProgress>? progress,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

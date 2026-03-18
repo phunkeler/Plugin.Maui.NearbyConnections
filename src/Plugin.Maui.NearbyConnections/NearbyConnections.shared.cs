@@ -252,7 +252,6 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
     public Task SendAsync(
         NearbyDevice device,
         byte[] data,
-        IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(device);
@@ -269,7 +268,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             return Task.CompletedTask;
         }
 
-        return PlatformSendAsync(device, data, progress, cancellationToken);
+        return PlatformSendAsync(device, data, cancellationToken);
     }
 
     public Task SendAsync(
