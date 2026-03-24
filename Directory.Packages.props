@@ -10,7 +10,7 @@
   <!-- Sample -->
   <ItemGroup>
     <PackageVersion Include="CommunityToolkit.Maui" Version="14.0.1" />
-    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.1" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.2" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.41" />
     <PackageVersion Include="Plugin.Maui.BottomSheet" Version="10.0.6" />
