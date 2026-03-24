@@ -15,10 +15,7 @@ sealed partial class NearbyConnectionsImplementation
     {
         var device = _deviceManager.RecordDeviceFound(endpointId, info.EndpointName);
 
-        Trace.TraceInformation("{0} - Discovered nearby device: Id={1}, DisplayName={2}",
-            nameof(OnEndpointFound),
-            device.Id,
-            device.DisplayName);
+        LogDeviceFound(device.Id, device.DisplayName);
 
         Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
     }
@@ -28,20 +25,13 @@ sealed partial class NearbyConnectionsImplementation
         if (_deviceManager.TryGetDevice(endpointId, out var existingDevice)
             && existingDevice.State == NearbyDeviceState.Connected)
         {
-            Trace.TraceInformation("{0} - Connected device stopped advertising (connection remains): Id={1}, DisplayName={2}",
-                nameof(OnEndpointLost),
-                existingDevice.Id,
-                existingDevice.DisplayName);
-
+            LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
             return;
         }
 
         var device = _deviceManager.RemoveDevice(endpointId);
 
-        Trace.TraceInformation("{0} - Device lost: Id={1}, DisplayName={2}",
-            nameof(OnEndpointLost),
-            endpointId,
-            device?.DisplayName);
+        LogDeviceLost(endpointId, device?.DisplayName);
 
         if (device is not null)
         {
@@ -71,20 +61,13 @@ sealed partial class NearbyConnectionsImplementation
 
         if (connectionInfo.IsIncomingConnection)
         {
-            Trace.TraceInformation("{0} - Connection request received from: Id={1}, DisplayName={2}",
-                nameof(OnConnectionInitiated),
-                device.Id,
-                device.DisplayName);
+            LogConnectionRequestReceived(device.Id, device.DisplayName);
 
             Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
 
             if (Options.AutoAcceptConnections)
             {
-                Trace.TraceInformation("{0} - Auto-accepting connection request from: Id={1}, DisplayName={2}",
-                    nameof(OnConnectionInitiated),
-                    device.Id,
-                    device.DisplayName);
-
+                LogAutoAcceptingConnection(device.Id, device.DisplayName);
                 await PlatformRespondToConnectionAsync(device, accept: true);
             }
         }
@@ -105,7 +88,7 @@ sealed partial class NearbyConnectionsImplementation
     /// <param name="resolution">The final result after tallying both devices' accept/reject responses</param>
     public void OnConnectionResult(string endpointId, ConnectionResolution resolution)
     {
-        Trace.TraceInformation($"Connection result: EndpointId={endpointId}, StatusCode={resolution.Status.StatusCode}, StatusMessage={resolution.Status.StatusMessage ?? string.Empty}, IsSuccess={resolution.Status.IsSuccess}");
+        LogConnectionResult(endpointId, resolution.Status.StatusCode, resolution.Status.StatusMessage ?? string.Empty, resolution.Status.IsSuccess);
 
         if (resolution.Status.IsSuccess)
         {
@@ -134,7 +117,7 @@ sealed partial class NearbyConnectionsImplementation
     /// <param name="endpointId"></param>
     public void OnDisconnected(string endpointId)
     {
-        Trace.TraceInformation($"Disconnected from EndpointId={endpointId}");
+        LogDeviceDisconnected(endpointId);
 
         var device = _deviceManager.RemoveDevice(endpointId);
 
@@ -148,14 +131,14 @@ sealed partial class NearbyConnectionsImplementation
 
     void OnPayloadReceived(string endpointId, Payload payload)
     {
-        Trace.TraceInformation($"Payload received: EndpointId={endpointId}, PayloadId={payload.Id}, PayloadType={payload.PayloadType}");
+        LogPayloadReceived(endpointId, payload.Id, payload.PayloadType);
 
         _incomingPayloads.TryAdd(payload.Id, (endpointId, payload));
     }
 
     async Task OnPayloadTransferUpdate(string endpointId, PayloadTransferUpdate update)
     {
-        Trace.TraceInformation($"Payload transfer update: EndpointId={endpointId}, PayloadId={update.PayloadId}, TransferStatus={update.TransferStatus}, TotalBytes={update.TotalBytes}, BytesTransferred={update.BytesTransferred}");
+        LogPayloadTransferUpdate(endpointId, update.PayloadId, update.TransferStatus, update.TotalBytes, update.BytesTransferred);
 
         var status = ToNearbyTransferStatus(update.TransferStatus);
 
@@ -250,7 +233,7 @@ sealed partial class NearbyConnectionsImplementation
         }
         catch (Exception ex)
         {
-            Trace.TraceError($"{nameof(CopyFilePayloadAsync)}: Failed to copy file. Message: {ex.Message}");
+            LogFileCopyFailed(sourceUri.ToString()!, destinationPath, ex.Message);
             return null;
         }
         finally
@@ -261,7 +244,7 @@ sealed partial class NearbyConnectionsImplementation
             }
             catch (Exception ex)
             {
-                Trace.TraceError($"{nameof(CopyFilePayloadAsync)}: Failed to delete source URI. Message: {ex.Message}");
+                LogFileDeleteFailed(sourceUri.ToString()!, ex.Message);
             }
         }
 
@@ -374,7 +357,7 @@ sealed partial class NearbyConnectionsImplementation
         }
         catch (Exception ex)
         {
-            Trace.TraceError($"{nameof(BuildFilePayload)}: Error building file payload. Message: {ex.Message}");
+            LogBuildFilePayloadFailed(ex.Message);
         }
 
         return null;
@@ -392,7 +375,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (androidUri is null)
         {
-            Trace.TraceWarning($"{nameof(PlatformSendAsync)}: Cannot send file: '{uri}' is not a valid URI. Only 'file://' and 'content://' schemes are supported.");
+            LogInvalidFileUri(uri);
             return;
         }
 
@@ -458,7 +441,7 @@ sealed partial class NearbyConnectionsImplementation
         }
         catch (Exception ex)
         {
-            Trace.TraceWarning($"Could not resolve display name from content URI: {ex.Message}");
+            LogCouldNotResolveContentUriName(ex.Message);
             return Guid.NewGuid().ToString("N");
         }
     }

@@ -19,7 +19,6 @@ internal sealed partial class NearbyConnectionsImplementation
     Task PlatformSendAsync(
         NearbyDevice device,
         byte[] data,
-        IProgress<NearbyTransferProgress>? progress,
         CancellationToken cancellationToken) => throw new PlatformNotSupportedException(PlatformNotSupportedMessage);
 
     Task PlatformSendAsync(

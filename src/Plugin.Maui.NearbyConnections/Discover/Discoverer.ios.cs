@@ -7,7 +7,7 @@ sealed partial class Discoverer : NSObject, IMCNearbyServiceBrowserDelegate
     Task PlatformStartDiscovering()
     {
         var options = _nearbyConnections.Options;
-        var myPeerId = PeerIdManager.GetLocalPeerId(options.DisplayName);
+        var myPeerId = _nearbyConnections.PeerIdManager.GetLocalPeerId(options.DisplayName);
 
         _browser = new MCNearbyServiceBrowser(
             myPeerID: myPeerId,

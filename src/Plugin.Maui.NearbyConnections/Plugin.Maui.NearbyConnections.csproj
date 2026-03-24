@@ -13,4 +13,8 @@
     <InternalsVisibleTo Include="Plugin.Maui.NearbyConnections.UnitTests" />
 	</ItemGroup>
 
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
 </Project>

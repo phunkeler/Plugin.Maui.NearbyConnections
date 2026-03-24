@@ -14,10 +14,7 @@ sealed partial class NearbyConnectionsImplementation
         var id = PeerIdManager.TrackRemotePeer(peerID);
         var device = _deviceManager.RecordDeviceFound(id, peerID.DisplayName);
 
-        Trace.TraceInformation("{0} - Discovered nearby device: Id={1}, DisplayName={2}",
-            nameof(FoundPeer),
-            device.Id,
-            device.DisplayName);
+        LogDeviceFound(device.Id, device.DisplayName);
 
         Events.OnDeviceFound(device, TimeProvider.GetUtcNow());
     }
@@ -29,21 +26,14 @@ sealed partial class NearbyConnectionsImplementation
         if (_deviceManager.TryGetDevice(id, out var existingDevice)
             && existingDevice.State == NearbyDeviceState.Connected)
         {
-            Trace.TraceInformation("{0} - Connected device stopped advertising (connection remains): Id={1}, DisplayName={2}",
-                nameof(LostPeer),
-                existingDevice.Id,
-                existingDevice.DisplayName);
-
+            LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
             return;
         }
 
         PeerIdManager.RemoveRemotePeer(id);
         var device = _deviceManager.RemoveDevice(id);
 
-        Trace.TraceInformation("{0} - Device lost: Id={1}, DisplayName={2}",
-            nameof(LostPeer),
-            id,
-            device?.DisplayName);
+        LogDeviceLost(id, device?.DisplayName);
 
         if (device is not null)
         {
@@ -80,20 +70,14 @@ sealed partial class NearbyConnectionsImplementation
         expiry.Token.Register(() => OnInvitationExpired(device));
         _pendingInvitations.TryAdd(id, (invitationHandler, expiry));
 
-        Trace.TraceInformation("{0} - Connection request received from: Id={1}, DisplayName={2}",
-                nameof(DidReceiveInvitationFromPeer),
-                device.Id,
-                device.DisplayName);
+        LogConnectionRequestReceived(device.Id, device.DisplayName);
 
         Events.OnConnectionRequested(device, TimeProvider.GetUtcNow());
 
         if (Options.AutoAcceptConnections
             && _pendingInvitations.TryRemove(id, out var pending))
         {
-            Trace.TraceInformation("{0} - Auto-accepting connection request from: Id={1}, DisplayName={2}",
-                nameof(DidReceiveInvitationFromPeer),
-                device.Id,
-                device.DisplayName);
+            LogAutoAcceptingConnection(device.Id, device.DisplayName);
 
             await pending.Expiry.CancelAsync();
             pending.Expiry.Dispose();
@@ -119,11 +103,7 @@ sealed partial class NearbyConnectionsImplementation
 
             if (error is not null)
             {
-                Trace.TraceWarning("{0} - Failed to send disconnect message to device: Id={1}, DisplayName={2}, Error={3}",
-                    nameof(PlatformDisconnectAsync),
-                    device.Id,
-                    device.DisplayName,
-                    error.LocalizedDescription);
+                LogFailedToSendDisconnect(device.Id, device.DisplayName, error.LocalizedDescription);
 
                 throw new InvalidOperationException($"Failed to send disconnect message to device: Id={device.Id}, DisplayName={device.DisplayName}, Error={error.LocalizedDescription}");
             }
@@ -151,11 +131,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (!PeerIdManager.TryGetRemotePeer(device.Id, out var peerID))
         {
-            Trace.TraceWarning("{0} - No peer found for device: Id={1}, DisplayName{2}",
-                nameof(PlatformRequestConnectionAsync),
-                device.Id,
-                device.DisplayName);
-
+            LogNoPeerFoundForDevice(device.Id, device.DisplayName);
             return Task.CompletedTask;
         }
 
@@ -327,11 +303,7 @@ sealed partial class NearbyConnectionsImplementation
             return;
         }
 
-        Trace.TraceInformation("{0} - Invitation from: Id={1}, DisplayName={2}, expired after {3} seconds",
-            nameof(OnInvitationExpired),
-            device.Id,
-            device.DisplayName,
-            Options.InvitationTimeout.TotalSeconds);
+        LogInvitationExpired(device.Id, device.DisplayName, Options.InvitationTimeout.TotalSeconds);
 
         expired.Expiry.Dispose();
         expired.Handler(false, null);
@@ -378,11 +350,7 @@ sealed partial class NearbyConnectionsImplementation
     {
         var id = PeerIdManager.PeerKey(peerID);
 
-        Trace.TraceInformation("{0} - Peer state changed: Id={1}, DisplayName={2}, State={3}",
-            nameof(OnPeerStateChanged),
-            id,
-            peerID.DisplayName,
-            state);
+        LogPeerStateChanged(id, peerID.DisplayName, state);
 
         switch (state)
         {
@@ -454,22 +422,13 @@ sealed partial class NearbyConnectionsImplementation
     {
         var id = PeerIdManager.PeerKey(peerID);
 
-        Trace.TraceInformation("{0} - Data received from peer: Id={1}, DisplayName={2}, Length={3:N0} bytes",
-            nameof(OnDataReceived),
-            id,
-            peerID.DisplayName,
-            data.Length);
+        LogDataReceived(id, peerID.DisplayName, (long)data.Length);
 
         var bytes = data.ToArray();
 
         if (ControlMessage.TryDecode(bytes, out var controlType))
         {
-            Trace.TraceInformation("{0} - Control message received from peer: Id={1}, DisplayName={2}, Type={3}",
-                nameof(OnDataReceived),
-                id,
-                peerID.DisplayName,
-                controlType);
-
+            LogControlMessageReceived(id, peerID.DisplayName, controlType);
             HandleControlMessage(controlType);
             return;
         }
@@ -478,11 +437,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (device is null)
         {
-            Trace.TraceWarning("{0} - Dropping received data from unknown peer: Id={1}, DisplayName={2}",
-                nameof(OnDataReceived),
-                id,
-                peerID.DisplayName);
-
+            LogDroppingDataFromUnknownPeer(id, peerID.DisplayName);
             return;
         }
 
@@ -495,13 +450,11 @@ sealed partial class NearbyConnectionsImplementation
         switch (type)
         {
             case ControlMessageType.Disconnect:
-                Trace.TraceInformation("{0} - Disconnecting from session.", nameof(HandleControlMessage));
+                LogDisconnectingFromSession();
                 _session?.Disconnect();
                 break;
             default:
-                Trace.TraceWarning("{0} - Unknown control message type: {1}",
-                    nameof(HandleControlMessage),
-                    type);
+                LogUnknownControlMessageType(type);
                 break;
         }
     }
@@ -510,21 +463,13 @@ sealed partial class NearbyConnectionsImplementation
     {
         var id = PeerIdManager.PeerKey(fromPeer);
 
-        Trace.TraceInformation("{0} - Started receiving resource from: Id={1}, DisplayName={2}, ResourceName={3}",
-            nameof(OnResourceStarted),
-            id,
-            fromPeer.DisplayName,
-            resourceName);
+        LogResourceReceiveStarted(id, fromPeer.DisplayName, resourceName);
 
         var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
 
         if (device is null)
         {
-            Trace.TraceWarning("{0} - No peer found for device: Id={1}, DisplayName={2}",
-                nameof(OnResourceStarted),
-                id,
-                fromPeer.DisplayName);
-
+            LogNoPeerFoundForDevice(id, fromPeer.DisplayName);
             return;
         }
 
@@ -555,14 +500,7 @@ sealed partial class NearbyConnectionsImplementation
     {
         var id = PeerIdManager.PeerKey(fromPeer);
 
-        Trace.TraceInformation("{0} - Finished receiving resource from: Id={1}, DisplayName={2}, ResourceName={3}, Location={4}, Error={5}",
-            nameof(OnResourceFinished),
-            id,
-            fromPeer.DisplayName,
-            resourceName,
-            localUrl,
-            error);
-
+        LogResourceReceiveFinished(id, fromPeer.DisplayName, resourceName, localUrl?.ToString(), error?.LocalizedDescription);
 
         if (_progressObservers.TryRemove(resourceName, out var observer))
         {
@@ -573,11 +511,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (device is null)
         {
-            Trace.TraceWarning("{0} - No peer found for device: Id={1}, DisplayName={2}",
-                nameof(OnResourceFinished),
-                id,
-                fromPeer.DisplayName);
-
+            LogNoPeerFoundForDevice(id, fromPeer.DisplayName);
             return;
         }
 
@@ -601,12 +535,7 @@ sealed partial class NearbyConnectionsImplementation
         }
         catch (Exception ex)
         {
-            Trace.TraceError("{0} - Error copying received file: Source={1}, Destination={2}, Error={3}",
-                nameof(OnResourceFinished),
-                sourcePath,
-                destinationPath,
-                ex.Message);
-
+            LogFileCopyFailed(sourcePath, destinationPath, ex.Message);
             Events.OnError("ReceiveFile", ex.Message, TimeProvider.GetUtcNow());
             return;
         }
@@ -618,10 +547,7 @@ sealed partial class NearbyConnectionsImplementation
             }
             catch (Exception ex)
             {
-                Trace.TraceError("{0} - Error deleting received file: Path={1}, Error={2}",
-                    nameof(OnResourceFinished),
-                    sourcePath,
-                    ex.Message);
+                LogFileDeleteFailed(sourcePath, ex.Message);
             }
         }
 

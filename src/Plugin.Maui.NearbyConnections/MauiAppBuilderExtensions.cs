@@ -21,12 +21,22 @@ public static class MauiAppBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        builder.Services.AddSingleton<INearbyConnections>(_ =>
+        builder.Services.AddSingleton<INearbyConnections>(sp =>
         {
             var events = new NearbyConnectionsEvents();
             var deviceManager = new NearbyDeviceManager(TimeProvider.System, events);
+            var logger = sp.GetRequiredService<ILogger<NearbyConnectionsImplementation>>();
 
-            return new NearbyConnectionsImplementation(deviceManager, TimeProvider.System, events, options ?? new());
+            return new NearbyConnectionsImplementation(
+                deviceManager,
+                TimeProvider.System,
+                events,
+                options ?? new(),
+                logger
+#if IOS
+                , new PeerIdManager(sp.GetRequiredService<ILogger<PeerIdManager>>())
+#endif
+            );
         });
 
         return builder;
