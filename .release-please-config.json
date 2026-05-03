@@ -1,0 +1,4 @@
+{
+  "release-type": "simple",
+  "extra-files": ["version.txt"]
+}

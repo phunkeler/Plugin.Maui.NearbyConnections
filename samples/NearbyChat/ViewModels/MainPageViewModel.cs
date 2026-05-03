@@ -1,0 +1,69 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using NearbyChat.Messages;
+using NearbyChat.Services;
+using Plugin.Maui.NearbyConnections;
+
+namespace NearbyChat.ViewModels;
+
+public partial class MainPageViewModel : BasePageViewModel,
+    IRecipient<AdvertisingStateChangedMessage>,
+    IRecipient<DiscoveringStateChangedMessage>,
+    IRecipient<ConnectedDevicesCountChangedMessage>
+{
+    readonly INavigationService _navigationService;
+    readonly INearbyConnectionsService _nearbyConnectionsService;
+
+    [ObservableProperty]
+    public partial bool IsAdvertising { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsDiscovering { get; set; }
+
+    [ObservableProperty]
+    public partial int ConnectedDevicesCount { get; set; }
+
+    public MainPageViewModel(
+        IDispatcher dispatcher,
+        IMessenger messenger,
+        INavigationService navigationService,
+        INearbyConnectionsService nearbyConnectionsService)
+        : base(dispatcher, messenger)
+    {
+        ArgumentNullException.ThrowIfNull(navigationService);
+        ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
+
+        _navigationService = navigationService;
+        _nearbyConnectionsService = nearbyConnectionsService;
+    }
+
+    protected override void NavigatedTo()
+    {
+        IsAdvertising = _nearbyConnectionsService.IsAdvertising;
+        IsDiscovering = _nearbyConnectionsService.IsDiscovering;
+        ConnectedDevicesCount = _nearbyConnectionsService.Devices.Count(d => d.State == NearbyDeviceState.Connected);
+        base.NavigatedTo();
+    }
+
+    [RelayCommand]
+    Task NavigateToAdvertising()
+        => _navigationService.GoToAsync<AdvertisingPageViewModel>();
+
+    [RelayCommand]
+    Task NavigateToDiscovery()
+        => _navigationService.GoToAsync<DiscoveryPageViewModel>();
+
+    [RelayCommand]
+    Task NavigateToConnections()
+        => _navigationService.GoToAsync<ConnectionsPageViewModel>();
+
+    public async void Receive(AdvertisingStateChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => IsAdvertising = message.Value);
+
+    public async void Receive(ConnectedDevicesCountChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => ConnectedDevicesCount = message.Value);
+
+    public async void Receive(DiscoveringStateChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => IsDiscovering = message.Value);
+}

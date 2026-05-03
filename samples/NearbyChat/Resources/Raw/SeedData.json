@@ -1,0 +1,239 @@
+{
+    "Avatars": [
+        {
+            "BackgroundColor": "#ffd966",
+            "BorderColor": "#ffd966",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "A",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#ffb3b3",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "B",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#b3d9ff",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "C",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#b3ffb3",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "D",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#ffb3ff",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "E",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#ffffb3",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "F",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#d9b3ff",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "G",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#ffb3d9",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "H",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#b3ffff",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "I",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#ffdbb3",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "J",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#e6e6e6",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "K",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#a3a3a3",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "L",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#737373",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "M",
+            "TextColor": "#ffffff"
+        },
+        {
+            "BackgroundColor": "#404040",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "N",
+            "TextColor": "#ffffff"
+        },
+        {
+            "BackgroundColor": "#000000",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "O",
+            "TextColor": "#ffffff"
+        },
+        {
+            "BackgroundColor": "#ff6666",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "P",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#66b3ff",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "Q",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#66ff66",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "R",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#ff66ff",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "S",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#ffff66",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "T",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#c266ff",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "U",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#ff66b3",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "V",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#66ffff",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "W",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#ff9966",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "X",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#999999",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "Y",
+            "TextColor": "#000000"
+        },
+        {
+            "BackgroundColor": "#333333",
+            "BorderColor": "Transparent",
+            "BorderWidth": 1,
+            "ImageSource": "",
+            "Padding": 0,
+            "Text": "Z",
+            "TextColor": "#ffffff"
+        }
+
+    ]
+}

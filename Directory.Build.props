@@ -1,0 +1,33 @@
+<Project>
+  <PropertyGroup>
+    <NetVersion>net10.0</NetVersion>
+    <AndroidPlatform>android</AndroidPlatform>
+    <IosPlatform>ios</IosPlatform>
+    <AndroidTargetFramework>$(NetVersion)-$(AndroidPlatform)</AndroidTargetFramework>
+    <IosTargetFramework>$(NetVersion)-$(IosPlatform)</IosTargetFramework>
+    <MobileTargetFrameworks>$(AndroidTargetFramework);$(IosTargetFramework)</MobileTargetFrameworks>
+
+    <IsTargetPlatformAndroid>false</IsTargetPlatformAndroid>
+    <IsTargetPlatformAndroid Condition="'$(TargetFramework)' == '$(AndroidTargetFramework)'">true</IsTargetPlatformAndroid>
+    <IsTargetPlatformIos>false</IsTargetPlatformIos>
+    <IsTargetPlatformIos Condition="'$(TargetFramework)' == '$(IosTargetFramework)'">true</IsTargetPlatformIos>
+    <IsTargetPlatformNet>false</IsTargetPlatformNet>
+    <IsTargetPlatformNet Condition="'$(TargetFramework)' == '$(NetVersion)'">true</IsTargetPlatformNet>
+
+    <SupportedOSPlatformVersion Condition="'$(TargetFramework)' == '$(AndroidTargetFramework)'">24</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="'$(TargetFramework)' == '$(IosTargetFramework)'">13.0</SupportedOSPlatformVersion>
+
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<BasePage
+    x:Class="NearbyChat.Pages.ConnectionsPage"
+    x:Name="this"
+    x:TypeArguments="ConnectionsPageViewModel"
+    Background="{AppThemeBinding Light={StaticResource LightBackgroundGradient}, Dark={StaticResource DarkBackgroundGradient}}"
+    x:DataType="ConnectionsPageViewModel">
+
+    <BasePage.Content>
+        <Grid RowDefinitions="Auto,*"
+              RowSpacing="{StaticResource SpacingXL}"
+              Margin="{StaticResource SpacingXL}">
+            <Button Text="Back"
+                    Command="{Binding BackCommand}"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Start"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                    FontAttributes="Bold"
+                    BorderWidth="1"
+                    BorderColor="{AppThemeBinding Light=Black, Dark=Gray}"
+                    CornerRadius="12"
+                    FontSize="{StaticResource FontSizeMD}"/>
+
+            <CollectionView
+                Margin="0,-8,0,0"
+                Grid.Row="2"
+                ItemsSource="{Binding ConnectedDevices}"
+                VerticalScrollBarVisibility="Never"
+                HorizontalScrollBarVisibility="Never">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="ConnectedDeviceViewModel">
+                        <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
+                            <Grid ColumnDefinitions="*, *"
+                                  ColumnSpacing="{StaticResource SpacingLG}"
+                                  RowSpacing="{StaticResource SpacingLG}"
+                                  RowDefinitions="*, Auto">
+                                <HorizontalStackLayout Grid.ColumnSpan="2"
+                                                       Spacing="{StaticResource SpacingLG}"
+                                                       HorizontalOptions="Start">
+                                    <FeatureIconBadge
+                                        Style="{StaticResource FeatureIconBadgeConnectionsStyle}"/>
+                                    <Label
+                                        HorizontalOptions="Start"
+                                        Style="{StaticResource CardTitle}"
+                                        Text="{Binding DisplayName}"/>
+                                </HorizontalStackLayout>
+                                <Button Text="Disconnect"
+                                        Grid.Row="1"
+                                        HeightRequest="44"
+                                        Command="{Binding DisconnectCommand}"
+                                        BackgroundColor="{StaticResource StatusError}"
+                                        TextColor="White"
+                                        FontAttributes="Bold"
+                                        CornerRadius="12"
+                                        FontSize="{StaticResource FontSizeSM}"/>
+                                <Button Text="Chat"
+                                        Grid.Row="1"
+                                        Grid.Column="1"
+                                        HeightRequest="44"
+                                        Command="{Binding ChatCommand}"
+                                        BackgroundColor="{StaticResource AccentDiscovery}"
+                                        TextColor="White"
+                                        FontAttributes="Bold"
+                                        CornerRadius="12"
+                                        FontSize="{StaticResource FontSizeSM}"/>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout Spacing="{StaticResource SpacingLG}">
+                        <Image
+                            x:Name="MessageIcon"
+                            WidthRequest="56"
+                            HeightRequest="56">
+                            <Image.Source>
+                                <FontImageSource x:Name="MessageIconSource"
+                                                 FontFamily="NearbyChatIcons"
+                                                 Glyph="{StaticResource icon-message}"
+                                                 Color="{StaticResource AccentConnections}"/>
+                            </Image.Source>
+                        </Image>
+                        <Label
+                            TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                            Text="Active Connections"
+                            FontSize="{StaticResource FontSizeMD}"
+                            HorizontalTextAlignment="Center">
+                        </Label>
+                        <Label
+                            TextColor="{AppThemeBinding Light={StaticResource LightTextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                            Text="No active connections yet"
+                            HorizontalTextAlignment="Center">
+                        </Label>
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+            </CollectionView>
+        </Grid>
+    </BasePage.Content>
+</BasePage>

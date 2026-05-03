@@ -1,0 +1,16 @@
+namespace Plugin.Maui.NearbyConnections;
+
+/// <summary>
+/// Provides data for the <see cref="INearbyConnections.ConnectionResponded"/> event.
+/// </summary>
+public class NearbyDeviceRespondedEventArgs(
+    NearbyDevice nearbyDevice,
+    DateTimeOffset timestamp,
+    bool accepted) : NearbyConnectionsEventArgs(nearbyDevice, timestamp)
+{
+    /// <summary>
+    /// Gets a value indicating whether the connection request was accepted
+    /// or rejected.
+    /// </summary>
+    public bool Accepted { get; } = accepted;
+}

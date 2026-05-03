@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>$(MobileTargetFrameworks)</TargetFrameworks>
+
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NearbyChat</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <PublishTrimmed>true</PublishTrimmed>
+
+    <ApplicationTitle>NearbyChat</ApplicationTitle>
+    <ApplicationId>com.phunkeler.nearbychat</ApplicationId>
+    <MauiXamlInflator>SourceGen</MauiXamlInflator>
+
+    <SupportedOSPlatformVersion Condition="$(IsTargetPlatformIos) == true">15.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$(IsTargetPlatformAndroid) == true">21.0</SupportedOSPlatformVersion>
+
+    <NoWarn>CA1822</NoWarn>
+    <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
+    <DefineConstants>$(DefineConstants);MauiAllowImplicitXmlnsDeclaration</DefineConstants>
+    <DefineConstants Condition="$(RuntimeIdentifier.Contains('simulator'))">$(DefineConstants);IOS_SIMULATOR</DefineConstants>
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+    <MauiSplashScreen Include="..\..\.assets\nuget.svg" Color="#512BD4" BaseSize="128,128" />
+    <MauiImage Include="Resources\Images\*" />
+    <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    <MauiFont Include="Resources\Fonts\*" />
+
+    <TrimmerRootAssembly Include="Plugin.Maui.NearbyConnections" RootMode="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Maui" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="Plugin.Maui.BottomSheet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Plugin.Maui.NearbyConnections\Plugin.Maui.NearbyConnections.csproj" />
+  </ItemGroup>
+</Project>
+

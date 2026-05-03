@@ -1,0 +1,7 @@
+{
+    "recommendations": [
+        "ms-dotnettools.dotnet-maui",
+        "editorconfig.editorconfig",
+        "sonarsource.sonarlint-vscode"
+    ]
+}

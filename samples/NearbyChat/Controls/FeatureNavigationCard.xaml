@@ -1,0 +1,61 @@
+<ContentView
+    x:Class="NearbyChat.Controls.FeatureNavigationCard"
+    x:Name="this"
+    x:DataType="FeatureNavigationCard">
+
+    <Border x:Name="CardBorder"
+            Style="{StaticResource FeatureNavigationCardBorderStyle}">
+        <Border.GestureRecognizers>
+            <TapGestureRecognizer Command="{Binding Command, Source={x:Reference this}}"
+                                  CommandParameter="{Binding CommandParameter, Source={x:Reference this}}"/>
+        </Border.GestureRecognizers>
+
+        <!-- Main Content -->
+        <Grid ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="{StaticResource SpacingLG}">
+
+            <FeatureIconBadge Style="{Binding FeatureIconBadgeStyle, Source={x:Reference this}}"/>
+
+
+            <!-- Text Content -->
+            <VerticalStackLayout Grid.Column="1"
+                                 VerticalOptions="Center"
+                                 Spacing="4">
+                <Label Text="{Binding Title, Source={x:Reference this}}"
+                       Style="{StaticResource CardTitle}"/>
+                <Label
+                    Style="{StaticResource CardSubtitle}">
+
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label"
+                                     Binding="{Binding FeatureIsActive, Source={x:Reference this}}"
+                                     Value="True">
+                            <Setter Property="Text"
+                                    Value="{Binding ActiveSubtitle, Source={x:Reference this}}"/>
+                        </DataTrigger>
+                        <DataTrigger TargetType="Label"
+                                     Binding="{Binding FeatureIsActive, Source={x:Reference this}}"
+                                     Value="False">
+                            <Setter Property="Text"
+                                    Value="{Binding Subtitle, Source={x:Reference this}}"/>
+                        </DataTrigger>
+                    </Label.Triggers>
+
+                </Label>
+            </VerticalStackLayout>
+
+            <!-- Chevron -->
+            <Image
+                Grid.Column="2"
+                WidthRequest="12"
+                HeightRequest="12">
+                <Image.Source>
+                    <FontImageSource FontFamily="NearbyChatIcons"
+                                     Glyph="{StaticResource icon-right}"
+                                     Color="{AppThemeBinding Light={StaticResource LightTextSecondary}, Dark={StaticResource DarkTextSecondary}}"/>
+                </Image.Source>
+            </Image>
+        </Grid>
+    </Border>
+
+</ContentView>

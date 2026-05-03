@@ -1,0 +1,137 @@
+<BasePage
+    x:Class="NearbyChat.Pages.DiscoveryPage"
+    x:Name="this"
+    x:TypeArguments="DiscoveryPageViewModel"
+    Background="{AppThemeBinding Light={StaticResource LightBackgroundGradient}, Dark={StaticResource DarkBackgroundGradient}}"
+    x:DataType="DiscoveryPageViewModel">
+
+    <BasePage.Content>
+        <Grid RowDefinitions="Auto,Auto,*"
+              RowSpacing="{StaticResource SpacingXL}"
+              Margin="{StaticResource SpacingXL}">
+            <Button Text="Back"
+                    Command="{Binding BackCommand}"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Start"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                    FontAttributes="Bold"
+                    BorderWidth="1"
+                    BorderColor="{AppThemeBinding Light=Black, Dark=White}"
+                    CornerRadius="12"
+                    FontSize="{StaticResource FontSizeMD}"/>
+            <ConnectedDevicesChip
+                Count="{Binding ConnectedDevicesCount}"
+                Command="{Binding NavigateToConnectionsCommand}"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>
+            <FeatureControlCard
+                VerticalOptions="Start"
+                Grid.Row="1"
+                FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeDiscoverStyle}"
+                Title="Discovery Mode"
+                ActiveSubtitle="Scanning"
+                InactiveSubtitle="Not scanning"
+                ActiveButtonText="Stop Discovery"
+                InactiveButtonText="Start Discovery"
+                ActiveButtonColor="{StaticResource AccentDiscovery}"
+                InactiveButtonColor="{AppThemeBinding Light={StaticResource LightSurfaceSecondary}, Dark={StaticResource DarkSurfaceSecondary}}"
+                FeatureIsActive="{Binding IsDiscovering}"
+                Command="{Binding ToggleDiscoveryCommand}"/>
+
+            <CollectionView
+                Margin="0,-8,0,0"
+                Grid.Row="2"
+                ItemsSource="{Binding DiscoveredDevices}"
+                VerticalScrollBarVisibility="Never"
+                HorizontalScrollBarVisibility="Never">
+                <CollectionView.Header>
+                    <Label
+                        Margin="{StaticResource SpacingSM}"
+                        IsVisible="{Binding DiscoveredDevices.Count, Converter={StaticResource intToBoolConverter}}"
+                        Text="Nearby Devices"
+                        Style="{StaticResource ListHeader}"/>
+                </CollectionView.Header>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="DiscoveredDeviceViewModel">
+                        <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
+                            <Grid RowDefinitions="*, *, Auto"
+                                  RowSpacing="{StaticResource SpacingSM}">
+                                <Label
+                                    HorizontalOptions="Start"
+                                    Style="{StaticResource CardTitle}"
+                                    Text="{Binding DisplayName}"/>
+                                <Border
+                                    Stroke="Transparent"
+                                    WidthRequest="20"
+                                    HeightRequest="20"
+                                    HorizontalOptions="End"
+                                    StrokeShape="RoundRectangle 10"
+                                    Background="{Binding State, Converter={StaticResource nearbyDeviceStateColorConverter}}">
+                                    <Image
+                                        WidthRequest="10"
+                                        HeightRequest="10">
+                                        <Image.Source>
+                                            <FontImageSource
+                                                FontFamily="NearbyChatIcons"
+                                                Glyph="{Binding State, Converter={StaticResource nearbyDeviceStateGlyphConverter}}"
+                                                Color="White"/>
+                                        </Image.Source>
+                                    </Image>
+                                </Border>
+                                <Label
+                                    Grid.Row="1"
+                                    HorizontalOptions="Start"
+                                    Style="{StaticResource CardSubtitle}"
+                                    Text="{Binding LastSeen, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
+                                <Button
+                                    Grid.Row="2"
+                                    HeightRequest="44"
+                                    Text="Connect"
+                                    Command="{Binding ConnectCommand}"
+                                    BackgroundColor="{StaticResource AccentConnections}"
+                                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                    FontAttributes="Bold"
+                                    CornerRadius="12"
+                                    FontSize="{StaticResource FontSizeSM}"/>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout Spacing="{StaticResource SpacingLG}">
+                        <Image
+                            x:Name="SonarIcon"
+                            WidthRequest="56"
+                            HeightRequest="56">
+                            <Image.Source>
+                                <FontImageSource x:Name="SonarIconSource"
+                                                 FontFamily="NearbyChatIcons"
+                                                 Glyph="{StaticResource icon-sonar}"
+                                                 Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
+                            </Image.Source>
+                        </Image>
+                        <Label
+                            TextColor="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"
+                            HorizontalTextAlignment="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label"
+                                             Binding="{Binding IsDiscovering}"
+                                             Value="False">
+                                    <Setter Property="Text"
+                                            Value="Start discovering nearby devices"/>
+                                </DataTrigger>
+                                <DataTrigger TargetType="Label"
+                                             Binding="{Binding IsDiscovering}"
+                                             Value="True">
+                                    <Setter Property="Text"
+                                            Value="Scanning for nearby devices..."/>
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+            </CollectionView>
+        </Grid>
+    </BasePage.Content>
+</BasePage>

@@ -1,0 +1,38 @@
+name: Publish to NuGet
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: macos-latest
+    environment: nuget
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Required for MinVer to resolve the version from git tags
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore workloads
+        run: dotnet workload restore src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj
+
+      - name: Pack
+        run: dotnet pack src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release --output nupkgs
+
+      - name: Login to NuGet.org (OIDC)
+        uses: NuGet/login@v1.2.0
+        id: login
+        with:
+          user: phunkeler
+
+      - name: Push to NuGet.org
+        run: dotnet nuget push nupkgs/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

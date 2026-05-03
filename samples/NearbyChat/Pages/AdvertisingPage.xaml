@@ -1,0 +1,154 @@
+<BasePage
+    x:Class="NearbyChat.Pages.AdvertisingPage"
+    x:Name="this"
+    x:TypeArguments="AdvertisingPageViewModel"
+    Background="{AppThemeBinding Light={StaticResource LightBackgroundGradient}, Dark={StaticResource DarkBackgroundGradient}}"
+    x:DataType="AdvertisingPageViewModel">
+
+    <BasePage.Content>
+        <Grid RowDefinitions="Auto,Auto,*"
+              RowSpacing="{StaticResource SpacingXL}"
+              Margin="{StaticResource SpacingXL}">
+            <Button Text="Back"
+                    Command="{Binding BackCommand}"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Start"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                    FontAttributes="Bold"
+                    BorderWidth="1"
+                    BorderColor="{AppThemeBinding Light=Black, Dark=Gray}"
+                    CornerRadius="12"
+                    FontSize="{StaticResource FontSizeMD}"/>
+            <ConnectedDevicesChip
+                Count="{Binding ConnectedDevicesCount}"
+                Command="{Binding NavigateToConnectionsCommand}"
+                HorizontalOptions="End"
+                VerticalOptions="Center"/>
+            <FeatureControlCard
+                VerticalOptions="Start"
+                Grid.Row="1"
+                FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeAdvertiseStyle}"
+                Title="Advertising Mode"
+                ActiveSubtitle="Broadcasting"
+                InactiveSubtitle="Not advertising"
+                ActiveButtonText="Stop Advertising"
+                InactiveButtonText="Start Advertising"
+                ActiveButtonColor="{StaticResource AccentAdvertising}"
+                InactiveButtonColor="{AppThemeBinding Light={StaticResource LightSurfaceSecondary}, Dark={StaticResource DarkSurfaceSecondary}}"
+                FeatureIsActive="{Binding IsAdvertising}"
+                Command="{Binding ToggleAdvertisingCommand}"/>
+
+            <CollectionView
+                Margin="0,-8,0,0"
+                Grid.Row="2"
+                ItemsSource="{Binding AdvertisedDevices}"
+                VerticalScrollBarVisibility="Never"
+                HorizontalScrollBarVisibility="Never">
+                <CollectionView.Header>
+                    <Label
+                        Margin="{StaticResource SpacingSM}"
+                        IsVisible="{Binding AdvertisedDevices.Count, Converter={StaticResource intToBoolConverter}}"
+                        Text="Nearby Devices"
+                        Style="{StaticResource ListHeader}"/>
+                </CollectionView.Header>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="AdvertisedDeviceViewModel">
+                        <Border Style="{StaticResource FeatureNavigationCardBorderStyle}">
+                            <Grid RowDefinitions="*, *, Auto"
+                                  ColumnDefinitions="*, *"
+                                  RowSpacing="{StaticResource SpacingSM}">
+                                <Label
+                                    HorizontalOptions="Start"
+                                    Grid.ColumnSpan="2"
+                                    Style="{StaticResource CardTitle}"
+                                    Text="{Binding DisplayName}"/>
+
+                                <Border
+                                    Grid.ColumnSpan="2"
+                                    Stroke="Transparent"
+                                    WidthRequest="20"
+                                    HeightRequest="20"
+                                    HorizontalOptions="End"
+                                    StrokeShape="RoundRectangle 10"
+                                    Background="{Binding State, Converter={StaticResource nearbyDeviceStateColorConverter}}">
+                                    <Image
+                                        WidthRequest="10"
+                                        HeightRequest="10">
+                                        <Image.Source>
+                                            <FontImageSource
+                                                FontFamily="NearbyChatIcons"
+                                                Glyph="{Binding State, Converter={StaticResource nearbyDeviceStateGlyphConverter}}"
+                                                Color="White"/>
+                                        </Image.Source>
+                                    </Image>
+                                </Border>
+                                <Label
+                                    Grid.Row="1"
+                                    Grid.ColumnSpan="2"
+                                    HorizontalOptions="Start"
+                                    Style="{StaticResource CardSubtitle}"
+                                    Text="{Binding LastSeen, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
+                                <Button
+                                    Grid.Row="2"
+                                    Grid.Column="0"
+                                    HeightRequest="44"
+                                    Text="Decline"
+                                    Command="{Binding DeclineCommand}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource LightSurfaceSecondary}, Dark={StaticResource DarkSurfaceSecondary}}"
+                                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                    FontAttributes="Bold"
+                                    CornerRadius="12"
+                                    FontSize="{StaticResource FontSizeSM}"/>
+                                <Button
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    HeightRequest="44"
+                                    Text="Accept"
+                                    Command="{Binding AcceptCommand}"
+                                    BackgroundColor="{StaticResource AccentDiscovery}"
+                                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                    FontAttributes="Bold"
+                                    CornerRadius="12"
+                                    FontSize="{StaticResource FontSizeSM}"/>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout Spacing="{StaticResource SpacingLG}">
+                        <Image
+                            x:Name="AntennaIcon"
+                            WidthRequest="56"
+                            HeightRequest="56">
+                            <Image.Source>
+                                <FontImageSource x:Name="AntennaIconSource"
+                                                 FontFamily="NearbyChatIcons"
+                                                 Glyph="{StaticResource icon-antenna}"
+                                                 Color="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"/>
+                            </Image.Source>
+                        </Image>
+                        <Label
+                            TextColor="{AppThemeBinding Light={StaticResource LightTextQuaternary}, Dark={StaticResource DarkTextQuaternary}}"
+                            HorizontalTextAlignment="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label"
+                                             Binding="{Binding IsAdvertising}"
+                                             Value="False">
+                                    <Setter Property="Text"
+                                            Value="Start advertising to be discoverable"/>
+                                </DataTrigger>
+                                <DataTrigger TargetType="Label"
+                                             Binding="{Binding IsAdvertising}"
+                                             Value="True">
+                                    <Setter Property="Text"
+                                            Value="Waiting for connection requests..."/>
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+            </CollectionView>
+        </Grid>
+    </BasePage.Content>
+</BasePage>
