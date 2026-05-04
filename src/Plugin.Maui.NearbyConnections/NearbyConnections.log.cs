@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-internal sealed partial class NearbyConnectionsImplementation
+sealed partial class NearbyConnectionsImplementation
 {
     // -------------------------------------------------------------------------
     // Advertising
@@ -9,7 +9,7 @@ internal sealed partial class NearbyConnectionsImplementation
     [LoggerMessage(Level = LogLevel.Debug, Message = "Advertising is already active.")]
     partial void LogAdvertisingAlreadyActive();
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Starting advertising: ServiceId={ServiceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Starting advertising: ServiceId={ServiceId}, DisplayName={DisplayName}")]
     partial void LogStartingAdvertising(string serviceId, string displayName);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Advertising started: ServiceId={ServiceId}, DisplayName={DisplayName}")]
@@ -18,7 +18,7 @@ internal sealed partial class NearbyConnectionsImplementation
     [LoggerMessage(Level = LogLevel.Debug, Message = "Advertising is not currently active.")]
     partial void LogAdvertisingNotActive();
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Stopping advertising: ServiceId={ServiceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Stopping advertising: ServiceId={ServiceId}, DisplayName={DisplayName}")]
     partial void LogStoppingAdvertising(string serviceId, string displayName);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Advertising stopped: ServiceId={ServiceId}, DisplayName={DisplayName}")]
@@ -31,7 +31,7 @@ internal sealed partial class NearbyConnectionsImplementation
     [LoggerMessage(Level = LogLevel.Debug, Message = "Discovery is already active.")]
     partial void LogDiscoveryAlreadyActive();
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Starting discovery: ServiceId={ServiceId}")]
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Starting discovery: ServiceId={ServiceId}")]
     partial void LogStartingDiscovery(string serviceId);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Discovery started: ServiceId={ServiceId}")]
@@ -40,7 +40,7 @@ internal sealed partial class NearbyConnectionsImplementation
     [LoggerMessage(Level = LogLevel.Debug, Message = "Discovery is not currently active.")]
     partial void LogDiscoveryNotActive();
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Stopping discovery: ServiceId={ServiceId}")]
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Stopping discovery: ServiceId={ServiceId}")]
     partial void LogStoppingDiscovery(string serviceId);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Discovery stopped: ServiceId={ServiceId}")]
@@ -100,14 +100,7 @@ internal sealed partial class NearbyConnectionsImplementation
     // Data transfer
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Data received from device: Id={DeviceId}, DisplayName={DisplayName}, PayloadType={PayloadType}")]
-    partial void LogIncomingDataReceived(string deviceId, string? displayName, string payloadType);
-
-    // -------------------------------------------------------------------------
-    // Data transfer
-    // -------------------------------------------------------------------------
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "Data received from device: Id={DeviceId}, DisplayName={DisplayName}, PayloadType={PayloadType}")]
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Data received from device: Id={DeviceId}, DisplayName={DisplayName}, PayloadType={PayloadType}")]
     partial void LogIncomingDataReceived(string deviceId, string? displayName, string payloadType);
 
     // -------------------------------------------------------------------------
@@ -117,7 +110,7 @@ internal sealed partial class NearbyConnectionsImplementation
     [LoggerMessage(Level = LogLevel.Debug, Message = "Connection result: EndpointId={EndpointId}, StatusCode={StatusCode}, StatusMessage={StatusMessage}, IsSuccess={IsSuccess}")]
     partial void LogConnectionResult(string endpointId, int statusCode, string statusMessage, bool isSuccess);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Payload received: EndpointId={EndpointId}, PayloadId={PayloadId}, PayloadType={PayloadType}")]
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Payload received: EndpointId={EndpointId}, PayloadId={PayloadId}, PayloadType={PayloadType}")]
     partial void LogPayloadReceived(string endpointId, long payloadId, int payloadType);
 
     [LoggerMessage(Level = LogLevel.Trace, Message = "Payload transfer update: EndpointId={EndpointId}, PayloadId={PayloadId}, Status={Status}, TotalBytes={TotalBytes}, BytesTransferred={BytesTransferred}")]
@@ -157,10 +150,10 @@ internal sealed partial class NearbyConnectionsImplementation
     [LoggerMessage(Level = LogLevel.Debug, Message = "Peer state changed: Id={DeviceId}, DisplayName={DisplayName}, State={State}")]
     partial void LogPeerStateChanged(string deviceId, string displayName, string? state);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Data received from peer: Id={DeviceId}, DisplayName={DisplayName}, Length={Length} bytes")]
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Data received from peer: Id={DeviceId}, DisplayName={DisplayName}, Length={Length} bytes")]
     partial void LogDataReceived(string deviceId, string displayName, long length);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Control message received from peer: Id={DeviceId}, DisplayName={DisplayName}, Type={Type}")]
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Control message received from peer: Id={DeviceId}, DisplayName={DisplayName}, Type={Type}")]
     partial void LogControlMessageReceived(string deviceId, string displayName, string? type);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Dropping received data from unknown peer: Id={DeviceId}, DisplayName={DisplayName}")]

@@ -34,11 +34,7 @@ public static class MauiProgram
 
 #if DEBUG
         builder.Logging.AddDebug();
-        builder.Services.AddLogging(configure =>
-        {
-            configure.AddDebug();
-            configure.SetMinimumLevel(LogLevel.Debug);
-        });
+        builder.Logging.SetMinimumLevel(LogLevel.Trace);
 #endif
 
         builder.Services.AddSingleton(DeviceInfo.Current);

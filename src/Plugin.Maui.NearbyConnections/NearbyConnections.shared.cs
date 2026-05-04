@@ -9,7 +9,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     readonly SemaphoreSlim _discoverSemaphore = new(initialCount: 1, maxCount: 1);
 
 #if IOS
-    internal PeerIdManager PeerIdManager { get; init; } = null!;
+    internal PeerIdManager PeerIdManager { get; init; };
 #endif
 
     bool _isDisposed;
