@@ -6,60 +6,60 @@ internal sealed partial class NearbyConnectionsImplementation
     // Advertising
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Advertising is already active.")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Advertising is already active.")]
     partial void LogAdvertisingAlreadyActive();
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Starting advertising: ServiceId={ServiceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Starting advertising: ServiceId={ServiceId}, DisplayName={DisplayName}")]
     partial void LogStartingAdvertising(string serviceId, string displayName);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Advertising started: ServiceId={ServiceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Advertising started: ServiceId={ServiceId}, DisplayName={DisplayName}")]
     partial void LogAdvertisingStarted(string serviceId, string displayName);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Advertising is not currently active.")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Advertising is not currently active.")]
     partial void LogAdvertisingNotActive();
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Stopping advertising: ServiceId={ServiceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Stopping advertising: ServiceId={ServiceId}, DisplayName={DisplayName}")]
     partial void LogStoppingAdvertising(string serviceId, string displayName);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Advertising stopped: ServiceId={ServiceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Advertising stopped: ServiceId={ServiceId}, DisplayName={DisplayName}")]
     partial void LogAdvertisingStopped(string serviceId, string displayName);
 
     // -------------------------------------------------------------------------
     // Discovery
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Discovery is already active.")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Discovery is already active.")]
     partial void LogDiscoveryAlreadyActive();
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Starting discovery: ServiceId={ServiceId}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Starting discovery: ServiceId={ServiceId}")]
     partial void LogStartingDiscovery(string serviceId);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Discovery started: ServiceId={ServiceId}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Discovery started: ServiceId={ServiceId}")]
     partial void LogDiscoveryStarted(string serviceId);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Discovery is not currently active.")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Discovery is not currently active.")]
     partial void LogDiscoveryNotActive();
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Stopping discovery: ServiceId={ServiceId}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Stopping discovery: ServiceId={ServiceId}")]
     partial void LogStoppingDiscovery(string serviceId);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Discovery stopped: ServiceId={ServiceId}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Discovery stopped: ServiceId={ServiceId}")]
     partial void LogDiscoveryStopped(string serviceId);
 
     // -------------------------------------------------------------------------
     // Devices
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Device found: Id={DeviceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Device found: Id={DeviceId}, DisplayName={DisplayName}")]
     partial void LogDeviceFound(string deviceId, string? displayName);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Device lost: Id={DeviceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Device lost: Id={DeviceId}, DisplayName={DisplayName}")]
     partial void LogDeviceLost(string deviceId, string? displayName);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Device disconnected: Id={DeviceId}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Device disconnected: Id={DeviceId}")]
     partial void LogDeviceDisconnected(string deviceId);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Connected device stopped advertising, connection remains: Id={DeviceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Connected device stopped advertising, connection remains: Id={DeviceId}, DisplayName={DisplayName}")]
     partial void LogConnectedDeviceStoppedAdvertising(string deviceId, string? displayName);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "No peer found for device: Id={DeviceId}, DisplayName={DisplayName}")]
@@ -69,23 +69,39 @@ internal sealed partial class NearbyConnectionsImplementation
     // Connections
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Sending connection request to: Id={DeviceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Sending connection request to: Id={DeviceId}, DisplayName={DisplayName}")]
     partial void LogSendingConnectionRequest(string deviceId, string? displayName);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Responding to connection request from: Id={DeviceId}, DisplayName={DisplayName}, Accept={Accept}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Responding to connection request from: Id={DeviceId}, DisplayName={DisplayName}, Accept={Accept}")]
     partial void LogRespondingToConnectionRequest(string deviceId, string? displayName, bool accept);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Connection request received from: Id={DeviceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Connection request received from: Id={DeviceId}, DisplayName={DisplayName}")]
     partial void LogConnectionRequestReceived(string deviceId, string? displayName);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Auto-accepting connection from: Id={DeviceId}, DisplayName={DisplayName}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Auto-accepting connection from: Id={DeviceId}, DisplayName={DisplayName}")]
     partial void LogAutoAcceptingConnection(string deviceId, string? displayName);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Disconnecting from device: Id={DeviceId}, DisplayName={DisplayName}")]
+    partial void LogDisconnecting(string deviceId, string? displayName);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to send disconnect message to device: Id={DeviceId}, DisplayName={DisplayName}, Error={Error}")]
     partial void LogFailedToSendDisconnect(string deviceId, string? displayName, string error);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Invitation expired from: Id={DeviceId}, DisplayName={DisplayName}, Timeout={TimeoutSeconds}s")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Invitation expired from: Id={DeviceId}, DisplayName={DisplayName}, Timeout={TimeoutSeconds}s")]
     partial void LogInvitationExpired(string deviceId, string? displayName, double timeoutSeconds);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Cannot request connection: discovery is not active.")]
+    partial void LogRequestConnectionNotDiscovering();
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Cannot respond to connection: invitation no longer pending for device: Id={DeviceId}, DisplayName={DisplayName}")]
+    partial void LogRespondToConnectionInvitationGone(string deviceId, string? displayName);
+
+    // -------------------------------------------------------------------------
+    // Data transfer
+    // -------------------------------------------------------------------------
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Data received from device: Id={DeviceId}, DisplayName={DisplayName}, PayloadType={PayloadType}")]
+    partial void LogIncomingDataReceived(string deviceId, string? displayName, string payloadType);
 
     // -------------------------------------------------------------------------
     // Data transfer
@@ -119,6 +135,24 @@ internal sealed partial class NearbyConnectionsImplementation
     // -------------------------------------------------------------------------
     // iOS-specific
     // -------------------------------------------------------------------------
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Advertising failed to start: {Error}")]
+    partial void LogDidNotStartAdvertising(string error);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Discovery failed to start: {Error}")]
+    partial void LogDidNotStartBrowsing(string error);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to send bytes to peer: DisplayName={DisplayName}, Error={Error}")]
+    partial void LogSendBytesFailed(string displayName, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "File transfer stalled: Id={DeviceId}, DisplayName={DisplayName}, Timeout={TimeoutSeconds}s")]
+    partial void LogSendFileTimeout(string deviceId, string? displayName, double timeoutSeconds);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "File transfer failed: Id={DeviceId}, DisplayName={DisplayName}, Error={Error}")]
+    partial void LogSendFileFailed(string deviceId, string? displayName, string error);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Last peer disconnected, session disposed.")]
+    partial void LogSessionDisposed();
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Peer state changed: Id={DeviceId}, DisplayName={DisplayName}, State={State}")]
     partial void LogPeerStateChanged(string deviceId, string displayName, string? state);
@@ -154,7 +188,7 @@ internal sealed partial class NearbyConnectionsImplementation
     // Lifecycle
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Disposing NearbyConnections.")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Disposing NearbyConnections.")]
     partial void LogDisposing();
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to acquire {Semaphore} semaphore during dispose.")]
