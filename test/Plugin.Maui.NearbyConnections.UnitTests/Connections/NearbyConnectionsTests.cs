@@ -22,7 +22,7 @@ public class NearbyConnectionsTests : IDisposable
             Substitute.For<IDispatcher>(),
             _timeProvider,
             new NearbyConnectionsOptions { MarshalEventsToMainThread = false },
-            NullLogger<NearbyConnectionsImplementation>.Instance);
+            NullLogger.Instance);
     }
 
     public void Dispose()

@@ -331,6 +331,8 @@ sealed partial class NearbyConnectionsImplementation
 
     Task PlatformDisconnectAsync(NearbyDevice device)
     {
+        LogDisconnecting(device.Id, device.DisplayName);
+
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
         client.DisconnectFromEndpoint(device.Id);
 

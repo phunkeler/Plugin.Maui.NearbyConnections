@@ -29,6 +29,7 @@ sealed partial class PeerIdManager
     {
         if (TryGetStoredPeerId(displayName, out var peerId))
         {
+            LogLoadedLocalPeer(displayName);
             return peerId;
         }
 
@@ -43,6 +44,7 @@ sealed partial class PeerIdManager
             LogFailedToStoreLocalPeer(displayName, ex.Message);
         }
 
+        LogCreatedLocalPeer(displayName);
         return peerId;
     }
 
@@ -79,6 +81,7 @@ sealed partial class PeerIdManager
     {
         var key = PeerKey(peerID);
         _remotePeers.TryAdd(key, peerID);
+        LogTrackingRemotePeer(key, peerID.DisplayName);
         return key;
     }
 
@@ -92,7 +95,10 @@ sealed partial class PeerIdManager
     /// Removes a remote peer by key. Called when a peer is lost or disconnected.
     /// </summary>
     public void RemoveRemotePeer(string key)
-        => _remotePeers.TryRemove(key, out _);
+    {
+        LogRemovingRemotePeer(key);
+        _remotePeers.TryRemove(key, out _);
+    }
 
     /// <summary>
     /// Removes all tracked remote peers. Called on full teardown.
@@ -151,6 +157,18 @@ sealed partial class PeerIdManager
 
         return false;
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Loaded persisted local peer: DisplayName={DisplayName}")]
+    partial void LogLoadedLocalPeer(string displayName);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Created new local peer: DisplayName={DisplayName}")]
+    partial void LogCreatedLocalPeer(string displayName);
+
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Tracking remote peer: Key={Key}, DisplayName={DisplayName}")]
+    partial void LogTrackingRemotePeer(string key, string displayName);
+
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Removing remote peer: Key={Key}")]
+    partial void LogRemovingRemotePeer(string key);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to store local peer: DisplayName={DisplayName}, Error={Error}")]
     partial void LogFailedToStoreLocalPeer(string displayName, string error);

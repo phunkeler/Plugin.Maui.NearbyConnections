@@ -68,8 +68,22 @@ sealed partial class NearbyConnectionsImplementation
     {
         IsAdvertising = false;
 
+        LogDidNotStartAdvertising(error.LocalizedDescription);
+
         OnError(
             "Advertising",
+            error.LocalizedDescription,
+            TimeProvider.GetUtcNow());
+    }
+
+    internal void DidNotStartBrowsingForPeers(MCNearbyServiceBrowser browser, NSError error)
+    {
+        IsDiscovering = false;
+
+        LogDidNotStartBrowsing(error.LocalizedDescription);
+
+        OnError(
+            "Discovery",
             error.LocalizedDescription,
             TimeProvider.GetUtcNow());
     }
@@ -175,6 +189,8 @@ sealed partial class NearbyConnectionsImplementation
 
     Task PlatformDisconnectAsync(NearbyDevice device)
     {
+        LogDisconnecting(device.Id, device.DisplayName);
+
         if (_session is not null
             && PeerIdManager.TryGetRemotePeer(device.Id, out var peerID))
         {
@@ -206,6 +222,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (!IsDiscovering)
         {
+            LogRequestConnectionNotDiscovering();
             return Task.CompletedTask;
         }
 
@@ -232,6 +249,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (!_pendingInvitations.TryRemove(device.Id, out var pending))
         {
+            LogRespondToConnectionInvitationGone(device.Id, device.DisplayName);
             return Task.CompletedTask;
         }
 
@@ -341,16 +359,20 @@ sealed partial class NearbyConnectionsImplementation
                 totalBytes: nsProgress?.TotalUnitCount ?? 0,
                 NearbyTransferStatus.Failure));
 
+            LogSendFileTimeout(device.Id, device.DisplayName, Options.TransferInactivityTimeout.TotalSeconds);
+
             throw new TimeoutException(
                 $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
         }
-        catch
+        catch (Exception ex)
         {
             transfer.OnUpdate(new NearbyTransferProgress(
                 payloadId: 0,
                 bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
                 totalBytes: nsProgress?.TotalUnitCount ?? 0,
                 NearbyTransferStatus.Failure));
+
+            LogSendFileFailed(device.Id, device.DisplayName, ex.Message);
             throw;
         }
         finally
@@ -371,6 +393,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (error is not null)
         {
+            LogSendBytesFailed(peerID.DisplayName, error.LocalizedDescription);
             throw new InvalidOperationException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}");
         }
 
@@ -486,6 +509,7 @@ sealed partial class NearbyConnectionsImplementation
 
                     if (isLastPeer)
                     {
+                        LogSessionDisposed();
                         _session!.Dispose();
                         _session = null;
                     }
@@ -663,14 +687,7 @@ sealed partial class NearbyConnectionsImplementation
             => nearbyConnections.LostPeer(browser, peerID);
 
         public void DidNotStartBrowsingForPeers(MCNearbyServiceBrowser browser, NSError error)
-        {
-            nearbyConnections.IsDiscovering = false;
-
-            nearbyConnections.OnError(
-                "Discovery",
-                error.LocalizedDescription,
-                nearbyConnections.TimeProvider.GetUtcNow());
-        }
+            => nearbyConnections.DidNotStartBrowsingForPeers(browser, error);
 #pragma warning restore S1144, S1172
     }
 
