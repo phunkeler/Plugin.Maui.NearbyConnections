@@ -104,6 +104,13 @@ internal sealed partial class NearbyConnectionsImplementation
     partial void LogIncomingDataReceived(string deviceId, string? displayName, string payloadType);
 
     // -------------------------------------------------------------------------
+    // Data transfer
+    // -------------------------------------------------------------------------
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Data received from device: Id={DeviceId}, DisplayName={DisplayName}, PayloadType={PayloadType}")]
+    partial void LogIncomingDataReceived(string deviceId, string? displayName, string payloadType);
+
+    // -------------------------------------------------------------------------
     // Android-specific
     // -------------------------------------------------------------------------
 
