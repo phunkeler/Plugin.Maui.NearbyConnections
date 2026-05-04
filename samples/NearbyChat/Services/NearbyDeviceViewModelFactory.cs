@@ -12,16 +12,15 @@ public interface INearbyDeviceViewModelFactory
 }
 
 public class NearbyDeviceViewModelFactory(
-    IDispatcher dispatcher,
     INearbyConnectionsService nearbyConnectionsService,
     IBottomSheetNavigationService bottomSheetNavigationService) : INearbyDeviceViewModelFactory
 {
     public AdvertisedDeviceViewModel CreateAdvertiser(NearbyDevice device)
-        => new(device, nearbyConnectionsService, dispatcher);
+        => new(device, nearbyConnectionsService);
 
     public DiscoveredDeviceViewModel CreateDiscoverer(NearbyDevice device)
-        => new(device, nearbyConnectionsService, dispatcher);
+        => new(device, nearbyConnectionsService);
 
     public ConnectedDeviceViewModel CreateConnected(NearbyDevice device)
-        => new(device, nearbyConnectionsService, dispatcher, bottomSheetNavigationService);
+        => new(device, nearbyConnectionsService, bottomSheetNavigationService);
 }

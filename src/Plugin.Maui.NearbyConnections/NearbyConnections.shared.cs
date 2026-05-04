@@ -1,8 +1,9 @@
 namespace Plugin.Maui.NearbyConnections;
 
-internal sealed partial class NearbyConnectionsImplementation : INearbyConnections
+sealed partial class NearbyConnectionsImplementation : INearbyConnections
 {
     readonly INearbyDeviceManager _deviceManager;
+    readonly IDispatcher _dispatcher;
     readonly ILogger<NearbyConnectionsImplementation> _logger;
     readonly SemaphoreSlim _advertiseSemaphore = new(initialCount: 1, maxCount: 1);
     readonly SemaphoreSlim _discoverSemaphore = new(initialCount: 1, maxCount: 1);
@@ -13,13 +14,16 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
 
     bool _isDisposed;
 
+    readonly ObservableCollection<NearbyDevice> _devicesObservable = [];
+
     internal TimeProvider TimeProvider { get; }
 
-    public IReadOnlyList<NearbyDevice> Devices => _deviceManager.Devices;
+    public ReadOnlyObservableCollection<NearbyDevice> Devices { get; }
     public NearbyConnectionsOptions Options { get; }
 
     internal NearbyConnectionsImplementation(
         INearbyDeviceManager deviceManager,
+        IDispatcher dispatcher,
         TimeProvider timeProvider,
         NearbyConnectionsOptions options,
         ILogger<NearbyConnectionsImplementation> logger
@@ -29,14 +33,17 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
         )
     {
         ArgumentNullException.ThrowIfNull(deviceManager);
+        ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
 
         _deviceManager = deviceManager;
+        _dispatcher = dispatcher;
         TimeProvider = timeProvider;
         Options = options;
         _logger = logger;
+        Devices = new ReadOnlyObservableCollection<NearbyDevice>(_devicesObservable);
 #if IOS
         PeerIdManager = peerIdManager;
 #endif
@@ -298,6 +305,7 @@ internal sealed partial class NearbyConnectionsImplementation : INearbyConnectio
             PlatformDispose();
 
             _deviceManager.Clear();
+            _devicesObservable.Clear();
 
             AdvertisingStateChanged = null;
             DiscoveringStateChanged = null;

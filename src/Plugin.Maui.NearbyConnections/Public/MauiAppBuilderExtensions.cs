@@ -29,10 +29,12 @@ public static class MauiAppBuilderExtensions
                 TimeProvider.System,
                 (device, previousState, timeStamp) => impl!.OnDeviceStateChanged(device, previousState, timeStamp));
 
+            var dispatcher = sp.GetRequiredService<IDispatcher>();
             var logger = sp.GetRequiredService<ILogger<NearbyConnectionsImplementation>>();
 
             impl = new NearbyConnectionsImplementation(
                 deviceManager,
+                dispatcher,
                 TimeProvider.System,
                 options ?? new(),
                 logger

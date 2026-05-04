@@ -6,8 +6,7 @@ namespace NearbyChat.ViewModels;
 
 public partial class AdvertisedDeviceViewModel(
     NearbyDevice device,
-    INearbyConnectionsService nearbyConnectionsService,
-    IDispatcher dispatcher) : NearbyDeviceViewModel(device, nearbyConnectionsService, dispatcher)
+    INearbyConnectionsService nearbyConnectionsService) : NearbyDeviceViewModel(device, nearbyConnectionsService)
 {
     [RelayCommand]
     Task Accept()

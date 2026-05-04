@@ -13,4 +13,8 @@ public sealed partial class NearbyConnectionsOptions
     /// to respond to the invitation. The default value is 30 seconds.
     /// </summary>
     public TimeSpan InvitationTimeout { get; init; } = TimeSpan.FromSeconds(30);
+
+    private static partial string GetDefaultDisplayName() => DeviceInfo.Name;
+    private static partial string GetDefaultServiceId() => AppInfo.Name;
+    private static partial string GetDefaultReceivedFilesDirectory() => FileSystem.CacheDirectory;
 }

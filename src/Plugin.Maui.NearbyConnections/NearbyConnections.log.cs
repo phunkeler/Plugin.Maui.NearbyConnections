@@ -88,16 +88,23 @@ internal sealed partial class NearbyConnectionsImplementation
     partial void LogInvitationExpired(string deviceId, string? displayName, double timeoutSeconds);
 
     // -------------------------------------------------------------------------
+    // Data transfer
+    // -------------------------------------------------------------------------
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Data received from device: Id={DeviceId}, DisplayName={DisplayName}, PayloadType={PayloadType}")]
+    partial void LogIncomingDataReceived(string deviceId, string? displayName, string payloadType);
+
+    // -------------------------------------------------------------------------
     // Android-specific
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Connection result: EndpointId={EndpointId}, StatusCode={StatusCode}, StatusMessage={StatusMessage}, IsSuccess={IsSuccess}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Connection result: EndpointId={EndpointId}, StatusCode={StatusCode}, StatusMessage={StatusMessage}, IsSuccess={IsSuccess}")]
     partial void LogConnectionResult(string endpointId, int statusCode, string statusMessage, bool isSuccess);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Payload received: EndpointId={EndpointId}, PayloadId={PayloadId}, PayloadType={PayloadType}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Payload received: EndpointId={EndpointId}, PayloadId={PayloadId}, PayloadType={PayloadType}")]
     partial void LogPayloadReceived(string endpointId, long payloadId, int payloadType);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Payload transfer update: EndpointId={EndpointId}, PayloadId={PayloadId}, Status={Status}, TotalBytes={TotalBytes}, BytesTransferred={BytesTransferred}")]
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Payload transfer update: EndpointId={EndpointId}, PayloadId={PayloadId}, Status={Status}, TotalBytes={TotalBytes}, BytesTransferred={BytesTransferred}")]
     partial void LogPayloadTransferUpdate(string endpointId, long payloadId, int status, long totalBytes, long bytesTransferred);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Cannot send file: '{Uri}' is not a valid URI. Only 'file://' and 'content://' schemes are supported.")]
@@ -113,28 +120,28 @@ internal sealed partial class NearbyConnectionsImplementation
     // iOS-specific
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Peer state changed: Id={DeviceId}, DisplayName={DisplayName}, State={State}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Peer state changed: Id={DeviceId}, DisplayName={DisplayName}, State={State}")]
     partial void LogPeerStateChanged(string deviceId, string displayName, string? state);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Data received from peer: Id={DeviceId}, DisplayName={DisplayName}, Length={Length} bytes")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Data received from peer: Id={DeviceId}, DisplayName={DisplayName}, Length={Length} bytes")]
     partial void LogDataReceived(string deviceId, string displayName, long length);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Control message received from peer: Id={DeviceId}, DisplayName={DisplayName}, Type={Type}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Control message received from peer: Id={DeviceId}, DisplayName={DisplayName}, Type={Type}")]
     partial void LogControlMessageReceived(string deviceId, string displayName, string? type);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Dropping received data from unknown peer: Id={DeviceId}, DisplayName={DisplayName}")]
     partial void LogDroppingDataFromUnknownPeer(string deviceId, string displayName);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Disconnecting from session due to control message.")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Disconnecting from session due to control message.")]
     partial void LogDisconnectingFromSession();
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Unknown control message type: {Type}")]
     partial void LogUnknownControlMessageType(object type);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Started receiving resource from: Id={DeviceId}, DisplayName={DisplayName}, ResourceName={ResourceName}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Started receiving resource from: Id={DeviceId}, DisplayName={DisplayName}, ResourceName={ResourceName}")]
     partial void LogResourceReceiveStarted(string deviceId, string displayName, string resourceName);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Finished receiving resource from: Id={DeviceId}, DisplayName={DisplayName}, ResourceName={ResourceName}, Location={Location}, Error={Error}")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Finished receiving resource from: Id={DeviceId}, DisplayName={DisplayName}, ResourceName={ResourceName}, Location={Location}, Error={Error}")]
     partial void LogResourceReceiveFinished(string deviceId, string displayName, string resourceName, string? location, string? error);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to copy received file: Source={Source}, Destination={Destination}, Error={Error}")]

@@ -21,4 +21,8 @@ public sealed partial class NearbyConnectionsOptions
     /// Default is <see cref="ConnectionType.Balanced"/>.
     /// </summary>
     public int ConnectionType { get; init; } = Android.Gms.Nearby.Connection.ConnectionType.Balanced;
+
+    private static partial string GetDefaultDisplayName() => DeviceInfo.Name;
+    private static partial string GetDefaultServiceId() => AppInfo.Name;
+    private static partial string GetDefaultReceivedFilesDirectory() => FileSystem.CacheDirectory;
 }

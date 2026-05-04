@@ -46,12 +46,15 @@
       <Using Include="Microsoft.Extensions.DependencyInjection" />
       <Using Include="Microsoft.Extensions.DependencyInjection.Extensions" />
       <Using Include="Microsoft.Maui.ApplicationModel" />
+      <Using Include="Microsoft.Maui.Dispatching" />
       <Using Include="Microsoft.Maui.Devices" />
       <Using Include="Microsoft.Maui.Media" />
       <Using Include="Microsoft.Maui.Storage" />
       <Using Include="Plugin.Maui.NearbyConnections" />
       <Using Include="System.Buffers.Binary" />
+      <Using Include="System.ComponentModel" />
       <Using Include="System.Collections.Concurrent" />
+      <Using Include="System.Collections.ObjectModel" />
       <Using Include="System.Diagnostics" />
       <Using Include="System.Diagnostics.CodeAnalysis" />
       <Using Include="System.Text" />
