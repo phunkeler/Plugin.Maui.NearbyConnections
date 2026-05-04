@@ -5,7 +5,24 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "main"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
+    groups:
+      src:
+        patterns:
+          - "Microsoft.Extensions.DependencyInjection.Abstractions"
+          - "Microsoft.Maui.Core"
+          - "MinVer"
+          - "Xamarin.GooglePlayServices.Nearby"
+      samples:
+        patterns:
+          - "CommunityToolkit.*"
+          - "Microsoft.Extensions.Logging.Debug"
+          - "Microsoft.Maui.Controls"
+          - "Plugin.Maui.BottomSheet"
+      test:
+        patterns:
+          - "Microsoft.Extensions.TimeProvider.Testing"
+          - "NSubstitute"
