@@ -4,7 +4,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
 {
     readonly INearbyDeviceManager _deviceManager;
     readonly IDispatcher _dispatcher;
-    readonly ILogger<NearbyConnectionsImplementation> _logger;
+    readonly ILogger _logger;
     readonly SemaphoreSlim _advertiseSemaphore = new(initialCount: 1, maxCount: 1);
     readonly SemaphoreSlim _discoverSemaphore = new(initialCount: 1, maxCount: 1);
 
@@ -26,7 +26,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
         IDispatcher dispatcher,
         TimeProvider timeProvider,
         NearbyConnectionsOptions options,
-        ILogger<NearbyConnectionsImplementation> logger
+        ILogger logger
 #if IOS
         , PeerIdManager peerIdManager
 #endif
