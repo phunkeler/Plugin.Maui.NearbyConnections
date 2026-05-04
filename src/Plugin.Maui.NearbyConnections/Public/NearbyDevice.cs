@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 public sealed class NearbyDevice(
     string id,
-    string? displayName = null) : IEquatable<NearbyDevice>
+    string? displayName = null) : IEquatable<NearbyDevice>, INotifyPropertyChanged
 {
     /// <summary>
     /// Gets a unique identifier for the device, valid within the current session.
@@ -28,6 +28,12 @@ public sealed class NearbyDevice(
     /// </summary>
     public DateTimeOffset LastSeen { get; internal set; }
 
+    /// <inheritdoc/>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    internal void NotifyStateChanged()
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(State)));
+
     /// <summary>
     /// Determines whether the specified <see cref="NearbyDevice"/>
     /// is equal to the current object.
@@ -47,13 +53,25 @@ public sealed class NearbyDevice(
             return true;
         }
 
-        return Id == other.Id
-            && DisplayName == other.DisplayName;
+        return Id == other.Id;
     }
 
     /// <inheritdoc />
     public override bool Equals(object? obj) => Equals(obj as NearbyDevice);
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(Id, DisplayName);
+    public override int GetHashCode() => Id.GetHashCode();
+
+    /// <summary>
+    /// Returns <see langword="true"/> if both instances represent the same device.
+    /// Equality is based on <see cref="Id"/>.
+    /// </summary>
+    public static bool operator ==(NearbyDevice? left, NearbyDevice? right)
+        => left?.Equals(right) ?? right is null;
+
+    /// <summary>
+    /// Returns <see langword="true"/> if the instances represent different devices.
+    /// </summary>
+    public static bool operator !=(NearbyDevice? left, NearbyDevice? right)
+        => !(left == right);
 }

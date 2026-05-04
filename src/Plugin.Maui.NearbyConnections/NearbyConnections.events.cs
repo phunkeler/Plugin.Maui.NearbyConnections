@@ -35,39 +35,78 @@ sealed partial class NearbyConnectionsImplementation
     /// <inheritdoc/>
     public event EventHandler<DataTransferProgressEventArgs>? IncomingTransferProgress;
 
+    void Raise(Action action)
+    {
+        if (!Options.MarshalEventsToMainThread || !_dispatcher.IsDispatchRequired)
+            action();
+        else
+            _dispatcher.Dispatch(action);
+    }
+
     internal void OnDeviceFound(NearbyDevice device, DateTimeOffset timeStamp)
-        => DeviceFound?.Invoke(this, new DeviceFoundEventArgs(device, timeStamp));
+        => Raise(() =>
+        {
+            if (!_devicesObservable.Contains(device))
+                _devicesObservable.Add(device);
+            DeviceFound?.Invoke(this, new DeviceFoundEventArgs(device, timeStamp));
+        });
 
     internal void OnDeviceLost(NearbyDevice device, DateTimeOffset timeStamp)
-        => DeviceLost?.Invoke(this, new DeviceLostEventArgs(device, timeStamp));
+        => Raise(() =>
+        {
+            _devicesObservable.Remove(device);
+            DeviceLost?.Invoke(this, new DeviceLostEventArgs(device, timeStamp));
+        });
 
     internal void OnDeviceDisconnected(NearbyDevice device, DateTimeOffset timeStamp)
-        => DeviceDisconnected?.Invoke(this, new DeviceDisconnectedEventArgs(device, timeStamp));
+        => Raise(() =>
+        {
+            _devicesObservable.Remove(device);
+            DeviceDisconnected?.Invoke(this, new DeviceDisconnectedEventArgs(device, timeStamp));
+        });
 
     internal void OnConnectionRequested(NearbyDevice device, DateTimeOffset timeStamp)
-        => ConnectionRequested?.Invoke(this, new ConnectionRequestedEventArgs(device, timeStamp));
+        => Raise(() =>
+        {
+            if (!_devicesObservable.Contains(device))
+                _devicesObservable.Add(device);
+            ConnectionRequested?.Invoke(this, new ConnectionRequestedEventArgs(device, timeStamp));
+        });
 
     internal void OnConnectionResponded(NearbyDevice device, DateTimeOffset timeStamp, bool accepted)
-        => ConnectionResponded?.Invoke(this, new NearbyDeviceRespondedEventArgs(device, timeStamp, accepted));
+        => Raise(() =>
+        {
+            if (!accepted && !_deviceManager.TryGetDevice(device.Id, out _))
+                _devicesObservable.Remove(device);
+            ConnectionResponded?.Invoke(this, new NearbyDeviceRespondedEventArgs(device, timeStamp, accepted));
+        });
 
     internal void OnError(string operation, string errorMessage, DateTimeOffset timeStamp)
-        => ErrorOccurred?.Invoke(this, new NearbyConnectionsErrorEventArgs(operation, errorMessage, timeStamp));
+        => Raise(() => ErrorOccurred?.Invoke(this, new NearbyConnectionsErrorEventArgs(operation, errorMessage, timeStamp)));
 
     internal void OnError(string operation, string errorMessage, DateTimeOffset timeStamp, NearbyDevice device)
-        => ErrorOccurred?.Invoke(this, new NearbyConnectionsErrorEventArgs(operation, errorMessage, timeStamp, device));
+        => Raise(() => ErrorOccurred?.Invoke(this, new NearbyConnectionsErrorEventArgs(operation, errorMessage, timeStamp, device)));
 
     internal void OnAdvertisingStateChanged(bool isAdvertising, DateTimeOffset timeStamp)
-        => AdvertisingStateChanged?.Invoke(this, new AdvertisingStateChangedEventArgs(isAdvertising, timeStamp));
+        => Raise(() => AdvertisingStateChanged?.Invoke(this, new AdvertisingStateChangedEventArgs(isAdvertising, timeStamp)));
 
     internal void OnDiscoveringStateChanged(bool isDiscovering, DateTimeOffset timeStamp)
-        => DiscoveringStateChanged?.Invoke(this, new DiscoveringStateChangedEventArgs(isDiscovering, timeStamp));
+        => Raise(() => DiscoveringStateChanged?.Invoke(this, new DiscoveringStateChangedEventArgs(isDiscovering, timeStamp)));
 
     internal void OnDeviceStateChanged(NearbyDevice device, NearbyDeviceState previousState, DateTimeOffset timeStamp)
-        => DeviceStateChanged?.Invoke(this, new NearbyDeviceStateChangedEventArgs(device, timeStamp, previousState));
+        => Raise(() =>
+        {
+            device.NotifyStateChanged();
+            DeviceStateChanged?.Invoke(this, new NearbyDeviceStateChangedEventArgs(device, timeStamp, previousState));
+        });
 
     internal void OnDataReceived(NearbyDevice device, NearbyPayload payload, DateTimeOffset timeStamp)
-        => DataReceived?.Invoke(this, new DataReceivedEventArgs(device, payload, timeStamp));
+        => Raise(() =>
+        {
+            LogIncomingDataReceived(device.Id, device.DisplayName, payload.GetType().Name);
+            DataReceived?.Invoke(this, new DataReceivedEventArgs(device, payload, timeStamp));
+        });
 
     internal void OnIncomingTransferProgress(NearbyDevice device, NearbyTransferProgress progress, DateTimeOffset timeStamp)
-        => IncomingTransferProgress?.Invoke(this, new DataTransferProgressEventArgs(device, progress, timeStamp));
+        => Raise(() => IncomingTransferProgress?.Invoke(this, new DataTransferProgressEventArgs(device, progress, timeStamp)));
 }

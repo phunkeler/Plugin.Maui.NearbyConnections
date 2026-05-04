@@ -1,12 +1,15 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using NearbyChat.Messages;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
-public partial class ConnectionsPageViewModel : BasePageViewModel
+public partial class ConnectionsPageViewModel : BasePageViewModel,
+    IRecipient<DeviceDisconnectedMessage>,
+    IRecipient<ConnectionResponseMessage>
 {
     readonly INavigationService _navigationService;
     readonly INearbyConnectionsService _nearbyConnectionsService;
@@ -30,12 +33,49 @@ public partial class ConnectionsPageViewModel : BasePageViewModel
         _nearbyConnectionsService = nearbyConnectionsService;
         _nearbyDeviceViewModelFactory = nearbyDeviceViewModelFactory;
 
-        foreach (var connectedDevice in _nearbyConnectionsService.Devices.Where(d => d.State == NearbyDeviceState.Connected))
+    }
+
+    protected override void NavigatedTo()
+    {
+        base.NavigatedTo();
+
+        var connected = _nearbyConnectionsService.Devices
+            .Where(d => d.State == NearbyDeviceState.Connected)
+            .ToList();
+
+        var toRemove = ConnectedDevices
+            .Where(vm => !connected.Any(d => d.Id == vm.Id))
+            .ToList();
+
+        foreach (var vm in toRemove)
         {
-            var vm = _nearbyDeviceViewModelFactory.CreateConnected(connectedDevice);
+            vm.IsActive = false;
+            ConnectedDevices.Remove(vm);
+        }
+
+        foreach (var device in connected.Where(d => !ConnectedDevices.Any(vm => vm.Id == d.Id)))
+        {
+            var vm = _nearbyDeviceViewModelFactory.CreateConnected(device);
             vm.IsActive = true;
             ConnectedDevices.Add(vm);
         }
+    }
+
+    public void Receive(DeviceDisconnectedMessage message)
+    {
+        var vm = ConnectedDevices.FirstOrDefault(d => d.Id == message.Value.Id);
+        if (vm is not null)
+            ConnectedDevices.Remove(vm);
+    }
+
+    public void Receive(ConnectionResponseMessage message)
+    {
+        if (!message.Accepted || ConnectedDevices.Any(d => d.Id == message.Value.Id))
+            return;
+
+        var vm = _nearbyDeviceViewModelFactory.CreateConnected(message.Value);
+        vm.IsActive = true;
+        ConnectedDevices.Add(vm);
     }
 
     [RelayCommand]

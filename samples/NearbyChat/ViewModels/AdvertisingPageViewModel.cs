@@ -92,6 +92,13 @@ public partial class AdvertisingPageViewModel : BasePageViewModel,
         }
     }
 
+    protected override void NavigatedTo()
+    {
+        IsAdvertising = _nearbyConnectionsService.IsAdvertising;
+        ConnectedDevicesCount = _nearbyConnectionsService.Devices.Count(d => d.State == NearbyDeviceState.Connected);
+        base.NavigatedTo();
+    }
+
     protected override void NavigatedFrom()
     {
         foreach (var device in AdvertisedDevices)

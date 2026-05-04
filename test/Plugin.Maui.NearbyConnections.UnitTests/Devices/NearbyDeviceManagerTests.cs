@@ -2,6 +2,7 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
+[TestCategory("Devices")]
 public class NearbyDeviceManagerTests
 {
     readonly FakeTimeProvider _timeProvider;

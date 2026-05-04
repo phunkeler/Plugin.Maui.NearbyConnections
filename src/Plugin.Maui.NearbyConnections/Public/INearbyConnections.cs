@@ -6,9 +6,24 @@ namespace Plugin.Maui.NearbyConnections;
 public interface INearbyConnections : IDisposable
 {
     /// <summary>
-    /// Gets a read-only snapshot of all currently tracked nearby devices and their connection states.
+    /// Gets a live, observable collection of all currently tracked nearby devices.
+    /// Bind directly to this in MAUI ViewModels — no manual event wiring required.
     /// </summary>
-    IReadOnlyList<NearbyDevice> Devices { get; }
+    /// <remarks>
+    /// <para>
+    /// <b>Discoverer side</b>: devices are added on <see cref="DeviceFound"/> and removed on
+    /// <see cref="DeviceLost"/> or <see cref="DeviceDisconnected"/>. A rejected outbound
+    /// connection leaves the device in the collection at <see cref="NearbyDeviceState.Discovered"/>
+    /// because it is still advertising.
+    /// </para>
+    /// <para>
+    /// <b>Advertiser side</b>: devices are added on <see cref="ConnectionRequested"/> (the
+    /// advertiser has no discovery phase) and removed when the connection is rejected or the
+    /// peer disconnects. A rejected inbound connection removes the device entirely because it
+    /// was never independently discovered — the connection request was the only reason it appeared.
+    /// </para>
+    /// </remarks>
+    ReadOnlyObservableCollection<NearbyDevice> Devices { get; }
 
     /// <summary>
     /// Gets a value indicating whether this device is currently advertising to nearby devices.
@@ -79,7 +94,7 @@ public interface INearbyConnections : IDisposable
     /// Sends bytes to a connected nearby device.
     /// </summary>
     /// <param name="device">The connected device to send bytes to.</param>
-    /// <param name="data">The bytes to send (≤32 KB on Android).</param>
+    /// <param name="data">The bytes to send (≤32 KB on Android). An empty array is a no-op that returns a completed task immediately.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task that completes when the bytes have been handed off to the platform.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="data"/> or <paramref name="device"/> is null.</exception>
@@ -138,11 +153,35 @@ public interface INearbyConnections : IDisposable
     /// <summary>
     /// Raised when an inbound connection request is received from a nearby device.
     /// </summary>
+    /// <remarks>
+    /// The device is added to <see cref="Devices"/> when this event fires.
+    /// On the advertiser side this is the first point at which the requesting peer becomes visible.
+    /// </remarks>
     event EventHandler<ConnectionRequestedEventArgs>? ConnectionRequested;
 
     /// <summary>
-    /// Raised when a connection request is accepted or rejected by the remote device.
+    /// Raised when a connection request is accepted or rejected.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// When <see cref="NearbyDeviceRespondedEventArgs.Accepted"/> is <see langword="true"/>,
+    /// the device remains in <see cref="Devices"/> at <see cref="NearbyDeviceState.Connected"/>.
+    /// </para>
+    /// <para>
+    /// When <see cref="NearbyDeviceRespondedEventArgs.Accepted"/> is <see langword="false"/>
+    /// the outcome differs by role:
+    /// <list type="bullet">
+    ///   <item><description>
+    ///     <b>Advertiser (inbound rejection)</b>: the device is removed from <see cref="Devices"/>
+    ///     because the connection request was the only reason it appeared there.
+    ///   </description></item>
+    ///   <item><description>
+    ///     <b>Discoverer (outbound rejection)</b>: the device remains in <see cref="Devices"/>
+    ///     at <see cref="NearbyDeviceState.Discovered"/> because it is still advertising.
+    ///   </description></item>
+    /// </list>
+    /// </para>
+    /// </remarks>
     event EventHandler<NearbyDeviceRespondedEventArgs>? ConnectionResponded;
 
     /// <summary>
