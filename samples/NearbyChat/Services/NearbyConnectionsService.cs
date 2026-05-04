@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Data;
@@ -9,7 +10,7 @@ namespace NearbyChat.Services;
 
 public interface INearbyConnectionsService : IDisposable
 {
-    IReadOnlyList<NearbyDevice> Devices { get; }
+    ReadOnlyObservableCollection<NearbyDevice> Devices { get; }
     bool IsAdvertising { get; }
     bool IsDiscovering { get; }
 
@@ -37,7 +38,7 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
 
     bool _disposed;
 
-    public IReadOnlyList<NearbyDevice> Devices => _nearbyConnections.Devices;
+    public ReadOnlyObservableCollection<NearbyDevice> Devices => _nearbyConnections.Devices;
     public bool IsAdvertising => _nearbyConnections.IsAdvertising;
     public bool IsDiscovering => _nearbyConnections.IsDiscovering;
 
@@ -62,7 +63,6 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
         _nearbyConnections.DeviceFound += OnDeviceFound;
         _nearbyConnections.DeviceLost += OnDeviceLost;
         _nearbyConnections.ConnectionRequested += OnConnectionRequested;
-        _nearbyConnections.DeviceStateChanged += OnDeviceStateChanged;
         _nearbyConnections.ConnectionResponded += OnConnectionResponded;
         _nearbyConnections.DeviceDisconnected += OnDeviceDisconnected;
         _nearbyConnections.DataReceived += OnDataReceived;
@@ -117,9 +117,6 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
 
     void OnConnectionRequested(object? sender, ConnectionRequestedEventArgs e)
         => _messenger.Send(new ConnectionRequestMessage(e.NearbyDevice, e.Timestamp));
-
-    void OnDeviceStateChanged(object? sender, NearbyDeviceStateChangedEventArgs e)
-        => _messenger.Send(new DeviceStateChangedMessage(e.NearbyDevice));
 
     void OnConnectionResponded(object? sender, NearbyDeviceRespondedEventArgs e)
     {
@@ -203,7 +200,6 @@ public partial class NearbyConnectionsService : INearbyConnectionsService
             _nearbyConnections.DeviceFound -= OnDeviceFound;
             _nearbyConnections.DeviceLost -= OnDeviceLost;
             _nearbyConnections.ConnectionRequested -= OnConnectionRequested;
-            _nearbyConnections.DeviceStateChanged -= OnDeviceStateChanged;
             _nearbyConnections.ConnectionResponded -= OnConnectionResponded;
             _nearbyConnections.DeviceDisconnected -= OnDeviceDisconnected;
             _nearbyConnections.DataReceived -= OnDataReceived;

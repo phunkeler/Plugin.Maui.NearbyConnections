@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,15 +14,13 @@ using Plugin.Maui.NearbyConnections;
 namespace NearbyChat.ViewModels;
 
 public partial class ChatViewModel(
-    IDispatcher dispatcher,
     IMediaPicker mediaPicker,
     IThumbnailService thumbnailService,
     IChatMessageRepository chatMessageRepository,
     IChatMessageViewModelFactory chatMessageViewModelFactory,
     IChatMessageService chatMessageService) : ObservableRecipient,
     INavigationAware,
-    IRecipient<ChatMessageReceived>,
-    IRecipient<DeviceStateChangedMessage>
+    IRecipient<ChatMessageReceived>
 {
     [MemberNotNullWhen(true, nameof(Message))]
     public bool CanSend
@@ -196,14 +195,17 @@ public partial class ChatViewModel(
         Messages.Add(vm);
     }
 
-    public async void Receive(DeviceStateChangedMessage message)
-        => await dispatcher.DispatchAsync(() =>
-            {
-                if (message.Value.Id == Device?.Id)
-                {
-                    SendCommand.NotifyCanExecuteChanged();
-                }
-            });
+    partial void OnDeviceChanged(NearbyDevice oldValue, NearbyDevice newValue)
+    {
+        oldValue?.PropertyChanged -= OnDevicePropertyChanged;
+        newValue?.PropertyChanged += OnDevicePropertyChanged;
+    }
+
+    void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(NearbyDevice.State))
+            SendCommand.NotifyCanExecuteChanged();
+    }
 
     void OnNearbyTransferProgress(NearbyTransferProgress progress)
         => TransferStatus = progress.Status;

@@ -11,6 +11,7 @@ sealed partial class NearbyConnectionsImplementation
 
     readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
     readonly ConcurrentDictionary<long, OutgoingTransfer> _outgoingTransfers = [];
+    readonly ConcurrentDictionary<string, bool> _inboundEndpoints = [];
 
     public bool IsAdvertising
     {
@@ -81,6 +82,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (connectionInfo.IsIncomingConnection)
         {
+            _inboundEndpoints.TryAdd(endpointId, true);
             LogConnectionRequestReceived(device.Id, device.DisplayName);
 
             OnConnectionRequested(device, TimeProvider.GetUtcNow());
@@ -110,6 +112,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (resolution.Status.IsSuccess)
         {
+            _inboundEndpoints.TryRemove(endpointId, out _);
             var device = _deviceManager.SetState(endpointId, NearbyDeviceState.Connected);
 
             if (device is not null)
@@ -119,7 +122,12 @@ sealed partial class NearbyConnectionsImplementation
         }
         else
         {
-            var device = _deviceManager.SetState(endpointId, NearbyDeviceState.Discovered);
+            NearbyDevice? device;
+
+            if (_inboundEndpoints.TryRemove(endpointId, out _))
+                device = _deviceManager.RemoveDevice(endpointId);
+            else
+                device = _deviceManager.SetState(endpointId, NearbyDeviceState.Discovered);
 
             if (device is not null)
             {
@@ -619,6 +627,7 @@ sealed partial class NearbyConnectionsImplementation
             transfer.Dispose();
         }
         _outgoingTransfers.Clear();
+        _inboundEndpoints.Clear();
     }
 
     static NearbyTransferStatus ToNearbyTransferStatus(int androidStatus) => androidStatus switch

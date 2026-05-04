@@ -247,7 +247,8 @@ sealed partial class NearbyConnectionsImplementation
 
         if (!accept)
         {
-            _deviceManager.SetState(device.Id, NearbyDeviceState.Discovered);
+            _deviceManager.RemoveDevice(device.Id);
+            OnConnectionResponded(device, TimeProvider.GetUtcNow(), false);
         }
 
         return Task.CompletedTask;
@@ -388,14 +389,11 @@ sealed partial class NearbyConnectionsImplementation
         expired.Expiry.Dispose();
         expired.Handler(false, null);
 
-        // Reset to Discovered so the browser doesn't need to re-fire FoundPeer
-        // (MPC browser still considers this peer "known" — it never fired LostPeer)
-        var d = _deviceManager.SetState(device.Id, NearbyDeviceState.Discovered);
+        var d = _deviceManager.RemoveDevice(device.Id);
 
         if (d is not null)
         {
-            OnConnectionResponded(device, TimeProvider.GetUtcNow(), false);
-            OnDeviceFound(device, TimeProvider.GetUtcNow());
+            OnConnectionResponded(d, TimeProvider.GetUtcNow(), false);
         }
     }
 
@@ -456,13 +454,10 @@ sealed partial class NearbyConnectionsImplementation
                     stale.Expiry.Dispose();
                     stale.Handler(false, null);
 
-                    // Reset to Discovered — LostPeer will clean up if the peer truly disappeared.
-                    // If it's still advertising, the UI can reconnect without waiting for FoundPeer.
-                    var pendingDevice = _deviceManager.SetState(id, NearbyDeviceState.Discovered);
+                    var pendingDevice = _deviceManager.RemoveDevice(id);
                     if (pendingDevice is not null)
                     {
                         OnConnectionResponded(pendingDevice, TimeProvider.GetUtcNow(), false);
-                        OnDeviceFound(pendingDevice, TimeProvider.GetUtcNow());
                     }
                 }
                 else if (_deviceManager.TryGetDevice(id, out var outboundDevice)

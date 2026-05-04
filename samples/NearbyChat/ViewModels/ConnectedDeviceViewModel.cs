@@ -8,8 +8,7 @@ namespace NearbyChat.ViewModels;
 public partial class ConnectedDeviceViewModel(
     NearbyDevice device,
     INearbyConnectionsService nearbyConnectionsService,
-    IDispatcher dispatcher,
-    IBottomSheetNavigationService bottomSheetNavigationService) : NearbyDeviceViewModel(device, nearbyConnectionsService, dispatcher)
+    IBottomSheetNavigationService bottomSheetNavigationService) : NearbyDeviceViewModel(device, nearbyConnectionsService)
 {
     [RelayCommand]
     Task<INavigationResult> Chat()
