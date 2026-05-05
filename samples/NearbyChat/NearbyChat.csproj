@@ -38,6 +38,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
     <PackageReference Include="Microsoft.Maui.Controls" />
+  <PackageReference Include="Microsoft.Maui.Core" />
     <PackageReference Include="Plugin.Maui.BottomSheet" />
   </ItemGroup>
 
