@@ -56,7 +56,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          ${{ runner.temp }}/scanner/dotnet-sonarscanner begin /k:"phunkeler_Plugin.Maui.NearbyConnections" /o:"phunkeler" /d:sonar.token="$SONAR_TOKEN" /d:"sonar.projectBaseDir=${{ github.workspace }}/src" /d:sonar.cs.vscoveragexml.reportsPaths="${{ runner.temp }}/coverage.xml" /d:sonar.exclusions="test/**"
+          ${{ runner.temp }}/scanner/dotnet-sonarscanner begin /k:"phunkeler_Plugin.Maui.NearbyConnections" /o:"phunkeler" /d:sonar.token="$SONAR_TOKEN" /d:sonar.cs.vscoveragexml.reportsPaths="${{ runner.temp }}/coverage.xml" /d:sonar.exclusions="test/**"
           dotnet build -c Release src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj --no-incremental
           dotnet build -c Release test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj
           dotnet-coverage collect "dotnet exec ${{ github.workspace }}/test/Plugin.Maui.NearbyConnections.UnitTests/bin/Release/net10.0/Plugin.Maui.NearbyConnections.UnitTests.dll" --settings test/coverage.runsettings -f xml -o "${{ runner.temp }}/coverage.xml"
