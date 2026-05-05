@@ -66,3 +66,20 @@ jobs:
           dotnet build -c Release test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj
           dotnet-coverage collect "dotnet run --project test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj --no-build -c Release" --settings test/coverage.runsettings -f xml -o "${{ runner.temp }}/coverage.xml"
           ${{ runner.temp }}/scanner/dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
+
+      - name: Generate coverage report
+        uses: danielpalme/ReportGenerator-GitHub-Action@5.5.9
+        with:
+          reports: ${{ runner.temp }}/coverage.xml
+          targetdir: ${{ runner.temp }}/coveragereport
+          reporttypes: MarkdownSummaryGithub
+
+      - name: Add comment to PR
+        if: github.event_name == 'pull_request'
+        run: gh pr comment $PR_NUMBER --edit-last --create-if-none --body-file ${{ runner.temp }}/coveragereport/SummaryGithub.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.number }}
+
+      - name: Add coverage to job summary
+        run: cat ${{ runner.temp }}/coveragereport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
