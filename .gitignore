@@ -415,3 +415,5 @@ FodyWeavers.xsd
 sample/NearbyChat/Scripts/tmp/
 
 .sonarqube/
+
+**/coveragereport
