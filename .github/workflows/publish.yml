@@ -26,7 +26,7 @@ jobs:
         run: dotnet workload restore src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj
 
       - name: Pack
-        run: dotnet pack src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release --output nupkgs
+        run: dotnet pack src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release --output nupkgs /p:ContinuousIntegrationBuild=true
 
       - name: Login to NuGet.org (OIDC)
         uses: NuGet/login@v1.2.0
