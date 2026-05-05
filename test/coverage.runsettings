@@ -6,10 +6,9 @@
         <Configuration>
           <CodeCoverage>
             <ModulePaths>
-              <Exclude>
-                <ModulePath>.*MinVer.*</ModulePath>
-                <ModulePath>.*UnitTests.*</ModulePath>
-              </Exclude>
+              <Include>
+                <ModulePath>.*plugin\.maui\.nearbyconnections\.dll</ModulePath>
+              </Include>
             </ModulePaths>
           </CodeCoverage>
         </Configuration>
