@@ -10,8 +10,6 @@
 
     <!-- Converters -->
     <converters:LocalTimeConverter x:Key="localTimeConverter"/>
-    <converters:NearbyDeviceStateGlyphConverter x:Key="nearbyDeviceStateGlyphConverter"/>
-    <converters:NearbyDeviceStateColorConverter x:Key="nearbyDeviceStateColorConverter"/>
     <converters:RelativeTimeConverter x:Key="relativeTimeConverter" />
     <toolkit:IntToBoolConverter x:Key="intToBoolConverter"/>
 

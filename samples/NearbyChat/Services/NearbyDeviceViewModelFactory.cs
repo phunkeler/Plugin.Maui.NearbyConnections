@@ -6,21 +6,22 @@ namespace NearbyChat.Services;
 
 public interface INearbyDeviceViewModelFactory
 {
-    AdvertisedDeviceViewModel CreateAdvertiser(NearbyDevice device);
+    AdvertisedDeviceViewModel CreateAdvertiser(NearbyConnectionRequest request);
     DiscoveredDeviceViewModel CreateDiscoverer(NearbyDevice device);
-    ConnectedDeviceViewModel CreateConnected(NearbyDevice device);
+    ConnectedDeviceViewModel CreateConnected(NearbyConnection connection);
 }
 
 public class NearbyDeviceViewModelFactory(
-    INearbyConnectionsService nearbyConnectionsService,
+    INearbyAdvertiser advertiser,
+    INearbyDiscoverer discoverer,
     IBottomSheetNavigationService bottomSheetNavigationService) : INearbyDeviceViewModelFactory
 {
-    public AdvertisedDeviceViewModel CreateAdvertiser(NearbyDevice device)
-        => new(device, nearbyConnectionsService);
+    public AdvertisedDeviceViewModel CreateAdvertiser(NearbyConnectionRequest request)
+        => new(request, advertiser);
 
     public DiscoveredDeviceViewModel CreateDiscoverer(NearbyDevice device)
-        => new(device, nearbyConnectionsService);
+        => new(device, discoverer);
 
-    public ConnectedDeviceViewModel CreateConnected(NearbyDevice device)
-        => new(device, nearbyConnectionsService, bottomSheetNavigationService);
+    public ConnectedDeviceViewModel CreateConnected(NearbyConnection connection)
+        => new(connection, bottomSheetNavigationService);
 }

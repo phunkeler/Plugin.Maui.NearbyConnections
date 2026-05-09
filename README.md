@@ -77,103 +77,105 @@ Add to `Info.plist`:
 
 The service ID in `NSBonjourServices` must match `NearbyConnectionsOptions.ServiceId` (_**default**: app name_).
 
-## 3. Discover and connect
+## 3. Advertise and discover
 
-Devices in range must advertise and/or discover simultaneously. Typically one device advertises while another discovers, or both do both.
+One device advertises while the other discovers, or both do both simultaneously.
+
+### Advertiser side — accept inbound connection requests
 
 ```csharp
-// Subscribe to events before starting
-nearbyConnections.DeviceFound += (s, e) =>
+using var cts = new CancellationTokenSource();
+
+await foreach (var request in nearbyConnections.AdvertiseAsync(cts.Token))
 {
-    Console.WriteLine($"Found: {e.NearbyDevice.DisplayName}");
+    Console.WriteLine($"Connection request from: {request.RemoteDevice.DisplayName}");
 
-    // Request a connection
-    await nearbyConnections.RequestConnectionAsync(e.NearbyDevice);
-};
+    // Accept to get an established NearbyConnection
+    NearbyConnection connection = await request.AcceptAsync(cts.Token);
+    Console.WriteLine($"Connected to {connection.RemoteDevice.DisplayName}");
 
-nearbyConnections.DeviceStateChanged += (s, e) =>
-{
-    if (e.CurrentState == NearbyDeviceState.Connected)
-        Console.WriteLine($"Connected to {e.NearbyDevice.DisplayName}");
-};
-
-// Start advertising so other devices can find this one
-await nearbyConnections.StartAdvertisingAsync();
-
-// Start discovering nearby advertisers
-await nearbyConnections.StartDiscoveryAsync();
+    // Send and receive on this connection (see section 4)
+}
 ```
 
-When `AutoAcceptConnections` is `false`, handle inbound requests manually:
+To reject a request call `request.RejectAsync()` instead of `AcceptAsync()`.
+
+### Discoverer side — find devices and initiate a connection
 
 ```csharp
-nearbyConnections.ConnectionRequested += async (s, e) =>
+using var cts = new CancellationTokenSource();
+
+await foreach (var evt in nearbyConnections.DiscoverAsync(cts.Token))
 {
-    bool accept = true; // your logic here
-    await nearbyConnections.RespondToConnectionAsync(e.NearbyDevice, accept);
-};
+    if (evt.Type == NearbyDeviceEventType.Found)
+    {
+        Console.WriteLine($"Found: {evt.Device.DisplayName}");
+
+        NearbyConnection connection = await nearbyConnections.ConnectAsync(evt.Device, cts.Token);
+        Console.WriteLine($"Connected to {connection.RemoteDevice.DisplayName}");
+
+        // Send and receive on this connection (see section 4)
+    }
+}
 ```
 
 ## 4. Send and receive data
 
+`NearbyConnection` is obtained from `AcceptAsync` (advertiser) or `ConnectAsync` (discoverer).
+
 ### Send bytes
 
 ```csharp
-var device = nearbyConnections.Devices.First(d => d.State == NearbyDeviceState.Connected);
 byte[] data = Encoding.UTF8.GetBytes("Hello!");
-
-await nearbyConnections.SendAsync(device, data);
+await connection.SendAsync(data, cancellationToken);
 ```
 
 ### Send a file
 
 ```csharp
-// Pass a file:// URI or a content:// URI (Android)
-await nearbyConnections.SendAsync(device, "file:///path/to/file.bin");
+// Pass a file:// URI, or a content:// URI on Android
+await connection.SendAsync("file:///path/to/file.bin", cancellationToken: cancellationToken);
 ```
 
 ### Track send progress
 
 ```csharp
 var progress = new Progress<NearbyTransferProgress>(p =>
-{
-    Console.WriteLine($"Sent {p.BytesTransferred}/{p.TotalBytes} ({p.Fraction:P0})");
-});
+    Console.WriteLine($"Sent {p.BytesTransferred}/{p.TotalBytes} ({p.Fraction:P0})"));
 
-await nearbyConnections.SendAsync(device, data, progress);
+await connection.SendAsync("file:///path/to/file.bin", progress, cancellationToken);
 ```
 
 ### Receive data
 
 ```csharp
-nearbyConnections.DataReceived += (s, e) =>
+await foreach (var payload in connection.ReceiveAsync(cancellationToken))
 {
-    if (e.Payload is BytesPayload bytes)
+    if (payload is BytesPayload bytes)
     {
         string message = Encoding.UTF8.GetString(bytes.Data);
-        Console.WriteLine($"From {e.NearbyDevice.DisplayName}: {message}");
+        Console.WriteLine($"From {connection.RemoteDevice.DisplayName}: {message}");
     }
-    else if (e.Payload is FilePayload file)
+    else if (payload is FilePayload file)
     {
         Console.WriteLine($"Received file: {file.FileResult.FullPath}");
     }
-};
+}
 ```
 
-Received files are saved to `NearbyConnectionsOptions.ReceivedFilesDirectory` (default: `FileSystem.CacheDirectory`).
+Received files are saved to `NearbyConnectionsOptions.ReceivedFilesDirectory` (default: `FileSystem.AppDataDirectory`).
 
 ## 5. Disconnect and clean up
 
 ```csharp
-// Disconnect a specific peer
-await nearbyConnections.DisconnectAsync(device);
+// Disconnect from a specific peer
+await connection.DisposeAsync();
 
-// Stop advertising/discovering
-await nearbyConnections.StopAdvertisingAsync();
-await nearbyConnections.StopDiscoveryAsync();
+// Stop advertising or discovering by canceling the token passed to AdvertiseAsync/DiscoverAsync
+cts.Cancel();
 
-// Dispose when done (e.g. page OnDisappearing)
-nearbyConnections.Dispose();
+// Dispose the plugin when done (e.g. in page OnDisappearing)
+await nearbyConnections.DisposeAsync();
 ```
 
 # Acknowledgements

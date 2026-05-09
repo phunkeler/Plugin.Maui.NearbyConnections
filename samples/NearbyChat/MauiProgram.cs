@@ -24,17 +24,16 @@ public static class MauiProgram
             })
             .UseMauiCommunityToolkit()
             .UseBottomSheet()
-            .AddNearbyConnections(new()
+            .AddNearbyConnections(opts =>
             {
-                AutoAcceptConnections = false,
 #if IOS
-                InvitationTimeout = TimeSpan.FromSeconds(10),
+                opts.InvitationTimeout = TimeSpan.FromSeconds(10);
 #endif
             });
 
 #if DEBUG
         builder.Logging.AddDebug();
-        builder.Logging.SetMinimumLevel(LogLevel.Trace);
+        builder.Logging.AddFilter("Plugin.Maui.NearbyConnections", LogLevel.Trace);
 #endif
 
         builder.Services.AddSingleton(DeviceInfo.Current);
@@ -49,7 +48,6 @@ public static class MauiProgram
         builder.Services.AddSingleton<INearbyDeviceViewModelFactory, NearbyDeviceViewModelFactory>();
         builder.Services.AddSingleton<IChatMessageViewModelFactory, ChatMessageViewModelFactory>();
         builder.Services.AddSingleton<INavigationService, NavigationService>();
-        builder.Services.AddSingleton<INearbyConnectionsService, NearbyConnectionsService>();
         builder.Services.AddSingleton<IThumbnailService, ThumbnailService>();
         builder.Services.AddSingleton<IChatMessageRepository, ChatMessageRepository>();
         builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();

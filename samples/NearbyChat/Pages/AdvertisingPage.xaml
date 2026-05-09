@@ -71,14 +71,14 @@
                                     HeightRequest="20"
                                     HorizontalOptions="End"
                                     StrokeShape="RoundRectangle 10"
-                                    Background="{Binding State, Converter={StaticResource nearbyDeviceStateColorConverter}}">
+                                    Background="{Binding StateColor}">
                                     <Image
                                         WidthRequest="10"
                                         HeightRequest="10">
                                         <Image.Source>
                                             <FontImageSource
                                                 FontFamily="NearbyChatIcons"
-                                                Glyph="{Binding State, Converter={StaticResource nearbyDeviceStateGlyphConverter}}"
+                                                Glyph="{Binding StateGlyph}"
                                                 Color="White"/>
                                         </Image.Source>
                                     </Image>

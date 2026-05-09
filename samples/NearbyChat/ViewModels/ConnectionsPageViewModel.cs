@@ -1,19 +1,21 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using NearbyChat.Messages;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
-public partial class ConnectionsPageViewModel : BasePageViewModel,
-    IRecipient<DeviceDisconnectedMessage>,
-    IRecipient<ConnectionResponseMessage>
+public partial class ConnectionsPageViewModel : BasePageViewModel
 {
     readonly INavigationService _navigationService;
-    readonly INearbyConnectionsService _nearbyConnectionsService;
+    readonly INearbyAdvertiser _advertiser;
+    readonly INearbyDiscoverer _discoverer;
     readonly INearbyDeviceViewModelFactory _nearbyDeviceViewModelFactory;
+
+    NotifyCollectionChangedEventHandler? _advertiserConnectionsChangedHandler;
+    NotifyCollectionChangedEventHandler? _discovererConnectionsChangedHandler;
 
     public ObservableCollection<ConnectedDeviceViewModel> ConnectedDevices { get; } = [];
 
@@ -21,30 +23,65 @@ public partial class ConnectionsPageViewModel : BasePageViewModel,
         IDispatcher dispatcher,
         IMessenger messenger,
         INavigationService navigationService,
-        INearbyConnectionsService nearbyConnectionsService,
+        INearbyAdvertiser advertiser,
+        INearbyDiscoverer discoverer,
         INearbyDeviceViewModelFactory nearbyDeviceViewModelFactory)
         : base(dispatcher, messenger)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
-        ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
+        ArgumentNullException.ThrowIfNull(advertiser);
+        ArgumentNullException.ThrowIfNull(discoverer);
         ArgumentNullException.ThrowIfNull(nearbyDeviceViewModelFactory);
 
         _navigationService = navigationService;
-        _nearbyConnectionsService = nearbyConnectionsService;
+        _advertiser = advertiser;
+        _discoverer = discoverer;
         _nearbyDeviceViewModelFactory = nearbyDeviceViewModelFactory;
-
     }
 
     protected override void NavigatedTo()
     {
         base.NavigatedTo();
 
-        var connected = _nearbyConnectionsService.Devices
-            .Where(d => d.State == NearbyDeviceState.Connected)
+        _advertiserConnectionsChangedHandler = OnConnectionsChanged;
+        _discovererConnectionsChangedHandler = OnConnectionsChanged;
+
+        if (_advertiser.ActiveConnections is INotifyCollectionChanged advertiserNotify)
+            advertiserNotify.CollectionChanged += _advertiserConnectionsChangedHandler;
+
+        if (_discoverer.ActiveConnections is INotifyCollectionChanged discovererNotify)
+            discovererNotify.CollectionChanged += _discovererConnectionsChangedHandler;
+
+        RefreshConnectedDevices();
+    }
+
+    protected override void NavigatedFrom()
+    {
+        if (_advertiser.ActiveConnections is INotifyCollectionChanged advertiserNotify && _advertiserConnectionsChangedHandler is not null)
+            advertiserNotify.CollectionChanged -= _advertiserConnectionsChangedHandler;
+
+        if (_discoverer.ActiveConnections is INotifyCollectionChanged discovererNotify && _discovererConnectionsChangedHandler is not null)
+            discovererNotify.CollectionChanged -= _discovererConnectionsChangedHandler;
+
+        _advertiserConnectionsChangedHandler = null;
+        _discovererConnectionsChangedHandler = null;
+
+        base.NavigatedFrom();
+    }
+
+    void OnConnectionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        Dispatcher.DispatchAsync(RefreshConnectedDevices);
+    }
+
+    void RefreshConnectedDevices()
+    {
+        var allConnections = _advertiser.ActiveConnections
+            .Concat(_discoverer.ActiveConnections)
             .ToList();
 
         var toRemove = ConnectedDevices
-            .Where(vm => !connected.Any(d => d.Id == vm.Id))
+            .Where(vm => !allConnections.Any(c => c.RemoteDevice.Id == vm.Id))
             .ToList();
 
         foreach (var vm in toRemove)
@@ -53,29 +90,12 @@ public partial class ConnectionsPageViewModel : BasePageViewModel,
             ConnectedDevices.Remove(vm);
         }
 
-        foreach (var device in connected.Where(d => !ConnectedDevices.Any(vm => vm.Id == d.Id)))
+        foreach (var conn in allConnections.Where(c => !ConnectedDevices.Any(vm => vm.Id == c.RemoteDevice.Id)))
         {
-            var vm = _nearbyDeviceViewModelFactory.CreateConnected(device);
+            var vm = _nearbyDeviceViewModelFactory.CreateConnected(conn);
             vm.IsActive = true;
             ConnectedDevices.Add(vm);
         }
-    }
-
-    public void Receive(DeviceDisconnectedMessage message)
-    {
-        var vm = ConnectedDevices.FirstOrDefault(d => d.Id == message.Value.Id);
-        if (vm is not null)
-            ConnectedDevices.Remove(vm);
-    }
-
-    public void Receive(ConnectionResponseMessage message)
-    {
-        if (!message.Accepted || ConnectedDevices.Any(d => d.Id == message.Value.Id))
-            return;
-
-        var vm = _nearbyDeviceViewModelFactory.CreateConnected(message.Value);
-        vm.IsActive = true;
-        ConnectedDevices.Add(vm);
     }
 
     [RelayCommand]
