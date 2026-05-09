@@ -6,14 +6,12 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 public class NearbyDeviceManagerTests
 {
     readonly FakeTimeProvider _timeProvider;
-    readonly List<NearbyDeviceStateChangedEventArgs> _stateChanges = [];
     readonly NearbyDeviceManager _sut;
 
     public NearbyDeviceManagerTests()
     {
         _timeProvider = new();
-        _sut = new NearbyDeviceManager(_timeProvider, (device, previousState, timestamp) =>
-            _stateChanges.Add(new NearbyDeviceStateChangedEventArgs(device, timestamp, previousState)));
+        _sut = new NearbyDeviceManager(_timeProvider);
     }
 
     [TestClass]
@@ -302,67 +300,6 @@ public class NearbyDeviceManagerTests
         }
 
         [TestMethod]
-        public void StateChange_RaisesDeviceStateChangedEvent()
-        {
-            // Arrange
-            var id = "peer-1";
-            var displayName = "Alice";
-            _sut.RecordDeviceFound(id, displayName);
-
-            // Act
-            _sut.SetState(id, NearbyDeviceState.Connected);
-
-            // Assert
-            Assert.HasCount(1, _stateChanges);
-        }
-
-        [TestMethod]
-        public void StateChange_EventCarriesPreviousState()
-        {
-            // Arrange
-            var id = "peer-1";
-            var displayName = "Alice";
-            _sut.RecordDeviceFound(id, displayName);
-
-            // Act
-            _sut.SetState(id, NearbyDeviceState.Connected);
-
-            // Assert
-            Assert.AreEqual(NearbyDeviceState.Discovered, _stateChanges[0].PreviousState);
-        }
-
-        [TestMethod]
-        public void StateChange_EventCarriesNewState()
-        {
-            // Arrange
-            var id = "peer-1";
-            var displayName = "Alice";
-            var newState = NearbyDeviceState.Connected;
-            _sut.RecordDeviceFound(id, displayName);
-
-            // Act
-            _sut.SetState(id, newState);
-
-            // Assert
-            Assert.AreEqual(newState, _stateChanges[0].NearbyDevice.State);
-        }
-
-        [TestMethod]
-        public void NoStateChange_DoesNotRaiseDeviceStateChangedEvent()
-        {
-            // Arrange
-            var id = "peer-1";
-            var displayName = "Alice";
-            _sut.RecordDeviceFound(id, displayName);
-
-            // Act
-            _sut.SetState(id, NearbyDeviceState.Discovered);
-
-            // Assert
-            Assert.IsEmpty(_stateChanges);
-        }
-
-        [TestMethod]
         public void TransitionToDiscovered_UpdatesLastSeen()
         {
             // Arrange
@@ -488,21 +425,6 @@ public class NearbyDeviceManagerTests
 
             // Assert
             Assert.IsEmpty(_sut.Devices);
-        }
-
-        [TestMethod]
-        public void DoesNotRaiseDeviceStateChangedEvent()
-        {
-            // Arrange
-            var id = "peer-1";
-            var displayName = "Alice";
-            _sut.RecordDeviceFound(id, displayName);
-
-            // Act
-            _sut.Clear();
-
-            // Assert
-            Assert.IsEmpty(_stateChanges);
         }
     }
 }
