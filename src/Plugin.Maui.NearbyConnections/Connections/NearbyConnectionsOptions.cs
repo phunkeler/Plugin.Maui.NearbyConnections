@@ -14,7 +14,8 @@ public sealed partial class NearbyConnectionsOptions
 
     /// <summary>
     /// Gets the service identifier used to discover and connect with nearby devices.
-    /// Defaults to <see cref="AppInfo.Name"/>.
+    /// On Android, defaults to <see cref="AppInfo.Name"/>. On iOS, this property has no default
+    /// and <b>must</b> be set explicitly before calling <c>AdvertiseAsync</c> or <c>DiscoverAsync</c>.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -22,8 +23,11 @@ public sealed partial class NearbyConnectionsOptions
     /// (<see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/package-summary">developers.google.com</see>).
     /// </para>
     /// <para>
-    /// On iOS, this is a Bonjour service type defined in the application's Info.plist
+    /// On iOS, this must be a Bonjour service type in the form <c>_&lt;name&gt;._tcp</c> or
+    /// <c>_&lt;name&gt;._udp</c> (for example <c>_mygame._tcp</c>), matching the entry declared in the
+    /// application's <c>Info.plist</c> under <c>NSBonjourServices</c>
     /// (<see href="https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSBonjourServices">developer.apple.com</see>).
+    /// An <see cref="ArgumentException"/> is thrown at startup if the value does not conform to this format.
     /// </para>
     /// </remarks>
     public string ServiceId { get; set; } = GetDefaultServiceId();

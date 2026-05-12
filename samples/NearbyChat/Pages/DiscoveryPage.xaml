@@ -83,7 +83,7 @@
                                     Grid.Row="1"
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardSubtitle}"
-                                    Text="{Binding LastSeen, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
+                                    Text="{Binding ReceivedAt, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
                                 <Button
                                     Grid.Row="2"
                                     HeightRequest="44"

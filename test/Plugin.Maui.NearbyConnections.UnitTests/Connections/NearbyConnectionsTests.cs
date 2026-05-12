@@ -13,7 +13,7 @@ public class NearbyConnectionsTests
     static NearbyConnectionsImplementation CreateSut(FakeTimeProvider? timeProvider = null)
     {
         var tp = timeProvider ?? new FakeTimeProvider();
-        var deviceManager = new NearbyDeviceManager(tp);
+        var deviceManager = new NearbyDeviceManager();
         return new NearbyConnectionsImplementation(
             deviceManager,
             tp,
@@ -28,7 +28,7 @@ public class NearbyConnectionsTests
     // from the channel reader rather than going through AdvertiseAsync/DiscoverAsync.
 
     [TestClass]
-    public sealed class WriteConnectionRequestTests : NearbyConnectionsTests
+    public sealed class WriteConnectionRequest : NearbyConnectionsTests
     {
         [TestMethod]
         public async Task WriteConnectionRequest_YieldsRequestOnAdvertiseChannel()
@@ -85,7 +85,7 @@ public class NearbyConnectionsTests
     }
 
     [TestClass]
-    public sealed class ResolveConnectionTcsTests : NearbyConnectionsTests
+    public sealed class ResolveConnectionTcs : NearbyConnectionsTests
     {
         [TestMethod]
         public async Task AcceptAsync_ResolveConnectionTcs_CompletesWithNearbyConnection()
@@ -162,7 +162,7 @@ public class NearbyConnectionsTests
     }
 
     [TestClass]
-    public sealed class WriteDeviceFoundTests : NearbyConnectionsTests
+    public sealed class WriteDeviceFound : NearbyConnectionsTests
     {
         [TestMethod]
         public async Task WriteDeviceFound_YieldsFoundEventOnDiscoverChannel()
@@ -223,7 +223,7 @@ public class NearbyConnectionsTests
     }
 
     [TestClass]
-    public sealed class WritePayloadTests : NearbyConnectionsTests
+    public sealed class WritePayload : NearbyConnectionsTests
     {
         [TestMethod]
         public async Task WritePayload_RoutesPayloadToActiveConnection()
@@ -266,13 +266,16 @@ public class NearbyConnectionsTests
             var sut = CreateSut();
             var payload = new BytesPayload([1, 2, 3]);
 
-            // Act & Assert — unknown peer silently drops
+            // Act
             sut.WritePayload("nonexistent-peer", payload);
+
+            // Assert — unknown peer silently ignored; no connection was registered
+            Assert.IsFalse(sut._activeConnections.ContainsKey("nonexistent-peer"));
         }
     }
 
     [TestClass]
-    public sealed class DisposeAsyncTests : NearbyConnectionsTests
+    public sealed class DisposeAsync : NearbyConnectionsTests
     {
         [TestMethod]
         public async Task DisposeAsync_CompletesAdvertiseChannel()
@@ -322,9 +325,14 @@ public class NearbyConnectionsTests
             // Arrange
             var sut = CreateSut();
 
-            // Act & Assert
+            // Act
             await sut.DisposeAsync();
+#pragma warning disable S3966 // intentional: second call verifies idempotency
             await sut.DisposeAsync();
+#pragma warning restore S3966
+
+            // Assert
+            Assert.IsTrue(sut._advertiseChannel.Reader.Completion.IsCompleted);
         }
     }
 }

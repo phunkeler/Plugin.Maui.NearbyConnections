@@ -5,6 +5,16 @@ A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices by un
 [![NuGet Version](https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections)](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
 [![GitHub License](https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections)](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/LICENSE)
 
+# How it works
+
+Peer-to-peer communication happens in two phases.
+
+**Phase 1 — Finding peers.** One device advertises its presence; another scans for advertisers. This is a continuous `IAsyncEnumerable` stream of "device appeared" / "device disappeared" events. Nothing is connected yet — you are learning who is nearby.
+
+**Phase 2 — Talking to them.** Once you pick a peer and connect (or accept their inbound request), a `NearbyConnection` is established. That object is itself an async stream of incoming payloads, and exposes `SendAsync` for the outbound direction.
+
+The tier-1 API (`INearbyConnections`) exposes these two phases directly as `AdvertiseAsync` / `DiscoverAsync` streams. For MAUI app code, the tier-2 services (`INearbyAdvertiser` / `INearbyDiscoverer`) stitch both phases into a single `EventsAsync` stream per role — lifecycle events and payload delivery unified, with current state replayed atomically on subscribe.
+
 # Supported Platforms
 
 | Platform | Minimum Version |

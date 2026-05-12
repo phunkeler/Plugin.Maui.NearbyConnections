@@ -1,4 +1,4 @@
-using System.Collections.Specialized;
+using System.Collections.Concurrent;
 using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Data;
@@ -14,12 +14,17 @@ public interface IChatMessageService
     Task SendChatMessage(NearbyDevice device, ChatMessage message);
 }
 
-public class ChatMessageService : IChatMessageService
+public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDiscovererHandler
 {
     readonly IChatMessageRepository _repository;
     readonly IMessenger _messenger;
     readonly INearbyAdvertiser _advertiser;
     readonly INearbyDiscoverer _discoverer;
+
+    ConcurrentDictionary<string, NearbyConnection> _connections = [];
+
+    IDispatcher? IAdvertiserHandler.Dispatcher => null;
+    IDispatcher? IDiscovererHandler.Dispatcher => null;
 
     public ChatMessageService(
         INearbyAdvertiser advertiser,
@@ -37,11 +42,8 @@ public class ChatMessageService : IChatMessageService
         _repository = repository;
         _messenger = messenger;
 
-        if (_advertiser.ActiveConnections is INotifyCollectionChanged advertiserNotify)
-            advertiserNotify.CollectionChanged += OnActiveConnectionsChanged;
-
-        if (_discoverer.ActiveConnections is INotifyCollectionChanged discovererNotify)
-            discovererNotify.CollectionChanged += OnActiveConnectionsChanged;
+        _ = advertiser.EventsAsync().RunAsync(this);
+        _ = discoverer.EventsAsync().RunAsync(this);
     }
 
     public void ProcessIncomingChatMessage(NearbyDevice device, ChatMessage message)
@@ -56,7 +58,9 @@ public class ChatMessageService : IChatMessageService
 
         var conn = FindConnection(device);
         if (conn is null)
+        {
             return;
+        }
 
         if (message.Attachments.FirstOrDefault() is MediaAttachment mediaAttachment)
         {
@@ -71,29 +75,78 @@ public class ChatMessageService : IChatMessageService
         }
     }
 
-    NearbyConnection? FindConnection(NearbyDevice device)
+    void IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
     {
-        var advertiserConn = _advertiser.ActiveConnections
-            .FirstOrDefault(c => c.RemoteDevice.Id == device.Id);
-        if (advertiserConn is not null)
-            return advertiserConn;
-
-        return _discoverer.ActiveConnections
-            .FirstOrDefault(c => c.RemoteDevice.Id == device.Id);
+        _connections[ev.Connection.RemoteDevice.Id] = ev.Connection;
     }
 
-    void OnActiveConnectionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    void IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
     {
-        if (e.Action == NotifyCollectionChangedAction.Remove && e.OldItems is not null)
+        _connections.TryRemove(ev.Connection.RemoteDevice.Id, out _);
+        _repository.ClearSession(ev.Connection.RemoteDevice);
+    }
+
+    void IAdvertiserHandler.OnPayloadReceived(AdvertiserEvent.PayloadReceived ev)
+    {
+        ProcessPayload(ev.Connection.RemoteDevice, ev.Payload);
+    }
+
+    void IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
+    {
+        _connections[ev.Connection.RemoteDevice.Id] = ev.Connection;
+    }
+
+    void IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
+    {
+        _connections.TryRemove(ev.Connection.RemoteDevice.Id, out _);
+        _repository.ClearSession(ev.Connection.RemoteDevice);
+    }
+
+    void IDiscovererHandler.OnPayloadReceived(DiscovererEvent.PayloadReceived ev)
+    {
+        ProcessPayload(ev.Connection.RemoteDevice, ev.Payload);
+    }
+
+    NearbyConnection? FindConnection(NearbyDevice device)
+    {
+        _connections.TryGetValue(device.Id, out var conn);
+        return conn;
+    }
+
+    void ProcessPayload(NearbyDevice device, NearbyPayload payload)
+    {
+        ChatMessage message;
+
+        if (payload is BytesPayload bytes)
         {
-            foreach (NearbyConnection conn in e.OldItems)
+            var text = Encoding.UTF8.GetString(bytes.Data);
+            message = new ChatMessage(text, NearbyDirection.Incoming, DateTimeOffset.UtcNow);
+        }
+        else if (payload is FilePayload file)
+        {
+            var path = file.FileResult.FullPath;
+            var contentType = file.FileResult.ContentType ?? string.Empty;
+
+            message = new ChatMessage(file.FileResult.FileName, NearbyDirection.Incoming, DateTimeOffset.UtcNow);
+
+            if (contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
             {
-                _repository.ClearSession(conn.RemoteDevice);
+                message.Attachments.Add(new PhotoAttachment
+                {
+                    FilePath = path,
+                    Thumbnail = ImageSource.FromFile(path)
+                });
+            }
+            else if (contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+            {
+                message.Attachments.Add(new VideoAttachment { FilePath = path });
             }
         }
-        else if (e.Action == NotifyCollectionChangedAction.Reset)
+        else
         {
-            // Cannot determine which devices were removed on Reset; no-op for session cleanup.
+            return;
         }
+
+        ProcessIncomingChatMessage(device, message);
     }
 }

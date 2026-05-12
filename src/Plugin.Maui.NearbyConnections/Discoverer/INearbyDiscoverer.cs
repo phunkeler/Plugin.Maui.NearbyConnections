@@ -12,28 +12,11 @@ public interface INearbyDiscoverer
     bool IsDiscovering { get; }
 
     /// <summary>
-    /// Gets the devices that are currently visible (found but not yet connected or lost).
-    /// The underlying implementation uses <see cref="System.Collections.ObjectModel.ObservableCollection{T}"/>,
-    /// enabling XAML collection bindings at runtime.
-    /// </summary>
-    IReadOnlyList<NearbyDevice> NearbyDevices { get; }
-
-    /// <summary>
-    /// Gets the currently live connections initiated by this discoverer.
-    /// The underlying implementation uses <see cref="System.Collections.ObjectModel.ObservableCollection{T}"/>,
-    /// enabling XAML collection bindings at runtime.
-    /// </summary>
-    IReadOnlyList<NearbyConnection> ActiveConnections { get; }
-
-    /// <summary>
     /// Starts the background discover loop. Returns <see cref="Task.CompletedTask"/> once the loop
     /// is launched (fire-and-forget internally).
     /// </summary>
-    /// <param name="cancellationToken">
-    /// An optional token that, when cancelled, will also stop the discover loop.
-    /// </param>
     /// <returns>A <see cref="Task"/> that completes once the loop has been started.</returns>
-    Task StartAsync(CancellationToken cancellationToken = default);
+    Task StartAsync();
 
     /// <summary>
     /// Cancels the discover loop and returns immediately.
@@ -42,16 +25,15 @@ public interface INearbyDiscoverer
     Task StopAsync();
 
     /// <summary>
-    /// Removes <paramref name="device"/> from <see cref="NearbyDevices"/>, delegates to
-    /// <see cref="INearbyConnections.ConnectAsync"/>, adds the returned connection to
-    /// <see cref="ActiveConnections"/>, and starts monitoring and payload forwarding.
+    /// Delegates to <see cref="INearbyConnections.ConnectAsync"/>, adds the returned connection to
+    /// active connections, and starts monitoring and payload forwarding.
     /// </summary>
     /// <remarks>
     /// If the underlying <see cref="INearbyConnections.ConnectAsync"/> call throws, the device
-    /// is not re-added to <see cref="NearbyDevices"/>. The platform may re-fire a
+    /// is not re-added to the visible set. The platform may re-fire a
     /// <c>FoundPeer</c> event that restores it — this is a known behavior.
     /// </remarks>
-    /// <param name="device">The device to connect to. Must be present in <see cref="NearbyDevices"/>.</param>
+    /// <param name="device">The device to connect to.</param>
     /// <param name="cancellationToken">A token to cancel the connect operation.</param>
     /// <returns>
     /// A <see cref="Task{TResult}"/> that resolves to the established <see cref="NearbyConnection"/>.
@@ -59,18 +41,14 @@ public interface INearbyDiscoverer
     Task<NearbyConnection> ConnectAsync(NearbyDevice device, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Returns a unified payload stream across all active connections managed by this discoverer.
-    /// The stream exits when <paramref name="cancellationToken"/> is cancelled.
+    /// Returns a unified stream of device discovery lifecycle and payload events.
+    /// The first batch of items reflects current state (visible devices and active connections)
+    /// as synthetic events, followed by live events as they occur.
+    /// Completes when <paramref name="cancellationToken"/> is cancelled.
     /// </summary>
-    /// <remarks>
-    /// Do not call <see cref="NearbyConnection.ReceiveAsync"/> on a connection returned by this
-    /// discoverer while also consuming <see cref="ReceiveAllAsync"/>. Both paths read from the same
-    /// <c>SingleReader</c> channel and will corrupt each other's streams.
-    /// </remarks>
     /// <param name="cancellationToken">A token to stop enumerating the unified stream.</param>
     /// <returns>
-    /// An <see cref="IAsyncEnumerable{T}"/> of tuples pairing each
-    /// <see cref="NearbyConnection"/> with the <see cref="NearbyPayload"/> it received.
+    /// An <see cref="IAsyncEnumerable{T}"/> of <see cref="DiscovererEvent"/> instances.
     /// </returns>
-    IAsyncEnumerable<(NearbyConnection Connection, NearbyPayload Payload)> ReceiveAllAsync(CancellationToken cancellationToken = default);
+    IAsyncEnumerable<DiscovererEvent> EventsAsync(CancellationToken cancellationToken = default);
 }

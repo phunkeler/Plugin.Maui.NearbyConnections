@@ -15,6 +15,18 @@ public sealed partial class NearbyConnectionsOptions
     public TimeSpan InvitationTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
     private static partial string GetDefaultDisplayName() => DeviceInfo.Name;
-    private static partial string GetDefaultServiceId() => AppInfo.Name;
+
+    /// <remarks>
+    /// On iOS there is no meaningful default for <c>ServiceId</c>: it must be a valid Bonjour
+    /// service type in the form <c>_&lt;name&gt;._tcp</c> or <c>_&lt;name&gt;._udp</c> and must
+    /// match an entry in the app's <c>Info.plist</c> under <c>NSBonjourServices</c>.
+    /// The sentinel value <c>"_UNSET._tcp"</c> is intentionally invalid so that validation
+    /// at startup throws immediately with a descriptive message rather than silently failing
+    /// deep inside MultipeerConnectivity.
+    /// </remarks>
+#pragma warning disable S3400 // Partial method implementation — cannot be replaced with a constant
+    private static partial string GetDefaultServiceId() => "_UNSET._tcp";
+#pragma warning restore S3400
+
     private static partial string GetDefaultReceivedFilesDirectory() => FileSystem.AppDataDirectory;
 }
