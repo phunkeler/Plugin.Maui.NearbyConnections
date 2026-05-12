@@ -16,12 +16,6 @@ public sealed partial class NearbyConnectionsOptions
     /// </summary>
     public bool UseLowPower { get; set; }
 
-    /// <summary>
-    /// Gets or sets the Android connection type.
-    /// Default is <see cref="NearbyConnectionType.Balanced"/>.
-    /// </summary>
-    public NearbyConnectionType ConnectionType { get; set; } = NearbyConnectionType.Balanced;
-
     private static partial string GetDefaultDisplayName() => DeviceInfo.Name;
     private static partial string GetDefaultServiceId() => AppInfo.Name;
     private static partial string GetDefaultReceivedFilesDirectory() => FileSystem.AppDataDirectory;

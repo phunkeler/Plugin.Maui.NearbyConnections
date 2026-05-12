@@ -36,7 +36,7 @@ public static class ServiceCollectionExtensions
         {
             var resolvedOptions = sp.GetRequiredService<IOptions<NearbyConnectionsOptions>>().Value;
             var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
-            var deviceManager = new NearbyDeviceManager(timeProvider);
+            var deviceManager = new NearbyDeviceManager();
             var logger = sp.GetRequiredService<ILoggerFactory>()
                 .CreateLogger<NearbyConnectionsImplementation>();
             return new NearbyConnectionsImplementation(
@@ -53,13 +53,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INearbyAdvertiser>(sp =>
             new NearbyAdvertiser(
                 sp.GetRequiredService<INearbyConnections>(),
-                sp.GetRequiredService<IDispatcher>(),
                 sp.GetRequiredService<ILogger<NearbyAdvertiser>>()));
 
         services.AddSingleton<INearbyDiscoverer>(sp =>
             new NearbyDiscoverer(
                 sp.GetRequiredService<INearbyConnections>(),
-                sp.GetRequiredService<IDispatcher>(),
                 sp.GetRequiredService<ILogger<NearbyDiscoverer>>()));
 
         return services;

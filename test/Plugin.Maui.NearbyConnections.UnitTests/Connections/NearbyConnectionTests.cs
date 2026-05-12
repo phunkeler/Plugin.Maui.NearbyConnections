@@ -23,7 +23,7 @@ public sealed class NearbyConnectionTests
     }
 
     [TestClass]
-    public sealed class RemoteDeviceTests
+    public sealed class RemoteDevice
     {
         [TestMethod]
         public void RemoteDevice_ReturnsConstructedDevice()
@@ -32,13 +32,16 @@ public sealed class NearbyConnectionTests
             var device = new NearbyDevice("peer-42", "Bob");
             var connection = CreateConnection(device: device);
 
+            // Act
+            var result = connection.RemoteDevice;
+
             // Assert
-            Assert.AreSame(device, connection.RemoteDevice);
+            Assert.AreSame(device, result);
         }
     }
 
     [TestClass]
-    public sealed class SendAsyncBytesTests
+    public sealed class SendAsyncBytes
     {
         [TestMethod]
         public async Task SendAsync_Bytes_DelegatesToSendBytesFactory()
@@ -81,14 +84,16 @@ public sealed class NearbyConnectionTests
             // Arrange
             var connection = CreateConnection();
 
-            // Act & Assert
-            await Assert.ThrowsExactlyAsync<ArgumentNullException>(
-                async () => await connection.SendAsync((byte[])null!));
+            // Act
+            Func<Task> act = async () => await connection.SendAsync((byte[])null!);
+
+            // Assert
+            await Assert.ThrowsExactlyAsync<ArgumentNullException>(act);
         }
     }
 
     [TestClass]
-    public sealed class SendAsyncFileTests
+    public sealed class SendAsyncFile
     {
         [TestMethod]
         public async Task SendAsync_File_DelegatesToSendFileFactory()
@@ -128,14 +133,16 @@ public sealed class NearbyConnectionTests
             // Arrange
             var connection = CreateConnection();
 
-            // Act & Assert
-            await Assert.ThrowsExactlyAsync<ArgumentNullException>(
-                async () => await connection.SendAsync((string)null!));
+            // Act
+            Func<Task> act = async () => await connection.SendAsync((string)null!);
+
+            // Assert
+            await Assert.ThrowsExactlyAsync<ArgumentNullException>(act);
         }
     }
 
     [TestClass]
-    public sealed class ReceiveAsyncTests
+    public sealed class ReceiveAsync
     {
         [TestMethod]
         public async Task ReceiveAsync_WritePayload_YieldsPayload()
@@ -204,23 +211,25 @@ public sealed class NearbyConnectionTests
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
             var connection = CreateConnection(receiveChannel: receiveChannel);
-
             using var cts = new CancellationTokenSource();
+            await cts.CancelAsync();
 
-            // Act — start enumeration then cancel immediately (channel stays open)
-            cts.Cancel();
-
-            // TaskCanceledException is a subclass of OperationCanceledException
-            await Assert.ThrowsAsync<OperationCanceledException>(
-                async () =>
+            // Act
+            Func<Task> act = async () =>
+            {
+                await foreach (var _ in connection.ReceiveAsync(cts.Token))
                 {
-                    await foreach (var _ in connection.ReceiveAsync(cts.Token)) { }
-                });
+                    // drain — cancelled before first item
+                }
+            };
+
+            // Assert — TaskCanceledException is a subclass of OperationCanceledException
+            await Assert.ThrowsAsync<OperationCanceledException>(act);
         }
     }
 
     [TestClass]
-    public sealed class CompleteReceiveTests
+    public sealed class CompleteReceive
     {
         [TestMethod]
         public async Task CompleteReceive_CompletesReceiveEnumerable()
@@ -252,7 +261,7 @@ public sealed class NearbyConnectionTests
     }
 
     [TestClass]
-    public sealed class DisposeAsyncTests
+    public sealed class DisposeAsync
     {
         [TestMethod]
         public async Task DisposeAsync_CallsDisposeFactory()
@@ -279,17 +288,20 @@ public sealed class NearbyConnectionTests
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
-            // Start enumerating on a background task
             var enumerateTask = Task.Run(async () =>
             {
-                await foreach (var _ in connection.ReceiveAsync(cts.Token)) { }
+                await foreach (var _ in connection.ReceiveAsync(cts.Token))
+                {
+                    // drain — channel completes when connection is disposed
+                }
             }, cts.Token);
 
             // Act
             await connection.DisposeAsync();
 
-            // Assert — enumeration completes because the channel writer is completed by DisposeAsync
+            // Assert
             await enumerateTask.WaitAsync(cts.Token);
+            Assert.IsTrue(enumerateTask.IsCompletedSuccessfully);
         }
 
         [TestMethod]
@@ -301,8 +313,60 @@ public sealed class NearbyConnectionTests
             var connection = CreateConnection(receiveChannel: receiveChannel);
             await connection.DisposeAsync();
 
-            // Act & Assert — TryWritePayload after dispose silently drops
+            // Act
             connection.TryWritePayload(new BytesPayload([1, 2, 3]));
+
+            // Assert — payload silently dropped; channel writer is completed so nothing was queued
+            Assert.IsFalse(receiveChannel.Reader.TryRead(out _));
+        }
+    }
+
+    // ===========================================================================
+    // Disconnected
+    // ===========================================================================
+    [TestClass]
+    public sealed class Disconnected
+    {
+        [TestMethod]
+        public async Task Disconnected_CompletesWhenCompleteReceiveCalled()
+        {
+            // Arrange
+            var connection = CreateConnection();
+
+            // Act
+            connection.CompleteReceive();
+
+            // Assert
+            await connection.Disconnected.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.IsTrue(connection.Disconnected.IsCompleted);
+        }
+
+        [TestMethod]
+        public async Task Disconnected_CompletesWhenDisposeAsyncCalled()
+        {
+            // Arrange
+            var connection = CreateConnection(disposeFactory: () => ValueTask.CompletedTask);
+
+            // Act
+            await connection.DisposeAsync();
+
+            // Assert
+            Assert.IsTrue(connection.Disconnected.IsCompleted);
+        }
+
+        [TestMethod]
+        public async Task Disconnected_IsIdempotentOnDoubleCompleteAndDispose()
+        {
+            // Arrange
+            var connection = CreateConnection(disposeFactory: () => ValueTask.CompletedTask);
+
+            // Act — double CompleteReceive and one DisposeAsync; none should throw
+            connection.CompleteReceive();
+            connection.CompleteReceive();
+            await connection.DisposeAsync();
+
+            // Assert
+            Assert.IsTrue(connection.Disconnected.IsCompleted);
         }
     }
 }

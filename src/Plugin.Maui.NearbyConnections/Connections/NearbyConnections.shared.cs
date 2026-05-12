@@ -8,8 +8,8 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     readonly INearbyDeviceManager _deviceManager;
     readonly ILogger _logger;
 
-    internal readonly Channel<NearbyConnectionRequest> _advertiseChannel;
-    internal readonly Channel<NearbyDeviceEvent> _discoverChannel;
+    internal Channel<NearbyConnectionRequest> _advertiseChannel;
+    internal Channel<NearbyDeviceEvent> _discoverChannel;
     internal readonly ConcurrentDictionary<string, (TaskCompletionSource<NearbyConnection> Tcs, CancellationToken Ct)> _connectionTcs;
     internal readonly ConcurrentDictionary<string, NearbyConnection> _activeConnections;
 
@@ -62,6 +62,8 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     public async IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        _advertiseChannel = Channel.CreateUnbounded<NearbyConnectionRequest>(
+            new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
         await PlatformStartAdvertisingAsync(cancellationToken);
 
         try
@@ -82,6 +84,8 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     public async IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        _discoverChannel = Channel.CreateUnbounded<NearbyDeviceEvent>(
+            new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
         await PlatformStartDiscoveringAsync(cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();

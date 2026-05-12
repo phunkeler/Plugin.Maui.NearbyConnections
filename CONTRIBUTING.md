@@ -1,5 +1,32 @@
 # Contributing
 
+## Architecture
+
+### Two phases, two tiers
+
+Every session goes through two phases: **discovery/advertising** (learning who is nearby) and **connection** (exchanging data with a specific peer). These phases map directly to the two stream types the plugin exposes.
+
+The codebase has two layers:
+
+| Tier | Type | Responsibility |
+|------|------|----------------|
+| 1 | `INearbyConnections` | Raw platform streams. `AdvertiseAsync` yields inbound connection requests; `DiscoverAsync` yields device visibility events; `ConnectAsync` establishes a connection. No state ownership, no threading concern. |
+| 2 | `INearbyAdvertiser` / `INearbyDiscoverer` | MAUI-friendly services. Absorb loop hosting, lifecycle state, and unified event delivery. `EventsAsync` merges connection lifecycle and payload events into one stream with atomic current-state replay on subscribe. |
+
+### Stream primitive — `System.Threading.Channels`
+
+All async delivery is backed by `System.Threading.Channels`. Platform callbacks (Bluetooth/WiFi hardware events, arriving bytes) write into an unbounded channel; consumer `await foreach` reads from it. When there is nothing to read the read suspends cheaply until a write occurs. This is why the API is a stream and not polling.
+
+`NearbyConnection` wraps its own per-connection `Channel<NearbyPayload>`. The tier-2 services maintain a unified `Channel<(NearbyConnection, NearbyPayload)>` that aggregates payloads across all active connections.
+
+### EventsAsync snapshot replay
+
+`EventsAsync` on the tier-2 services yields current state as synthetic events — under a lock — before handing off to the live channel. This eliminates the read-snapshot / subscribe-INCC race that affects any design built on separate snapshot + event-notification primitives. A `Synchronized` sentinel event marks the boundary between replayed history and live events.
+
+### Platform implementations
+
+Each platform implements `INearbyConnections` as a partial class sealed against `NearbyConnectionsImplementation`. Platform-specific files are excluded from non-matching build targets via `src/Directory.Build.targets`. Global usings per platform are also injected there.
+
 ## Day-to-day development
 
 1. Work on a feature branch, not directly on `main`:
@@ -63,9 +90,12 @@ Versions are derived automatically from git tags at pack time via [MinVer](https
 
 ## Running tests
 
+### Unit tests
+
 ```bash
 dotnet run --project test/Plugin.Maui.NearbyConnections.UnitTests
 ```
+
 
 ## Building
 

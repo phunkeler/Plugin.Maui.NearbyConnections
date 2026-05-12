@@ -72,7 +72,9 @@ public partial class DiscoveryPage : BasePage<DiscoveryPageViewModel>
         _animationCts = null;
 
         if (SonarIcon is null || SonarIconSource is null)
+        {
             return;
+        }
 
         SonarIcon.CancelAnimations();
         SonarIcon.Opacity = 1;
@@ -82,7 +84,9 @@ public partial class DiscoveryPage : BasePage<DiscoveryPageViewModel>
     async Task RunPulseAnimationAsync(CancellationToken cancellationToken)
     {
         if (SonarIcon is null || SonarIconSource is null)
+        {
             return;
+        }
 
         SonarIconSource.Color = _pulseColor;
 
@@ -90,7 +94,10 @@ public partial class DiscoveryPage : BasePage<DiscoveryPageViewModel>
         {
             await SonarIcon.FadeToAsync(0.4, 800, Easing.CubicInOut);
 
-            if (cancellationToken.IsCancellationRequested) break;
+            if (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
 
             await SonarIcon.FadeToAsync(1, 800, Easing.CubicInOut);
         }

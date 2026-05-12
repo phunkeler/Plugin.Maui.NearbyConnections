@@ -9,7 +9,7 @@ public abstract partial class NearbyDeviceViewModel : ObservableRecipient
 
     public string Id => Device.Id;
     public string DisplayName => Device.DisplayName ?? "Unknown";
-    public DateTimeOffset LastSeen => Device.LastSeen;
+    public DateTimeOffset ReceivedAt { get; } = DateTimeOffset.UtcNow;
     public abstract string StateGlyph { get; }
     public abstract Color StateColor { get; }
 
@@ -19,7 +19,7 @@ public abstract partial class NearbyDeviceViewModel : ObservableRecipient
         Device = device;
     }
 
-    public void RefreshRelativeTime() => OnPropertyChanged(nameof(LastSeen));
+    public void RefreshRelativeTime() => OnPropertyChanged(nameof(ReceivedAt));
 
     protected static T Resource<T>(string key) =>
         Application.Current!.Resources.TryGetValue(key, out var value) && value is T typed

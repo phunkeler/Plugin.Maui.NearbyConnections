@@ -1,4 +1,3 @@
-using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -7,14 +6,11 @@ using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
-public partial class MainPageViewModel : BasePageViewModel
+public partial class MainPageViewModel : BasePageViewModel, IAdvertiserHandler, IDiscovererHandler
 {
     readonly INavigationService _navigationService;
     readonly INearbyAdvertiser _advertiser;
     readonly INearbyDiscoverer _discoverer;
-
-    NotifyCollectionChangedEventHandler? _advertiserConnectionsChangedHandler;
-    NotifyCollectionChangedEventHandler? _discovererConnectionsChangedHandler;
 
     [ObservableProperty]
     public partial bool IsAdvertising { get; set; }
@@ -24,6 +20,9 @@ public partial class MainPageViewModel : BasePageViewModel
 
     [ObservableProperty]
     public partial int ConnectedDevicesCount { get; set; }
+
+    IDispatcher? IAdvertiserHandler.Dispatcher => Dispatcher;
+    IDispatcher? IDiscovererHandler.Dispatcher => Dispatcher;
 
     public MainPageViewModel(
         IDispatcher dispatcher,
@@ -46,40 +45,36 @@ public partial class MainPageViewModel : BasePageViewModel
     {
         IsAdvertising = _advertiser.IsAdvertising;
         IsDiscovering = _discoverer.IsDiscovering;
-        ConnectedDevicesCount = _advertiser.ActiveConnections.Count + _discoverer.ActiveConnections.Count;
 
-        _advertiserConnectionsChangedHandler = OnConnectionsChanged;
-        _discovererConnectionsChangedHandler = OnConnectionsChanged;
-
-        if (_advertiser.ActiveConnections is INotifyCollectionChanged advertiserNotify)
-            advertiserNotify.CollectionChanged += _advertiserConnectionsChangedHandler;
-
-        if (_discoverer.ActiveConnections is INotifyCollectionChanged discovererNotify)
-            discovererNotify.CollectionChanged += _discovererConnectionsChangedHandler;
+        _ = _advertiser.EventsAsync(NavigationToken).RunAsync(this);
+        _ = _discoverer.EventsAsync(NavigationToken).RunAsync(this);
 
         base.NavigatedTo();
     }
 
     protected override void NavigatedFrom()
     {
-        if (_advertiser.ActiveConnections is INotifyCollectionChanged advertiserNotify && _advertiserConnectionsChangedHandler is not null)
-            advertiserNotify.CollectionChanged -= _advertiserConnectionsChangedHandler;
-
-        if (_discoverer.ActiveConnections is INotifyCollectionChanged discovererNotify && _discovererConnectionsChangedHandler is not null)
-            discovererNotify.CollectionChanged -= _discovererConnectionsChangedHandler;
-
-        _advertiserConnectionsChangedHandler = null;
-        _discovererConnectionsChangedHandler = null;
-
         base.NavigatedFrom();
     }
 
-    void OnConnectionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    void IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
     {
-        Dispatcher.DispatchAsync(() =>
-        {
-            ConnectedDevicesCount = _advertiser.ActiveConnections.Count + _discoverer.ActiveConnections.Count;
-        });
+        ConnectedDevicesCount++;
+    }
+
+    void IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
+    {
+        ConnectedDevicesCount--;
+    }
+
+    void IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
+    {
+        ConnectedDevicesCount++;
+    }
+
+    void IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
+    {
+        ConnectedDevicesCount--;
     }
 
     [RelayCommand]

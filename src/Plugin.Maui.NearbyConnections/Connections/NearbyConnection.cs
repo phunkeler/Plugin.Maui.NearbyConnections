@@ -23,6 +23,13 @@ public sealed class NearbyConnection : IAsyncDisposable
     public NearbyDevice RemoteDevice { get; }
 
     /// <summary>
+    /// Gets the role this local device plays in this connection.
+    /// <see cref="ConnectionRole.Initiator"/> when this device called ConnectAsync;
+    /// <see cref="ConnectionRole.Acceptor"/> when this device called AcceptAsync.
+    /// </summary>
+    public ConnectionRole Role { get; internal set; }
+
+    /// <summary>
     /// A task that completes when this connection terminates, from either side, for any reason.
     /// Safe to await concurrently alongside <see cref="ReceiveAsync"/>. Does not consume the receive stream.
     /// </summary>
@@ -34,7 +41,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <param name="remoteDevice">The remote device this connection represents.</param>
     /// <param name="receiveChannel">The channel that delivers inbound payloads to <see cref="ReceiveAsync"/>.</param>
     /// <param name="sendBytesFactory">A delegate invoked when <see cref="SendAsync(byte[],CancellationToken)"/> is called.</param>
-    /// <param name="sendFileFactory">A delegate invoked when <see cref="SendAsync(string,IProgress{NearbyTransferProgress}?,CancellationToken)"/> is called.</param>
+    /// <param name="sendFileFactory">A delegate invoked when <see cref="SendAsync(string,IProgress{NearbyTransferProgress}?,CancellationToken)"/>, <see cref="SendAsync(FileResult,IProgress{NearbyTransferProgress}?,CancellationToken)"/>, or <see cref="SendAsync(NearbyPayload,IProgress{NearbyTransferProgress}?,CancellationToken)"/> is called with a file payload.</param>
     /// <param name="disposeFactory">A delegate invoked when <see cref="DisposeAsync"/> is called.</param>
     public NearbyConnection(
         NearbyDevice remoteDevice,
@@ -108,13 +115,57 @@ public sealed class NearbyConnection : IAsyncDisposable
     }
 
     /// <summary>
-    /// Gets or sets an optional callback invoked with progress updates for inbound file transfers.
+    /// Sends a <see cref="NearbyPayload"/> to the remote device.
+    /// Dispatches to the appropriate platform send path based on the concrete payload type.
+    /// This overload is symmetric with the values yielded by <see cref="ReceiveAsync"/>.
+    /// </summary>
+    /// <param name="payload">The payload to send. Must be a <see cref="BytesPayload"/> or <see cref="FilePayload"/>.</param>
+    /// <param name="progress">
+    /// An optional callback to receive outgoing transfer progress updates.
+    /// Only used when <paramref name="payload"/> is a <see cref="FilePayload"/>.
+    /// </param>
+    /// <param name="cancellationToken">A token to cancel the send operation.</param>
+    /// <returns>A task that completes when the payload has been handed off to the platform.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="payload"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="payload"/> is an unrecognised subtype.</exception>
+    /// <exception cref="OperationCanceledException">Thrown if the operation is canceled.</exception>
+    public Task SendAsync(
+        NearbyPayload payload,
+        IProgress<NearbyTransferProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        return payload switch
+        {
+            BytesPayload bytes => _sendBytesFactory(bytes.Data, cancellationToken),
+            FilePayload file => _sendFileFactory(file.FileResult.FullPath, progress, cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(payload),
+                $"Unsupported payload type '{payload.GetType().Name}'. Only {nameof(BytesPayload)} and {nameof(FilePayload)} are supported.")
+        };
+    }
+
+    /// <summary>
+    /// Gets or sets an optional progress handler invoked with progress updates for inbound file transfers.
     /// </summary>
     /// <remarks>
-    /// This callback is invoked on the platform's callback thread. Marshal to the UI thread yourself
-    /// if you need to update UI from this callback.
+    /// <para>
+    /// <strong>Asymmetry with outbound progress (by design).</strong>
+    /// Outbound progress is supplied per-call as an <c>IProgress&lt;NearbyTransferProgress&gt;?</c>
+    /// parameter on each <c>SendAsync</c> overload, because the caller initiates the transfer and
+    /// knows up-front which handler to use.
+    /// Inbound progress cannot follow the same pattern: file transfers arrive asynchronously from
+    /// the platform on a background thread, before any consumer <c>await</c> has a chance to supply
+    /// a handler. Exposing it as a settable property lets callers attach a handler immediately after
+    /// accepting the connection and before any payload arrives.
+    /// </para>
+    /// <para>
+    /// <see cref="IProgress{T}.Report"/> is called on the platform's callback thread. Marshal to the
+    /// UI thread yourself if you need to update UI from the handler (e.g. wrap with
+    /// <c>new Progress&lt;NearbyTransferProgress&gt;(update => MainThread.BeginInvokeOnMainThread(() => …))</c>).
+    /// </para>
     /// </remarks>
-    public Action<NearbyTransferProgress>? InboundProgress { get; set; }
+    public IProgress<NearbyTransferProgress>? InboundProgress { get; set; }
 
     /// <summary>
     /// Returns an async stream of payloads received from the remote device.
@@ -133,7 +184,11 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <returns>A <see cref="ValueTask"/> that completes when the disconnect is signaled.</returns>
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposeGuard, 1) != 0) return;
+        if (Interlocked.Exchange(ref _disposeGuard, 1) != 0)
+        {
+            return;
+        }
+
         await _disposeFactory();
         CompleteReceive();
     }

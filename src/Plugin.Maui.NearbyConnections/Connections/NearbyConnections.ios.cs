@@ -16,6 +16,7 @@ sealed partial class NearbyConnectionsImplementation
     Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ValidateBonjourServiceId(Options.ServiceId);
 
         var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName);
 
@@ -61,8 +62,7 @@ sealed partial class NearbyConnectionsImplementation
         {
             var id = PeerIdManager.TrackRemotePeer(peerID);
 
-            var device = _deviceManager.SetState(id, NearbyDeviceState.ConnectionRequestedInbound)
-                ?? _deviceManager.GetOrAddDevice(id, peerID.DisplayName, NearbyDeviceState.ConnectionRequestedInbound);
+            var device = _deviceManager.RecordDeviceFound(id, peerID.DisplayName);
 
             LogConnectionRequestReceived(device.Id, device.DisplayName);
 
@@ -117,6 +117,7 @@ sealed partial class NearbyConnectionsImplementation
     Task PlatformStartDiscoveringAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ValidateBonjourServiceId(Options.ServiceId);
 
         var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName);
 
@@ -162,10 +163,12 @@ sealed partial class NearbyConnectionsImplementation
         {
             var id = PeerIdManager.PeerKey(peerID);
 
-            if (_deviceManager.TryGetDevice(id, out var existingDevice)
-                && existingDevice.State == NearbyDeviceState.Connected)
+            if (_activeConnections.ContainsKey(id))
             {
-                LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
+                if (_deviceManager.TryGetDevice(id, out var existingDevice))
+                {
+                    LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
+                }
                 return;
             }
 
@@ -207,7 +210,6 @@ sealed partial class NearbyConnectionsImplementation
             Delegate = new SessionDelegate(this)
         };
 
-        _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
         _mcBrowser?.InvitePeer(peerID, _session, context: null, Options.InvitationTimeout.TotalSeconds);
 
         return Task.CompletedTask;
@@ -333,6 +335,29 @@ sealed partial class NearbyConnectionsImplementation
         }
     }
 
+    /// <summary>
+    /// Validates that <paramref name="serviceId"/> is a legal Bonjour service type in the form
+    /// <c>_&lt;name&gt;._tcp</c> or <c>_&lt;name&gt;._udp</c>, as required by
+    /// <see cref="MCNearbyServiceAdvertiser"/> and <see cref="MCNearbyServiceBrowser"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="serviceId"/> is null, empty, or does not match the required format.
+    /// </exception>
+    static void ValidateBonjourServiceId(string serviceId)
+    {
+        if (string.IsNullOrEmpty(serviceId)
+            || (!serviceId.EndsWith("._tcp", StringComparison.OrdinalIgnoreCase)
+                && !serviceId.EndsWith("._udp", StringComparison.OrdinalIgnoreCase))
+            || !serviceId.StartsWith('_'))
+        {
+            throw new ArgumentException(
+                $"'{nameof(NearbyConnectionsOptions.ServiceId)}' must be a valid Bonjour service type in the form '_<name>._tcp' or '_<name>._udp' (e.g. '_mygame._tcp'). " +
+                $"The current value '{serviceId}' is not valid. " +
+                $"Set {nameof(NearbyConnectionsOptions)}.{nameof(NearbyConnectionsOptions.ServiceId)} before calling AdvertiseAsync or DiscoverAsync on iOS.",
+                nameof(serviceId));
+        }
+    }
+
     void PlatformDispose()
     {
         PlatformStopAdvertising();
@@ -367,8 +392,7 @@ sealed partial class NearbyConnectionsImplementation
             switch (state)
             {
                 case MCSessionState.Connected:
-                    var connectedDevice = _deviceManager.SetState(id, NearbyDeviceState.Connected)
-                        ?? _deviceManager.GetOrAddDevice(id, peerID.DisplayName, NearbyDeviceState.Connected);
+                    var connectedDevice = _deviceManager.RecordDeviceFound(id, peerID.DisplayName);
 
                     var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(new UnboundedChannelOptions
                     {
@@ -390,7 +414,11 @@ sealed partial class NearbyConnectionsImplementation
                             }
 
                             PeerIdManager.RemoveRemotePeer(id);
-                            if (_activeConnections.TryRemove(id, out var removed)) removed.CompleteReceive();
+                            if (_activeConnections.TryRemove(id, out var removed))
+                            {
+                                removed.CompleteReceive();
+                            }
+
                             _deviceManager.RemoveDevice(id);
                         });
 
@@ -485,10 +513,10 @@ sealed partial class NearbyConnectionsImplementation
             NSKeyValueObservingOptions.New,
             _ =>
             {
-                if (_activeConnections.TryGetValue(id, out var conn) && conn.InboundProgress is { } cb)
+                if (_activeConnections.TryGetValue(id, out var conn) && conn.InboundProgress is { } inboundProgress)
                 {
                     var transferred = (long)(progress.FractionCompleted * progress.TotalUnitCount);
-                    cb(new NearbyTransferProgress(
+                    inboundProgress.Report(new NearbyTransferProgress(
                         payloadId: 0,
                         bytesTransferred: transferred,
                         totalBytes: progress.TotalUnitCount,

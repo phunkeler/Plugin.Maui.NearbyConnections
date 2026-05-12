@@ -26,7 +26,6 @@ sealed partial class NearbyConnectionsImplementation
             new AdvertiseCallback(OnConnectionInitiatedAsync, OnConnectionResult, OnDisconnected),
             new AdvertisingOptions.Builder()
                 .SetStrategy(Options.Strategy)
-                .SetConnectionType((int)Options.ConnectionType)
                 .SetLowPower(Options.UseLowPower)
                 .Build());
     }
@@ -47,12 +46,7 @@ sealed partial class NearbyConnectionsImplementation
     {
         try
         {
-            var state = connectionInfo.IsIncomingConnection
-                ? NearbyDeviceState.ConnectionRequestedInbound
-                : NearbyDeviceState.ConnectionRequestedOutbound;
-
-            var device = _deviceManager.SetState(endpointId, state)
-                ?? _deviceManager.GetOrAddDevice(endpointId, connectionInfo.EndpointName, state);
+            var device = _deviceManager.RecordDeviceFound(endpointId, connectionInfo.EndpointName);
 
             if (connectionInfo.IsIncomingConnection)
             {
@@ -104,9 +98,7 @@ sealed partial class NearbyConnectionsImplementation
 
             if (resolution.Status.IsSuccess)
             {
-                var device = _deviceManager.SetState(endpointId, NearbyDeviceState.Connected);
-
-                if (device is null)
+                if (!_deviceManager.TryGetDevice(endpointId, out var device))
                 {
                     FaultConnectionTcs(endpointId, new InvalidOperationException($"Device not found in manager for endpoint '{endpointId}' after successful connection."));
                     return;
@@ -212,10 +204,12 @@ sealed partial class NearbyConnectionsImplementation
     {
         try
         {
-            if (_deviceManager.TryGetDevice(endpointId, out var existingDevice)
-                && existingDevice.State == NearbyDeviceState.Connected)
+            if (_activeConnections.ContainsKey(endpointId))
             {
-                LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
+                if (_deviceManager.TryGetDevice(endpointId, out var existingDevice))
+                {
+                    LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
+                }
                 return;
             }
 
@@ -272,7 +266,7 @@ sealed partial class NearbyConnectionsImplementation
                 && _incomingPayloads.TryGetValue(update.PayloadId, out var inboundEntry)
                 && _activeConnections.TryGetValue(inboundEntry.EndpointId, out var inboundConn))
             {
-                inboundConn.InboundProgress?.Invoke(new NearbyTransferProgress(
+                inboundConn.InboundProgress?.Report(new NearbyTransferProgress(
                     payloadId: update.PayloadId,
                     bytesTransferred: update.BytesTransferred,
                     totalBytes: update.TotalBytes,
@@ -362,7 +356,6 @@ sealed partial class NearbyConnectionsImplementation
     Task PlatformInitiateConnectAsync(NearbyDevice device, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
 
         return NearbyClass
             .GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
@@ -391,7 +384,11 @@ sealed partial class NearbyConnectionsImplementation
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
         client.DisconnectFromEndpoint(endpointId);
 
-        if (_activeConnections.TryRemove(endpointId, out var conn)) conn.CompleteReceive();
+        if (_activeConnections.TryRemove(endpointId, out var conn))
+        {
+            conn.CompleteReceive();
+        }
+
         _deviceManager.RemoveDevice(endpointId);
     }
 

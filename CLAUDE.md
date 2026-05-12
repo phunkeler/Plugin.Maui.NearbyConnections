@@ -66,6 +66,29 @@ The project uses a platform-specific partial class pattern across a single seale
 - **Code Analysis**: Latest recommended level with warnings as errors (`Directory.Build.props`)
 - **Documentation**: XML documentation required (`Directory.Build.props`)
 
+## Coding Style
+
+- **Always use braces `{ }`** for every `if`, `else`, `foreach`, `for`, `while`, and `do` body — even single-line bodies. No brace-free one-liners. This matches `csharp_prefer_braces = true:warning` in `.editorconfig`.
+
+## Test Coding Style
+
+Tests must use strict **Arrange / Act / Assert** structure with a blank line separating each section and a comment marking each phase:
+
+```csharp
+// Arrange
+var sut = new MyClass();
+
+// Act
+var result = sut.DoSomething();
+
+// Assert
+Assert.Equal(expected, result);
+```
+
+- Every test method must have all three `// Arrange`, `// Act`, `// Assert` comments — even if a section is trivial.
+- No logic in Assert sections; compute expected values in Arrange.
+- One logical assertion per test where possible; group related property checks with a single assertion object.
+
 ## Current Implementation Status
 
 Full P2P lifecycle is implemented on Android and iOS:
