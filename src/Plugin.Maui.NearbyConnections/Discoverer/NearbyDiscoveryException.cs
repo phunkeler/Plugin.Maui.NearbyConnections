@@ -3,7 +3,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <summary>
 /// Exception thrown during discovery operations.
 /// </summary>
-public class NearbyDiscoveryException : NearbyConnectionsException
+public sealed class NearbyDiscoveryException : NearbyConnectionsException
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="NearbyDiscoveryException"/> class.

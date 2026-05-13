@@ -1,24 +1,15 @@
-using System.Text.RegularExpressions;
-
 namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsOptionsValidator
 {
-    [GeneratedRegex(@"^[a-zA-Z0-9\-]+$")]
-    private static partial Regex BonjourServiceTypeRegex();
-
     static partial void PlatformValidate(NearbyConnectionsOptions options, List<string> failures)
     {
-        if (options.ServiceId.Length > 15)
+        if (options.ServiceId == "_UNSET._tcp")
         {
             failures.Add(
-                $"ServiceId '{options.ServiceId}' exceeds the 15-character Bonjour limit ({options.ServiceId.Length} chars).");
-        }
-
-        if (!BonjourServiceTypeRegex().IsMatch(options.ServiceId))
-        {
-            failures.Add(
-                $"ServiceId '{options.ServiceId}' contains characters invalid for a Bonjour service type (alphanumeric and hyphens only).");
+                "ServiceId has not been set. On iOS, ServiceId must be a valid Bonjour service type " +
+                "in the form '_<name>._tcp' or '_<name>._udp' (for example '_mygame._tcp'), " +
+                "matching an entry declared in the app's Info.plist under NSBonjourServices.");
         }
     }
 }

@@ -7,6 +7,12 @@ sealed partial class NearbyConnectionsOptionsValidator : IValidateOptions<Nearby
     public ValidateOptionsResult Validate(string? name, NearbyConnectionsOptions options)
     {
         var failures = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(options.ServiceId))
+        {
+            failures.Add("ServiceId must not be null or empty.");
+        }
+
         PlatformValidate(options, failures);
         return failures.Count > 0
             ? ValidateOptionsResult.Fail(failures)

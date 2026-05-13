@@ -7,6 +7,13 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 [TestCategory("Advertiser")]
 public sealed class NearbyAdvertiserTests
 {
+    readonly TestContext _testContext;
+
+    public NearbyAdvertiserTests(TestContext testContext)
+    {
+        _testContext = testContext;
+    }
+
     // ---------------------------------------------------------------------------
     // FakeNearbyConnections — backed by live channels that test methods write to.
     // ---------------------------------------------------------------------------
@@ -66,7 +73,7 @@ public sealed class NearbyAdvertiserTests
         var conn = new NearbyConnection(
             device ?? new NearbyDevice("peer-1", "Alice"),
             ch,
-            sendBytesFactory: (_, _) => Task.CompletedTask,
+            sendBytesFactory: (_, _) => ValueTask.CompletedTask,
             sendFileFactory: (_, _, _) => Task.CompletedTask,
             disposeFactory: () => ValueTask.CompletedTask);
         return (conn, ch);
@@ -135,9 +142,6 @@ public sealed class NearbyAdvertiserTests
 
             // Act
             await advertiser.StopAsync();
-
-            // The RunLoopAsync finally block sets IsAdvertising = false on a background task;
-            // allow a short window for it to complete.
             await WaitForAsync(() => !advertiser.IsAdvertising);
 
             // Assert
@@ -830,41 +834,49 @@ public sealed class NearbyAdvertiserTests
     [TestClass]
     public sealed class EventStreamBehavior
     {
-        // Verifies that _eventChannel.Writer.TryComplete() in StopAsync unblocks a
-        // consumer that is awaiting EventsAsync with no cancellation token.
+        // StopAsync no longer completes the channel — the channel persists for the lifetime
+        // of the service. Instead, StopAsync emits ConnectionRequestExpired for any pending
+        // requests so subscribers can clear their UI without restarting the event loop.
         [TestMethod]
-        public async Task StopAsync_WithoutCancellationToken_CompletesEventStream()
+        public async Task StopAsync_EmitsConnectionRequestExpired_ForPendingRequests()
         {
             // Arrange
-            var advertiser = new NearbyAdvertiser(CreateSubstitute());
+            var fake = new FakeNearbyConnections();
+            var advertiser = new NearbyAdvertiser(fake);
             await advertiser.StartAsync();
 
-            var synchronizedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var received = new List<AdvertiserEvent>();
 
             var streamTask = Task.Run(async () =>
             {
-                await foreach (var ev in advertiser.EventsAsync()) // intentionally no CancellationToken
+                await foreach (var ev in advertiser.EventsAsync(cts.Token))
                 {
-                    if (ev is AdvertiserEvent.Synchronized)
-                    {
-                        synchronizedTcs.TrySetResult();
-                    }
+                    received.Add(ev);
                 }
             });
 
-            await synchronizedTcs.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            await WaitForAsync(() => received.Any(e => e is AdvertiserEvent.Synchronized));
+
+            var (conn, _) = CreateConnection();
+            var request = CreateRequest(conn);
+            fake.WriteRequest(request);
+            await WaitForAsync(() => received.Any(e => e is AdvertiserEvent.ConnectionRequested));
 
             // Act
             await advertiser.StopAsync();
+            await WaitForAsync(() => received.Any(e => e is AdvertiserEvent.ConnectionRequestExpired));
 
-            // Assert
-            await streamTask.WaitAsync(TimeSpan.FromSeconds(2));
-            Assert.IsTrue(streamTask.IsCompletedSuccessfully);
+            await cts.CancelAsync();
+            await Task.WhenAny(streamTask, Task.Delay(TimeSpan.FromSeconds(1)));
+
+            // Assert — ConnectionRequestExpired emitted; stream stays open (not completed by StopAsync)
+            Assert.IsTrue(received.Any(e => e is AdvertiserEvent.ConnectionRequestExpired));
+            Assert.IsFalse(streamTask.IsCompletedSuccessfully, "Channel should remain open after StopAsync.");
         }
 
-        // StartAsync completes the old _eventChannel and creates a new one.
-        // A second EventsAsync call after a Stop/Start cycle must read from the
-        // new channel and still emit Synchronized.
+        // The channel persists across start/stop cycles. A second EventsAsync call after a
+        // stop/start cycle drains any interim history and emits a fresh Synchronized.
         [TestMethod]
         public async Task StartAsync_AfterStop_ProducesFreshStream()
         {
@@ -873,10 +885,11 @@ public sealed class NearbyAdvertiserTests
 
             // First lifecycle — start, consume Synchronized, stop
             await advertiser.StartAsync();
+            using var cts1 = new CancellationTokenSource();
             var firstSyncTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var firstStreamTask = Task.Run(async () =>
             {
-                await foreach (var ev in advertiser.EventsAsync())
+                await foreach (var ev in advertiser.EventsAsync(cts1.Token))
                 {
                     if (ev is AdvertiserEvent.Synchronized)
                     {
@@ -887,14 +900,16 @@ public sealed class NearbyAdvertiserTests
             });
             await firstSyncTcs.Task.WaitAsync(TimeSpan.FromSeconds(2));
             await advertiser.StopAsync();
+            await cts1.CancelAsync();
             await firstStreamTask.WaitAsync(TimeSpan.FromSeconds(2));
 
             // Act — second lifecycle on the same instance
             await advertiser.StartAsync();
+            using var cts2 = new CancellationTokenSource();
             var secondSyncTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var secondStreamTask = Task.Run(async () =>
             {
-                await foreach (var ev in advertiser.EventsAsync())
+                await foreach (var ev in advertiser.EventsAsync(cts2.Token))
                 {
                     if (ev is AdvertiserEvent.Synchronized)
                     {
@@ -904,11 +919,55 @@ public sealed class NearbyAdvertiserTests
                 }
             });
 
-            // Assert — recreated channel emits Synchronized; the completed channel was not reused
+            // Assert — persistent channel emits Synchronized for the new subscription
             await secondSyncTcs.Task.WaitAsync(TimeSpan.FromSeconds(2));
             Assert.IsTrue(secondSyncTcs.Task.IsCompletedSuccessfully);
             await advertiser.StopAsync();
+            await cts2.CancelAsync();
             await secondStreamTask.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+
+        // A subscriber that starts after a request has arrived receives it exactly once via
+        // snapshot replay. With fan-out, each subscriber has its own private channel that only
+        // receives events from the moment of subscription — there are no stale channel events.
+        [TestMethod]
+        public async Task EventsAsync_LateSubscriber_ReceivesSnapshotExactlyOnce()
+        {
+            // Arrange — request arrives while no consumer is active
+            var fake = new FakeNearbyConnections();
+            var advertiser = new NearbyAdvertiser(fake);
+            await advertiser.StartAsync();
+
+            var (conn, _) = CreateConnection();
+            var request = CreateRequest(conn);
+            fake.WriteRequest(request);
+
+            // Give the run loop time to process the request into the snapshot
+            await Task.Delay(100);
+
+            // Act — subscribe after the request is already in the snapshot
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var received = new List<AdvertiserEvent>();
+
+            var consumerTask = Task.Run(async () =>
+            {
+                await foreach (var ev in advertiser.EventsAsync(cts.Token))
+                {
+                    received.Add(ev);
+                    if (ev is AdvertiserEvent.Synchronized)
+                    {
+                        break;
+                    }
+                }
+            });
+
+            await consumerTask.WaitAsync(TimeSpan.FromSeconds(2));
+
+            // Assert — exactly one ConnectionRequested from snapshot replay, not duplicated
+            Assert.AreEqual(1, received.OfType<AdvertiserEvent.ConnectionRequested>().Count(),
+                "Late subscriber must receive the snapshot event exactly once.");
+
+            await advertiser.StopAsync();
         }
 
         // When the platform completes INearbyConnections.AdvertiseAsync with an error,
@@ -1049,17 +1108,15 @@ public sealed class NearbyAdvertiserTests
             await allArrivedTcs.Task.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.HasCount(RequestCount, received);
 
-            await advertiser.StopAsync();
+            // Dispose (not StopAsync) completes the channel, which terminates the stream.
+            advertiser.Dispose();
             await streamTask.WaitAsync(TimeSpan.FromSeconds(2));
         }
 
-        // _eventChannel uses SingleReader = false, allowing concurrent readers, but each
-        // item is dequeued by exactly one reader. Consumers who call EventsAsync twice
-        // concurrently will each see a disjoint subset of events, not full copies.
-        // The Synchronized sentinel is yielded by the iterator itself so both consumers
-        // receive their own copy of it; only items from _eventChannel are split.
+        // Fan-out: each EventsAsync subscriber gets its own private channel, so concurrent
+        // consumers both receive every event independently — broadcast, not split.
         [TestMethod]
-        public async Task EventsAsync_TwoConcurrentConsumers_SplitEventsNotBroadcast()
+        public async Task EventsAsync_TwoConcurrentConsumers_BothReceiveAllEvents()
         {
             // Arrange
             const int RequestCount = 10;
@@ -1105,14 +1162,13 @@ public sealed class NearbyAdvertiserTests
                     rejectFactory: _ => Task.CompletedTask));
             }
 
-            await Task.Delay(300); // allow both consumers to drain their share
-            await advertiser.StopAsync();
+            await Task.Delay(300); // allow both consumers to receive all events
+            advertiser.Dispose();
             await Task.WhenAll(consumer1, consumer2).WaitAsync(TimeSpan.FromSeconds(2));
 
-            // Assert — every event is consumed exactly once across both consumers
-            var total = consumer1Events.Count + consumer2Events.Count;
-            Assert.AreEqual(RequestCount, total,
-                "Channel items are consumed once; concurrent consumers split events, not broadcast them.");
+            // Assert — each consumer independently receives every event (broadcast semantics)
+            Assert.AreEqual(RequestCount, consumer1Events.Count, "Consumer 1 should receive all events.");
+            Assert.AreEqual(RequestCount, consumer2Events.Count, "Consumer 2 should receive all events.");
         }
     }
 }

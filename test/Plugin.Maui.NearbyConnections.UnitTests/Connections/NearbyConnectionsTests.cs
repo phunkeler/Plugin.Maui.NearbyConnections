@@ -102,7 +102,7 @@ public class NearbyConnectionsTests
             var connection = new NearbyConnection(
                 device,
                 receiveChannel,
-                sendBytesFactory: (_, _) => Task.CompletedTask,
+                sendBytesFactory: (_, _) => ValueTask.CompletedTask,
                 sendFileFactory: (_, _, _) => Task.CompletedTask,
                 disposeFactory: () => ValueTask.CompletedTask);
 
@@ -130,7 +130,7 @@ public class NearbyConnectionsTests
             var connection = new NearbyConnection(
                 device,
                 receiveChannel,
-                sendBytesFactory: (_, _) => Task.CompletedTask,
+                sendBytesFactory: (_, _) => ValueTask.CompletedTask,
                 sendFileFactory: (_, _, _) => Task.CompletedTask,
                 disposeFactory: () => ValueTask.CompletedTask);
 
@@ -240,7 +240,7 @@ public class NearbyConnectionsTests
             var connection = new NearbyConnection(
                 device,
                 receiveChannel,
-                sendBytesFactory: (_, _) => Task.CompletedTask,
+                sendBytesFactory: (_, _) => ValueTask.CompletedTask,
                 sendFileFactory: (_, _, _) => Task.CompletedTask,
                 disposeFactory: () => ValueTask.CompletedTask);
 

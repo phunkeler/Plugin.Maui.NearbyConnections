@@ -403,7 +403,7 @@ sealed partial class NearbyConnectionsImplementation
                     var connection = new NearbyConnection(
                         connectedDevice,
                         receiveChannel,
-                        sendBytesFactory: (data, ct) => SendBytesAsync(id, data, ct),
+                        sendBytesFactory: (data, ct) => new ValueTask(SendBytesAsync(id, data, ct)),
                         sendFileFactory: (fileUri, progress, ct) => PlatformSendFileAsync(id, fileUri, progress, ct),
                         disposeFactory: async () =>
                         {

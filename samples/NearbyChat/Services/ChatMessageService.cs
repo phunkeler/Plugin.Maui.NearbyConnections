@@ -75,36 +75,42 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
         }
     }
 
-    void IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
+    Task IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
     {
         _connections[ev.Connection.RemoteDevice.Id] = ev.Connection;
+        return Task.CompletedTask;
     }
 
-    void IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
+    Task IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
     {
         _connections.TryRemove(ev.Connection.RemoteDevice.Id, out _);
         _repository.ClearSession(ev.Connection.RemoteDevice);
+        return Task.CompletedTask;
     }
 
-    void IAdvertiserHandler.OnPayloadReceived(AdvertiserEvent.PayloadReceived ev)
+    Task IAdvertiserHandler.OnPayloadReceived(AdvertiserEvent.PayloadReceived ev)
     {
         ProcessPayload(ev.Connection.RemoteDevice, ev.Payload);
+        return Task.CompletedTask;
     }
 
-    void IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
+    Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
     {
         _connections[ev.Connection.RemoteDevice.Id] = ev.Connection;
+        return Task.CompletedTask;
     }
 
-    void IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
+    Task IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
     {
         _connections.TryRemove(ev.Connection.RemoteDevice.Id, out _);
         _repository.ClearSession(ev.Connection.RemoteDevice);
+        return Task.CompletedTask;
     }
 
-    void IDiscovererHandler.OnPayloadReceived(DiscovererEvent.PayloadReceived ev)
+    Task IDiscovererHandler.OnPayloadReceived(DiscovererEvent.PayloadReceived ev)
     {
         ProcessPayload(ev.Connection.RemoteDevice, ev.Payload);
+        return Task.CompletedTask;
     }
 
     NearbyConnection? FindConnection(NearbyDevice device)

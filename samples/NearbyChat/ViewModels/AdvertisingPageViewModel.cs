@@ -80,10 +80,11 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
 
     protected override void NavigatedTo()
     {
+        base.NavigatedTo();
+
+        AdvertisedDevices.Clear();
         IsAdvertising = _advertiser.IsAdvertising;
         _ = _advertiser.EventsAsync(NavigationToken).RunAsync(this);
-
-        base.NavigatedTo();
     }
 
     protected override void NavigatedFrom()
@@ -96,20 +97,27 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
         base.NavigatedFrom();
     }
 
-    void IAdvertiserHandler.OnConnectionRequested(AdvertiserEvent.ConnectionRequested ev)
+    Task IAdvertiserHandler.OnConnectionRequested(AdvertiserEvent.ConnectionRequested ev)
     {
+        if (AdvertisedDevices.Any(d => d.Id == ev.Request.RemoteDevice.Id))
+        {
+            return Task.CompletedTask;
+        }
+
         var vm = _nearbyDeviceViewModelFactory.CreateAdvertiser(ev.Request);
         vm.IsActive = true;
         AdvertisedDevices.Add(vm);
         UpdateRelativeTimeRefreshTimer();
+        return Task.CompletedTask;
     }
 
-    void IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
+    Task IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
     {
         ConnectedDevicesCount++;
+        return Task.CompletedTask;
     }
 
-    void IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
+    Task IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
     {
         var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
         if (vm is not null)
@@ -119,6 +127,19 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
             ConnectedDevicesCount--;
             UpdateRelativeTimeRefreshTimer();
         }
+        return Task.CompletedTask;
+    }
+
+    Task IAdvertiserHandler.OnConnectionRequestExpired(AdvertiserEvent.ConnectionRequestExpired ev)
+    {
+        var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Request.RemoteDevice.Id);
+        if (vm is not null)
+        {
+            vm.IsActive = false;
+            AdvertisedDevices.Remove(vm);
+            UpdateRelativeTimeRefreshTimer();
+        }
+        return Task.CompletedTask;
     }
 
     bool CanToggleAdvertising() => !IsBusy;

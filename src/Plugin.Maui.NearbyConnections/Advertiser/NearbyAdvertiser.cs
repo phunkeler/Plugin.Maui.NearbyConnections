@@ -7,14 +7,13 @@ namespace Plugin.Maui.NearbyConnections;
 /// Tier-2 advertiser service that manages the advertising lifecycle, pending connection
 /// requests, and active connections on the advertiser side.
 /// </summary>
-public partial class NearbyAdvertiser : INearbyAdvertiser, IDisposable
+public sealed partial class NearbyAdvertiser : INearbyAdvertiser
 {
     readonly INearbyConnections _inner;
     readonly ILogger _logger;
     CancellationTokenSource? _cts;
-    Channel<AdvertiserEvent> _eventChannel = Channel.CreateUnbounded<AdvertiserEvent>(
-        new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
-    readonly object _stateLock = new();
+    readonly List<Channel<AdvertiserEvent>> _subscribers = [];
+    readonly Lock _stateLock = new();
     readonly List<NearbyConnectionRequest> _pendingSnapshot = [];
     readonly List<NearbyConnection> _activeSnapshot = [];
 
@@ -38,14 +37,17 @@ public partial class NearbyAdvertiser : INearbyAdvertiser, IDisposable
     {
         _cts?.Cancel();
         _cts?.Dispose();
-        _eventChannel.Writer.TryComplete();
-        _eventChannel = Channel.CreateUnbounded<AdvertiserEvent>(
-            new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
+
+        // Expire any pending requests from a previous session so subscribers can clear their UI.
         lock (_stateLock)
         {
+            foreach (var req in _pendingSnapshot)
+            {
+                Publish(new AdvertiserEvent.ConnectionRequestExpired(req));
+            }
             _pendingSnapshot.Clear();
-            _activeSnapshot.Clear();
         }
+
         _cts = new CancellationTokenSource();
         IsAdvertising = true;
         LogAdvertisingStarted();
@@ -60,7 +62,17 @@ public partial class NearbyAdvertiser : INearbyAdvertiser, IDisposable
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;
-        _eventChannel.Writer.TryComplete();
+
+        // Expire pending requests — advertising stopped before they could be acted on.
+        lock (_stateLock)
+        {
+            foreach (var req in _pendingSnapshot)
+            {
+                Publish(new AdvertiserEvent.ConnectionRequestExpired(req));
+            }
+            _pendingSnapshot.Clear();
+        }
+
         LogAdvertisingStopped();
         return Task.CompletedTask;
     }
@@ -71,13 +83,57 @@ public partial class NearbyAdvertiser : INearbyAdvertiser, IDisposable
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;
-        _eventChannel.Writer.TryComplete();
+        lock (_stateLock)
+        {
+            foreach (var sub in _subscribers)
+            {
+                sub.Writer.TryComplete();
+            }
+            _subscribers.Clear();
+        }
         GC.SuppressFinalize(this);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask DisposeAsync()
+    {
+        NearbyConnection[] connections;
+        lock (_stateLock)
+        {
+            connections = [.. _activeSnapshot];
+            _activeSnapshot.Clear();
+        }
+
+        foreach (var conn in connections)
+        {
+            await conn.DisposeAsync();
+        }
+
+        _cts?.CancelAsync();
+        _cts?.Dispose();
+        _cts = null;
+        lock (_stateLock)
+        {
+            foreach (var sub in _subscribers)
+            {
+                sub.Writer.TryComplete();
+            }
+            _subscribers.Clear();
+        }
+        GC.SuppressFinalize(this);
+    }
+
+    // Must be called inside _stateLock.
+    void Publish(AdvertiserEvent ev)
+    {
+        foreach (var sub in _subscribers)
+        {
+            sub.Writer.TryWrite(ev);
+        }
     }
 
     private async Task RunLoopAsync(CancellationToken ct)
     {
-        var eventChannel = _eventChannel;
         Exception? fault = null;
         try
         {
@@ -87,8 +143,8 @@ public partial class NearbyAdvertiser : INearbyAdvertiser, IDisposable
                 lock (_stateLock)
                 {
                     _pendingSnapshot.Add(request);
+                    Publish(new AdvertiserEvent.ConnectionRequested(request));
                 }
-                eventChannel.Writer.TryWrite(new AdvertiserEvent.ConnectionRequested(request));
             }
         }
         catch (OperationCanceledException)
@@ -102,7 +158,16 @@ public partial class NearbyAdvertiser : INearbyAdvertiser, IDisposable
         finally
         {
             IsAdvertising = false;
-            eventChannel.Writer.TryComplete(fault);
+            if (fault is not null)
+            {
+                lock (_stateLock)
+                {
+                    foreach (var sub in _subscribers)
+                    {
+                        sub.Writer.TryComplete(fault);
+                    }
+                }
+            }
         }
     }
 
@@ -111,17 +176,18 @@ public partial class NearbyAdvertiser : INearbyAdvertiser, IDisposable
     {
         var conn = await request.AcceptAsync(cancellationToken);
         conn.Role = ConnectionRole.Acceptor;
+        var serviceToken = _cts?.Token ?? CancellationToken.None;
         lock (_stateLock)
         {
             _pendingSnapshot.Remove(request);
             _activeSnapshot.Add(conn);
+            Publish(new AdvertiserEvent.ConnectionAccepted(conn));
         }
         LogConnectionAccepted(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName);
-        var serviceToken = _cts?.Token ?? CancellationToken.None;
-        var channel = _eventChannel;
-        channel.Writer.TryWrite(new AdvertiserEvent.ConnectionAccepted(conn));
-        _ = MonitorConnectionAsync(conn, channel, serviceToken);
-        _ = ForwardPayloadsAsync(conn, channel, serviceToken);
+
+        _ = MonitorConnectionAsync(conn, serviceToken);
+        _ = ForwardPayloadsAsync(conn, serviceToken);
+
         return conn;
     }
 
@@ -136,14 +202,17 @@ public partial class NearbyAdvertiser : INearbyAdvertiser, IDisposable
         return request.RejectAsync(cancellationToken);
     }
 
-    private async Task MonitorConnectionAsync(NearbyConnection conn, Channel<AdvertiserEvent> channel, CancellationToken serviceToken)
+    private async Task MonitorConnectionAsync(NearbyConnection conn, CancellationToken serviceToken)
     {
         try
         {
             await conn.Disconnected.WaitAsync(serviceToken);
             LogConnectionDropped(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName);
-            lock (_stateLock) { _activeSnapshot.Remove(conn); }
-            channel.Writer.TryWrite(new AdvertiserEvent.ConnectionDropped(conn));
+            lock (_stateLock)
+            {
+                _activeSnapshot.Remove(conn);
+                Publish(new AdvertiserEvent.ConnectionDropped(conn));
+            }
         }
         catch (OperationCanceledException)
         {
@@ -151,13 +220,16 @@ public partial class NearbyAdvertiser : INearbyAdvertiser, IDisposable
         }
     }
 
-    private static async Task ForwardPayloadsAsync(NearbyConnection conn, Channel<AdvertiserEvent> channel, CancellationToken ct)
+    private async Task ForwardPayloadsAsync(NearbyConnection conn, CancellationToken ct)
     {
         try
         {
             await foreach (var payload in conn.ReceiveAsync(ct))
             {
-                channel.Writer.TryWrite(new AdvertiserEvent.PayloadReceived(conn, payload));
+                lock (_stateLock)
+                {
+                    Publish(new AdvertiserEvent.PayloadReceived(conn, payload));
+                }
             }
         }
         catch (OperationCanceledException)
@@ -174,24 +246,36 @@ public partial class NearbyAdvertiser : INearbyAdvertiser, IDisposable
     public async IAsyncEnumerable<AdvertiserEvent> EventsAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var sub = Channel.CreateUnbounded<AdvertiserEvent>(
+            new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
         IEnumerable<AdvertiserEvent> snapshot;
+
         lock (_stateLock)
         {
             snapshot = _pendingSnapshot.Select(r => (AdvertiserEvent)new AdvertiserEvent.ConnectionRequested(r))
                 .Concat(_activeSnapshot.Select(c => new AdvertiserEvent.ConnectionAccepted(c)))
                 .ToList();
+            _subscribers.Add(sub);
         }
 
-        foreach (var ev in snapshot)
+        try
         {
-            yield return ev;
+            foreach (var ev in snapshot)
+            {
+                yield return ev;
+            }
+
+            yield return new AdvertiserEvent.Synchronized();
+
+            await foreach (var ev in sub.Reader.ReadAllAsync(cancellationToken))
+            {
+                yield return ev;
+            }
         }
-
-        yield return new AdvertiserEvent.Synchronized();
-
-        await foreach (var ev in _eventChannel.Reader.ReadAllAsync(cancellationToken))
+        finally
         {
-            yield return ev;
+            lock (_stateLock) { _subscribers.Remove(sub); }
+            sub.Writer.TryComplete();
         }
     }
 }

@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-public partial class NearbyDiscoverer
+public sealed partial class NearbyDiscoverer
 {
     [LoggerMessage(Level = LogLevel.Debug, Message = "Discovery started.")]
     partial void LogDiscoveryStarted();

@@ -16,36 +16,36 @@ public interface IDiscovererHandler
     /// Called when a nearby device became visible during discovery.
     /// </summary>
     /// <param name="ev">The event carrying the found device.</param>
-    void OnDeviceFound(DiscovererEvent.DeviceFound ev) { }
+    Task OnDeviceFound(DiscovererEvent.DeviceFound ev) => Task.CompletedTask;
 
     /// <summary>
     /// Called when a previously visible device is no longer reachable.
     /// </summary>
     /// <param name="ev">The event carrying the lost device.</param>
-    void OnDeviceLost(DiscovererEvent.DeviceLost ev) { }
+    Task OnDeviceLost(DiscovererEvent.DeviceLost ev) => Task.CompletedTask;
 
     /// <summary>
     /// Called when a connection to a nearby device was successfully established.
     /// </summary>
     /// <param name="ev">The event carrying the new connection.</param>
-    void OnDeviceConnected(DiscovererEvent.DeviceConnected ev) { }
+    Task OnDeviceConnected(DiscovererEvent.DeviceConnected ev) => Task.CompletedTask;
 
     /// <summary>
     /// Called when an active connection terminated from either side.
     /// </summary>
     /// <param name="ev">The event carrying the dropped connection.</param>
-    void OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev) { }
+    Task OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev) => Task.CompletedTask;
 
     /// <summary>
     /// Called when a payload is received from an active connection.
     /// </summary>
     /// <param name="ev">The event carrying the connection and payload.</param>
-    void OnPayloadReceived(DiscovererEvent.PayloadReceived ev) { }
+    Task OnPayloadReceived(DiscovererEvent.PayloadReceived ev) => Task.CompletedTask;
 
     /// <summary>
     /// Called once after all current-state events have been replayed.
     /// Every event before this is synthetic; every event after this is live.
     /// </summary>
     /// <param name="ev">The synchronized sentinel event.</param>
-    void OnSynchronized(DiscovererEvent.Synchronized ev) { }
+    Task OnSynchronized(DiscovererEvent.Synchronized ev) => Task.CompletedTask;
 }
