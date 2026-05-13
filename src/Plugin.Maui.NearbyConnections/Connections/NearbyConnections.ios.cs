@@ -9,6 +9,8 @@ sealed partial class NearbyConnectionsImplementation
 
     readonly ConcurrentDictionary<string, IDisposable> _progressObservers = new();
 
+    static long _nextPayloadId;
+
     MCSession? _session;
 
     #region Advertising
@@ -264,6 +266,7 @@ sealed partial class NearbyConnectionsImplementation
         using var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
         var resourceName = nsUrl.LastPathComponent ?? Path.GetFileName(uri);
         var sendTask = _session.SendResourceAsync(nsUrl, resourceName, peerID, out var nsProgress);
+        var payloadId = Interlocked.Increment(ref _nextPayloadId);
 
         IDisposable? observer = null;
 
@@ -276,7 +279,7 @@ sealed partial class NearbyConnectionsImplementation
                 {
                     var transferred = (long)(nsProgress.FractionCompleted * nsProgress.TotalUnitCount);
                     transfer.OnUpdate(new NearbyTransferProgress(
-                        payloadId: 0,
+                        payloadId: payloadId,
                         bytesTransferred: transferred,
                         totalBytes: nsProgress.TotalUnitCount,
                         NearbyTransferStatus.InProgress));
@@ -291,7 +294,7 @@ sealed partial class NearbyConnectionsImplementation
             await sendTask;
 
             transfer.OnUpdate(new NearbyTransferProgress(
-                payloadId: 0,
+                payloadId: payloadId,
                 bytesTransferred: nsProgress?.TotalUnitCount ?? 0,
                 totalBytes: nsProgress?.TotalUnitCount ?? 0,
                 NearbyTransferStatus.Success));
@@ -299,7 +302,7 @@ sealed partial class NearbyConnectionsImplementation
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             transfer.OnUpdate(new NearbyTransferProgress(
-                payloadId: 0,
+                payloadId: payloadId,
                 bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
                 totalBytes: nsProgress?.TotalUnitCount ?? 0,
                 NearbyTransferStatus.Canceled));
@@ -308,7 +311,7 @@ sealed partial class NearbyConnectionsImplementation
         catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
         {
             transfer.OnUpdate(new NearbyTransferProgress(
-                payloadId: 0,
+                payloadId: payloadId,
                 bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
                 totalBytes: nsProgress?.TotalUnitCount ?? 0,
                 NearbyTransferStatus.Failure));
@@ -321,7 +324,7 @@ sealed partial class NearbyConnectionsImplementation
         catch (Exception ex)
         {
             transfer.OnUpdate(new NearbyTransferProgress(
-                payloadId: 0,
+                payloadId: payloadId,
                 bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
                 totalBytes: nsProgress?.TotalUnitCount ?? 0,
                 NearbyTransferStatus.Failure));

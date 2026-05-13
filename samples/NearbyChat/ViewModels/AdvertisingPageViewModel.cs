@@ -114,6 +114,14 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
     Task IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
     {
         ConnectedDevicesCount++;
+
+        var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
+        if (vm is not null)
+        {
+            vm.IsActive = false;
+            AdvertisedDevices.Remove(vm);
+            UpdateRelativeTimeRefreshTimer();
+        }
         return Task.CompletedTask;
     }
 

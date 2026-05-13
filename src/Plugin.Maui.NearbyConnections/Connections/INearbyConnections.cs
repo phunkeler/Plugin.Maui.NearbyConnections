@@ -16,8 +16,16 @@ public interface INearbyConnections : IAsyncDisposable
     /// Each yielded <see cref="NearbyConnectionRequest"/> represents one inbound connection
     /// attempt. The consumer must call <see cref="NearbyConnectionRequest.AcceptAsync"/> or
     /// <see cref="NearbyConnectionRequest.RejectAsync"/> on every request.
-    /// Items are delivered on the platform SDK callback thread, not the main thread.
-    /// Marshal to the UI thread yourself if needed (e.g. <c>await MainThread.InvokeOnMainThreadAsync(...)</c>).
+    /// <para>
+    /// Items are delivered on a thread-pool thread via an internal channel; marshal to the UI
+    /// thread if needed (e.g. <c>await MainThread.InvokeOnMainThreadAsync(...)</c>).
+    /// </para>
+    /// <para>
+    /// <strong>Progress reporting:</strong> outbound file-transfer progress is supplied per-call
+    /// via an <c>IProgress&lt;NearbyTransferProgress&gt;?</c> parameter on each
+    /// <see cref="NearbyConnection.SendAsync(string, IProgress{NearbyTransferProgress}?, CancellationToken)"/> overload.
+    /// Inbound progress is instead a settable property — see <see cref="NearbyConnection.InboundProgress"/>.
+    /// </para>
     /// </remarks>
     /// <param name="cancellationToken">A token to stop advertising and complete the stream.</param>
     /// <returns>
@@ -25,6 +33,7 @@ public interface INearbyConnections : IAsyncDisposable
     /// one per inbound connection request received while advertising.
     /// </returns>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
+    /// <exception cref="NearbyAdvertisingException">Thrown if the platform fails to start advertising.</exception>
     IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -37,14 +46,17 @@ public interface INearbyConnections : IAsyncDisposable
     /// <see cref="NearbyDeviceEventType"/> indicating whether the device was found or lost.
     /// Events for the same device are ordered: a <see cref="NearbyDeviceEventType.Lost"/> event
     /// is always preceded by a corresponding <see cref="NearbyDeviceEventType.Found"/> event.
-    /// Items are delivered on the platform SDK callback thread, not the main thread.
-    /// Marshal to the UI thread yourself if needed (e.g. <c>await MainThread.InvokeOnMainThreadAsync(...)</c>).
+    /// <para>
+    /// Items are delivered on a thread-pool thread via an internal channel; marshal to the UI
+    /// thread if needed (e.g. <c>await MainThread.InvokeOnMainThreadAsync(...)</c>).
+    /// </para>
     /// </remarks>
     /// <param name="cancellationToken">A token to stop discovery and complete the stream.</param>
     /// <returns>
     /// An <see cref="IAsyncEnumerable{T}"/> of <see cref="NearbyDeviceEvent"/> items.
     /// </returns>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
+    /// <exception cref="NearbyDiscoveryException">Thrown if the platform fails to start discovery.</exception>
     IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -62,7 +74,11 @@ public interface INearbyConnections : IAsyncDisposable
     /// the remote device accepts the request.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="device"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">Thrown if the connection attempt is rejected by the remote device.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the connection cannot be established. Common causes: the remote device rejected
+    /// the connection, the device is no longer visible (not found in the device manager), the
+    /// platform returned an error status, or no active session exists on iOS.
+    /// </exception>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before the connection is established.</exception>
     Task<NearbyConnection> ConnectAsync(NearbyDevice device, CancellationToken cancellationToken = default);
 }

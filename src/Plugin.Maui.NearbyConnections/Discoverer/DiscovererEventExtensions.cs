@@ -21,6 +21,13 @@ public static class DiscovererEventExtensions
     /// are silently swallowed to keep the event loop alive.
     /// </para>
     /// <para>
+    /// <strong>Important:</strong> if an <c>On*</c> method throws <see cref="OperationCanceledException"/>
+    /// — whether or not a <see cref="IDiscovererHandler.Dispatcher"/> is set — the exception is NOT
+    /// passed to <paramref name="onError"/>; instead it silently terminates <c>RunAsync</c> and returns
+    /// a successfully-completed <see cref="System.Threading.Tasks.Task"/>. Do not throw
+    /// <see cref="OperationCanceledException"/> from handler methods to signal loop exit.
+    /// </para>
+    /// <para>
     /// Without a <see cref="IDiscovererHandler.Dispatcher"/>, <c>On*</c> methods run on the channel
     /// reader thread with no <see cref="SynchronizationContext"/>; marshal to the UI thread explicitly
     /// if needed.
