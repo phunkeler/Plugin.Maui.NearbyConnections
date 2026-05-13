@@ -13,7 +13,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
     readonly ILogger _logger;
     CancellationTokenSource? _cts;
     readonly List<Channel<DiscovererEvent>> _subscribers = [];
-    readonly object _stateLock = new();
+    readonly Lock _stateLock = new();
     readonly List<NearbyDevice> _visibleSnapshot = [];
     readonly List<NearbyConnection> _activeSnapshot = [];
 

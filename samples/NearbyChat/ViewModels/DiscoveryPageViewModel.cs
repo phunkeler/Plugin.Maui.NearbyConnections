@@ -126,6 +126,14 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
     Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
     {
         ConnectedDevicesCount++;
+
+        var vm = DiscoveredDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
+        if (vm is not null)
+        {
+            vm.IsActive = false;
+            DiscoveredDevices.Remove(vm);
+            UpdateRelativeTimeRefreshTimer();
+        }
         return Task.CompletedTask;
     }
 

@@ -476,6 +476,12 @@ sealed partial class NearbyConnectionsImplementation
         }
         catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
         {
+            progress?.Report(new NearbyTransferProgress(
+                payloadId: filePayload.Id,
+                bytesTransferred: 0,
+                totalBytes: 0,
+                NearbyTransferStatus.Failure));
+
             LogSendFileTimeout(endpointId, null, Options.TransferInactivityTimeout.TotalSeconds);
 
             throw new TimeoutException(
@@ -707,8 +713,8 @@ sealed partial class NearbyConnectionsImplementation
         Action<string, ConnectionResolution> onConnectionResult,
         Action<string> onDisconnected) : ConnectionLifecycleCallback
     {
-        public override void OnConnectionInitiated(string p0, ConnectionInfo p1)
-            => _ = onConnectionInitiated(p0, p1);
+        public override async void OnConnectionInitiated(string p0, ConnectionInfo p1)
+            => await onConnectionInitiated(p0, p1);
 
         public override void OnConnectionResult(string p0, ConnectionResolution p1)
             => onConnectionResult(p0, p1);
@@ -735,7 +741,7 @@ sealed partial class NearbyConnectionsImplementation
         public override void OnPayloadReceived(string p0, Payload p1)
             => onPayloadReceived(p0, p1);
 
-        public override void OnPayloadTransferUpdate(string p0, PayloadTransferUpdate p1)
-            => _ = onPayloadTransferUpdate(p0, p1);
+        public override async void OnPayloadTransferUpdate(string p0, PayloadTransferUpdate p1)
+            => await onPayloadTransferUpdate(p0, p1);
     }
 }

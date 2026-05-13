@@ -25,6 +25,15 @@ jobs:
       - name: Restore workloads
         run: dotnet workload restore src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj
 
+      - name: Build
+        run: dotnet build src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release
+
+      - name: Build tests
+        run: dotnet build test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj -c Release
+
+      - name: Test
+        run: dotnet exec test/Plugin.Maui.NearbyConnections.UnitTests/bin/Release/net10.0/Plugin.Maui.NearbyConnections.UnitTests.dll
+
       - name: Pack
         run: dotnet pack src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release --output nupkgs /p:ContinuousIntegrationBuild=true
 

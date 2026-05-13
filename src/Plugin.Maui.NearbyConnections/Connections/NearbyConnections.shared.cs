@@ -48,7 +48,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
 
         var channelOptions = new UnboundedChannelOptions
         {
-            SingleReader = true,
+            SingleReader = false,
             SingleWriter = false,
         };
 
@@ -63,7 +63,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         _advertiseChannel = Channel.CreateUnbounded<NearbyConnectionRequest>(
-            new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+            new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
         await PlatformStartAdvertisingAsync(cancellationToken);
 
         try
@@ -85,7 +85,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         _discoverChannel = Channel.CreateUnbounded<NearbyDeviceEvent>(
-            new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+            new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
         await PlatformStartDiscoveringAsync(cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
