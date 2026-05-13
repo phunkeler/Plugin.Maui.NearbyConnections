@@ -16,6 +16,8 @@ public interface INearbyConnections : IAsyncDisposable
     /// Each yielded <see cref="NearbyConnectionRequest"/> represents one inbound connection
     /// attempt. The consumer must call <see cref="NearbyConnectionRequest.AcceptAsync"/> or
     /// <see cref="NearbyConnectionRequest.RejectAsync"/> on every request.
+    /// Items are delivered on the platform SDK callback thread, not the main thread.
+    /// Marshal to the UI thread yourself if needed (e.g. <c>await MainThread.InvokeOnMainThreadAsync(...)</c>).
     /// </remarks>
     /// <param name="cancellationToken">A token to stop advertising and complete the stream.</param>
     /// <returns>
@@ -35,6 +37,8 @@ public interface INearbyConnections : IAsyncDisposable
     /// <see cref="NearbyDeviceEventType"/> indicating whether the device was found or lost.
     /// Events for the same device are ordered: a <see cref="NearbyDeviceEventType.Lost"/> event
     /// is always preceded by a corresponding <see cref="NearbyDeviceEventType.Found"/> event.
+    /// Items are delivered on the platform SDK callback thread, not the main thread.
+    /// Marshal to the UI thread yourself if needed (e.g. <c>await MainThread.InvokeOnMainThreadAsync(...)</c>).
     /// </remarks>
     /// <param name="cancellationToken">A token to stop discovery and complete the stream.</param>
     /// <returns>

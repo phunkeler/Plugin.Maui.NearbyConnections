@@ -3,7 +3,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <summary>
 /// Exception thrown during advertising operations.
 /// </summary>
-public class NearbyAdvertisingException : NearbyConnectionsException
+public sealed class NearbyAdvertisingException : NearbyConnectionsException
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="NearbyAdvertisingException"/> class.

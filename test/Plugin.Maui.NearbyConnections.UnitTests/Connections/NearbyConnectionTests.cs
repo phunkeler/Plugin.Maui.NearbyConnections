@@ -10,14 +10,14 @@ public sealed class NearbyConnectionTests
     static NearbyConnection CreateConnection(
         NearbyDevice? device = null,
         Channel<NearbyPayload>? receiveChannel = null,
-        Func<byte[], CancellationToken, Task>? sendBytesFactory = null,
+        Func<byte[], CancellationToken, ValueTask>? sendBytesFactory = null,
         Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task>? sendFileFactory = null,
         Func<ValueTask>? disposeFactory = null)
     {
         return new NearbyConnection(
             device ?? new NearbyDevice("peer-1", "Alice"),
             receiveChannel ?? Channel.CreateUnbounded<NearbyPayload>(),
-            sendBytesFactory ?? ((_, _) => Task.CompletedTask),
+            sendBytesFactory ?? ((_, _) => ValueTask.CompletedTask),
             sendFileFactory ?? ((_, _, _) => Task.CompletedTask),
             disposeFactory ?? (() => ValueTask.CompletedTask));
     }
@@ -49,7 +49,7 @@ public sealed class NearbyConnectionTests
             // Arrange
             byte[]? captured = null;
             var connection = CreateConnection(
-                sendBytesFactory: (data, _) => { captured = data; return Task.CompletedTask; });
+                sendBytesFactory: (data, _) => { captured = data; return ValueTask.CompletedTask; });
 
             var payload = new byte[] { 10, 20, 30 };
 
@@ -67,7 +67,7 @@ public sealed class NearbyConnectionTests
             // Arrange
             CancellationToken capturedToken = default;
             var connection = CreateConnection(
-                sendBytesFactory: (_, ct) => { capturedToken = ct; return Task.CompletedTask; });
+                sendBytesFactory: (_, ct) => { capturedToken = ct; return ValueTask.CompletedTask; });
 
             using var cts = new CancellationTokenSource();
 
@@ -85,7 +85,7 @@ public sealed class NearbyConnectionTests
             var connection = CreateConnection();
 
             // Act
-            Func<Task> act = async () => await connection.SendAsync((byte[])null!);
+            Func<Task> act = () => connection.SendAsync((byte[])null!).AsTask();
 
             // Assert
             await Assert.ThrowsExactlyAsync<ArgumentNullException>(act);

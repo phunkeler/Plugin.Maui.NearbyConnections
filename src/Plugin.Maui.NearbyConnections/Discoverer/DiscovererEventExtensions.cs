@@ -12,38 +12,77 @@ public static class DiscovererEventExtensions
     /// is non-null, every dispatch is marshalled through it; otherwise the handler methods are invoked
     /// directly on the reader thread.
     /// </summary>
+    /// <remarks>
+    /// Events are processed sequentially: each handler awaits to completion before the next event is
+    /// dispatched. A slow or long-running <c>On*</c> method will delay all subsequent events.
+    /// <para>
+    /// Handler exceptions are caught per-event and passed to <paramref name="onError"/>; the loop
+    /// continues regardless. If <paramref name="onError"/> is <see langword="null"/>, handler exceptions
+    /// are silently swallowed to keep the event loop alive.
+    /// </para>
+    /// <para>
+    /// Without a <see cref="IDiscovererHandler.Dispatcher"/>, <c>On*</c> methods run on the channel
+    /// reader thread with no <see cref="SynchronizationContext"/>; marshal to the UI thread explicitly
+    /// if needed.
+    /// </para>
+    /// </remarks>
     /// <param name="events">The event stream returned by <see cref="INearbyDiscoverer"/>.</param>
     /// <param name="handler">The handler to receive the dispatched events.</param>
-    /// <returns>A <see cref="Task"/> that completes when the stream ends or is cancelled.</returns>
-    public static async Task RunAsync(this IAsyncEnumerable<DiscovererEvent> events, IDiscovererHandler handler)
+    /// <param name="onError">
+    /// Optional callback invoked with any exception thrown by a handler method.
+    /// The loop continues after the callback returns.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> that completes when the stream ends or is cancelled. If the stream is
+    /// cancelled via a <see cref="CancellationToken"/>, <c>RunAsync</c> returns a successfully-completed
+    /// <see cref="Task"/> (not a faulted or cancelled one). Consumers who must distinguish cancellation
+    /// from natural stream end should check the <see cref="CancellationToken.IsCancellationRequested"/>
+    /// state on their token after <c>RunAsync</c> returns.
+    /// </returns>
+    public static async Task RunAsync(
+        this IAsyncEnumerable<DiscovererEvent> events,
+        IDiscovererHandler handler,
+        Action<Exception>? onError = null)
     {
         try
         {
             await foreach (var ev in events)
             {
-                void Invoke()
+                Task InvokeAsync() => ev switch
                 {
-                    switch (ev)
+                    DiscovererEvent.DeviceFound e => handler.OnDeviceFound(e),
+                    DiscovererEvent.DeviceLost e => handler.OnDeviceLost(e),
+                    DiscovererEvent.DeviceConnected e => handler.OnDeviceConnected(e),
+                    DiscovererEvent.DeviceDisconnected e => handler.OnDeviceDisconnected(e),
+                    DiscovererEvent.PayloadReceived e => handler.OnPayloadReceived(e),
+                    DiscovererEvent.Synchronized e => handler.OnSynchronized(e),
+                    _ => Task.CompletedTask
+                };
+
+                try
+                {
+                    if (handler.Dispatcher is { } dispatcher)
                     {
-                        case DiscovererEvent.DeviceFound e: handler.OnDeviceFound(e); break;
-                        case DiscovererEvent.DeviceLost e: handler.OnDeviceLost(e); break;
-                        case DiscovererEvent.DeviceConnected e: handler.OnDeviceConnected(e); break;
-                        case DiscovererEvent.DeviceDisconnected e: handler.OnDeviceDisconnected(e); break;
-                        case DiscovererEvent.PayloadReceived e: handler.OnPayloadReceived(e); break;
-                        case DiscovererEvent.Synchronized e: handler.OnSynchronized(e); break;
+                        await dispatcher.DispatchAsync(InvokeAsync);
+                    }
+                    else
+                    {
+                        await InvokeAsync();
                     }
                 }
-
-                if (handler.Dispatcher is { } dispatcher)
+                catch (OperationCanceledException)
                 {
-                    dispatcher.Dispatch(Invoke);
+                    throw;
                 }
-                else
+                catch (Exception ex)
                 {
-                    Invoke();
+                    onError?.Invoke(ex);
                 }
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+            // Normal exit when the caller cancels enumeration.
+        }
     }
 }

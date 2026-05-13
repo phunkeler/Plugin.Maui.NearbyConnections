@@ -43,13 +43,13 @@ public partial class MainPageViewModel : BasePageViewModel, IAdvertiserHandler, 
 
     protected override void NavigatedTo()
     {
+        base.NavigatedTo();
+
         IsAdvertising = _advertiser.IsAdvertising;
         IsDiscovering = _discoverer.IsDiscovering;
 
         _ = _advertiser.EventsAsync(NavigationToken).RunAsync(this);
         _ = _discoverer.EventsAsync(NavigationToken).RunAsync(this);
-
-        base.NavigatedTo();
     }
 
     protected override void NavigatedFrom()
@@ -57,24 +57,28 @@ public partial class MainPageViewModel : BasePageViewModel, IAdvertiserHandler, 
         base.NavigatedFrom();
     }
 
-    void IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
+    Task IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
     {
         ConnectedDevicesCount++;
+        return Task.CompletedTask;
     }
 
-    void IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
+    Task IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
     {
         ConnectedDevicesCount--;
+        return Task.CompletedTask;
     }
 
-    void IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
+    Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
     {
         ConnectedDevicesCount++;
+        return Task.CompletedTask;
     }
 
-    void IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
+    Task IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
     {
         ConnectedDevicesCount--;
+        return Task.CompletedTask;
     }
 
     [RelayCommand]

@@ -11,7 +11,7 @@ namespace Plugin.Maui.NearbyConnections;
 public sealed class NearbyConnection : IAsyncDisposable
 {
     readonly Channel<NearbyPayload> _receiveChannel;
-    readonly Func<byte[], CancellationToken, Task> _sendBytesFactory;
+    readonly Func<byte[], CancellationToken, ValueTask> _sendBytesFactory;
     readonly Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> _sendFileFactory;
     readonly Func<ValueTask> _disposeFactory;
     readonly TaskCompletionSource _disconnectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -46,7 +46,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     public NearbyConnection(
         NearbyDevice remoteDevice,
         Channel<NearbyPayload> receiveChannel,
-        Func<byte[], CancellationToken, Task> sendBytesFactory,
+        Func<byte[], CancellationToken, ValueTask> sendBytesFactory,
         Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> sendFileFactory,
         Func<ValueTask> disposeFactory)
     {
@@ -66,10 +66,10 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// for larger payloads.
     /// </param>
     /// <param name="cancellationToken">A token to cancel the send operation.</param>
-    /// <returns>A task that completes when the bytes have been handed off to the platform.</returns>
+    /// <returns>A <see cref="ValueTask"/> that completes when the bytes have been handed off to the platform.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="data"/> is <see langword="null"/>.</exception>
     /// <exception cref="OperationCanceledException">Thrown if the operation is canceled.</exception>
-    public Task SendAsync(byte[] data, CancellationToken cancellationToken = default)
+    public ValueTask SendAsync(byte[] data, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
         return _sendBytesFactory(data, cancellationToken);
@@ -125,11 +125,11 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// Only used when <paramref name="payload"/> is a <see cref="FilePayload"/>.
     /// </param>
     /// <param name="cancellationToken">A token to cancel the send operation.</param>
-    /// <returns>A task that completes when the payload has been handed off to the platform.</returns>
+    /// <returns>A <see cref="ValueTask"/> that completes when the payload has been handed off to the platform.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="payload"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="payload"/> is an unrecognised subtype.</exception>
     /// <exception cref="OperationCanceledException">Thrown if the operation is canceled.</exception>
-    public Task SendAsync(
+    public ValueTask SendAsync(
         NearbyPayload payload,
         IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default)
@@ -139,7 +139,7 @@ public sealed class NearbyConnection : IAsyncDisposable
         return payload switch
         {
             BytesPayload bytes => _sendBytesFactory(bytes.Data, cancellationToken),
-            FilePayload file => _sendFileFactory(file.FileResult.FullPath, progress, cancellationToken),
+            FilePayload file => new ValueTask(_sendFileFactory(file.FileResult.FullPath, progress, cancellationToken)),
             _ => throw new ArgumentOutOfRangeException(nameof(payload),
                 $"Unsupported payload type '{payload.GetType().Name}'. Only {nameof(BytesPayload)} and {nameof(FilePayload)} are supported.")
         };

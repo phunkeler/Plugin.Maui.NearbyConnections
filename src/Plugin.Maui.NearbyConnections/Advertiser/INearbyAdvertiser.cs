@@ -4,7 +4,33 @@ namespace Plugin.Maui.NearbyConnections;
 /// A Tier-2 advertiser service that manages the advertising lifecycle, pending connection
 /// requests, and active connections on the advertiser side.
 /// </summary>
-public interface INearbyAdvertiser
+/// <remarks>
+/// <para>
+/// <strong>Shutdown sequence.</strong> To fully stop advertising and release resources, call
+/// <see cref="StopAsync"/> to cancel the platform operation and emit any cleanup events, then
+/// dispose the instance. <see cref="StopAsync"/> does <strong>not</strong> complete subscriber
+/// channels — only <see cref="IAsyncDisposable.DisposeAsync"/> (or <see cref="IDisposable.Dispose"/>)
+/// completes subscriber channels, which causes any active <see langword="await foreach"/> loop
+/// over <see cref="EventsAsync"/> to drain and exit naturally.
+/// </para>
+/// <para>
+/// Cancelling the <c>cancellationToken</c> passed to <see cref="EventsAsync"/> only detaches the
+/// current observer — the background advertising loop and the underlying platform operation
+/// continue running until <see cref="StopAsync"/> is called. Use the pattern below for clean
+/// teardown:
+/// </para>
+/// <code>
+/// await advertiser.StartAsync();
+/// await foreach (var ev in advertiser.EventsAsync())
+/// {
+///     // handle ev
+/// }
+/// // When done:
+/// await advertiser.StopAsync();  // cancels platform operation, emits cleanup events
+/// await advertiser.DisposeAsync(); // completes channels → foreach exits
+/// </code>
+/// </remarks>
+public interface INearbyAdvertiser : IDisposable, IAsyncDisposable
 {
     /// <summary>
     /// Gets a value indicating whether the advertise loop is currently running.
@@ -49,9 +75,19 @@ public interface INearbyAdvertiser
     /// as synthetic events, followed by live events as they occur.
     /// Completes when <paramref name="cancellationToken"/> is cancelled.
     /// </summary>
-    /// <param name="cancellationToken">A token to stop enumerating the unified stream.</param>
+    /// <param name="cancellationToken">
+    /// A token to stop enumerating the event stream. Cancelling this token detaches the observer
+    /// and ends the <see langword="await foreach"/> loop, but does <strong>not</strong> stop the
+    /// background advertising loop or the underlying platform operation. To fully stop advertising,
+    /// call <see cref="StopAsync"/>.
+    /// </param>
     /// <returns>
     /// An <see cref="IAsyncEnumerable{T}"/> of <see cref="AdvertiserEvent"/> instances.
     /// </returns>
+    /// <remarks>
+    /// Multiple concurrent enumerators are supported. Each call to <see cref="EventsAsync"/>
+    /// receives its own independent copy of all events via fan-out — a second concurrent caller
+    /// does not steal items from the first enumerator.
+    /// </remarks>
     IAsyncEnumerable<AdvertiserEvent> EventsAsync(CancellationToken cancellationToken = default);
 }

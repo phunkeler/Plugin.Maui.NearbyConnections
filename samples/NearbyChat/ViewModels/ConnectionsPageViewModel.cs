@@ -51,19 +51,20 @@ public partial class ConnectionsPageViewModel : BasePageViewModel, IAdvertiserHa
         base.NavigatedFrom();
     }
 
-    void IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
+    Task IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
     {
         if (ConnectedDevices.Any(vm => vm.Id == ev.Connection.RemoteDevice.Id))
         {
-            return;
+            return Task.CompletedTask;
         }
 
         var vm = _nearbyDeviceViewModelFactory.CreateConnected(ev.Connection);
         vm.IsActive = true;
         ConnectedDevices.Add(vm);
+        return Task.CompletedTask;
     }
 
-    void IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
+    Task IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
     {
         var vm = ConnectedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
         if (vm is not null)
@@ -71,21 +72,23 @@ public partial class ConnectionsPageViewModel : BasePageViewModel, IAdvertiserHa
             vm.IsActive = false;
             ConnectedDevices.Remove(vm);
         }
+        return Task.CompletedTask;
     }
 
-    void IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
+    Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
     {
         if (ConnectedDevices.Any(vm => vm.Id == ev.Connection.RemoteDevice.Id))
         {
-            return;
+            return Task.CompletedTask;
         }
 
         var vm = _nearbyDeviceViewModelFactory.CreateConnected(ev.Connection);
         vm.IsActive = true;
         ConnectedDevices.Add(vm);
+        return Task.CompletedTask;
     }
 
-    void IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
+    Task IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
     {
         var vm = ConnectedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
         if (vm is not null)
@@ -93,6 +96,7 @@ public partial class ConnectionsPageViewModel : BasePageViewModel, IAdvertiserHa
             vm.IsActive = false;
             ConnectedDevices.Remove(vm);
         }
+        return Task.CompletedTask;
     }
 
     [RelayCommand]

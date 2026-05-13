@@ -23,6 +23,75 @@ All async delivery is backed by `System.Threading.Channels`. Platform callbacks 
 
 `EventsAsync` on the tier-2 services yields current state as synthetic events — under a lock — before handing off to the live channel. This eliminates the read-snapshot / subscribe-INCC race that affects any design built on separate snapshot + event-notification primitives. A `Synchronized` sentinel event marks the boundary between replayed history and live events.
 
+### Channel lifetime
+
+The tier-2 services use a **fan-out per-subscriber channel** model. Each call to `EventsAsync()` creates a private `Channel<T>` that is registered atomically (under the same lock that captures the current-state snapshot), so the subscriber receives a consistent snapshot followed by live events with no race window.
+
+Subscriber channels are completed only when:
+- The caller's `CancellationToken` fires, or
+- `Dispose()` / `DisposeAsync()` is called on the service
+
+`StartAsync()` and `StopAsync()` do **not** complete channels — they control the internal run loop and emit cleanup events (`ConnectionRequestExpired`, `DeviceLost`) so subscribers update their UI. A consumer that subscribes with `EventsAsync(navigationToken)` survives multiple `StartAsync`/`StopAsync` cycles on the same service instance.
+
+Do not rely on `StopAsync()` to terminate a stream — use the caller's cancellation token or `Dispose()` instead.
+
+### DI registration
+
+The plugin follows a builder pattern with two entry points:
+
+**MAUI apps** — use `UseNearbyConnections()` on `MauiAppBuilder` (the MAUI-idiomatic style):
+
+```csharp
+builder.UseNearbyConnections(opts =>
+    {
+#if IOS
+        opts.InvitationTimeout = TimeSpan.FromSeconds(10);
+#endif
+    })
+    .AddAdvertiser()   // opt-in: INearbyAdvertiser (Tier 2)
+    .AddDiscoverer();  // opt-in: INearbyDiscoverer (Tier 2)
+```
+
+**Pure DI / non-MAUI hosts** — use `AddNearbyConnections()` on `IServiceCollection`:
+
+```csharp
+services.AddNearbyConnections()
+    .AddAdvertiser()
+    .AddDiscoverer();
+```
+
+`AddAdvertiser()` / `AddDiscoverer()` are explicit opt-in calls because they register `INearbyAdvertiser` / `INearbyDiscoverer` as singletons (Tier 2). Apps that only need Tier 1 (`INearbyConnections`) can omit them.
+
+### Lifecycle wiring — app responsibility
+
+The plugin does not attach to the host app's lifecycle. Stopping advertising and discovering when the app backgrounds is a product decision that belongs to the app, not the library. The platform (Android Doze, iOS background limits) terminates Nearby Connections / Multipeer sessions anyway, and the platform callbacks flow back through the plugin as disconnection events.
+
+Apps that want to stop proactively — for example, to release Bluetooth/WiFi scan locks before the OS does — can wire lifecycle events themselves:
+
+```csharp
+// MauiProgram.cs
+builder.ConfigureLifecycleEvents(lifecycle =>
+{
+#if ANDROID
+    lifecycle.AddAndroid(android => android.OnStop(_ =>
+    {
+        var sp = IPlatformApplication.Current?.Services;
+        _ = sp?.GetService<INearbyAdvertiser>()?.StopAsync();
+        _ = sp?.GetService<INearbyDiscoverer>()?.StopAsync();
+    }));
+#elif IOS
+    lifecycle.AddiOS(ios => ios.DidEnterBackground(_ =>
+    {
+        var sp = IPlatformApplication.Current?.Services;
+        _ = sp?.GetService<INearbyAdvertiser>()?.StopAsync();
+        _ = sp?.GetService<INearbyDiscoverer>()?.StopAsync();
+    }));
+#endif
+});
+```
+
+Use `OnStop` on Android and `DidEnterBackground` on iOS — these fire only on true backgrounding, not for transient interruptions such as notifications, dialogs, or incoming calls. The DI singletons remain alive across background/foreground cycles; pages that call `StartAsync()` on `NavigatedTo` will resume naturally when the user returns.
+
 ### Platform implementations
 
 Each platform implements `INearbyConnections` as a partial class sealed against `NearbyConnectionsImplementation`. Platform-specific files are excluded from non-matching build targets via `src/Directory.Build.targets`. Global usings per platform are also injected there.

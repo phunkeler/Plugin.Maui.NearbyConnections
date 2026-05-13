@@ -80,10 +80,11 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
 
     protected override void NavigatedTo()
     {
+        base.NavigatedTo();
+
+        DiscoveredDevices.Clear();
         IsDiscovering = _discoverer.IsDiscovering;
         _ = _discoverer.EventsAsync(NavigationToken).RunAsync(this);
-
-        base.NavigatedTo();
     }
 
     protected override void NavigatedFrom()
@@ -96,20 +97,21 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
         base.NavigatedFrom();
     }
 
-    void IDiscovererHandler.OnDeviceFound(DiscovererEvent.DeviceFound ev)
+    Task IDiscovererHandler.OnDeviceFound(DiscovererEvent.DeviceFound ev)
     {
         if (DiscoveredDevices.Any(d => d.Id == ev.Device.Id))
         {
-            return;
+            return Task.CompletedTask;
         }
 
         var vm = _nearbyDeviceViewModelFactory.CreateDiscoverer(ev.Device);
         vm.IsActive = true;
         DiscoveredDevices.Add(vm);
         UpdateRelativeTimeRefreshTimer();
+        return Task.CompletedTask;
     }
 
-    void IDiscovererHandler.OnDeviceLost(DiscovererEvent.DeviceLost ev)
+    Task IDiscovererHandler.OnDeviceLost(DiscovererEvent.DeviceLost ev)
     {
         var vm = DiscoveredDevices.FirstOrDefault(d => d.Id == ev.Device.Id);
         if (vm is not null)
@@ -118,14 +120,16 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
             DiscoveredDevices.Remove(vm);
             UpdateRelativeTimeRefreshTimer();
         }
+        return Task.CompletedTask;
     }
 
-    void IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
+    Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
     {
         ConnectedDevicesCount++;
+        return Task.CompletedTask;
     }
 
-    void IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
+    Task IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
     {
         ConnectedDevicesCount--;
 
@@ -136,6 +140,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
             DiscoveredDevices.Remove(vm);
             UpdateRelativeTimeRefreshTimer();
         }
+        return Task.CompletedTask;
     }
 
     bool CanToggleDiscovery() => !IsBusy;

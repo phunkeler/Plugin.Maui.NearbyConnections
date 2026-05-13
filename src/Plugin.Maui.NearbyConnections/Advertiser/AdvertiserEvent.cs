@@ -31,6 +31,13 @@ public abstract record AdvertiserEvent
     public sealed record PayloadReceived(NearbyConnection Connection, NearbyPayload Payload) : AdvertiserEvent;
 
     /// <summary>
+    /// A pending connection request was discarded because advertising stopped
+    /// before it was accepted or rejected.
+    /// </summary>
+    /// <param name="Request">The request that expired.</param>
+    public sealed record ConnectionRequestExpired(NearbyConnectionRequest Request) : AdvertiserEvent;
+
+    /// <summary>
     /// Emitted once after all current-state events have been replayed.
     /// Every event before this is synthetic; every event after this is live.
     /// </summary>

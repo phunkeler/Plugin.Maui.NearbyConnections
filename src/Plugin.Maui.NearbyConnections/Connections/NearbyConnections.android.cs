@@ -20,14 +20,25 @@ sealed partial class NearbyConnectionsImplementation
         cancellationToken.ThrowIfCancellationRequested();
         _advertiseClient ??= NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
-        await _advertiseClient.StartAdvertisingAsync(
-            Options.DisplayName,
-            Options.ServiceId,
-            new AdvertiseCallback(OnConnectionInitiatedAsync, OnConnectionResult, OnDisconnected),
-            new AdvertisingOptions.Builder()
-                .SetStrategy(Options.Strategy)
-                .SetLowPower(Options.UseLowPower)
-                .Build());
+        try
+        {
+            await _advertiseClient.StartAdvertisingAsync(
+                Options.DisplayName,
+                Options.ServiceId,
+                new AdvertiseCallback(OnConnectionInitiatedAsync, OnConnectionResult, OnDisconnected),
+                new AdvertisingOptions.Builder()
+                    .SetStrategy(Options.Strategy)
+                    .SetLowPower(Options.UseLowPower)
+                    .Build());
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new NearbyAdvertisingException("Failed to start advertising.", ex);
+        }
     }
 
     void PlatformStopAdvertising()
@@ -113,7 +124,7 @@ sealed partial class NearbyConnectionsImplementation
                 var connection = new NearbyConnection(
                     device,
                     receiveChannel,
-                    sendBytesFactory: (data, ct) => PlatformSendBytesAsync(endpointId, data, ct),
+                    sendBytesFactory: (data, ct) => new ValueTask(PlatformSendBytesAsync(endpointId, data, ct)),
                     sendFileFactory: (fileUri, progress, ct) => PlatformSendFileAsync(endpointId, fileUri, progress, ct),
                     disposeFactory: () =>
                     {
@@ -168,13 +179,24 @@ sealed partial class NearbyConnectionsImplementation
         cancellationToken.ThrowIfCancellationRequested();
         _discoverClient ??= NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
-        await _discoverClient.StartDiscoveryAsync(
-            Options.ServiceId,
-            new DiscoveryCallback(OnEndpointFound, OnEndpointLost),
-            new DiscoveryOptions.Builder()
-                .SetStrategy(Options.Strategy)
-                .SetLowPower(Options.UseLowPower)
-                .Build());
+        try
+        {
+            await _discoverClient.StartDiscoveryAsync(
+                Options.ServiceId,
+                new DiscoveryCallback(OnEndpointFound, OnEndpointLost),
+                new DiscoveryOptions.Builder()
+                    .SetStrategy(Options.Strategy)
+                    .SetLowPower(Options.UseLowPower)
+                    .Build());
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new NearbyDiscoveryException("Failed to start discovery.", ex);
+        }
     }
 
     void PlatformStopDiscovering()
@@ -392,12 +414,18 @@ sealed partial class NearbyConnectionsImplementation
         _deviceManager.RemoveDevice(endpointId);
     }
 
-    static Task PlatformSendBytesAsync(
+    Task PlatformSendBytesAsync(
         string endpointId,
         byte[] data,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (!_activeConnections.ContainsKey(endpointId))
+        {
+            throw new InvalidOperationException(
+                $"Cannot send bytes: no active connection for endpoint '{endpointId}'.");
+        }
 
         using var payload = Payload.FromBytes(data);
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
@@ -441,6 +469,17 @@ sealed partial class NearbyConnectionsImplementation
                 transfer.InactivityToken);
             using var ctr = linkedCts.Token.Register(() => _ = client.CancelPayloadAsync(filePayload.Id));
             await transfer.Completion.WaitAsync(linkedCts.Token);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
+        {
+            LogSendFileTimeout(endpointId, null, Options.TransferInactivityTimeout.TotalSeconds);
+
+            throw new TimeoutException(
+                $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
         }
         finally
         {

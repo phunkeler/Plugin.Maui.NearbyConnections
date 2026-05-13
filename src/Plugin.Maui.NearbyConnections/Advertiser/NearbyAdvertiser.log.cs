@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-public partial class NearbyAdvertiser
+public sealed partial class NearbyAdvertiser
 {
     [LoggerMessage(Level = LogLevel.Debug, Message = "Advertising started.")]
     partial void LogAdvertisingStarted();

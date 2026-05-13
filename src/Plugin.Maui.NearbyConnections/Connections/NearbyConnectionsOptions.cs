@@ -27,7 +27,7 @@ public sealed partial class NearbyConnectionsOptions
     /// <c>_&lt;name&gt;._udp</c> (for example <c>_mygame._tcp</c>), matching the entry declared in the
     /// application's <c>Info.plist</c> under <c>NSBonjourServices</c>
     /// (<see href="https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSBonjourServices">developer.apple.com</see>).
-    /// An <see cref="ArgumentException"/> is thrown at startup if the value does not conform to this format.
+    /// There is no meaningful default on iOS; app startup will fail if this property is not set.
     /// </para>
     /// </remarks>
     public string ServiceId { get; set; } = GetDefaultServiceId();
@@ -66,13 +66,5 @@ public sealed partial class NearbyConnectionsOptions
     /// Defaults to 10 seconds. Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.
     /// </summary>
     public TimeSpan TransferInactivityTimeout { get; set; } = TimeSpan.FromSeconds(10);
-
-    /// <summary>
-    /// Gets a value indicating whether events and collection changes are automatically
-    /// marshaled to the main thread before being raised.
-    /// Defaults to <see langword="true"/>, which is the safe default for MAUI ViewModels.
-    /// Set to <see langword="false"/> if you handle thread marshaling yourself.
-    /// </summary>
-    public bool MarshalEventsToMainThread { get; set; } = true;
 
 }
