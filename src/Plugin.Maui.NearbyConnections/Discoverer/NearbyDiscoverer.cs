@@ -3,6 +3,7 @@ using System.Threading.Channels;
 
 namespace Plugin.Maui.NearbyConnections;
 
+
 /// <summary>
 /// Tier-2 discoverer service that manages the discovery lifecycle, nearby visible devices,
 /// and active connections on the discoverer side.
@@ -12,7 +13,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
     readonly INearbyConnections _inner;
     readonly ILogger _logger;
     CancellationTokenSource? _cts;
-    readonly List<Channel<DiscovererEvent>> _subscribers = [];
+    readonly ChannelBroadcaster<DiscovererEvent> _broadcaster = new();
     readonly Lock _stateLock = new();
     readonly List<NearbyDevice> _visibleSnapshot = [];
     readonly List<NearbyConnection> _activeSnapshot = [];
@@ -29,46 +30,46 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
         _logger = logger ?? NullLogger<NearbyDiscoverer>.Instance;
     }
 
+    volatile bool _isDiscovering;
+
     /// <inheritdoc/>
-    public bool IsDiscovering { get; private set; }
+    public bool IsDiscovering => _isDiscovering;
 
     /// <inheritdoc/>
     public Task StartAsync()
     {
-        _cts?.Cancel();
-        _cts?.Dispose();
-
-        // Emit DeviceLost for any previously visible devices so subscribers can clear their UI.
+        CancellationTokenSource cts;
         lock (_stateLock)
         {
+            _cts?.Cancel();
+            _cts?.Dispose();
             foreach (var device in _visibleSnapshot)
             {
-                Publish(new DiscovererEvent.DeviceLost(device));
+                _broadcaster.Publish(new DiscovererEvent.DeviceLost(device));
             }
             _visibleSnapshot.Clear();
+            _cts = new CancellationTokenSource();
+            cts = _cts;
         }
 
-        _cts = new CancellationTokenSource();
-        IsDiscovering = true;
+        _isDiscovering = true;
         LogDiscoveryStarted();
-        _ = RunLoopAsync(_cts.Token);
+        _ = RunLoopAsync(cts.Token);
         return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
     public Task StopAsync()
     {
-        IsDiscovering = false;
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _cts = null;
-
-        // Emit DeviceLost for all visible devices — they are no longer reachable once scanning stops.
+        _isDiscovering = false;
         lock (_stateLock)
         {
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _cts = null;
             foreach (var device in _visibleSnapshot)
             {
-                Publish(new DiscovererEvent.DeviceLost(device));
+                _broadcaster.Publish(new DiscovererEvent.DeviceLost(device));
             }
             _visibleSnapshot.Clear();
         }
@@ -80,16 +81,12 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
     /// <inheritdoc/>
     public void Dispose()
     {
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _cts = null;
         lock (_stateLock)
         {
-            foreach (var sub in _subscribers)
-            {
-                sub.Writer.TryComplete();
-            }
-            _subscribers.Clear();
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _cts = null;
+            _broadcaster.Complete();
         }
         GC.SuppressFinalize(this);
     }
@@ -102,6 +99,9 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
         {
             connections = [.. _activeSnapshot];
             _activeSnapshot.Clear();
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _cts = null;
         }
 
         foreach (var conn in connections)
@@ -109,27 +109,11 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
             await conn.DisposeAsync();
         }
 
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _cts = null;
         lock (_stateLock)
         {
-            foreach (var sub in _subscribers)
-            {
-                sub.Writer.TryComplete();
-            }
-            _subscribers.Clear();
+            _broadcaster.Complete();
         }
         GC.SuppressFinalize(this);
-    }
-
-    // Must be called inside _stateLock.
-    void Publish(DiscovererEvent ev)
-    {
-        foreach (var sub in _subscribers)
-        {
-            sub.Writer.TryWrite(ev);
-        }
     }
 
     private async Task RunLoopAsync(CancellationToken ct)
@@ -145,7 +129,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
                     lock (_stateLock)
                     {
                         _visibleSnapshot.Add(ev.Device);
-                        Publish(new DiscovererEvent.DeviceFound(ev.Device));
+                        _broadcaster.Publish(new DiscovererEvent.DeviceFound(ev.Device));
                     }
                 }
                 else
@@ -154,7 +138,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
                     lock (_stateLock)
                     {
                         _visibleSnapshot.Remove(ev.Device);
-                        Publish(new DiscovererEvent.DeviceLost(ev.Device));
+                        _broadcaster.Publish(new DiscovererEvent.DeviceLost(ev.Device));
                     }
                 }
             }
@@ -169,15 +153,12 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
         }
         finally
         {
-            IsDiscovering = false;
+            _isDiscovering = false;
             if (fault is not null)
             {
                 lock (_stateLock)
                 {
-                    foreach (var sub in _subscribers)
-                    {
-                        sub.Writer.TryComplete(fault);
-                    }
+                    _broadcaster.Complete(fault);
                 }
             }
         }
@@ -193,11 +174,12 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
         }
         var conn = await _inner.ConnectAsync(device, cancellationToken);
         conn.Role = ConnectionRole.Initiator;
-        var serviceToken = _cts?.Token ?? CancellationToken.None;
+        CancellationToken serviceToken;
         lock (_stateLock)
         {
+            serviceToken = _cts?.Token ?? CancellationToken.None;
             _activeSnapshot.Add(conn);
-            Publish(new DiscovererEvent.DeviceConnected(conn));
+            _broadcaster.Publish(new DiscovererEvent.DeviceConnected(conn));
         }
         LogConnected(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName);
         _ = MonitorConnectionAsync(conn, serviceToken);
@@ -214,7 +196,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
             lock (_stateLock)
             {
                 _activeSnapshot.Remove(conn);
-                Publish(new DiscovererEvent.DeviceDisconnected(conn));
+                _broadcaster.Publish(new DiscovererEvent.DeviceDisconnected(conn));
             }
         }
         catch (OperationCanceledException)
@@ -231,7 +213,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
             {
                 lock (_stateLock)
                 {
-                    Publish(new DiscovererEvent.PayloadReceived(conn, payload));
+                    _broadcaster.Publish(new DiscovererEvent.PayloadReceived(conn, payload));
                 }
             }
         }
@@ -239,9 +221,9 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
         {
             // Service stopped; normal exit.
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Connection dropped; MonitorConnectionAsync handles cleanup.
+            LogForwardPayloadsError(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName, ex);
         }
     }
 
@@ -249,8 +231,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
     public async IAsyncEnumerable<DiscovererEvent> EventsAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var sub = Channel.CreateUnbounded<DiscovererEvent>(
-            new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+        Channel<DiscovererEvent> sub;
         IEnumerable<DiscovererEvent> snapshot;
 
         lock (_stateLock)
@@ -258,7 +239,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
             snapshot = _visibleSnapshot.Select(d => (DiscovererEvent)new DiscovererEvent.DeviceFound(d))
                 .Concat(_activeSnapshot.Select(c => new DiscovererEvent.DeviceConnected(c)))
                 .ToList();
-            _subscribers.Add(sub);
+            sub = _broadcaster.Subscribe();
         }
 
         try
@@ -277,8 +258,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
         }
         finally
         {
-            lock (_stateLock) { _subscribers.Remove(sub); }
-            sub.Writer.TryComplete();
+            lock (_stateLock) { _broadcaster.Unsubscribe(sub); }
         }
     }
 }

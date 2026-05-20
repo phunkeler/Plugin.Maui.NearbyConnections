@@ -16,6 +16,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     readonly Func<ValueTask> _disposeFactory;
     readonly TaskCompletionSource _disconnectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     int _disposeGuard;
+    int _receiveGuard;
 
     /// <summary>
     /// Gets the remote device this connection is established with.
@@ -171,11 +172,29 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// Returns an async stream of payloads received from the remote device.
     /// The enumerable completes when the peer disconnects or <see cref="DisposeAsync"/> is called.
     /// </summary>
+    /// <remarks>
+    /// May only be called once per connection. The receive stream is a single-consumer data pipe —
+    /// calling this method a second time (including after cancellation) throws <see cref="InvalidOperationException"/>
+    /// because items already consumed by the first enumeration are permanently removed from the channel.
+    /// If multiple parts of your app need to react to incoming payloads, use
+    /// <see cref="INearbyAdvertiser"/> or <see cref="INearbyDiscoverer"/> whose <c>EventsAsync</c>
+    /// fans out <c>PayloadReceived</c> events to any number of subscribers.
+    /// </remarks>
     /// <param name="cancellationToken">A token to cancel enumeration.</param>
     /// <returns>An <see cref="IAsyncEnumerable{T}"/> of <see cref="NearbyPayload"/> items.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if called more than once.</exception>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
     public IAsyncEnumerable<NearbyPayload> ReceiveAsync(CancellationToken cancellationToken = default)
-        => _receiveChannel.Reader.ReadAllAsync(cancellationToken);
+    {
+        if (Interlocked.Exchange(ref _receiveGuard, 1) != 0)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(ReceiveAsync)} may only be called once per connection. " +
+                $"Use {nameof(INearbyAdvertiser)} or {nameof(INearbyDiscoverer)} if multiple consumers are needed.");
+        }
+
+        return _receiveChannel.Reader.ReadAllAsync(cancellationToken);
+    }
 
     /// <summary>
     /// Disconnects from the remote device and releases all resources used by this connection.

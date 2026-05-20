@@ -12,6 +12,7 @@ sealed partial class NearbyConnectionsImplementation
     static long _nextPayloadId;
 
     MCSession? _session;
+    readonly Lock _sessionLock = new();
 
     #region Advertising
 
@@ -72,15 +73,20 @@ sealed partial class NearbyConnectionsImplementation
                 device,
                 acceptFactory: async ct =>
                 {
-                    _session ??= new MCSession(
-                        PeerIdManager.GetLocalPeerId(Options.DisplayName),
-                        identity: null!,
-                        Options.EncryptionPreference)
+                    MCSession session;
+                    lock (_sessionLock)
                     {
-                        Delegate = new SessionDelegate(this)
-                    };
+                        _session ??= new MCSession(
+                            PeerIdManager.GetLocalPeerId(Options.DisplayName),
+                            identity: null!,
+                            Options.EncryptionPreference)
+                        {
+                            Delegate = new SessionDelegate(this)
+                        };
+                        session = _session;
+                    }
 
-                    invitationHandler(true, _session);
+                    invitationHandler(true, session);
 
                     // Create TCS so OnPeerStateChanged(Connected) can resolve it
                     var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -204,15 +210,20 @@ sealed partial class NearbyConnectionsImplementation
             return Task.CompletedTask;
         }
 
-        _session ??= new MCSession(
-            PeerIdManager.GetLocalPeerId(Options.DisplayName),
-            identity: null!,
-            Options.EncryptionPreference)
+        MCSession session;
+        lock (_sessionLock)
         {
-            Delegate = new SessionDelegate(this)
-        };
+            _session ??= new MCSession(
+                PeerIdManager.GetLocalPeerId(Options.DisplayName),
+                identity: null!,
+                Options.EncryptionPreference)
+            {
+                Delegate = new SessionDelegate(this)
+            };
+            session = _session;
+        }
 
-        _mcBrowser?.InvitePeer(peerID, _session, context: null, Options.InvitationTimeout.TotalSeconds);
+        _mcBrowser?.InvitePeer(peerID, session, context: null, Options.InvitationTimeout.TotalSeconds);
 
         return Task.CompletedTask;
     }
@@ -224,23 +235,29 @@ sealed partial class NearbyConnectionsImplementation
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (_session is null)
+        MCSession? session;
+        lock (_sessionLock)
         {
-            throw new InvalidOperationException("No active session. Ensure a connection has been established before sending data.");
+            session = _session;
+        }
+
+        if (session is null)
+        {
+            throw new NearbyConnectionsException("No active session. Ensure a connection has been established before sending data.");
         }
 
         if (!PeerIdManager.TryGetRemotePeer(peerId, out var peerID))
         {
-            throw new InvalidOperationException($"No peer found for device: Id={peerId}");
+            throw new NearbyConnectionsException($"No peer found for device: Id={peerId}");
         }
 
         using var nsData = NSData.FromArray(bytes);
-        _session.SendData(nsData, [peerID], MCSessionSendDataMode.Reliable, out var error);
+        session.SendData(nsData, [peerID], MCSessionSendDataMode.Reliable, out var error);
 
         if (error is not null)
         {
             LogSendBytesFailed(peerID.DisplayName, error.LocalizedDescription);
-            throw new InvalidOperationException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}");
+            throw new NearbyConnectionsException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}");
         }
 
         return Task.CompletedTask;
@@ -252,20 +269,28 @@ sealed partial class NearbyConnectionsImplementation
         IProgress<NearbyTransferProgress>? progress,
         CancellationToken cancellationToken)
     {
-        if (_session is null)
+        cancellationToken.ThrowIfCancellationRequested();
+
+        MCSession? session;
+        lock (_sessionLock)
         {
-            throw new InvalidOperationException("No active session. Ensure a connection has been established before sending data.");
+            session = _session;
+        }
+
+        if (session is null)
+        {
+            throw new NearbyConnectionsException("No active session. Ensure a connection has been established before sending data.");
         }
 
         if (!PeerIdManager.TryGetRemotePeer(peerId, out var peerID))
         {
-            throw new InvalidOperationException($"No peer found for device: Id={peerId}");
+            throw new NearbyConnectionsException($"No peer found for device: Id={peerId}");
         }
 
         using var nsUrl = NSUrl.FromFilename(uri);
         using var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
         var resourceName = nsUrl.LastPathComponent ?? Path.GetFileName(uri);
-        var sendTask = _session.SendResourceAsync(nsUrl, resourceName, peerID, out var nsProgress);
+        var sendTask = session.SendResourceAsync(nsUrl, resourceName, peerID, out var nsProgress);
         var payloadId = Interlocked.Increment(ref _nextPayloadId);
 
         IDisposable? observer = null;
@@ -318,7 +343,7 @@ sealed partial class NearbyConnectionsImplementation
 
             LogSendFileTimeout(peerId, null, Options.TransferInactivityTimeout.TotalSeconds);
 
-            throw new TimeoutException(
+            throw new NearbyTransferTimeoutException(
                 $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
         }
         catch (Exception ex)
@@ -373,11 +398,17 @@ sealed partial class NearbyConnectionsImplementation
         _progressObservers.Clear();
         PeerIdManager.ClearRemotePeers();
 
-        if (_session is not null)
+        MCSession? sessionToDispose;
+        lock (_sessionLock)
         {
-            _session.Disconnect();
-            _session.Dispose();
+            sessionToDispose = _session;
             _session = null;
+        }
+
+        if (sessionToDispose is not null)
+        {
+            sessionToDispose.Disconnect();
+            sessionToDispose.Dispose();
         }
     }
 
@@ -410,10 +441,16 @@ sealed partial class NearbyConnectionsImplementation
                         sendFileFactory: (fileUri, progress, ct) => PlatformSendFileAsync(id, fileUri, progress, ct),
                         disposeFactory: async () =>
                         {
-                            if (_session is not null && PeerIdManager.TryGetRemotePeer(id, out var peer))
+                            MCSession? disposeSession;
+                            lock (_sessionLock)
+                            {
+                                disposeSession = _session;
+                            }
+
+                            if (disposeSession is not null && PeerIdManager.TryGetRemotePeer(id, out var peer))
                             {
                                 using var controlData = NSData.FromArray(ControlMessage.Encode(ControlMessageType.Disconnect));
-                                _session.SendData(controlData, [peer], MCSessionSendDataMode.Reliable, out _);
+                                disposeSession.SendData(controlData, [peer], MCSessionSendDataMode.Reliable, out _);
                             }
 
                             PeerIdManager.RemoveRemotePeer(id);
@@ -439,17 +476,25 @@ sealed partial class NearbyConnectionsImplementation
                     // MPC fires NotConnected for the departing peer before removing it from
                     // ConnectedPeers, so check whether this peer was the only remaining one
                     // while it is still present in the session's list.
-                    var isLastPeer = _session is not null
-                        && _session.ConnectedPeers.All(p => PeerIdManager.PeerKey(p) == id);
+                    MCSession? sessionToDisposePeer;
+                    lock (_sessionLock)
+                    {
+                        var isLastPeer = _session is not null
+                            && _session.ConnectedPeers.All(p => PeerIdManager.PeerKey(p) == id);
+                        sessionToDisposePeer = isLastPeer ? _session : null;
+                        if (isLastPeer)
+                        {
+                            _session = null;
+                        }
+                    }
 
                     PeerIdManager.RemoveRemotePeer(id);
                     _deviceManager.RemoveDevice(id);
 
-                    if (isLastPeer)
+                    if (sessionToDisposePeer is not null)
                     {
                         LogSessionDisposed();
-                        _session!.Dispose();
-                        _session = null;
+                        sessionToDisposePeer.Dispose();
                     }
                     break;
 
@@ -497,7 +542,12 @@ sealed partial class NearbyConnectionsImplementation
         {
             case ControlMessageType.Disconnect:
                 LogDisconnectingFromSession();
-                _session?.Disconnect();
+                MCSession? sessionToDisconnect;
+                lock (_sessionLock)
+                {
+                    sessionToDisconnect = _session;
+                }
+                sessionToDisconnect?.Disconnect();
                 break;
             default:
                 LogUnknownControlMessageType(type);

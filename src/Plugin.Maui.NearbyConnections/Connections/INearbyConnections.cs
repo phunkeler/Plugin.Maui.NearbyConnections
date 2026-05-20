@@ -3,6 +3,29 @@ namespace Plugin.Maui.NearbyConnections;
 /// <summary>
 /// Interface defining the Nearby Connections functionality.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <strong>Thread safety.</strong>
+/// <see cref="AdvertiseAsync"/> and <see cref="DiscoverAsync"/> are not safe to call concurrently
+/// with themselves; start a new session only after the previous one has completed. Concurrent calls
+/// to <see cref="ConnectAsync"/> for different <see cref="NearbyDevice"/> instances are safe.
+/// <see cref="IAsyncDisposable.DisposeAsync"/> is safe to call from any thread exactly once.
+/// </para>
+/// <para>
+/// Platform callbacks (connection requests, device-found/lost notifications, payload events) are
+/// delivered on SDK-owned background threads on both Android and iOS. Consumers must marshal to
+/// the UI thread when updating UI from any event yielded by <see cref="AdvertiseAsync"/> or
+/// <see cref="DiscoverAsync"/>.
+/// </para>
+/// <para>
+/// <strong>Error delivery.</strong> On iOS, start failures (advertising or discovery) are
+/// delivered asynchronously as a faulted channel — the exception surfaces when the consumer
+/// first awaits the <c>await foreach</c> body. On Android, start failures throw synchronously
+/// from <see cref="AdvertiseAsync"/> / <see cref="DiscoverAsync"/> before the loop begins.
+/// Wrap both the <c>await foreach</c> header and its body in the same <c>try/catch</c> to
+/// handle start failures uniformly across platforms.
+/// </para>
+/// </remarks>
 public interface INearbyConnections : IAsyncDisposable
 {
     /// <summary>

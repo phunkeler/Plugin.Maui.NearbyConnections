@@ -144,6 +144,7 @@ public sealed class NearbyConnectionTests
     [TestClass]
     public sealed class ReceiveAsync
     {
+
         [TestMethod]
         public async Task ReceiveAsync_WritePayload_YieldsPayload()
         {
@@ -225,6 +226,37 @@ public sealed class NearbyConnectionTests
 
             // Assert — TaskCanceledException is a subclass of OperationCanceledException
             await Assert.ThrowsAsync<OperationCanceledException>(act);
+        }
+
+        [TestMethod]
+        public async Task ReceiveAsync_CalledTwice_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var connection = CreateConnection();
+            connection.ReceiveAsync(); // first call — sets guard
+
+            // Act
+            Task Act() { connection.ReceiveAsync(); return Task.CompletedTask; }
+
+            // Assert
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(Act);
+        }
+
+        [TestMethod]
+        public async Task ReceiveAsync_CalledAfterCancellation_ThrowsInvalidOperationException()
+        {
+            // Arrange
+            var connection = CreateConnection();
+            using var cts = new CancellationTokenSource();
+            await cts.CancelAsync();
+            try { await foreach (var _ in connection.ReceiveAsync(cts.Token)) { } }
+            catch (OperationCanceledException) { }
+
+            // Act
+            Task Act() { connection.ReceiveAsync(); return Task.CompletedTask; }
+
+            // Assert
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(Act);
         }
     }
 

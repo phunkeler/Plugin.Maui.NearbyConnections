@@ -29,6 +29,16 @@ namespace Plugin.Maui.NearbyConnections;
 /// await advertiser.StopAsync();  // cancels platform operation, emits cleanup events
 /// await advertiser.DisposeAsync(); // completes channels → foreach exits
 /// </code>
+/// <para>
+/// <strong>Thread safety.</strong>
+/// All methods are safe to call from any thread. <see cref="AcceptAsync"/> and
+/// <see cref="RejectAsync"/> are safe to call concurrently for different
+/// <see cref="NearbyConnectionRequest"/> instances. <see cref="EventsAsync"/> is safe to call
+/// concurrently — each caller receives its own independent event stream. Platform callbacks
+/// (connection requests, disconnections) are delivered on SDK-owned background threads; do not
+/// assume any particular thread when handling <see cref="AdvertiserEvent"/> items yielded from
+/// <see cref="EventsAsync"/>.
+/// </para>
 /// </remarks>
 public interface INearbyAdvertiser : IDisposable, IAsyncDisposable
 {

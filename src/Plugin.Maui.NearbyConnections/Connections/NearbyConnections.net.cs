@@ -3,7 +3,7 @@ namespace Plugin.Maui.NearbyConnections;
 internal sealed partial class NearbyConnectionsImplementation
 {
 #pragma warning disable CA1822, S2325, S1144, S1172
-    const string PlatformNotSupportedMessage = "This functionality is not supported in this platform implementation.";
+    const string PlatformNotSupportedMessage = "Nearby Connections is only supported on Android and iOS. The current platform is not supported.";
 
     // Intentional no-ops: stop/dispose are called from shared cleanup paths (DisposeAsync, finally
     // blocks) where throwing PlatformNotSupportedException would swallow the original exception.

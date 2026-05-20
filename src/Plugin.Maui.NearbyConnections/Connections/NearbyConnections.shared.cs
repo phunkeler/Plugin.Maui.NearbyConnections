@@ -62,13 +62,14 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     public async IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        _advertiseChannel = Channel.CreateUnbounded<NearbyConnectionRequest>(
+        var newAdvertiseChannel = Channel.CreateUnbounded<NearbyConnectionRequest>(
             new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
+        Interlocked.Exchange(ref _advertiseChannel, newAdvertiseChannel);
         await PlatformStartAdvertisingAsync(cancellationToken);
 
         try
         {
-            await foreach (var request in _advertiseChannel.Reader.ReadAllAsync(cancellationToken))
+            await foreach (var request in newAdvertiseChannel.Reader.ReadAllAsync(cancellationToken))
             {
                 yield return request;
             }
@@ -76,7 +77,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
         finally
         {
             PlatformStopAdvertising();
-            _advertiseChannel.Writer.TryComplete();
+            newAdvertiseChannel.Writer.TryComplete();
         }
     }
 
@@ -84,15 +85,16 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     public async IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        _discoverChannel = Channel.CreateUnbounded<NearbyDeviceEvent>(
+        var newDiscoverChannel = Channel.CreateUnbounded<NearbyDeviceEvent>(
             new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
+        Interlocked.Exchange(ref _discoverChannel, newDiscoverChannel);
         await PlatformStartDiscoveringAsync(cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
-            await foreach (var deviceEvent in _discoverChannel.Reader.ReadAllAsync(cancellationToken))
+            await foreach (var deviceEvent in newDiscoverChannel.Reader.ReadAllAsync(cancellationToken))
             {
                 yield return deviceEvent;
             }
@@ -100,7 +102,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
         finally
         {
             PlatformStopDiscovering();
-            _discoverChannel.Writer.TryComplete();
+            newDiscoverChannel.Writer.TryComplete();
         }
     }
 

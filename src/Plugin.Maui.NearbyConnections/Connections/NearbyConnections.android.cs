@@ -25,7 +25,7 @@ sealed partial class NearbyConnectionsImplementation
             await _advertiseClient.StartAdvertisingAsync(
                 Options.DisplayName,
                 Options.ServiceId,
-                new AdvertiseCallback(OnConnectionInitiatedAsync, OnConnectionResult, OnDisconnected),
+                new AdvertiseCallback(OnConnectionInitiatedAsync, OnConnectionResult, OnDisconnected, LogOnConnectionInitiatedError),
                 new AdvertisingOptions.Builder()
                     .SetStrategy(Options.Strategy)
                     .SetLowPower(Options.UseLowPower)
@@ -37,7 +37,7 @@ sealed partial class NearbyConnectionsImplementation
         }
         catch (Exception ex)
         {
-            throw new NearbyAdvertisingException("Failed to start advertising.", ex);
+            _advertiseChannel.Writer.TryComplete(new NearbyAdvertisingException("Failed to start advertising.", ex));
         }
     }
 
@@ -111,7 +111,7 @@ sealed partial class NearbyConnectionsImplementation
             {
                 if (!_deviceManager.TryGetDevice(endpointId, out var device))
                 {
-                    FaultConnectionTcs(endpointId, new InvalidOperationException($"Device not found in manager for endpoint '{endpointId}' after successful connection."));
+                    FaultConnectionTcs(endpointId, new NearbyConnectionsException($"Device not found in manager for endpoint '{endpointId}' after successful connection."));
                     return;
                 }
 
@@ -137,7 +137,7 @@ sealed partial class NearbyConnectionsImplementation
             else
             {
                 _deviceManager.RemoveDevice(endpointId);
-                FaultConnectionTcs(endpointId, new InvalidOperationException(
+                FaultConnectionTcs(endpointId, new NearbyConnectionsException(
                     $"Connection to endpoint '{endpointId}' failed: {resolution.Status.StatusMessage} (code {resolution.Status.StatusCode})."));
             }
         }
@@ -195,7 +195,7 @@ sealed partial class NearbyConnectionsImplementation
         }
         catch (Exception ex)
         {
-            throw new NearbyDiscoveryException("Failed to start discovery.", ex);
+            _discoverChannel.Writer.TryComplete(new NearbyDiscoveryException("Failed to start discovery.", ex));
         }
     }
 
@@ -387,7 +387,8 @@ sealed partial class NearbyConnectionsImplementation
                 new AdvertiseCallback(
                     OnConnectionInitiatedAsync,
                     OnConnectionResult,
-                    OnDisconnected));
+                    OnDisconnected,
+                    LogOnConnectionInitiatedError));
     }
 
     Task PlatformRespondToConnectionAsync(NearbyDevice device, bool accept)
@@ -395,7 +396,7 @@ sealed partial class NearbyConnectionsImplementation
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
         return accept
-            ? client.AcceptConnectionAsync(device.Id, new ConnectionCallback(OnPayloadReceived, OnPayloadTransferUpdate))
+            ? client.AcceptConnectionAsync(device.Id, new ConnectionCallback(OnPayloadReceived, OnPayloadTransferUpdate, LogOnPayloadTransferUpdateError))
             : client.RejectConnectionAsync(device.Id);
     }
 
@@ -423,7 +424,7 @@ sealed partial class NearbyConnectionsImplementation
 
         if (!_activeConnections.ContainsKey(endpointId))
         {
-            throw new InvalidOperationException(
+            throw new NearbyConnectionsException(
                 $"Cannot send bytes: no active connection for endpoint '{endpointId}'.");
         }
 
@@ -440,6 +441,12 @@ sealed partial class NearbyConnectionsImplementation
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (!_activeConnections.ContainsKey(endpointId))
+        {
+            throw new NearbyConnectionsException(
+                $"Cannot send file: no active connection for endpoint '{endpointId}'.");
+        }
 
         using var androidUri = TryCreateUri(uri);
 
@@ -472,6 +479,11 @@ sealed partial class NearbyConnectionsImplementation
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            progress?.Report(new NearbyTransferProgress(
+                payloadId: filePayload.Id,
+                bytesTransferred: 0,
+                totalBytes: 0,
+                NearbyTransferStatus.Canceled));
             throw;
         }
         catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
@@ -484,7 +496,7 @@ sealed partial class NearbyConnectionsImplementation
 
             LogSendFileTimeout(endpointId, null, Options.TransferInactivityTimeout.TotalSeconds);
 
-            throw new TimeoutException(
+            throw new NearbyTransferTimeoutException(
                 $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
         }
         finally
@@ -711,10 +723,20 @@ sealed partial class NearbyConnectionsImplementation
     sealed class AdvertiseCallback(
         Func<string, ConnectionInfo, Task> onConnectionInitiated,
         Action<string, ConnectionResolution> onConnectionResult,
-        Action<string> onDisconnected) : ConnectionLifecycleCallback
+        Action<string> onDisconnected,
+        Action<string, Exception>? onError = null) : ConnectionLifecycleCallback
     {
         public override async void OnConnectionInitiated(string p0, ConnectionInfo p1)
-            => await onConnectionInitiated(p0, p1);
+        {
+            try
+            {
+                await onConnectionInitiated(p0, p1);
+            }
+            catch (Exception ex)
+            {
+                onError?.Invoke(p0, ex);
+            }
+        }
 
         public override void OnConnectionResult(string p0, ConnectionResolution p1)
             => onConnectionResult(p0, p1);
@@ -736,12 +758,22 @@ sealed partial class NearbyConnectionsImplementation
 
     sealed class ConnectionCallback(
         Action<string, Payload> onPayloadReceived,
-        Func<string, PayloadTransferUpdate, Task> onPayloadTransferUpdate) : PayloadCallback
+        Func<string, PayloadTransferUpdate, Task> onPayloadTransferUpdate,
+        Action<string, Exception>? onError = null) : PayloadCallback
     {
         public override void OnPayloadReceived(string p0, Payload p1)
             => onPayloadReceived(p0, p1);
 
         public override async void OnPayloadTransferUpdate(string p0, PayloadTransferUpdate p1)
-            => await onPayloadTransferUpdate(p0, p1);
+        {
+            try
+            {
+                await onPayloadTransferUpdate(p0, p1);
+            }
+            catch (Exception ex)
+            {
+                onError?.Invoke(p0, ex);
+            }
+        }
     }
 }
