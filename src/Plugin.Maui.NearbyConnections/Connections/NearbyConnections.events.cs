@@ -47,9 +47,8 @@ sealed partial class NearbyConnectionsImplementation
 
             if (!written)
             {
-                FaultConnectionTcs(
-                    request.RemoteDevice.Id,
-                    new ObjectDisposedException(nameof(NearbyConnectionsImplementation), "Advertise channel is already completed."));
+                LogWriteConnectionRequestChannelCompleted(request.RemoteDevice.Id);
+                _ = request.RejectAsync();
             }
         }
         catch (Exception ex)
