@@ -22,4 +22,7 @@ public sealed partial class NearbyDiscoverer
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Connection dropped: Id={DeviceId}, DisplayName={DisplayName}")]
     partial void LogConnectionDropped(string deviceId, string? displayName);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "ForwardPayloads error for connection Id={DeviceId}, DisplayName={DisplayName}.")]
+    partial void LogForwardPayloadsError(string deviceId, string? displayName, Exception ex);
 }

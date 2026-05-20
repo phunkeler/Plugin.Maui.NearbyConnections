@@ -19,6 +19,16 @@ All async delivery is backed by `System.Threading.Channels`. Platform callbacks 
 
 `NearbyConnection` wraps its own per-connection `Channel<NearbyPayload>`. The tier-2 services maintain a unified `Channel<(NearbyConnection, NearbyPayload)>` that aggregates payloads across all active connections.
 
+### Three messaging patterns
+
+The library uses three distinct primitives, each matched to the semantics of its use case:
+
+| Pattern | Used for | Why |
+|---|---|---|
+| `ChannelBroadcaster<T>` | Advertiser / discoverer events (`EventsAsync`) | Fan-out: each subscriber gets its own copy of every event. Multiple observers (e.g. a ViewModel and a background service) can all watch the same lifecycle stream independently. |
+| `Channel<NearbyPayload>` (single, `SingleReader = true`) | Per-connection payload stream (`NearbyConnection.ReceiveAsync`) | Single-consumer data pipe: each payload is consumed exactly once. Two concurrent `ReceiveAsync` enumerators on the same connection would race and steal items from each other — unbounded channels accept writes unconditionally so there is no back-pressure to expose the bug. The design enforces single-consumer by construction. |
+| `TaskCompletionSource` | Disconnect signal (`NearbyConnection.Disconnected`) | One-time completion event: `Task` natively multicasts to any number of awaiters at zero cost. No channel or broadcaster needed. |
+
 ### EventsAsync snapshot replay
 
 `EventsAsync` on the tier-2 services yields current state as synthetic events — under a lock — before handing off to the live channel. This eliminates the read-snapshot / subscribe-INCC race that affects any design built on separate snapshot + event-notification primitives. A `Synchronized` sentinel event marks the boundary between replayed history and live events.

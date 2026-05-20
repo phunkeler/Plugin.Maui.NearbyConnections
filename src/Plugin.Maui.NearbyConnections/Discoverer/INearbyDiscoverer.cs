@@ -29,6 +29,15 @@ namespace Plugin.Maui.NearbyConnections;
 /// await discoverer.StopAsync();  // cancels platform operation, emits cleanup events
 /// await discoverer.DisposeAsync(); // completes channels → foreach exits
 /// </code>
+/// <para>
+/// <strong>Thread safety.</strong>
+/// All methods are safe to call from any thread. <see cref="ConnectAsync"/> is safe to call
+/// concurrently for different <see cref="NearbyDevice"/> instances. <see cref="EventsAsync"/>
+/// is safe to call concurrently — each caller receives its own independent event stream.
+/// Platform callbacks (device found/lost, disconnections) are delivered on SDK-owned background
+/// threads; do not assume any particular thread when handling <see cref="DiscovererEvent"/>
+/// items yielded from <see cref="EventsAsync"/>.
+/// </para>
 /// </remarks>
 public interface INearbyDiscoverer : IDisposable, IAsyncDisposable
 {

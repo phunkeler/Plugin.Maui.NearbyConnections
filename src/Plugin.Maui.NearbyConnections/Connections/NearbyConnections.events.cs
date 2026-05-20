@@ -6,7 +6,8 @@ sealed partial class NearbyConnectionsImplementation
     {
         try
         {
-            var written = _discoverChannel.Writer.TryWrite(new NearbyDeviceEvent(device, NearbyDeviceEventType.Found));
+            var channel = _discoverChannel;
+            var written = channel.Writer.TryWrite(new NearbyDeviceEvent(device, NearbyDeviceEventType.Found));
 
             if (!written)
             {
@@ -23,7 +24,8 @@ sealed partial class NearbyConnectionsImplementation
     {
         try
         {
-            var written = _discoverChannel.Writer.TryWrite(new NearbyDeviceEvent(device, NearbyDeviceEventType.Lost));
+            var channel = _discoverChannel;
+            var written = channel.Writer.TryWrite(new NearbyDeviceEvent(device, NearbyDeviceEventType.Lost));
 
             if (!written)
             {
@@ -40,7 +42,8 @@ sealed partial class NearbyConnectionsImplementation
     {
         try
         {
-            var written = _advertiseChannel.Writer.TryWrite(request);
+            var channel = _advertiseChannel;
+            var written = channel.Writer.TryWrite(request);
 
             if (!written)
             {

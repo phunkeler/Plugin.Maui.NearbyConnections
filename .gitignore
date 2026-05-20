@@ -417,3 +417,6 @@ sample/NearbyChat/Scripts/tmp/
 .sonarqube/
 
 **/coveragereport
+
+.claude/
+docs/
