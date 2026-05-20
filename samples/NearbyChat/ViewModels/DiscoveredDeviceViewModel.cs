@@ -37,6 +37,10 @@ public partial class DiscoveredDeviceViewModel(
         {
             await discoverer.ConnectAsync(Device);
         }
+        catch (NearbyConnectionsException)
+        {
+            IsConnecting = false;
+        }
         catch
         {
             IsConnecting = false;

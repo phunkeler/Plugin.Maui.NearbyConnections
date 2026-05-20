@@ -235,6 +235,9 @@ sealed partial class NearbyConnectionsImplementation
     [LoggerMessage(Level = LogLevel.Error, Message = "WriteDeviceLost: unexpected error writing device-lost event for device {DeviceId}.")]
     partial void LogWriteDeviceLostError(string deviceId, Exception ex);
 
+    [LoggerMessage(Level = LogLevel.Debug, Message = "WriteConnectionRequest: advertise channel already completed, rejecting incoming connection from device {DeviceId}.")]
+    partial void LogWriteConnectionRequestChannelCompleted(string deviceId);
+
     [LoggerMessage(Level = LogLevel.Error, Message = "WriteConnectionRequest: unexpected error writing connection request for device {DeviceId}.")]
     partial void LogWriteConnectionRequestError(string deviceId, Exception ex);
 
