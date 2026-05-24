@@ -21,25 +21,25 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 
 echo "Installing ADB systemd service (listens on all interfaces for Docker access)..."
-sudo tee /etc/systemd/system/adb.service > /dev/null << EOF
+sudo tee /etc/systemd/system/adb-server.service > /dev/null << EOF
 [Unit]
 Description=ADB Server
 After=multi-user.target
 
 [Service]
-Type=forking
+Type=simple
 User=${USER}
-ExecStart=/usr/bin/adb -a -P 5037 start-server
-ExecStop=/usr/bin/adb kill-server
-Restart=on-failure
+ExecStart=/usr/bin/adb -a -P 5037 nodaemon server start
+Restart=always
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
-sudo systemctl enable adb
-sudo systemctl start adb
+sudo systemctl enable adb-server
+sudo systemctl start adb-server
 
 echo "Configuring firewall (UFW)..."
 sudo ufw default deny incoming
