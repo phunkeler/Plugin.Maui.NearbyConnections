@@ -131,13 +131,13 @@ Releases are fully automated once changes land on `main`. You do not manually ed
 4. Merging creates a git tag (e.g. `v0.2.0`) and a GitHub Release.
 5. The tag triggers the `publish` workflow → approve the `nuget` environment deployment in GitHub Actions → package is pushed to NuGet.org.
 
-### Pre-release (beta, rc)
+### Pre-release (preview, rc)
 
 release-please does not manage pre-release tags. Create them manually:
 
 ```bash
-git tag v0.2.0-beta.1
-git push origin v0.2.0-beta.1
+git tag v0.3.0-preview.1
+git push origin v0.3.0-preview.1
 ```
 
 Then approve the deployment in GitHub Actions as usual.
