@@ -1,338 +1,276 @@
-using System.Threading.Channels;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
-using Plugin.Maui.NearbyConnections;
+using Microsoft.Maui.Dispatching;
+using NSubstitute;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
 [TestCategory("Connections")]
-public class NearbyConnectionsTests
+public class NearbyConnectionsTests : IDisposable
 {
-    // Builds a NearbyConnectionsImplementation wired to a no-op device manager
-    // without hitting any platform APIs.
-    static NearbyConnectionsImplementation CreateSut(FakeTimeProvider? timeProvider = null)
+    readonly FakeTimeProvider _timeProvider;
+    readonly NearbyDeviceManager _deviceManager;
+    readonly NearbyConnectionsImplementation _sut;
+
+    public NearbyConnectionsTests()
     {
-        var tp = timeProvider ?? new FakeTimeProvider();
-        var deviceManager = new NearbyDeviceManager();
-        return new NearbyConnectionsImplementation(
-            deviceManager,
-            tp,
-            new NearbyConnectionsOptions(),
+        _timeProvider = new FakeTimeProvider();
+        _deviceManager = new NearbyDeviceManager(_timeProvider, (_, _, _) => { });
+
+        _sut = new NearbyConnectionsImplementation(
+            _deviceManager,
+            Substitute.For<IDispatcher>(),
+            _timeProvider,
+            new NearbyConnectionsOptions { MarshalEventsToMainThread = false },
             NullLogger.Instance);
     }
 
-    // Drains the first N items from the channel's reader via the internal channel.
-    // Because PlatformStartAdvertisingAsync / PlatformStartDiscoveringAsync throw
-    // PlatformNotSupportedException on net10.0, we exercise the channel bridge
-    // helpers directly (WriteDeviceFound, WriteConnectionRequest, etc.) and read
-    // from the channel reader rather than going through AdvertiseAsync/DiscoverAsync.
+    public void Dispose()
+    {
+        _sut.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     [TestClass]
-    public sealed class WriteConnectionRequest : NearbyConnectionsTests
+    public sealed class ConnectionRequested : NearbyConnectionsTests
     {
         [TestMethod]
-        public async Task WriteConnectionRequest_YieldsRequestOnAdvertiseChannel()
+        public void InboundRequest_AddsDeviceToDevices()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
-
-            NearbyConnectionRequest? captured = null;
-            var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            var request = new NearbyConnectionRequest(
-                device,
-                acceptFactory: ct => tcs.Task.WaitAsync(ct),
-                rejectFactory: ct => Task.CompletedTask);
+            var device = _deviceManager.GetOrAddDevice("ep1", "Peer", NearbyDeviceState.ConnectionRequestedInbound);
 
             // Act
-            sut.WriteConnectionRequest(request);
-
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            // Read one item directly from the internal advertise channel reader
-            var reader = sut._advertiseChannel.Reader;
-            captured = await reader.ReadAsync(cts.Token);
+            _sut.OnConnectionRequested(device, _timeProvider.GetUtcNow());
 
             // Assert
-            Assert.IsNotNull(captured);
-            Assert.AreSame(device, captured.RemoteDevice);
+            CollectionAssert.Contains(_sut.Devices, device);
         }
 
         [TestMethod]
-        public async Task WriteConnectionRequest_MultipleRequests_AllYielded()
+        public void InboundRequest_WhenDeviceAlreadyPresent_DoesNotDuplicate()
         {
             // Arrange
-            var sut = CreateSut();
-            var device1 = new NearbyDevice("peer-1", "Alice");
-            var device2 = new NearbyDevice("peer-2", "Bob");
-
-            var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            sut.WriteConnectionRequest(new NearbyConnectionRequest(device1, ct => tcs.Task.WaitAsync(ct), ct => Task.CompletedTask));
-            sut.WriteConnectionRequest(new NearbyConnectionRequest(device2, ct => tcs.Task.WaitAsync(ct), ct => Task.CompletedTask));
-
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            var reader = sut._advertiseChannel.Reader;
+            var device = _deviceManager.GetOrAddDevice("ep1", "Peer", NearbyDeviceState.ConnectionRequestedInbound);
+            _sut.OnConnectionRequested(device, _timeProvider.GetUtcNow());
 
             // Act
-            var first = await reader.ReadAsync(cts.Token);
-            var second = await reader.ReadAsync(cts.Token);
+            _sut.OnConnectionRequested(device, _timeProvider.GetUtcNow());
 
             // Assert
-            Assert.AreEqual("peer-1", first.RemoteDevice.Id);
-            Assert.AreEqual("peer-2", second.RemoteDevice.Id);
+            Assert.HasCount(1, _sut.Devices);
         }
     }
 
     [TestClass]
-    public sealed class ResolveConnectionTcs : NearbyConnectionsTests
+    public sealed class ConnectionResponded : NearbyConnectionsTests
     {
+        /// <summary>
+        /// Inbound (advertiser-side) rejection: the device was only present because of the
+        /// connection request, so it must be removed from Devices on rejection.
+        /// </summary>
         [TestMethod]
-        public async Task AcceptAsync_ResolveConnectionTcs_CompletesWithNearbyConnection()
+        public void InboundRejected_RemovesDeviceFromDevices()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var device = _deviceManager.GetOrAddDevice("ep1", "Peer", NearbyDeviceState.ConnectionRequestedInbound);
+            _sut.OnConnectionRequested(device, _timeProvider.GetUtcNow());
 
-            // Simulate what ConnectAsync does: register a TCS keyed by peer ID
-            var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-            sut._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
+            // Inbound rejection: platform removes the device from the manager before raising the event
+            _deviceManager.RemoveDevice("ep1");
 
-            var receiveChannel = Channel.CreateUnbounded<NearbyPayload>();
-            var connection = new NearbyConnection(
-                device,
-                receiveChannel,
-                sendBytesFactory: (_, _) => ValueTask.CompletedTask,
-                sendFileFactory: (_, _, _) => Task.CompletedTask,
-                disposeFactory: () => ValueTask.CompletedTask);
-
-            // Act — simulate platform callback resolving the TCS
-            sut.ResolveConnectionTcs("peer-1", connection);
-
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            var result = await tcs.Task.WaitAsync(cts.Token);
+            // Act
+            _sut.OnConnectionResponded(device, _timeProvider.GetUtcNow(), accepted: false);
 
             // Assert
-            Assert.AreSame(connection, result);
+            CollectionAssert.DoesNotContain(_sut.Devices, device);
         }
 
         [TestMethod]
-        public async Task ResolveConnectionTcs_RegistersConnectionInActiveConnections()
+        public void InboundRejected_RaisesConnectionRespondedEvent()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var device = _deviceManager.GetOrAddDevice("ep1", "Peer", NearbyDeviceState.ConnectionRequestedInbound);
+            _sut.OnConnectionRequested(device, _timeProvider.GetUtcNow());
+            _deviceManager.RemoveDevice("ep1");
 
-            var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-            sut._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
-
-            var receiveChannel = Channel.CreateUnbounded<NearbyPayload>();
-            var connection = new NearbyConnection(
-                device,
-                receiveChannel,
-                sendBytesFactory: (_, _) => ValueTask.CompletedTask,
-                sendFileFactory: (_, _, _) => Task.CompletedTask,
-                disposeFactory: () => ValueTask.CompletedTask);
+            NearbyDeviceRespondedEventArgs? raised = null;
+            _sut.ConnectionResponded += (_, e) => raised = e;
 
             // Act
-            sut.ResolveConnectionTcs("peer-1", connection);
-            await tcs.Task; // wait for resolution
+            _sut.OnConnectionResponded(device, _timeProvider.GetUtcNow(), accepted: false);
 
-            // Assert — connection is now tracked in _activeConnections
-            Assert.IsTrue(sut._activeConnections.ContainsKey("peer-1"));
+            // Assert
+            Assert.IsNotNull(raised);
+            Assert.IsFalse(raised.Accepted);
+            Assert.AreSame(device, raised.NearbyDevice);
         }
 
         [TestMethod]
-        public async Task FaultConnectionTcs_FaultsTheTcsWithGivenException()
+        public void InboundAccepted_DeviceRemainsInDevices()
         {
             // Arrange
-            var sut = CreateSut();
-            var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-            sut._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
-
-            var expectedException = new InvalidOperationException("connection failed");
+            var device = _deviceManager.GetOrAddDevice("ep1", "Peer", NearbyDeviceState.ConnectionRequestedInbound);
+            _sut.OnConnectionRequested(device, _timeProvider.GetUtcNow());
+            _deviceManager.SetState("ep1", NearbyDeviceState.Connected);
 
             // Act
-            sut.FaultConnectionTcs("peer-1", expectedException);
+            _sut.OnConnectionResponded(device, _timeProvider.GetUtcNow(), accepted: true);
 
             // Assert
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-                async () => await tcs.Task);
+            CollectionAssert.Contains(_sut.Devices, device);
+        }
+
+        /// <summary>
+        /// Outbound (discoverer-side) rejection: the device was independently discovered and
+        /// is still advertising, so it must remain in Devices at Discovered state.
+        /// </summary>
+        [TestMethod]
+        public void OutboundRejected_DeviceRemainsInDevicesAsDiscovered()
+        {
+            // Arrange
+            var device = _deviceManager.RecordDeviceFound("ep1", "Peer");
+            _sut.OnDeviceFound(device, _timeProvider.GetUtcNow());
+
+            // Outbound rejection: platform keeps the device in the manager — it is still advertising
+
+            // Act
+            _sut.OnConnectionResponded(device, _timeProvider.GetUtcNow(), accepted: false);
+
+            // Assert
+            CollectionAssert.Contains(_sut.Devices, device);
+            Assert.AreEqual(NearbyDeviceState.Discovered, device.State);
+        }
+
+        [TestMethod]
+        public void OutboundAccepted_DeviceRemainsInDevices()
+        {
+            // Arrange
+            var device = _deviceManager.RecordDeviceFound("ep1", "Peer");
+            _sut.OnDeviceFound(device, _timeProvider.GetUtcNow());
+            _deviceManager.SetState("ep1", NearbyDeviceState.Connected);
+
+            // Act
+            _sut.OnConnectionResponded(device, _timeProvider.GetUtcNow(), accepted: true);
+
+            // Assert
+            CollectionAssert.Contains(_sut.Devices, device);
         }
     }
 
     [TestClass]
-    public sealed class WriteDeviceFound : NearbyConnectionsTests
+    public sealed class DeviceFound : NearbyConnectionsTests
     {
         [TestMethod]
-        public async Task WriteDeviceFound_YieldsFoundEventOnDiscoverChannel()
+        public void Found_AddsDeviceToDevices()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var device = _deviceManager.RecordDeviceFound("ep1", "Peer");
 
             // Act
-            sut.WriteDeviceFound(device);
-
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            var evt = await sut._discoverChannel.Reader.ReadAsync(cts.Token);
+            _sut.OnDeviceFound(device, _timeProvider.GetUtcNow());
 
             // Assert
-            Assert.AreEqual(NearbyDeviceEventType.Found, evt.Type);
-            Assert.AreSame(device, evt.Device);
+            CollectionAssert.Contains(_sut.Devices, device);
         }
 
         [TestMethod]
-        public async Task WriteDeviceLost_YieldsLostEventOnDiscoverChannel()
+        public void Found_WhenDeviceAlreadyPresent_DoesNotDuplicate()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var device = _deviceManager.RecordDeviceFound("ep1", "Peer");
+            _sut.OnDeviceFound(device, _timeProvider.GetUtcNow());
 
             // Act
-            sut.WriteDeviceLost(device);
-
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            var evt = await sut._discoverChannel.Reader.ReadAsync(cts.Token);
+            _sut.OnDeviceFound(device, _timeProvider.GetUtcNow());
 
             // Assert
-            Assert.AreEqual(NearbyDeviceEventType.Lost, evt.Type);
-            Assert.AreSame(device, evt.Device);
-        }
-
-        [TestMethod]
-        public async Task WriteDeviceFound_ThenLost_PreservesOrder()
-        {
-            // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
-
-            // Act
-            sut.WriteDeviceFound(device);
-            sut.WriteDeviceLost(device);
-
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            var reader = sut._discoverChannel.Reader;
-            var first = await reader.ReadAsync(cts.Token);
-            var second = await reader.ReadAsync(cts.Token);
-
-            // Assert
-            Assert.AreEqual(NearbyDeviceEventType.Found, first.Type);
-            Assert.AreEqual(NearbyDeviceEventType.Lost, second.Type);
+            Assert.HasCount(1, _sut.Devices);
         }
     }
 
     [TestClass]
-    public sealed class WritePayload : NearbyConnectionsTests
+    public sealed class DeviceLost : NearbyConnectionsTests
     {
         [TestMethod]
-        public async Task WritePayload_RoutesPayloadToActiveConnection()
+        public void Lost_RemovesDeviceFromDevices()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
-
-            var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-            sut._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
-
-            var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(
-                new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-            var connection = new NearbyConnection(
-                device,
-                receiveChannel,
-                sendBytesFactory: (_, _) => ValueTask.CompletedTask,
-                sendFileFactory: (_, _, _) => Task.CompletedTask,
-                disposeFactory: () => ValueTask.CompletedTask);
-
-            sut.ResolveConnectionTcs("peer-1", connection);
-            await tcs.Task;
-
-            var payload = new BytesPayload([1, 2, 3]);
+            var device = _deviceManager.RecordDeviceFound("ep1", "Peer");
+            _sut.OnDeviceFound(device, _timeProvider.GetUtcNow());
 
             // Act
-            sut.WritePayload("peer-1", payload);
-
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            var received = await receiveChannel.Reader.ReadAsync(cts.Token);
+            _sut.OnDeviceLost(device, _timeProvider.GetUtcNow());
 
             // Assert
-            Assert.AreSame(payload, received);
-        }
-
-        [TestMethod]
-        public void WritePayload_UnknownPeer_DoesNotThrow()
-        {
-            // Arrange
-            var sut = CreateSut();
-            var payload = new BytesPayload([1, 2, 3]);
-
-            // Act
-            sut.WritePayload("nonexistent-peer", payload);
-
-            // Assert — unknown peer silently ignored; no connection was registered
-            Assert.IsFalse(sut._activeConnections.ContainsKey("nonexistent-peer"));
+            CollectionAssert.DoesNotContain(_sut.Devices, device);
         }
     }
 
     [TestClass]
-    public sealed class DisposeAsync : NearbyConnectionsTests
+    public sealed class SendBytes : NearbyConnectionsTests
     {
         [TestMethod]
-        public async Task DisposeAsync_CompletesAdvertiseChannel()
+        public void NullDevice_ThrowsArgumentNullException()
         {
             // Arrange
-            var sut = CreateSut();
+            var data = new byte[] { 1, 2, 3 };
 
-            // Act
-            await sut.DisposeAsync();
-
-            // Assert — channel writer is completed, so reader will complete immediately
-            Assert.IsTrue(sut._advertiseChannel.Reader.Completion.IsCompleted);
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentNullException>(() => _sut.SendAsync(null!, data));
         }
 
         [TestMethod]
-        public async Task DisposeAsync_CompletesDiscoverChannel()
+        public void NullData_ThrowsArgumentNullException()
         {
             // Arrange
-            var sut = CreateSut();
+            var device = _deviceManager.GetOrAddDevice("ep1", "Peer", NearbyDeviceState.Connected);
+            byte[] nullData = null!;
 
-            // Act
-            await sut.DisposeAsync();
-
-            // Assert
-            Assert.IsTrue(sut._discoverChannel.Reader.Completion.IsCompleted);
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentNullException>(() => _sut.SendAsync(device, nullData));
         }
 
         [TestMethod]
-        public async Task DisposeAsync_CancelsPendingConnectionTcs()
+        public void DeviceNotConnected_ThrowsInvalidOperationException()
         {
             // Arrange
-            var sut = CreateSut();
-            using var cts = new CancellationTokenSource();
-            var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-            sut._connectionTcs["peer-1"] = (tcs, cts.Token);
+            var device = _deviceManager.RecordDeviceFound("ep1", "Peer");
 
-            // Act
-            await sut.DisposeAsync();
-
-            // Assert
-            Assert.IsTrue(tcs.Task.IsCanceled);
+            // Act & Assert
+            Assert.ThrowsExactly<InvalidOperationException>(() => _sut.SendAsync(device, new byte[] { 1 }));
         }
 
         [TestMethod]
-        public async Task DisposeAsync_CalledTwice_DoesNotThrow()
+        public void EmptyData_ReturnsCompletedTask()
         {
             // Arrange
-            var sut = CreateSut();
+            var device = _deviceManager.GetOrAddDevice("ep1", "Peer", NearbyDeviceState.Connected);
 
             // Act
-            await sut.DisposeAsync();
-#pragma warning disable S3966 // intentional: second call verifies idempotency
-            await sut.DisposeAsync();
-#pragma warning restore S3966
+            var task = _sut.SendAsync(device, []);
 
             // Assert
-            Assert.IsTrue(sut._advertiseChannel.Reader.Completion.IsCompleted);
+            Assert.IsTrue(task.IsCompletedSuccessfully);
+        }
+    }
+
+    [TestClass]
+    public sealed class DeviceDisconnected : NearbyConnectionsTests
+    {
+        [TestMethod]
+        public void Disconnected_RemovesDeviceFromDevices()
+        {
+            // Arrange
+            var device = _deviceManager.RecordDeviceFound("ep1", "Peer");
+            _sut.OnDeviceFound(device, _timeProvider.GetUtcNow());
+            _deviceManager.SetState("ep1", NearbyDeviceState.Connected);
+
+            // Act
+            _sut.OnDeviceDisconnected(device, _timeProvider.GetUtcNow());
+
+            // Assert
+            CollectionAssert.DoesNotContain(_sut.Devices, device);
         }
     }
 }

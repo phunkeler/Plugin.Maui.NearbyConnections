@@ -1,0 +1,710 @@
+namespace Plugin.Maui.NearbyConnections;
+
+sealed partial class NearbyConnectionsImplementation
+{
+    MCNearbyServiceAdvertiser? _mcAdvertiser;
+    MCNearbyServiceBrowser? _mcBrowser;
+
+    readonly ConcurrentDictionary<string, (MCNearbyServiceAdvertiserInvitationHandler Handler, CancellationTokenSource Expiry)> _pendingInvitations = new();
+    readonly ConcurrentDictionary<string, IDisposable> _progressObservers = new();
+
+    MCSession? _session;
+
+    public bool IsAdvertising
+    {
+        get;
+        private set
+        {
+            if (field != value)
+            {
+                field = value;
+                OnAdvertisingStateChanged(value, TimeProvider.GetUtcNow());
+            }
+        }
+    }
+
+    public bool IsDiscovering
+    {
+        get;
+        private set
+        {
+            if (field != value)
+            {
+                field = value;
+                OnDiscoveringStateChanged(value, TimeProvider.GetUtcNow());
+            }
+        }
+    }
+
+    #region Advertising
+
+    Task PlatformStartAdvertisingAsync()
+    {
+        var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName);
+
+        _mcAdvertiser = new MCNearbyServiceAdvertiser(
+            myPeerID: myPeerId,
+            info: null,
+            serviceType: Options.ServiceId)
+        {
+            Delegate = new AdvertiserDelegate(this)
+        };
+
+        _mcAdvertiser.StartAdvertisingPeer();
+        IsAdvertising = true;
+
+        return Task.CompletedTask;
+    }
+
+    void PlatformStopAdvertising()
+    {
+        _mcAdvertiser?.StopAdvertisingPeer();
+        _mcAdvertiser?.Dispose();
+        _mcAdvertiser = null;
+        IsAdvertising = false;
+    }
+
+    internal void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
+    {
+        IsAdvertising = false;
+
+        LogDidNotStartAdvertising(error.LocalizedDescription);
+
+        OnError(
+            "Advertising",
+            error.LocalizedDescription,
+            TimeProvider.GetUtcNow());
+    }
+
+    internal void DidNotStartBrowsingForPeers(MCNearbyServiceBrowser browser, NSError error)
+    {
+        IsDiscovering = false;
+
+        LogDidNotStartBrowsing(error.LocalizedDescription);
+
+        OnError(
+            "Discovery",
+            error.LocalizedDescription,
+            TimeProvider.GetUtcNow());
+    }
+
+    internal async Task DidReceiveInvitationFromPeer(
+        MCNearbyServiceAdvertiser advertiser,
+        MCPeerID peerID,
+        NSData? context,
+        MCNearbyServiceAdvertiserInvitationHandler invitationHandler)
+    {
+        var id = PeerIdManager.TrackRemotePeer(peerID);
+
+        var device = _deviceManager.SetState(id, NearbyDeviceState.ConnectionRequestedInbound)
+            ?? _deviceManager.GetOrAddDevice(id, peerID.DisplayName, NearbyDeviceState.ConnectionRequestedInbound);
+
+        var expiry = new CancellationTokenSource(Options.InvitationTimeout);
+        expiry.Token.Register(() => OnInvitationExpired(device));
+        _pendingInvitations.TryAdd(id, (invitationHandler, expiry));
+
+        LogConnectionRequestReceived(device.Id, device.DisplayName);
+
+        OnConnectionRequested(device, TimeProvider.GetUtcNow());
+
+        if (Options.AutoAcceptConnections
+            && _pendingInvitations.TryRemove(id, out var pending))
+        {
+            LogAutoAcceptingConnection(device.Id, device.DisplayName);
+
+            await pending.Expiry.CancelAsync();
+            pending.Expiry.Dispose();
+
+            _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName), identity: null!, Options.EncryptionPreference)
+            {
+                Delegate = new SessionDelegate(this)
+            };
+
+            pending.Handler(true, _session);
+        }
+    }
+
+    #endregion Advertising
+
+    #region Discovery
+
+    Task PlatformStartDiscoveringAsync()
+    {
+        var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName);
+
+        _mcBrowser = new MCNearbyServiceBrowser(
+            myPeerID: myPeerId,
+            serviceType: Options.ServiceId)
+        {
+            Delegate = new BrowserDelegate(this)
+        };
+
+        _mcBrowser.StartBrowsingForPeers();
+        IsDiscovering = true;
+
+        return Task.CompletedTask;
+    }
+
+    void PlatformStopDiscovering()
+    {
+        _mcBrowser?.StopBrowsingForPeers();
+        _mcBrowser?.Dispose();
+        _mcBrowser = null;
+        IsDiscovering = false;
+    }
+
+    internal void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
+    {
+        var id = PeerIdManager.TrackRemotePeer(peerID);
+        var device = _deviceManager.RecordDeviceFound(id, peerID.DisplayName);
+
+        LogDeviceFound(device.Id, device.DisplayName);
+
+        OnDeviceFound(device, TimeProvider.GetUtcNow());
+    }
+
+    internal void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
+    {
+        var id = PeerIdManager.PeerKey(peerID);
+
+        if (_deviceManager.TryGetDevice(id, out var existingDevice)
+            && existingDevice.State == NearbyDeviceState.Connected)
+        {
+            LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
+            return;
+        }
+
+        PeerIdManager.RemoveRemotePeer(id);
+        var device = _deviceManager.RemoveDevice(id);
+
+        LogDeviceLost(id, device?.DisplayName);
+
+        if (device is not null)
+        {
+            OnDeviceLost(device, TimeProvider.GetUtcNow());
+        }
+    }
+
+    #endregion Discovery
+
+    Task PlatformDisconnectAsync(NearbyDevice device)
+    {
+        LogDisconnecting(device.Id, device.DisplayName);
+
+        if (_session is not null
+            && PeerIdManager.TryGetRemotePeer(device.Id, out var peerID))
+        {
+            using var controlData = NSData.FromArray(ControlMessage.Encode(ControlMessageType.Disconnect));
+            _session.SendData(controlData, [peerID], MCSessionSendDataMode.Reliable, out var error);
+
+            if (error is not null)
+            {
+                LogFailedToSendDisconnect(device.Id, device.DisplayName, error.LocalizedDescription);
+
+                throw new InvalidOperationException($"Failed to send disconnect message to device: Id={device.Id}, DisplayName={device.DisplayName}, Error={error.LocalizedDescription}");
+            }
+        }
+
+        PeerIdManager.RemoveRemotePeer(device.Id);
+        var disconnectedDevice = _deviceManager.RemoveDevice(device.Id);
+
+        if (disconnectedDevice is not null)
+        {
+            OnDeviceDisconnected(disconnectedDevice, TimeProvider.GetUtcNow());
+        }
+
+        return Task.CompletedTask;
+    }
+
+    Task PlatformRequestConnectionAsync(NearbyDevice device)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+
+        if (!IsDiscovering)
+        {
+            LogRequestConnectionNotDiscovering();
+            return Task.CompletedTask;
+        }
+
+        if (!PeerIdManager.TryGetRemotePeer(device.Id, out var peerID))
+        {
+            LogNoPeerFoundForDevice(device.Id, device.DisplayName);
+            return Task.CompletedTask;
+        }
+
+        _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName), identity: null!, Options.EncryptionPreference)
+        {
+            Delegate = new SessionDelegate(this)
+        };
+
+        _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
+        _mcBrowser?.InvitePeer(peerID, _session, context: null, Options.InvitationTimeout.TotalSeconds);
+
+        return Task.CompletedTask;
+    }
+
+    Task PlatformRespondToConnectionAsync(NearbyDevice device, bool accept)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+
+        if (!_pendingInvitations.TryRemove(device.Id, out var pending))
+        {
+            LogRespondToConnectionInvitationGone(device.Id, device.DisplayName);
+            return Task.CompletedTask;
+        }
+
+        pending.Expiry.Cancel();
+        pending.Expiry.Dispose();
+
+        _session ??= new MCSession(PeerIdManager.GetLocalPeerId(Options.DisplayName), identity: null!, Options.EncryptionPreference)
+        {
+            Delegate = new SessionDelegate(this)
+        };
+
+        pending.Handler(accept, accept ? _session : null);
+
+        if (!accept)
+        {
+            _deviceManager.RemoveDevice(device.Id);
+            OnConnectionResponded(device, TimeProvider.GetUtcNow(), false);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    Task PlatformSendAsync(
+        NearbyDevice device,
+        byte[] data,
+        CancellationToken cancellationToken)
+    {
+        if (_session is null)
+        {
+            throw new InvalidOperationException("No active session. Ensure a connection has been established before sending data.");
+        }
+
+        if (!PeerIdManager.TryGetRemotePeer(device.Id, out var peerID))
+        {
+            throw new InvalidOperationException($"No peer found for device: Id={device.Id}, DisplayName={device.DisplayName}");
+        }
+
+        return SendBytesAsync(data, peerID, cancellationToken);
+    }
+
+    async Task PlatformSendAsync(
+        NearbyDevice device,
+        string uri,
+        IProgress<NearbyTransferProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        if (_session is null)
+        {
+            throw new InvalidOperationException("No active session. Ensure a connection has been established before sending data.");
+        }
+
+        if (!PeerIdManager.TryGetRemotePeer(device.Id, out var peerID))
+        {
+            throw new InvalidOperationException($"No peer found for device: Id={device.Id}, DisplayName={device.DisplayName}");
+        }
+
+        using var nsUrl = NSUrl.FromFilename(uri);
+        using var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
+        var resourceName = nsUrl.LastPathComponent ?? Path.GetFileName(uri);
+        var sendTask = _session.SendResourceAsync(nsUrl, resourceName, peerID, out var nsProgress);
+
+        IDisposable? observer = null;
+
+        if (nsProgress is not null)
+        {
+            observer = nsProgress.AddObserver(
+                "fractionCompleted",
+                NSKeyValueObservingOptions.New,
+                _ =>
+                {
+                    var transferred = (long)(nsProgress.FractionCompleted * nsProgress.TotalUnitCount);
+                    transfer.OnUpdate(new NearbyTransferProgress(
+                        payloadId: 0,
+                        bytesTransferred: transferred,
+                        totalBytes: nsProgress.TotalUnitCount,
+                        NearbyTransferStatus.InProgress));
+                });
+        }
+
+        try
+        {
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken, transfer.InactivityToken);
+            using var ctr = linkedCts.Token.Register(() => nsProgress?.Cancel());
+            await sendTask;
+
+            transfer.OnUpdate(new NearbyTransferProgress(
+                payloadId: 0,
+                bytesTransferred: nsProgress?.TotalUnitCount ?? 0,
+                totalBytes: nsProgress?.TotalUnitCount ?? 0,
+                NearbyTransferStatus.Success));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            transfer.OnUpdate(new NearbyTransferProgress(
+                payloadId: 0,
+                bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
+                totalBytes: nsProgress?.TotalUnitCount ?? 0,
+                NearbyTransferStatus.Canceled));
+            throw;
+        }
+        catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
+        {
+            transfer.OnUpdate(new NearbyTransferProgress(
+                payloadId: 0,
+                bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
+                totalBytes: nsProgress?.TotalUnitCount ?? 0,
+                NearbyTransferStatus.Failure));
+
+            LogSendFileTimeout(device.Id, device.DisplayName, Options.TransferInactivityTimeout.TotalSeconds);
+
+            throw new TimeoutException(
+                $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
+        }
+        catch (Exception ex)
+        {
+            transfer.OnUpdate(new NearbyTransferProgress(
+                payloadId: 0,
+                bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
+                totalBytes: nsProgress?.TotalUnitCount ?? 0,
+                NearbyTransferStatus.Failure));
+
+            LogSendFileFailed(device.Id, device.DisplayName, ex.Message);
+            throw;
+        }
+        finally
+        {
+            observer?.Dispose();
+        }
+    }
+
+    Task SendBytesAsync(
+        byte[] bytes,
+        MCPeerID peerID,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var nsData = NSData.FromArray(bytes);
+        _session!.SendData(nsData, [peerID], MCSessionSendDataMode.Reliable, out var error);
+
+        if (error is not null)
+        {
+            LogSendBytesFailed(peerID.DisplayName, error.LocalizedDescription);
+            throw new InvalidOperationException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    void OnInvitationExpired(NearbyDevice device)
+    {
+        if (_isDisposed || !_pendingInvitations.TryRemove(device.Id, out var expired))
+        {
+            return;
+        }
+
+        LogInvitationExpired(device.Id, device.DisplayName, Options.InvitationTimeout.TotalSeconds);
+
+        expired.Expiry.Dispose();
+        expired.Handler(false, null);
+
+        var d = _deviceManager.RemoveDevice(device.Id);
+
+        if (d is not null)
+        {
+            OnConnectionResponded(d, TimeProvider.GetUtcNow(), false);
+        }
+    }
+
+    void PlatformDispose()
+    {
+        PlatformStopAdvertising();
+        PlatformStopDiscovering();
+
+        foreach (var (_, pending) in _pendingInvitations)
+        {
+            pending.Expiry.Cancel();
+            pending.Expiry.Dispose();
+            pending.Handler(false, null);
+        }
+        _pendingInvitations.Clear();
+
+        foreach (var (_, observer) in _progressObservers)
+        {
+            observer.Dispose();
+        }
+        _progressObservers.Clear();
+        PeerIdManager.ClearRemotePeers();
+
+        if (_session is not null)
+        {
+            _session.Disconnect();
+            _session.Dispose();
+            _session = null;
+        }
+    }
+
+    #region Session Callbacks
+
+    public void OnPeerStateChanged(MCPeerID peerID, MCSessionState state)
+    {
+        var id = PeerIdManager.PeerKey(peerID);
+        var st = Enum.GetName(state);
+
+        LogPeerStateChanged(id, peerID.DisplayName, st);
+
+        switch (state)
+        {
+            case MCSessionState.Connected:
+                var connectedDevice = _deviceManager.SetState(id, NearbyDeviceState.Connected);
+
+                if (connectedDevice is not null)
+                {
+                    OnConnectionResponded(connectedDevice, TimeProvider.GetUtcNow(), true);
+                }
+
+                break;
+            case MCSessionState.NotConnected:
+                if (_pendingInvitations.TryRemove(id, out var stale))
+                {
+                    // Advertiser side: a pending inbound invite went NotConnected
+                    // (remote disappeared mid-handshake before we responded).
+                    stale.Expiry.Cancel();
+                    stale.Expiry.Dispose();
+                    stale.Handler(false, null);
+
+                    var pendingDevice = _deviceManager.RemoveDevice(id);
+                    if (pendingDevice is not null)
+                    {
+                        OnConnectionResponded(pendingDevice, TimeProvider.GetUtcNow(), false);
+                    }
+                }
+                else if (_deviceManager.TryGetDevice(id, out var outboundDevice)
+                    && outboundDevice.State == NearbyDeviceState.ConnectionRequestedOutbound)
+                {
+                    // Discoverer side: our outbound invite was rejected or expired.
+                    // Reset to Discovered so the UI can reconnect immediately.
+                    _deviceManager.SetState(id, NearbyDeviceState.Discovered);
+                    OnConnectionResponded(outboundDevice, TimeProvider.GetUtcNow(), false);
+                    OnDeviceFound(outboundDevice, TimeProvider.GetUtcNow());
+                }
+                else
+                {
+                    // MPC fires NotConnected for the departing peer before removing it from
+                    // ConnectedPeers, so check whether this peer was the only remaining one
+                    // while it is still present in the session's list.
+                    var isLastPeer = _session is not null
+                        && _session.ConnectedPeers.All(p => PeerIdManager.PeerKey(p) == id);
+
+                    PeerIdManager.RemoveRemotePeer(id);
+                    var disconnectedDevice = _deviceManager.RemoveDevice(id);
+                    if (disconnectedDevice is not null)
+                    {
+                        OnDeviceDisconnected(disconnectedDevice, TimeProvider.GetUtcNow());
+                    }
+
+                    if (isLastPeer)
+                    {
+                        LogSessionDisposed();
+                        _session!.Dispose();
+                        _session = null;
+                    }
+                }
+                break;
+            case MCSessionState.Connecting:
+                // Connection in progress - no event needed
+                break;
+        }
+    }
+
+    void OnDataReceived(NSData data, MCPeerID peerID)
+    {
+        var id = PeerIdManager.PeerKey(peerID);
+
+        LogDataReceived(id, peerID.DisplayName, (long)data.Length);
+
+        var bytes = data.ToArray();
+
+        if (ControlMessage.TryDecode(bytes, out var controlType))
+        {
+            var c = Enum.GetName(controlType);
+            LogControlMessageReceived(id, peerID.DisplayName, c);
+            HandleControlMessage(controlType);
+            return;
+        }
+
+        var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
+
+        if (device is null)
+        {
+            LogDroppingDataFromUnknownPeer(id, peerID.DisplayName);
+            return;
+        }
+
+        var payload = new BytesPayload(bytes);
+        OnDataReceived(device, payload, TimeProvider.GetUtcNow());
+    }
+
+    void HandleControlMessage(ControlMessageType type)
+    {
+        switch (type)
+        {
+            case ControlMessageType.Disconnect:
+                LogDisconnectingFromSession();
+                _session?.Disconnect();
+                break;
+            default:
+                LogUnknownControlMessageType(type);
+                break;
+        }
+    }
+
+    void OnResourceStarted(string resourceName, MCPeerID fromPeer, NSProgress progress)
+    {
+        var id = PeerIdManager.PeerKey(fromPeer);
+
+        LogResourceReceiveStarted(id, fromPeer.DisplayName, resourceName);
+
+        var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
+
+        if (device is null)
+        {
+            LogNoPeerFoundForDevice(id, fromPeer.DisplayName);
+            return;
+        }
+
+        var observer = progress.AddObserver(
+            "fractionCompleted",
+            NSKeyValueObservingOptions.New,
+            _ =>
+            {
+                var transferred = (long)(progress.FractionCompleted * progress.TotalUnitCount);
+                OnIncomingTransferProgress(
+                    device,
+                    new NearbyTransferProgress(
+                        payloadId: 0,
+                        bytesTransferred: transferred,
+                        totalBytes: progress.TotalUnitCount,
+                        NearbyTransferStatus.InProgress),
+                    TimeProvider.GetUtcNow());
+            });
+
+        _progressObservers[resourceName] = observer;
+    }
+
+    void OnResourceFinished(
+        string resourceName,
+        MCPeerID fromPeer,
+        NSUrl? localUrl,
+        NSError? error)
+    {
+        var id = PeerIdManager.PeerKey(fromPeer);
+        var loc = localUrl?.ToString() ?? "null";
+
+        LogResourceReceiveFinished(id, fromPeer.DisplayName, resourceName, loc, error?.LocalizedDescription);
+
+        if (_progressObservers.TryRemove(resourceName, out var observer))
+        {
+            observer.Dispose();
+        }
+
+        var device = _deviceManager.Devices.FirstOrDefault(d => d.Id == id);
+
+        if (device is null)
+        {
+            LogNoPeerFoundForDevice(id, fromPeer.DisplayName);
+            return;
+        }
+
+        if (error is not null)
+        {
+            OnError("ReceiveFile", error.LocalizedDescription, TimeProvider.GetUtcNow());
+            return;
+        }
+
+        if (localUrl?.Path is not string sourcePath)
+        {
+            OnError("ReceiveFile", "Resource URL has no file path.", TimeProvider.GetUtcNow());
+            return;
+        }
+
+        var destinationPath = Path.Combine(Options.ReceivedFilesDirectory, resourceName);
+
+        try
+        {
+            File.Copy(sourcePath, destinationPath, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            LogFileCopyFailed(sourcePath, destinationPath, ex.Message);
+            OnError("ReceiveFile", ex.Message, TimeProvider.GetUtcNow());
+            return;
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(sourcePath);
+            }
+            catch (Exception ex)
+            {
+                LogFileDeleteFailed(sourcePath, ex.Message);
+            }
+        }
+
+        var payload = new FilePayload(new FileResult(destinationPath));
+        OnDataReceived(device, payload, TimeProvider.GetUtcNow());
+    }
+
+    #endregion Session Callbacks
+
+    sealed class AdvertiserDelegate(NearbyConnectionsImplementation nearbyConnections) : NSObject, IMCNearbyServiceAdvertiserDelegate
+    {
+#pragma warning disable S1144, S1172
+        public void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
+            => nearbyConnections.DidNotStartAdvertisingPeer(advertiser, error);
+
+        public void DidReceiveInvitationFromPeer(
+            MCNearbyServiceAdvertiser advertiser,
+            MCPeerID peerID,
+            NSData? context,
+            MCNearbyServiceAdvertiserInvitationHandler invitationHandler)
+            => _ = nearbyConnections.DidReceiveInvitationFromPeer(advertiser, peerID, context, invitationHandler);
+#pragma warning restore S1144, S1172
+    }
+
+    sealed class BrowserDelegate(NearbyConnectionsImplementation nearbyConnections) : NSObject, IMCNearbyServiceBrowserDelegate
+    {
+#pragma warning disable S1144, S1172
+        public void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
+            => nearbyConnections.FoundPeer(browser, peerID, info);
+
+        public void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
+            => nearbyConnections.LostPeer(browser, peerID);
+
+        public void DidNotStartBrowsingForPeers(MCNearbyServiceBrowser browser, NSError error)
+            => nearbyConnections.DidNotStartBrowsingForPeers(browser, error);
+#pragma warning restore S1144, S1172
+    }
+
+    sealed class SessionDelegate(NearbyConnectionsImplementation nearbyConnections) : NSObject, IMCSessionDelegate
+    {
+#pragma warning disable S1144, S1172
+        public void DidChangeState(MCSession session, MCPeerID peerID, MCSessionState state)
+            => nearbyConnections.OnPeerStateChanged(peerID, state);
+
+        public void DidReceiveData(MCSession session, NSData data, MCPeerID peerID)
+            => nearbyConnections.OnDataReceived(data, peerID);
+
+        public void DidStartReceivingResource(MCSession session, string resourceName, MCPeerID fromPeer, NSProgress progress)
+            => nearbyConnections.OnResourceStarted(resourceName, fromPeer, progress);
+
+        public void DidFinishReceivingResource(MCSession session, string resourceName, MCPeerID fromPeer, NSUrl? localUrl, NSError? error)
+            => nearbyConnections.OnResourceFinished(resourceName, fromPeer, localUrl, error);
+#pragma warning restore S1144, S1172
+    }
+}

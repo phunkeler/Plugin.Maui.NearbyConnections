@@ -1,4 +1,3 @@
-using System.Threading.Channels;
 using Android.Content;
 using AndroidUri = Android.Net.Uri;
 using Path = System.IO.Path;
@@ -12,33 +11,51 @@ sealed partial class NearbyConnectionsImplementation
 
     readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
     readonly ConcurrentDictionary<long, OutgoingTransfer> _outgoingTransfers = [];
+    readonly ConcurrentDictionary<string, bool> _inboundEndpoints = [];
+
+    public bool IsAdvertising
+    {
+        get;
+        private set
+        {
+            if (field != value)
+            {
+                field = value;
+                OnAdvertisingStateChanged(value, TimeProvider.GetUtcNow());
+            }
+        }
+    }
+
+    public bool IsDiscovering
+    {
+        get;
+        private set
+        {
+            if (field != value)
+            {
+                field = value;
+                OnDiscoveringStateChanged(value, TimeProvider.GetUtcNow());
+            }
+        }
+    }
 
     #region Advertising
 
-    async Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
+    async Task PlatformStartAdvertisingAsync()
     {
-        cancellationToken.ThrowIfCancellationRequested();
         _advertiseClient ??= NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
-        try
-        {
-            await _advertiseClient.StartAdvertisingAsync(
-                Options.DisplayName,
-                Options.ServiceId,
-                new AdvertiseCallback(OnConnectionInitiatedAsync, OnConnectionResult, OnDisconnected, LogOnConnectionInitiatedError),
-                new AdvertisingOptions.Builder()
-                    .SetStrategy(Options.Strategy)
-                    .SetLowPower(Options.UseLowPower)
-                    .Build());
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _advertiseChannel.Writer.TryComplete(new NearbyAdvertisingException("Failed to start advertising.", ex));
-        }
+        await _advertiseClient.StartAdvertisingAsync(
+            Options.DisplayName,
+            Options.ServiceId,
+            new AdvertiseCallback(OnConnectionInitiated, OnConnectionResult, OnDisconnected),
+            new AdvertisingOptions.Builder()
+                .SetStrategy(Options.Strategy)
+                .SetConnectionType(Options.ConnectionType)
+                .SetLowPower(Options.UseLowPower)
+                .Build());
+
+        IsAdvertising = true;
     }
 
     void PlatformStopAdvertising()
@@ -46,6 +63,7 @@ sealed partial class NearbyConnectionsImplementation
         _advertiseClient?.StopAdvertising();
         _advertiseClient?.Dispose();
         _advertiseClient = null;
+        IsAdvertising = false;
     }
 
     /// <summary>
@@ -53,45 +71,32 @@ sealed partial class NearbyConnectionsImplementation
     /// Both sides are now asked if they wish to accept or reject the connection before any data can be sent over this channel."
     /// -- <see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback#public-abstract-void-onconnectioninitiated-string-endpointid,-connectioninfo-connectioninfo">developers.google.com</see>
     /// </summary>
-    async Task OnConnectionInitiatedAsync(string endpointId, ConnectionInfo connectionInfo)
+    public async void OnConnectionInitiated(string endpointId, ConnectionInfo connectionInfo)
     {
-        try
+        var state = connectionInfo.IsIncomingConnection
+            ? NearbyDeviceState.ConnectionRequestedInbound
+            : NearbyDeviceState.ConnectionRequestedOutbound;
+
+        var device = _deviceManager.SetState(endpointId, state)
+            ?? _deviceManager.GetOrAddDevice(endpointId, connectionInfo.EndpointName, state);
+
+        if (connectionInfo.IsIncomingConnection)
         {
-            var device = _deviceManager.RecordDeviceFound(endpointId, connectionInfo.EndpointName);
+            _inboundEndpoints.TryAdd(endpointId, true);
+            LogConnectionRequestReceived(device.Id, device.DisplayName);
 
-            if (connectionInfo.IsIncomingConnection)
+            OnConnectionRequested(device, TimeProvider.GetUtcNow());
+
+            if (Options.AutoAcceptConnections)
             {
-                LogConnectionRequestReceived(device.Id, device.DisplayName);
-
-                // Register a TCS so that AcceptAsync can await the connection result.
-                var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-                _connectionTcs[endpointId] = (tcs, CancellationToken.None);
-
-                var request = new NearbyConnectionRequest(
-                    device,
-                    acceptFactory: async ct =>
-                    {
-                        await PlatformRespondToConnectionAsync(device, accept: true);
-                        return await tcs.Task.WaitAsync(ct);
-                    },
-                    rejectFactory: ct =>
-                    {
-                        _connectionTcs.TryRemove(endpointId, out _);
-                        return PlatformRespondToConnectionAsync(device, accept: false);
-                    });
-
-                WriteConnectionRequest(request);
-            }
-            else
-            {
-                // Outbound (discoverer side): auto-accept at the protocol level.
+                LogAutoAcceptingConnection(device.Id, device.DisplayName);
                 await PlatformRespondToConnectionAsync(device, accept: true);
             }
         }
-        catch (Exception ex)
+        else
         {
-            LogOnConnectionInitiatedError(endpointId, ex);
-            FaultConnectionTcs(endpointId, ex);
+            // Skip this extra step - we, as the discoverer, initiated the request
+            await PlatformRespondToConnectionAsync(device, accept: true);
         }
     }
 
@@ -103,47 +108,31 @@ sealed partial class NearbyConnectionsImplementation
     /// </summary>
     public void OnConnectionResult(string endpointId, ConnectionResolution resolution)
     {
-        try
+        LogConnectionResult(endpointId, resolution.Status.StatusCode, resolution.Status.StatusMessage ?? string.Empty, resolution.Status.IsSuccess);
+
+        if (resolution.Status.IsSuccess)
         {
-            LogConnectionResult(endpointId, resolution.Status.StatusCode, resolution.Status.StatusMessage ?? string.Empty, resolution.Status.IsSuccess);
+            _inboundEndpoints.TryRemove(endpointId, out _);
+            var device = _deviceManager.SetState(endpointId, NearbyDeviceState.Connected);
 
-            if (resolution.Status.IsSuccess)
+            if (device is not null)
             {
-                if (!_deviceManager.TryGetDevice(endpointId, out var device))
-                {
-                    FaultConnectionTcs(endpointId, new NearbyConnectionsException($"Device not found in manager for endpoint '{endpointId}' after successful connection."));
-                    return;
-                }
-
-                var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(new UnboundedChannelOptions
-                {
-                    SingleReader = true,
-                    SingleWriter = false,
-                });
-
-                var connection = new NearbyConnection(
-                    device,
-                    receiveChannel,
-                    sendBytesFactory: (data, ct) => new ValueTask(PlatformSendBytesAsync(endpointId, data, ct)),
-                    sendFileFactory: (fileUri, progress, ct) => PlatformSendFileAsync(endpointId, fileUri, progress, ct),
-                    disposeFactory: () =>
-                    {
-                        PlatformDisconnectEndpointAsync(endpointId);
-                        return ValueTask.CompletedTask;
-                    });
-
-                ResolveConnectionTcs(endpointId, connection);
-            }
-            else
-            {
-                _deviceManager.RemoveDevice(endpointId);
-                FaultConnectionTcs(endpointId, new NearbyConnectionsException(
-                    $"Connection to endpoint '{endpointId}' failed: {resolution.Status.StatusMessage} (code {resolution.Status.StatusCode})."));
+                OnConnectionResponded(device, TimeProvider.GetUtcNow(), true);
             }
         }
-        catch (Exception ex)
+        else
         {
-            LogOnConnectionResultError(endpointId, ex);
+            NearbyDevice? device;
+
+            if (_inboundEndpoints.TryRemove(endpointId, out _))
+                device = _deviceManager.RemoveDevice(endpointId);
+            else
+                device = _deviceManager.SetState(endpointId, NearbyDeviceState.Discovered);
+
+            if (device is not null)
+            {
+                OnConnectionResponded(device, TimeProvider.GetUtcNow(), false);
+            }
         }
     }
 
@@ -153,20 +142,13 @@ sealed partial class NearbyConnectionsImplementation
     /// </summary>
     public void OnDisconnected(string endpointId)
     {
-        try
-        {
-            LogDeviceDisconnected(endpointId);
+        LogDeviceDisconnected(endpointId);
 
-            if (_activeConnections.TryRemove(endpointId, out var connection))
-            {
-                connection.CompleteReceive();
-            }
+        var device = _deviceManager.RemoveDevice(endpointId);
 
-            _deviceManager.RemoveDevice(endpointId);
-        }
-        catch (Exception ex)
+        if (device is not null)
         {
-            LogOnDisconnectedError(endpointId, ex);
+            OnDeviceDisconnected(device, TimeProvider.GetUtcNow());
         }
     }
 
@@ -174,29 +156,19 @@ sealed partial class NearbyConnectionsImplementation
 
     #region Discovery
 
-    async Task PlatformStartDiscoveringAsync(CancellationToken cancellationToken)
+    async Task PlatformStartDiscoveringAsync()
     {
-        cancellationToken.ThrowIfCancellationRequested();
         _discoverClient ??= NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
-        try
-        {
-            await _discoverClient.StartDiscoveryAsync(
-                Options.ServiceId,
-                new DiscoveryCallback(OnEndpointFound, OnEndpointLost),
-                new DiscoveryOptions.Builder()
-                    .SetStrategy(Options.Strategy)
-                    .SetLowPower(Options.UseLowPower)
-                    .Build());
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _discoverChannel.Writer.TryComplete(new NearbyDiscoveryException("Failed to start discovery.", ex));
-        }
+        await _discoverClient.StartDiscoveryAsync(
+            Options.ServiceId,
+            new DiscoveryCallback(OnEndpointFound, OnEndpointLost),
+            new DiscoveryOptions.Builder()
+                .SetStrategy(Options.Strategy)
+                .SetLowPower(Options.UseLowPower)
+                .Build());
+
+        IsDiscovering = true;
     }
 
     void PlatformStopDiscovering()
@@ -204,49 +176,34 @@ sealed partial class NearbyConnectionsImplementation
         _discoverClient?.StopDiscovery();
         _discoverClient?.Dispose();
         _discoverClient = null;
+        IsDiscovering = false;
     }
 
     public void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
-        try
-        {
-            var device = _deviceManager.RecordDeviceFound(endpointId, info.EndpointName);
+        var device = _deviceManager.RecordDeviceFound(endpointId, info.EndpointName);
 
-            LogDeviceFound(device.Id, device.DisplayName);
+        LogDeviceFound(device.Id, device.DisplayName);
 
-            WriteDeviceFound(device);
-        }
-        catch (Exception ex)
-        {
-            LogOnEndpointFoundError(endpointId, ex);
-        }
+        OnDeviceFound(device, TimeProvider.GetUtcNow());
     }
 
     public void OnEndpointLost(string endpointId)
     {
-        try
+        if (_deviceManager.TryGetDevice(endpointId, out var existingDevice)
+            && existingDevice.State == NearbyDeviceState.Connected)
         {
-            if (_activeConnections.ContainsKey(endpointId))
-            {
-                if (_deviceManager.TryGetDevice(endpointId, out var existingDevice))
-                {
-                    LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
-                }
-                return;
-            }
-
-            var device = _deviceManager.RemoveDevice(endpointId);
-
-            LogDeviceLost(endpointId, device?.DisplayName);
-
-            if (device is not null)
-            {
-                WriteDeviceLost(device);
-            }
+            LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
+            return;
         }
-        catch (Exception ex)
+
+        var device = _deviceManager.RemoveDevice(endpointId);
+
+        LogDeviceLost(endpointId, device?.DisplayName);
+
+        if (device is not null)
         {
-            LogOnEndpointLostError(endpointId, ex);
+            OnDeviceLost(device, TimeProvider.GetUtcNow());
         }
     }
 
@@ -254,78 +211,75 @@ sealed partial class NearbyConnectionsImplementation
 
     void OnPayloadReceived(string endpointId, Payload payload)
     {
-        try
-        {
-            LogPayloadReceived(endpointId, payload.Id, payload.PayloadType);
+        LogPayloadReceived(endpointId, payload.Id, payload.PayloadType);
 
-            _incomingPayloads.TryAdd(payload.Id, (endpointId, payload));
-        }
-        catch (Exception ex)
-        {
-            LogOnPayloadReceivedError(endpointId, ex);
-        }
+        _incomingPayloads.TryAdd(payload.Id, (endpointId, payload));
     }
 
     async Task OnPayloadTransferUpdate(string endpointId, PayloadTransferUpdate update)
     {
-        try
+        LogPayloadTransferUpdate(endpointId, update.PayloadId, update.TransferStatus, update.TotalBytes, update.BytesTransferred);
+
+        var status = ToNearbyTransferStatus(update.TransferStatus);
+
+        if (_outgoingTransfers.TryGetValue(update.PayloadId, out var outgoingTransfer))
         {
-            LogPayloadTransferUpdate(endpointId, update.PayloadId, update.TransferStatus, update.TotalBytes, update.BytesTransferred);
+            outgoingTransfer.OnUpdate(new NearbyTransferProgress(
+                payloadId: update.PayloadId,
+                bytesTransferred: update.BytesTransferred,
+                totalBytes: update.TotalBytes,
+                status));
 
-            if (_outgoingTransfers.TryGetValue(update.PayloadId, out var outgoingTransfer))
-            {
-                var status = ToNearbyTransferStatus(update.TransferStatus);
-                outgoingTransfer.OnUpdate(new NearbyTransferProgress(
-                    payloadId: update.PayloadId,
-                    bytesTransferred: update.BytesTransferred,
-                    totalBytes: update.TotalBytes,
-                    status));
-
-                return;
-            }
-
-            if (update.TransferStatus == PayloadTransferUpdate.Status.InProgress
-                && _incomingPayloads.TryGetValue(update.PayloadId, out var inboundEntry)
-                && _activeConnections.TryGetValue(inboundEntry.EndpointId, out var inboundConn))
-            {
-                inboundConn.InboundProgress?.Report(new NearbyTransferProgress(
-                    payloadId: update.PayloadId,
-                    bytesTransferred: update.BytesTransferred,
-                    totalBytes: update.TotalBytes,
-                    NearbyTransferStatus.InProgress));
-            }
-
-            if (update.TransferStatus == PayloadTransferUpdate.Status.Success)
-            {
-                await OnIncomingPayloadSuccess(endpointId, update.PayloadId);
-            }
+            return;
         }
-        catch (Exception ex)
+
+        if (!_deviceManager.TryGetDevice(endpointId, out var device))
         {
-            LogOnPayloadTransferUpdateError(endpointId, ex);
+            return;
+        }
+
+        OnIncomingTransferProgress(
+            device,
+            new NearbyTransferProgress(update.PayloadId, update.BytesTransferred, update.TotalBytes, status),
+            TimeProvider.GetUtcNow());
+
+        if (update.TransferStatus == PayloadTransferUpdate.Status.Success)
+        {
+            await OnIncomingPayloadSuccess(device, update.PayloadId);
         }
     }
 
-    async Task OnIncomingPayloadSuccess(string endpointId, long payloadId)
+    async Task OnIncomingPayloadSuccess(NearbyDevice device, long payloadId)
     {
         if (!_incomingPayloads.TryRemove(payloadId, out var entry))
         {
             return;
         }
 
-        NearbyPayload? nearbyPayload = entry.Payload.PayloadType == Payload.Type.File
-            ? await CopyFilePayloadAsync(entry.Payload, Options.ReceivedFilesDirectory, CancellationToken.None)
-            : entry.Payload.AsBytes() is { } bytes
-                ? new BytesPayload(bytes)
-                : null;
+        NearbyPayload? nearbyPayload = null;
 
-        if (nearbyPayload is not null)
+        if (entry.Payload.PayloadType == Payload.Type.File)
         {
-            WritePayload(endpointId, nearbyPayload);
+            nearbyPayload = await CopyFilePayloadAsync(entry.Payload, Options.ReceivedFilesDirectory, CancellationToken.None);
         }
         else
         {
-            LogIncomingPayloadProcessingFailed(endpointId, payloadId);
+            nearbyPayload = entry.Payload.AsBytes() is { } bytes
+                ? new BytesPayload(bytes)
+                : null;
+        }
+
+        if (nearbyPayload is not null)
+        {
+            OnDataReceived(device, nearbyPayload, TimeProvider.GetUtcNow());
+        }
+        else
+        {
+            OnError(
+                operation: nameof(OnIncomingPayloadSuccess),
+                errorMessage: $"Failed to process incoming payload with ID {payloadId}.",
+                timeStamp: TimeProvider.GetUtcNow(),
+                device);
         }
 
         entry.Payload.Dispose();
@@ -375,9 +329,25 @@ sealed partial class NearbyConnectionsImplementation
         return new FilePayload(new FileResult(destinationPath));
     }
 
-    Task PlatformInitiateConnectAsync(NearbyDevice device, CancellationToken cancellationToken)
+    Task PlatformDisconnectAsync(NearbyDevice device)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        LogDisconnecting(device.Id, device.DisplayName);
+
+        var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
+        client.DisconnectFromEndpoint(device.Id);
+
+        var disconnectedDevice = _deviceManager.RemoveDevice(device.Id);
+        if (disconnectedDevice is not null)
+        {
+            OnDeviceDisconnected(disconnectedDevice, TimeProvider.GetUtcNow());
+        }
+
+        return Task.CompletedTask;
+    }
+
+    Task PlatformRequestConnectionAsync(NearbyDevice device)
+    {
+        _deviceManager.SetState(device.Id, NearbyDeviceState.ConnectionRequestedOutbound);
 
         return NearbyClass
             .GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
@@ -385,10 +355,9 @@ sealed partial class NearbyConnectionsImplementation
                 Options.DisplayName,
                 device.Id,
                 new AdvertiseCallback(
-                    OnConnectionInitiatedAsync,
+                    OnConnectionInitiated,
                     OnConnectionResult,
-                    OnDisconnected,
-                    LogOnConnectionInitiatedError));
+                    OnDisconnected));
     }
 
     Task PlatformRespondToConnectionAsync(NearbyDevice device, bool accept)
@@ -396,115 +365,21 @@ sealed partial class NearbyConnectionsImplementation
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
         return accept
-            ? client.AcceptConnectionAsync(device.Id, new ConnectionCallback(OnPayloadReceived, OnPayloadTransferUpdate, LogOnPayloadTransferUpdateError))
+            ? client.AcceptConnectionAsync(device.Id, new ConnectionCallback(OnPayloadReceived, OnPayloadTransferUpdate))
             : client.RejectConnectionAsync(device.Id);
     }
 
-    void PlatformDisconnectEndpointAsync(string endpointId)
-    {
-        LogDisconnecting(endpointId, _deviceManager.TryGetDevice(endpointId, out var d) ? d.DisplayName : null);
-
-        var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
-        client.DisconnectFromEndpoint(endpointId);
-
-        if (_activeConnections.TryRemove(endpointId, out var conn))
-        {
-            conn.CompleteReceive();
-        }
-
-        _deviceManager.RemoveDevice(endpointId);
-    }
-
-    Task PlatformSendBytesAsync(
-        string endpointId,
+    static Task PlatformSendAsync(
+        NearbyDevice device,
         byte[] data,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!_activeConnections.ContainsKey(endpointId))
-        {
-            throw new NearbyConnectionsException(
-                $"Cannot send bytes: no active connection for endpoint '{endpointId}'.");
-        }
-
         using var payload = Payload.FromBytes(data);
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
-        return client.SendPayloadAsync(endpointId, payload);
-    }
-
-    async Task PlatformSendFileAsync(
-        string endpointId,
-        string uri,
-        IProgress<NearbyTransferProgress>? progress = null,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (!_activeConnections.ContainsKey(endpointId))
-        {
-            throw new NearbyConnectionsException(
-                $"Cannot send file: no active connection for endpoint '{endpointId}'.");
-        }
-
-        using var androidUri = TryCreateUri(uri);
-
-        if (androidUri is null)
-        {
-            LogInvalidFileUri(uri);
-            throw new InvalidOperationException($"Cannot send file: the URI is not a valid or supported scheme. Use a file:// or content:// URI.");
-        }
-
-        var filePayload = BuildFilePayload(androidUri);
-
-        if (filePayload is null)
-        {
-            throw new InvalidOperationException($"Cannot send file: failed to open the file descriptor for the given URI.");
-        }
-
-        var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
-        var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
-
-        _outgoingTransfers.TryAdd(filePayload.Id, transfer);
-
-        try
-        {
-            await client.SendPayloadAsync(endpointId, filePayload);
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken,
-                transfer.InactivityToken);
-            using var ctr = linkedCts.Token.Register(() => _ = client.CancelPayloadAsync(filePayload.Id));
-            await transfer.Completion.WaitAsync(linkedCts.Token);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            progress?.Report(new NearbyTransferProgress(
-                payloadId: filePayload.Id,
-                bytesTransferred: 0,
-                totalBytes: 0,
-                NearbyTransferStatus.Canceled));
-            throw;
-        }
-        catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
-        {
-            progress?.Report(new NearbyTransferProgress(
-                payloadId: filePayload.Id,
-                bytesTransferred: 0,
-                totalBytes: 0,
-                NearbyTransferStatus.Failure));
-
-            LogSendFileTimeout(endpointId, null, Options.TransferInactivityTimeout.TotalSeconds);
-
-            throw new NearbyTransferTimeoutException(
-                $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
-        }
-        finally
-        {
-            _outgoingTransfers.TryRemove(filePayload.Id, out _);
-            transfer.Dispose();
-            filePayload.Dispose();
-        }
+        return client.SendPayloadAsync(device.Id, payload);
     }
 
     static AndroidUri? TryCreateUri(string fileUri)
@@ -564,6 +439,51 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         return null;
+    }
+
+    async Task PlatformSendAsync(
+        NearbyDevice device,
+        string uri,
+        IProgress<NearbyTransferProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var androidUri = TryCreateUri(uri);
+
+        if (androidUri is null)
+        {
+            LogInvalidFileUri(uri);
+            return;
+        }
+
+        var filePayload = BuildFilePayload(androidUri);
+
+        if (filePayload is null)
+        {
+            return;
+        }
+
+        var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
+        var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
+
+        _outgoingTransfers.TryAdd(filePayload.Id, transfer);
+
+        try
+        {
+            await client.SendPayloadAsync(device.Id, filePayload);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                transfer.InactivityToken);
+            using var ctr = linkedCts.Token.Register(() => _ = client.CancelPayloadAsync(filePayload.Id));
+            await transfer.Completion.WaitAsync(linkedCts.Token);
+        }
+        finally
+        {
+            _outgoingTransfers.TryRemove(filePayload.Id, out _);
+            transfer.Dispose();
+            filePayload.Dispose();
+        }
     }
 
     /// <summary>
@@ -709,6 +629,7 @@ sealed partial class NearbyConnectionsImplementation
             transfer.Dispose();
         }
         _outgoingTransfers.Clear();
+        _inboundEndpoints.Clear();
     }
 
     static NearbyTransferStatus ToNearbyTransferStatus(int androidStatus) => androidStatus switch
@@ -721,22 +642,12 @@ sealed partial class NearbyConnectionsImplementation
     };
 
     sealed class AdvertiseCallback(
-        Func<string, ConnectionInfo, Task> onConnectionInitiated,
+        Action<string, ConnectionInfo> onConnectionInitiated,
         Action<string, ConnectionResolution> onConnectionResult,
-        Action<string> onDisconnected,
-        Action<string, Exception>? onError = null) : ConnectionLifecycleCallback
+        Action<string> onDisconnected) : ConnectionLifecycleCallback
     {
-        public override async void OnConnectionInitiated(string p0, ConnectionInfo p1)
-        {
-            try
-            {
-                await onConnectionInitiated(p0, p1);
-            }
-            catch (Exception ex)
-            {
-                onError?.Invoke(p0, ex);
-            }
-        }
+        public override void OnConnectionInitiated(string p0, ConnectionInfo p1)
+            => onConnectionInitiated(p0, p1);
 
         public override void OnConnectionResult(string p0, ConnectionResolution p1)
             => onConnectionResult(p0, p1);
@@ -758,22 +669,12 @@ sealed partial class NearbyConnectionsImplementation
 
     sealed class ConnectionCallback(
         Action<string, Payload> onPayloadReceived,
-        Func<string, PayloadTransferUpdate, Task> onPayloadTransferUpdate,
-        Action<string, Exception>? onError = null) : PayloadCallback
+        Func<string, PayloadTransferUpdate, Task> onPayloadTransferUpdate) : PayloadCallback
     {
         public override void OnPayloadReceived(string p0, Payload p1)
             => onPayloadReceived(p0, p1);
 
         public override async void OnPayloadTransferUpdate(string p0, PayloadTransferUpdate p1)
-        {
-            try
-            {
-                await onPayloadTransferUpdate(p0, p1);
-            }
-            catch (Exception ex)
-            {
-                onError?.Invoke(p0, ex);
-            }
-        }
+            => await onPayloadTransferUpdate(p0, p1);
     }
 }

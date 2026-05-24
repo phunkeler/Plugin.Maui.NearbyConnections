@@ -1,16 +1,15 @@
 using CommunityToolkit.Mvvm.Input;
+using NearbyChat.Services;
 using Plugin.Maui.BottomSheet.Navigation;
 using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
 public partial class ConnectedDeviceViewModel(
-    NearbyConnection connection,
-    IBottomSheetNavigationService bottomSheetNavigationService) : NearbyDeviceViewModel(connection.RemoteDevice)
+    NearbyDevice device,
+    INearbyConnectionsService nearbyConnectionsService,
+    IBottomSheetNavigationService bottomSheetNavigationService) : NearbyDeviceViewModel(device, nearbyConnectionsService)
 {
-    public override string StateGlyph => Resource<string>("icon-check");
-    public override Color StateColor => Resource<Color>("StatusSuccess");
-
     [RelayCommand]
     Task<INavigationResult> Chat()
         => bottomSheetNavigationService.NavigateToAsync(nameof(ChatViewModel), new BottomSheetNavigationParameters
@@ -20,5 +19,5 @@ public partial class ConnectedDeviceViewModel(
 
     [RelayCommand]
     Task Disconnect()
-        => connection.DisposeAsync().AsTask();
+        => NearbyConnectionsService.DisconnectAsync(Device);
 }

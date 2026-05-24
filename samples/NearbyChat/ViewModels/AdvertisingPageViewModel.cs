@@ -2,15 +2,22 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using NearbyChat.Messages;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
-public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHandler
+public partial class AdvertisingPageViewModel : BasePageViewModel,
+    IRecipient<AdvertisingStateChangedMessage>,
+    IRecipient<ConnectionRequestMessage>,
+    IRecipient<ConnectionResponseMessage>,
+    IRecipient<DeviceLostMessage>,
+    IRecipient<DeviceDisconnectedMessage>,
+    IRecipient<ConnectedDevicesCountChangedMessage>
 {
     readonly INavigationService _navigationService;
-    readonly INearbyAdvertiser _advertiser;
+    readonly INearbyConnectionsService _nearbyConnectionsService;
     readonly INearbyDeviceViewModelFactory _nearbyDeviceViewModelFactory;
 
     IDispatcherTimer? _relativeTimeRefreshTimer;
@@ -27,23 +34,32 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
 
     public ObservableCollection<AdvertisedDeviceViewModel> AdvertisedDevices { get; } = [];
 
-    IDispatcher? IAdvertiserHandler.Dispatcher => Dispatcher;
-
     public AdvertisingPageViewModel(
         IDispatcher dispatcher,
         IMessenger messenger,
         INavigationService navigationService,
-        INearbyAdvertiser advertiser,
+        INearbyConnectionsService nearbyConnectionsService,
         INearbyDeviceViewModelFactory nearbyDeviceViewModelFactory)
         : base(dispatcher, messenger)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
-        ArgumentNullException.ThrowIfNull(advertiser);
+        ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
         ArgumentNullException.ThrowIfNull(nearbyDeviceViewModelFactory);
 
         _navigationService = navigationService;
-        _advertiser = advertiser;
+        _nearbyConnectionsService = nearbyConnectionsService;
         _nearbyDeviceViewModelFactory = nearbyDeviceViewModelFactory;
+
+        IsAdvertising = _nearbyConnectionsService.IsAdvertising;
+        ConnectedDevicesCount = _nearbyConnectionsService.Devices.Count(d => d.State == NearbyDeviceState.Connected);
+
+        foreach (var inbound in _nearbyConnectionsService.Devices.Where(d => d.State == NearbyDeviceState.ConnectionRequestedInbound))
+        {
+            var vm = _nearbyDeviceViewModelFactory.CreateAdvertiser(inbound);
+            vm.IsActive = true;
+            AdvertisedDevices.Add(vm);
+            UpdateRelativeTimeRefreshTimer();
+        }
     }
 
     [RelayCommand]
@@ -63,14 +79,12 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
         {
             if (IsAdvertising)
             {
-                await _advertiser.StopAsync();
+                await _nearbyConnectionsService.StopAdvertisingAsync(cancellationToken);
             }
             else
             {
-                await _advertiser.StartAsync();
+                await _nearbyConnectionsService.StartAdvertisingAsync(cancellationToken);
             }
-
-            IsAdvertising = _advertiser.IsAdvertising;
         }
         finally
         {
@@ -80,11 +94,9 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
 
     protected override void NavigatedTo()
     {
+        IsAdvertising = _nearbyConnectionsService.IsAdvertising;
+        ConnectedDevicesCount = _nearbyConnectionsService.Devices.Count(d => d.State == NearbyDeviceState.Connected);
         base.NavigatedTo();
-
-        AdvertisedDevices.Clear();
-        IsAdvertising = _advertiser.IsAdvertising;
-        _ = _advertiser.EventsAsync(NavigationToken).RunAsync(this);
     }
 
     protected override void NavigatedFrom()
@@ -97,58 +109,80 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
         base.NavigatedFrom();
     }
 
-    Task IAdvertiserHandler.OnConnectionRequested(AdvertiserEvent.ConnectionRequested ev)
-    {
-        if (AdvertisedDevices.Any(d => d.Id == ev.Request.RemoteDevice.Id))
+    public async void Receive(AdvertisingStateChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => IsAdvertising = message.Value);
+
+    public async void Receive(ConnectionRequestMessage message)
+        => await Dispatcher.DispatchAsync(() =>
+         {
+             if (AdvertisedDevices.Any(d => d.Id == message.Value.Id))
+             {
+                 return;
+             }
+
+             var vm = _nearbyDeviceViewModelFactory.CreateAdvertiser(message.Value);
+             vm.IsActive = true;
+             AdvertisedDevices.Add(vm);
+             UpdateRelativeTimeRefreshTimer();
+         });
+
+    public async void Receive(ConnectedDevicesCountChangedMessage message)
+        => await Dispatcher.DispatchAsync(() => ConnectedDevicesCount = message.Value);
+
+    public async void Receive(DeviceLostMessage message)
+        => await Dispatcher.DispatchAsync(() =>
         {
-            return Task.CompletedTask;
-        }
+            var device = AdvertisedDevices.FirstOrDefault(d => d.Id == message.Value.Id);
 
-        var vm = _nearbyDeviceViewModelFactory.CreateAdvertiser(ev.Request);
-        vm.IsActive = true;
-        AdvertisedDevices.Add(vm);
-        UpdateRelativeTimeRefreshTimer();
-        return Task.CompletedTask;
-    }
+            if (device is not null)
+            {
+                device.IsActive = false;
+                AdvertisedDevices.Remove(device);
+                UpdateRelativeTimeRefreshTimer();
+            }
+        });
 
-    Task IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
-    {
-        ConnectedDevicesCount++;
-
-        var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
-        if (vm is not null)
+    public async void Receive(ConnectionResponseMessage message)
+        => await Dispatcher.DispatchAsync(() =>
         {
-            vm.IsActive = false;
-            AdvertisedDevices.Remove(vm);
-            UpdateRelativeTimeRefreshTimer();
-        }
-        return Task.CompletedTask;
-    }
+            var device = AdvertisedDevices.FirstOrDefault(d => d.Id == message.Value.Id);
 
-    Task IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
-    {
-        var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
-        if (vm is not null)
-        {
-            vm.IsActive = false;
-            AdvertisedDevices.Remove(vm);
-            ConnectedDevicesCount--;
-            UpdateRelativeTimeRefreshTimer();
-        }
-        return Task.CompletedTask;
-    }
+            if (device is null)
+            {
+                return;
+            }
 
-    Task IAdvertiserHandler.OnConnectionRequestExpired(AdvertiserEvent.ConnectionRequestExpired ev)
-    {
-        var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Request.RemoteDevice.Id);
-        if (vm is not null)
+            if (message.Accepted && device.State == NearbyDeviceState.Connected)
+            {
+                Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(5), async () =>
+                {
+                    // Update "Connections" badge
+
+                    device.IsActive = false;
+                    AdvertisedDevices.Remove(device);
+                    UpdateRelativeTimeRefreshTimer();
+                });
+            }
+            else if (!message.Accepted)
+            {
+                device.IsActive = false;
+                AdvertisedDevices.Remove(device);
+                UpdateRelativeTimeRefreshTimer();
+            }
+        });
+
+    public async void Receive(DeviceDisconnectedMessage message)
+        => await Dispatcher.DispatchAsync(() =>
         {
-            vm.IsActive = false;
-            AdvertisedDevices.Remove(vm);
-            UpdateRelativeTimeRefreshTimer();
-        }
-        return Task.CompletedTask;
-    }
+            var device = AdvertisedDevices.FirstOrDefault(d => d.Id == message.Value.Id);
+
+            if (device is not null)
+            {
+                device.IsActive = false;
+                AdvertisedDevices.Remove(device);
+                UpdateRelativeTimeRefreshTimer();
+            }
+        });
 
     bool CanToggleAdvertising() => !IsBusy;
 

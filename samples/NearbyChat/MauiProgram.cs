@@ -9,7 +9,6 @@ using NearbyChat.Services;
 using NearbyChat.ViewModels;
 using Plugin.Maui.BottomSheet.Hosting;
 using Plugin.Maui.NearbyConnections;
-using Microsoft.Maui.DevFlow.Agent;
 
 namespace NearbyChat;
 
@@ -19,28 +18,23 @@ public static class MauiProgram
     {
         var builder = MauiApp.CreateBuilder()
             .UseMauiApp<App>()
-#if DEBUG
-            .AddMauiDevFlowAgent()
-#endif
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("NearbyChatIcons.ttf", "NearbyChatIcons");
             })
             .UseMauiCommunityToolkit()
-            .UseBottomSheet();
-
-        builder.UseNearbyConnections(opts =>
+            .UseBottomSheet()
+            .AddNearbyConnections(new()
             {
+                AutoAcceptConnections = false,
 #if IOS
-                opts.InvitationTimeout = TimeSpan.FromSeconds(10);
+                InvitationTimeout = TimeSpan.FromSeconds(10),
 #endif
-            })
-            .AddAdvertiser()
-            .AddDiscoverer();
+            });
 
 #if DEBUG
         builder.Logging.AddDebug();
-        builder.Logging.AddFilter("Plugin.Maui.NearbyConnections", LogLevel.Trace);
+        builder.Logging.SetMinimumLevel(LogLevel.Trace);
 #endif
 
         builder.Services.AddSingleton(DeviceInfo.Current);
@@ -55,6 +49,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<INearbyDeviceViewModelFactory, NearbyDeviceViewModelFactory>();
         builder.Services.AddSingleton<IChatMessageViewModelFactory, ChatMessageViewModelFactory>();
         builder.Services.AddSingleton<INavigationService, NavigationService>();
+        builder.Services.AddSingleton<INearbyConnectionsService, NearbyConnectionsService>();
         builder.Services.AddSingleton<IThumbnailService, ThumbnailService>();
         builder.Services.AddSingleton<IChatMessageRepository, ChatMessageRepository>();
         builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
