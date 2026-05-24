@@ -27,6 +27,13 @@ echo "ADB server OK"
 
 FAILED=0
 for SERIAL in "${SERIALS[@]}"; do
+    # Wait up to 20 seconds for the device transport to become ready.
+    # A freshly started ADB client session briefly sees USB devices as offline.
+    if ! timeout 20 $ADB -s "$SERIAL" wait-for-device 2>/dev/null; then
+        echo "::error::Device $SERIAL did not become ready within 20s — accept USB debugging prompt on device screen, replug USB, or run init-pi-devices.sh"
+        FAILED=1
+        continue
+    fi
     STATE=$($ADB -s "$SERIAL" get-state 2>/dev/null || echo "offline")
     if [[ "$STATE" == "device" ]]; then
         echo "Device $SERIAL OK"
