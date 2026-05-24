@@ -41,7 +41,7 @@ RUN curl -fsSL \
     && chown -R runner:runner /home/runner \
     && rm /tmp/dotnet-install.sh /tmp/global.json
 
-COPY --chmod=755 entrypoint.sh /entrypoint.sh
+COPY --chmod=755 docker/runner/entrypoint.sh /entrypoint.sh
 
 USER runner
 
