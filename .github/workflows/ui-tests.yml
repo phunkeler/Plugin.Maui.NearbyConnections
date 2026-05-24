@@ -56,7 +56,7 @@ jobs:
       - name: Install APK on devices
         env:
           DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
-          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL }}
+          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
         run: |
           APK=$(find apk -name "*.apk" | head -1)
           echo "Installing $APK"
@@ -68,7 +68,7 @@ jobs:
       - name: Check devices
         env:
           DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
-          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL }}
+          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
         run: |
           SERIALS="$DEVICE1_SERIAL"
           if [[ -n "$DEVICE2_SERIAL" ]]; then
@@ -79,7 +79,7 @@ jobs:
       - name: Run UI tests
         env:
           DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
-          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL }}
+          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
           APPIUM_SERVER_URL: ${{ secrets.APPIUM_SERVER_URL }}
         run: >
           dotnet run

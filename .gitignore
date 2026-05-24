@@ -426,3 +426,7 @@ docs/
 
 # Docker secrets
 docker/.env
+
+# SSH keys — never commit private keys
+*_key
+!*_key.pub
