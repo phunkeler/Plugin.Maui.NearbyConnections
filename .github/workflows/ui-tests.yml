@@ -68,9 +68,16 @@ jobs:
           ADB="adb -H ${ANDROID_ADB_SERVER_HOST:-localhost} -P ${ANDROID_ADB_SERVER_PORT:-5037}"
           APK=$(find apk -name "*.apk" | head -1)
           echo "Installing $APK"
-          $ADB -s "$DEVICE1_SERIAL" install -r "$APK"
+          install_apk() {
+            local serial=$1
+            $ADB -s "$serial" uninstall com.phunkeler.nearbychat 2>/dev/null || true
+            RESULT=$($ADB -s "$serial" install -t "$APK" 2>&1)
+            echo "$RESULT"
+            [[ "$RESULT" == *"Success"* ]]
+          }
+          install_apk "$DEVICE1_SERIAL"
           if [[ -n "$DEVICE2_SERIAL" ]]; then
-            $ADB -s "$DEVICE2_SERIAL" install -r "$APK"
+            install_apk "$DEVICE2_SERIAL"
           fi
 
       - name: Start Appium
