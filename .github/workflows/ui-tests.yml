@@ -11,7 +11,7 @@ jobs:
 
   build:
     name: Build NearbyChat APK
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     if: github.repository_owner == 'phunkeler'
 
     steps:
@@ -19,7 +19,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       - name: Install MAUI Android workload
         run: dotnet workload install maui-android
@@ -45,7 +45,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       - name: Download APK
         uses: actions/download-artifact@v4
