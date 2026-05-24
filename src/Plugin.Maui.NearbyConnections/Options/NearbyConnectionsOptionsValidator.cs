@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+
 namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsOptionsValidator : IValidateOptions<NearbyConnectionsOptions>
