@@ -420,3 +420,6 @@ sample/NearbyChat/Scripts/tmp/
 
 .claude/
 docs/
+
+# Local test settings — never commit real device serials or IPs
+*.local.runsettings

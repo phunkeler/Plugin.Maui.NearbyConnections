@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Template — do NOT add real device serials or IPs here.
+  Copy to NearbyConnections.local.runsettings (gitignored) and fill in your values.
+-->
 <RunSettings>
   <RunConfiguration>
     <EnvironmentVariables>
-      <!-- ADB serial numbers — get these from 'adb devices' -->
-      <DEVICE1_SERIAL>REPLACE_WITH_DEVICE1_SERIAL</DEVICE1_SERIAL>
-      <DEVICE2_SERIAL>REPLACE_WITH_DEVICE2_SERIAL</DEVICE2_SERIAL>
-      <!-- Optional: override Appium server URL (default: http://localhost:4723) -->
-      <!-- <APPIUM_SERVER_URL>http://localhost:4723</APPIUM_SERVER_URL> -->
-      <!-- Optional: override app package (default: com.phunkeler.nearbychat) -->
+      <!-- ADB serial numbers — find with 'adb devices -l' -->
+      <!-- <DEVICE1_SERIAL>your-serial-1</DEVICE1_SERIAL> -->
+      <!-- <DEVICE2_SERIAL>your-serial-2</DEVICE2_SERIAL> -->
+      <!-- Appium server URL — defaults to localhost:4723 if not set -->
+      <!-- <APPIUM_SERVER_URL>http://192.168.x.pi:4723</APPIUM_SERVER_URL> -->
+      <!-- App package — defaults to com.phunkeler.nearbychat if not set -->
       <!-- <APP_PACKAGE>com.phunkeler.nearbychat</APP_PACKAGE> -->
     </EnvironmentVariables>
   </RunConfiguration>

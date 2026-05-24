@@ -1,0 +1,40 @@
+name: UI Tests
+
+on:
+  push:
+    branches: [main, "*.*.*.preview.*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ui-tests:
+    name: UI Tests (Pi device farm)
+    runs-on: [self-hosted, linux, ARM64]
+    if: github.repository_owner == 'phunkeler'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run UI tests
+        env:
+          DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
+          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL }}
+          APPIUM_SERVER_URL: ${{ secrets.APPIUM_SERVER_URL }}
+        run: >
+          dotnet run
+          --project test/Plugin.Maui.NearbyConnections.UiTests
+          --
+          --settings test/Plugin.Maui.NearbyConnections.UiTests/NearbyConnections.runsettings
+
+      - name: Upload evidence screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-evidence
+          path: test/Plugin.Maui.NearbyConnections.UiTests/evidence/
+          if-no-files-found: ignore
