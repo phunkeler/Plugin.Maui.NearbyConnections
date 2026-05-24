@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <EnvironmentVariables>
+      <!-- ADB serial numbers — get these from 'adb devices' -->
+      <DEVICE1_SERIAL>REPLACE_WITH_DEVICE1_SERIAL</DEVICE1_SERIAL>
+      <DEVICE2_SERIAL>REPLACE_WITH_DEVICE2_SERIAL</DEVICE2_SERIAL>
+      <!-- Optional: override Appium server URL (default: http://localhost:4723) -->
+      <!-- <APPIUM_SERVER_URL>http://localhost:4723</APPIUM_SERVER_URL> -->
+      <!-- Optional: override app package (default: com.phunkeler.nearbychat) -->
+      <!-- <APP_PACKAGE>com.phunkeler.nearbychat</APP_PACKAGE> -->
+    </EnvironmentVariables>
+  </RunConfiguration>
+</RunSettings>
