@@ -70,11 +70,13 @@ jobs:
         run: |
           APK=$(find apk -name "*.apk" | head -1)
           echo "Installing $APK"
+          mkdir -p logs/xharness
           install_on_device() {
             dotnet tool run xharness android install \
               --app "$APK" \
               --package-name com.phunkeler.nearbychat \
-              --device-id "$1"
+              --device-id "$1" \
+              --output-directory logs/xharness
           }
           install_on_device "$DEVICE1_SERIAL"
           if [[ -n "$DEVICE2_SERIAL" ]]; then
