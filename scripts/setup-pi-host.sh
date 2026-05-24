@@ -21,14 +21,14 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 
 echo "Installing ADB systemd service (listens on all interfaces for Docker access)..."
-sudo tee /etc/systemd/system/adb.service > /dev/null << 'EOF'
+sudo tee /etc/systemd/system/adb.service > /dev/null << EOF
 [Unit]
 Description=ADB Server
 After=multi-user.target
 
 [Service]
 Type=forking
-User=$USER
+User=${USER}
 ExecStart=/usr/bin/adb -a -P 5037 start-server
 ExecStop=/usr/bin/adb kill-server
 Restart=on-failure
@@ -40,6 +40,26 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable adb
 sudo systemctl start adb
+
+echo "Configuring firewall (UFW)..."
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow ssh
+sudo ufw allow 4723/tcp
+sudo ufw --force enable
+
+echo "Disabling SSH password authentication..."
+sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+sudo systemctl restart ssh
+
+echo "Enabling automatic security updates..."
+sudo apt-get install -y unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades
+
+echo "Installing fail2ban..."
+sudo apt-get install -y fail2ban
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
 
 echo ""
 echo "Done. Replug any connected Android devices, then run: adb devices -l"
