@@ -304,6 +304,80 @@ This repo is public. Apply all of the following before the runner goes live.
 
 ---
 
+## 11. Day-to-Day Operations
+
+SSH in from your dev machine:
+
+```bash
+ssh sandlot@192.168.50.120
+```
+
+### Check everything is running
+
+```bash
+cd ~/appium/Plugin.Maui.NearbyConnections/docker
+docker compose ps
+adb devices
+```
+
+### View live logs
+
+```bash
+docker compose logs -f runner    # runner activity / job output
+docker compose logs -f appium    # Appium sessions
+```
+
+### Restart a container
+
+```bash
+docker compose restart runner
+docker compose restart appium
+```
+
+### Update after a push to main
+
+```bash
+git pull
+docker compose pull
+docker compose up -d
+```
+
+Images are built on GitHub-hosted runners and pushed to `ghcr.io` automatically when `docker/**` changes merge to `main` (see `.github/workflows/docker-images.yml`).
+
+### ADB not seeing devices
+
+```bash
+sudo systemctl status adb-server
+sudo systemctl restart adb-server
+adb devices
+```
+
+### Runner not appearing in GitHub Settings → Actions → Runners
+
+```bash
+docker compose restart runner
+docker compose logs -f runner   # watch for "Listening for Jobs"
+```
+
+### Nuclear restart (everything)
+
+```bash
+docker compose down
+sudo systemctl restart adb-server
+docker compose up -d
+```
+
+### PAT rotation (every 90 days)
+
+GitHub will send an email reminder. Create a new fine-grained PAT (same settings — Administration + Actions: Read/Write on this repo), then:
+
+```bash
+echo "<new-pat>" | sudo -u github-runner gh auth login --with-token
+docker compose restart runner
+```
+
+---
+
 ## Troubleshooting
 
 ### ADB Device Not Appearing
@@ -413,8 +487,10 @@ The device should now appear as `device`. If it shows `unauthorized`, unlock the
 
 ## Upgrading Appium
 
+Update the base image or package versions in `docker/appium/Dockerfile`, commit, and push to `main`. The `Docker Images` workflow rebuilds and pushes the new image to `ghcr.io` automatically. Then on the Pi:
+
 ```bash
-cd ~/appium
-docker compose build --no-cache
-docker compose up -d
+git pull
+docker compose pull
+docker compose up -d appium
 ```
