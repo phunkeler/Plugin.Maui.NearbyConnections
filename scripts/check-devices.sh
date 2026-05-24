@@ -19,7 +19,7 @@ ADB="adb -H $ADB_HOST -P $ADB_PORT"
 
 if ! $ADB devices 2>/dev/null | grep -q 'List of devices'; then
     echo "::error::Cannot reach ADB server at $ADB_HOST:$ADB_PORT."
-    echo "  On the Pi host run: sudo systemctl restart adb"
+    echo "  On the Pi host run: sudo systemctl restart adb-server"
     echo "  Then verify: ss -tlnp | grep 5037"
     exit 1
 fi
