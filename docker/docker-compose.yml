@@ -10,6 +10,11 @@ services:
     extra_hosts:
       - "host-gateway:host-gateway"
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
 
   runner:
     image: ghcr.io/phunkeler/nearbyconnections-runner:latest
@@ -26,3 +31,11 @@ services:
     extra_hosts:
       - "host-gateway:host-gateway"
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /home/runner/_work
+      - /home/runner/.runner
+      - /home/runner/.credentials
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]

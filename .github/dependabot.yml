@@ -7,6 +7,20 @@ updates:
     commit-message:
       prefix: "chore(deps)"
 
+  - package-ecosystem: "docker"
+    directory: "/docker/runner"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "docker"
+    directory: "/docker/appium"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+
   - package-ecosystem: "nuget"
     directory: "/"
     schedule:
