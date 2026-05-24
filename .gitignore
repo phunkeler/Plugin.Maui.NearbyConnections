@@ -423,3 +423,6 @@ docs/
 
 # Local test settings — never commit real device serials or IPs
 *.local.runsettings
+
+# Docker secrets
+docker/.env
