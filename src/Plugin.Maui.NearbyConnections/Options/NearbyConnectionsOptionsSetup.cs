@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+
 namespace Plugin.Maui.NearbyConnections;
 
 // Reserved for future mandatory internal configuration.

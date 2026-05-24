@@ -10,11 +10,12 @@ public sealed partial class NearbyConnectionsOptions
     /// Gets the name to display when advertising/discovering.
     /// Defaults to <see cref="DeviceInfo.Name"/>.
     /// </summary>
-    public string DisplayName { get; init; } = GetDefaultDisplayName();
+    public string DisplayName { get; set; } = GetDefaultDisplayName();
 
     /// <summary>
     /// Gets the service identifier used to discover and connect with nearby devices.
-    /// Defaults to <see cref="AppInfo.Name"/>.
+    /// On Android, defaults to <see cref="AppInfo.Name"/>. On iOS, this property has no default
+    /// and <b>must</b> be set explicitly before calling <c>AdvertiseAsync</c> or <c>DiscoverAsync</c>.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -22,27 +23,38 @@ public sealed partial class NearbyConnectionsOptions
     /// (<see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/package-summary">developers.google.com</see>).
     /// </para>
     /// <para>
-    /// On iOS, this is a Bonjour service type defined in the application's Info.plist
+    /// On iOS, this must be a Bonjour service type in the form <c>_&lt;name&gt;._tcp</c> or
+    /// <c>_&lt;name&gt;._udp</c> (for example <c>_mygame._tcp</c>), matching the entry declared in the
+    /// application's <c>Info.plist</c> under <c>NSBonjourServices</c>
     /// (<see href="https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSBonjourServices">developer.apple.com</see>).
+    /// There is no meaningful default on iOS; app startup will fail if this property is not set.
     /// </para>
     /// </remarks>
-    public string ServiceId { get; init; } = GetDefaultServiceId();
+    public string ServiceId { get; set; } = GetDefaultServiceId();
 
     /// <summary>
     /// Gets a value indicating that incoming connection requests, from nearby discoverers, should automatically be accepted.
-    /// Defaults to <see langword="true"/>.
+    /// Defaults to <see langword="false"/>.
     /// </summary>
     /// <remarks>
-    /// When set to <see langword="false"/>, the <see cref="INearbyConnections.RespondToConnectionAsync"/>
-    /// method must be called to accept or reject the request.
+    /// <para>
+    /// When <see langword="false"/> (the default), each <see cref="NearbyConnectionRequest"/> yielded by
+    /// <c>AdvertiseAsync</c> must be explicitly accepted or rejected by the caller.
+    /// Call <see cref="NearbyConnectionRequest.RejectAsync"/> to reject.
+    /// </para>
+    /// <para>
+    /// When <see langword="true"/>, the platform automatically accepts every inbound request without
+    /// any consumer code running. Only set this if you control all advertising and discovering devices
+    /// and trust every peer that may discover you.
+    /// </para>
     /// </remarks>
-    public bool AutoAcceptConnections { get; init; } = true;
+    public bool AutoAcceptConnections { get; set; }
 
     /// <summary>
     /// Gets the directory where received files are saved after transfer.
-    /// Defaults to <see cref="FileSystem.CacheDirectory"/>.
+    /// Defaults to <see cref="FileSystem.AppDataDirectory"/> (persistent storage).
     /// </summary>
-    public string ReceivedFilesDirectory { get; init; } = GetDefaultReceivedFilesDirectory();
+    public string ReceivedFilesDirectory { get; set; } = GetDefaultReceivedFilesDirectory();
 
     private static partial string GetDefaultDisplayName();
     private static partial string GetDefaultServiceId();
@@ -53,13 +65,6 @@ public sealed partial class NearbyConnectionsOptions
     /// before considering a data transfer stalled and aborting it.
     /// Defaults to 10 seconds. Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.
     /// </summary>
-    public TimeSpan TransferInactivityTimeout { get; init; } = TimeSpan.FromSeconds(10);
+    public TimeSpan TransferInactivityTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
-    /// <summary>
-    /// Gets a value indicating whether events and <see cref="INearbyConnections.Devices"/>
-    /// collection changes are automatically marshaled to the main thread before being raised.
-    /// Defaults to <see langword="true"/>, which is the safe default for MAUI ViewModels.
-    /// Set to <see langword="false"/> if you handle thread marshaling yourself.
-    /// </summary>
-    public bool MarshalEventsToMainThread { get; init; } = true;
 }

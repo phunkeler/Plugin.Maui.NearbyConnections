@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
