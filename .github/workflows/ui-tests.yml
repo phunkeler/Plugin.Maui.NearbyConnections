@@ -49,6 +49,17 @@ jobs:
           name: nearbychat-apk
           path: apk
 
+      - name: Check devices
+        env:
+          DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
+          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
+        run: |
+          SERIALS="$DEVICE1_SERIAL"
+          if [[ -n "$DEVICE2_SERIAL" ]]; then
+            SERIALS="$SERIALS $DEVICE2_SERIAL"
+          fi
+          bash scripts/check-devices.sh $SERIALS
+
       - name: Install APK on devices
         env:
           DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
@@ -61,17 +72,6 @@ jobs:
           if [[ -n "$DEVICE2_SERIAL" ]]; then
             $ADB -s "$DEVICE2_SERIAL" install -r "$APK"
           fi
-
-      - name: Check devices
-        env:
-          DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
-          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
-        run: |
-          SERIALS="$DEVICE1_SERIAL"
-          if [[ -n "$DEVICE2_SERIAL" ]]; then
-            SERIALS="$SERIALS $DEVICE2_SERIAL"
-          fi
-          bash scripts/check-devices.sh $SERIALS
 
       - name: Run UI tests
         env:
