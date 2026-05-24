@@ -13,20 +13,24 @@ fi
 
 # ── 1. ADB must be listening on 0.0.0.0, not 127.0.0.1 ───────────────────────
 
-if ! ss -tlnp | grep -q '0\.0\.0\.0:5037'; then
-    echo "::error::ADB server is not listening on all interfaces (0.0.0.0:5037)."
-    echo "  Run: sudo systemctl restart adb"
+ADB_HOST="${ANDROID_ADB_SERVER_HOST:-localhost}"
+ADB_PORT="${ANDROID_ADB_SERVER_PORT:-5037}"
+ADB="adb -H $ADB_HOST -P $ADB_PORT"
+
+if ! $ADB devices 2>/dev/null | grep -q 'List of devices'; then
+    echo "::error::Cannot reach ADB server at $ADB_HOST:$ADB_PORT."
+    echo "  On the Pi host run: sudo systemctl restart adb"
     echo "  Then verify: ss -tlnp | grep 5037"
     exit 1
 fi
 
-echo "ADB server OK (0.0.0.0:5037)"
+echo "ADB server OK ($ADB_HOST:$ADB_PORT)"
 
 # ── 2. Each expected device must be in 'device' state ────────────────────────
 
 FAILED=0
 for SERIAL in "${SERIALS[@]}"; do
-    STATE=$(adb -s "$SERIAL" get-state 2>/dev/null || echo "offline")
+    STATE=$($ADB -s "$SERIAL" get-state 2>/dev/null || echo "offline")
     if [[ "$STATE" == "device" ]]; then
         echo "Device $SERIAL OK"
     else
@@ -38,7 +42,7 @@ done
 if [[ $FAILED -eq 1 ]]; then
     echo ""
     echo "Connected devices:"
-    adb devices -l
+    $ADB devices -l
     exit 1
 fi
 
