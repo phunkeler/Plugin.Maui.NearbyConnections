@@ -11,20 +11,17 @@ if [[ ${#SERIALS[@]} -eq 0 ]]; then
     exit 1
 fi
 
-# ── 1. ADB must be listening on 0.0.0.0, not 127.0.0.1 ───────────────────────
+# ── 1. ADB server must be reachable ──────────────────────────────────────────
 
-ADB_HOST="${ANDROID_ADB_SERVER_HOST:-localhost}"
-ADB_PORT="${ANDROID_ADB_SERVER_PORT:-5037}"
-ADB="adb -H $ADB_HOST -P $ADB_PORT"
+ADB="adb"
 
 if ! $ADB devices 2>/dev/null | grep -q 'List of devices'; then
-    echo "::error::Cannot reach ADB server at $ADB_HOST:$ADB_PORT."
+    echo "::error::Cannot reach ADB server."
     echo "  On the Pi host run: sudo systemctl restart adb-server"
-    echo "  Then verify: ss -tlnp | grep 5037"
     exit 1
 fi
 
-echo "ADB server OK ($ADB_HOST:$ADB_PORT)"
+echo "ADB server OK"
 
 # ── 2. Each expected device must be in 'device' state ────────────────────────
 
@@ -34,7 +31,7 @@ for SERIAL in "${SERIALS[@]}"; do
     if [[ "$STATE" == "device" ]]; then
         echo "Device $SERIAL OK"
     else
-        echo "::error::Device $SERIAL is '$STATE' — replug USB or run init-pi-devices.sh"
+        echo "::error::Device $SERIAL is '$STATE' — accept USB debugging prompt on device screen, replug USB, or run init-pi-devices.sh"
         FAILED=1
     fi
 done
