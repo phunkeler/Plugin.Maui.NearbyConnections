@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -24,7 +23,7 @@ public partial class ChatViewModel(
 {
     [MemberNotNullWhen(true, nameof(Message))]
     public bool CanSend
-        => Device?.State == NearbyDeviceState.Connected
+        => Device is not null
             && !string.IsNullOrWhiteSpace(Message)
             && TransferStatus is not NearbyTransferStatus.InProgress;
 
@@ -193,18 +192,6 @@ public partial class ChatViewModel(
         var message = stored[^1];
         var vm = chatMessageViewModelFactory.Create(message);
         Messages.Add(vm);
-    }
-
-    partial void OnDeviceChanged(NearbyDevice oldValue, NearbyDevice newValue)
-    {
-        oldValue?.PropertyChanged -= OnDevicePropertyChanged;
-        newValue?.PropertyChanged += OnDevicePropertyChanged;
-    }
-
-    void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(NearbyDevice.State))
-            SendCommand.NotifyCanExecuteChanged();
     }
 
     void OnNearbyTransferProgress(NearbyTransferProgress progress)
