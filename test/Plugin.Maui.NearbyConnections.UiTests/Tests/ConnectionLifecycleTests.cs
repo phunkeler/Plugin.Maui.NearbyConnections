@@ -11,7 +11,15 @@ public class ConnectionLifecycleTests
     private static NearbyTestFixture Fixture => TestAssemblySetup.Fixture;
 
     [TestInitialize]
-    public void ResetState() => Fixture.ResetBothToMainPage();
+    public void ResetState()
+    {
+        if (Fixture is null)
+        {
+            Assert.Inconclusive("DEVICE2_SERIAL not set — two-device tests skipped.");
+        }
+
+        Fixture.ResetBothToMainPage();
+    }
 
     [TestMethod]
     public void FullLifecycle_BothDevicesShowConnected()

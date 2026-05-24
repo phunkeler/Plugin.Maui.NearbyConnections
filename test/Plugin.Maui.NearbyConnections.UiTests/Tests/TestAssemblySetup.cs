@@ -12,11 +12,18 @@ public static class TestAssemblySetup
     public static async Task Initialize(TestContext _)
     {
         var device1 = NearbyTestFixture.RequiredEnv("DEVICE1_SERIAL");
-        var device2 = NearbyTestFixture.RequiredEnv("DEVICE2_SERIAL");
+        var device2 = Environment.GetEnvironmentVariable("DEVICE2_SERIAL");
 
-        await DevicePrep.PrepareAsync(device1, device2);
+        var serials = device2 is not null
+            ? new[] { device1, device2 }
+            : new[] { device1 };
 
-        Fixture = NearbyTestFixture.FromEnvironment();
+        await DevicePrep.PrepareAsync(serials);
+
+        if (device2 is not null)
+        {
+            Fixture = NearbyTestFixture.FromEnvironment();
+        }
     }
 
     [AssemblyCleanup]
