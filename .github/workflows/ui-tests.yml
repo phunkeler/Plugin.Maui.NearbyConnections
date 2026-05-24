@@ -71,8 +71,8 @@ jobs:
           echo "Installing $APK"
           install_apk() {
             local serial=$1
-            $ADB -s "$serial" uninstall com.phunkeler.nearbychat 2>/dev/null || true
-            RESULT=$($ADB -s "$serial" install -t "$APK" 2>&1)
+            $ADB -s "$serial" uninstall com.phunkeler.nearbychat 2>&1 || true
+            RESULT=$($ADB -s "$serial" install -t --no-streaming "$APK" 2>&1)
             echo "$RESULT"
             [[ "$RESULT" == *"Success"* ]]
           }
