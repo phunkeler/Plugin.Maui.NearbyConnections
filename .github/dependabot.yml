@@ -6,6 +6,8 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore(deps)"
+    labels:
+      - "actions-sha-bump"
 
   - package-ecosystem: "docker"
     directory: "/docker/runner"
