@@ -228,7 +228,7 @@ sudo systemctl start adb-devices
 
 ## 9. GitHub Actions Self-Hosted Runner
 
-The UI test workflow (`.github/workflows/ui-tests.yml`) targets a self-hosted runner on the Pi so CI jobs can reach the VLAN-connected devices. The runner polls GitHub over outbound HTTPS — no inbound ports or port-forwarding required.
+The UI test workflow (`.github/workflows/ui-tests.yml`) targets a self-hosted runner on the Pi so CI jobs can reach the secured devices. The runner polls GitHub over outbound HTTPS — no inbound ports or port-forwarding required.
 
 ### Create a dedicated runner user
 
