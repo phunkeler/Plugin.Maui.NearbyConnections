@@ -3,29 +3,20 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 [TestCategory("Connections")]
 public class NearbyConnectionsExceptionTests
 {
-    static readonly NearbyConnectionsOptions Options = new();
-
     [TestClass]
-    public sealed class NearbyAdvertisingExceptionTests : NearbyConnectionsExceptionTests
+    public sealed class Advertising : NearbyConnectionsExceptionTests
     {
-        [TestMethod]
-        public void PreservesOptions()
-        {
-            // Arrange & Act
-            var ex = new NearbyAdvertisingException(Options, "failed");
-
-            // Assert
-            Assert.AreSame(Options, ex.Options);
-        }
-
         [TestMethod]
         public void PreservesMessage()
         {
-            // Arrange & Act
-            var ex = new NearbyAdvertisingException(Options, "failed");
+            // Arrange
+            var ex = new NearbyAdvertisingException("failed");
+
+            // Act
+            var message = ex.Message;
 
             // Assert
-            Assert.AreEqual("failed", ex.Message);
+            Assert.AreEqual("failed", message);
         }
 
         [TestMethod]
@@ -33,46 +24,42 @@ public class NearbyConnectionsExceptionTests
         {
             // Arrange
             var inner = new InvalidOperationException("root cause");
+            var ex = new NearbyAdvertisingException("failed", inner);
 
             // Act
-            var ex = new NearbyAdvertisingException(Options, "failed", inner);
+            var result = ex.InnerException;
 
             // Assert
-            Assert.AreSame(inner, ex.InnerException);
+            Assert.AreSame(inner, result);
         }
 
         [TestMethod]
         public void IsCatchableAsNearbyConnectionsException()
         {
             // Arrange
-            var ex = new NearbyAdvertisingException(Options, "failed");
+            var ex = new NearbyAdvertisingException("failed");
 
-            // Act & Assert
+            // Act (type relationship is structural — no runtime operation required)
+
+            // Assert
             Assert.IsInstanceOfType<NearbyConnectionsException>(ex);
         }
     }
 
     [TestClass]
-    public sealed class NearbyDiscoveryExceptionTests : NearbyConnectionsExceptionTests
+    public sealed class Discovery : NearbyConnectionsExceptionTests
     {
-        [TestMethod]
-        public void PreservesOptions()
-        {
-            // Arrange & Act
-            var ex = new NearbyDiscoveryException(Options, "failed");
-
-            // Assert
-            Assert.AreSame(Options, ex.Options);
-        }
-
         [TestMethod]
         public void PreservesMessage()
         {
-            // Arrange & Act
-            var ex = new NearbyDiscoveryException(Options, "failed");
+            // Arrange
+            var ex = new NearbyDiscoveryException("failed");
+
+            // Act
+            var message = ex.Message;
 
             // Assert
-            Assert.AreEqual("failed", ex.Message);
+            Assert.AreEqual("failed", message);
         }
 
         [TestMethod]
@@ -80,21 +67,24 @@ public class NearbyConnectionsExceptionTests
         {
             // Arrange
             var inner = new InvalidOperationException("root cause");
+            var ex = new NearbyDiscoveryException("failed", inner);
 
             // Act
-            var ex = new NearbyDiscoveryException(Options, "failed", inner);
+            var result = ex.InnerException;
 
             // Assert
-            Assert.AreSame(inner, ex.InnerException);
+            Assert.AreSame(inner, result);
         }
 
         [TestMethod]
         public void IsCatchableAsNearbyConnectionsException()
         {
             // Arrange
-            var ex = new NearbyDiscoveryException(Options, "failed");
+            var ex = new NearbyDiscoveryException("failed");
 
-            // Act & Assert
+            // Act (type relationship is structural — no runtime operation required)
+
+            // Assert
             Assert.IsInstanceOfType<NearbyConnectionsException>(ex);
         }
     }
