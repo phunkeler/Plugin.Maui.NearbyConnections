@@ -65,22 +65,17 @@ jobs:
           DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
           DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
         run: |
-          ADB="adb"
           APK=$(find apk -name "*.apk" | head -1)
           echo "Installing $APK"
-          install_apk() {
-            local serial=$1
-            $ADB -s "$serial" shell pm uninstall com.phunkeler.nearbychat 2>&1 || true
-            # "failed to read copy response" is a TCP ack artifact; bytes land on device regardless
-            $ADB -s "$serial" push "$APK" /data/local/tmp/nearbychat.apk 2>&1 || true
-            RESULT=$($ADB -s "$serial" shell pm install -r -t /data/local/tmp/nearbychat.apk 2>&1)
-            $ADB -s "$serial" shell rm /data/local/tmp/nearbychat.apk 2>/dev/null || true
-            echo "$RESULT"
-            [[ "$RESULT" == *"Success"* ]]
+          install_on_device() {
+            dotnet xharness android install \
+              --app "$APK" \
+              --package-name com.phunkeler.nearbychat \
+              --device-id "$1"
           }
-          install_apk "$DEVICE1_SERIAL"
+          install_on_device "$DEVICE1_SERIAL"
           if [[ -n "$DEVICE2_SERIAL" ]]; then
-            install_apk "$DEVICE2_SERIAL"
+            install_on_device "$DEVICE2_SERIAL"
           fi
 
       - name: Start Appium
