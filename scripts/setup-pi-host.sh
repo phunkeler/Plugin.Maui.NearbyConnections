@@ -29,6 +29,7 @@ After=multi-user.target
 [Service]
 Type=simple
 User=${USER}
+ExecStartPre=-/usr/bin/adb kill-server
 ExecStart=/usr/bin/adb -a -P 5037 nodaemon server start
 Restart=always
 RestartSec=3
