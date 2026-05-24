@@ -15,14 +15,14 @@ sealed partial class NearbyConnectionsImplementation
 
     #region Advertising
 
-    async Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
+    Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         _advertiseClient ??= NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
         try
         {
-            await _advertiseClient.StartAdvertisingAsync(
+            return _advertiseClient.StartAdvertisingAsync(
                 Options.DisplayName,
                 Options.ServiceId,
                 new AdvertiseCallback(OnConnectionInitiatedAsync, OnConnectionResult, OnDisconnected, LogOnConnectionInitiatedError),
@@ -38,6 +38,7 @@ sealed partial class NearbyConnectionsImplementation
         catch (Exception ex)
         {
             _advertiseChannel.Writer.TryComplete(new NearbyAdvertisingException("Failed to start advertising.", ex));
+            return Task.CompletedTask;
         }
     }
 
