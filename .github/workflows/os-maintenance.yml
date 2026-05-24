@@ -1,0 +1,41 @@
+name: OS Maintenance
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly, Sunday 02:00 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  dry-run-upgrades:
+    name: Unattended-upgrade dry run
+    runs-on: [self-hosted, linux, ARM64]
+    steps:
+      - name: Run dry run via SSH
+        id: dry_run
+        env:
+          PI_SSH_PRIVATE_KEY: ${{ secrets.PI_SSH_PRIVATE_KEY }}
+        run: |
+          eval $(ssh-agent -s)
+          echo "$PI_SSH_PRIVATE_KEY" | ssh-add -
+          OUTPUT=$(ssh \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile=/tmp/pi_known_hosts \
+            sandlot@host.docker.internal \
+            "sudo unattended-upgrade --dry-run 2>&1" || true)
+          ssh-agent -k
+          {
+            echo 'output<<EOF'
+            echo "$OUTPUT"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post job summary
+        run: |
+          {
+            echo "## Unattended-Upgrade Dry Run — $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo '```'
+            echo "${{ steps.dry_run.outputs.output }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

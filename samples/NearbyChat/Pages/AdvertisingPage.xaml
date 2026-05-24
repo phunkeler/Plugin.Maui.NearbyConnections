@@ -10,6 +10,7 @@
               RowSpacing="{StaticResource SpacingXL}"
               Margin="{StaticResource SpacingXL}">
             <Button Text="Back"
+                    AutomationId="BackButton"
                     Command="{Binding BackCommand}"
                     HorizontalOptions="Start"
                     VerticalOptions="Start"
@@ -20,6 +21,9 @@
                     BorderColor="{AppThemeBinding Light=Black, Dark=Gray}"
                     CornerRadius="12"
                     FontSize="{StaticResource FontSizeMD}"/>
+            <Label AutomationId="AdvertisingStatus"
+                   Text="{Binding IsAdvertising}"
+                   Opacity="0" />
             <ConnectedDevicesChip
                 Count="{Binding ConnectedDevicesCount}"
                 Command="{Binding NavigateToConnectionsCommand}"
@@ -28,6 +32,7 @@
             <FeatureControlCard
                 VerticalOptions="Start"
                 Grid.Row="1"
+                ButtonAutomationId="ToggleAdvertising"
                 FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeAdvertiseStyle}"
                 Title="Advertising Mode"
                 ActiveSubtitle="Broadcasting"
@@ -94,6 +99,7 @@
                                     Grid.Column="0"
                                     HeightRequest="44"
                                     Text="Decline"
+                                    AutomationId="{Binding Id, StringFormat='Decline_{0}'}"
                                     Command="{Binding DeclineCommand}"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource LightSurfaceSecondary}, Dark={StaticResource DarkSurfaceSecondary}}"
                                     TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
@@ -105,6 +111,7 @@
                                     Grid.Column="1"
                                     HeightRequest="44"
                                     Text="Accept"
+                                    AutomationId="{Binding Id, StringFormat='Accept_{0}'}"
                                     Command="{Binding AcceptCommand}"
                                     BackgroundColor="{StaticResource AccentDiscovery}"
                                     TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"

@@ -30,6 +30,7 @@ services:
       - /home/github-runner/.config/gh:/home/runner/.config/gh:ro
     extra_hosts:
       - "host-gateway:host-gateway"
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     read_only: true
     tmpfs:

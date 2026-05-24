@@ -20,6 +20,7 @@
 
                     <!-- Advertise -->
                     <FeatureNavigationCard
+                        TapAutomationId="Advertise"
                         FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeAdvertiseStyle}"
                         Title="Advertise"
                         Subtitle="Be discoverable"
@@ -29,6 +30,7 @@
 
                     <!-- Discover -->
                     <FeatureNavigationCard
+                        TapAutomationId="Discover"
                         FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeDiscoverStyle}"
                         Title="Discover"
                         Subtitle="Find nearby devices"
@@ -38,6 +40,7 @@
 
                     <!-- Connections -->
                     <FeatureNavigationCard
+                        TapAutomationId="Connections"
                         FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeConnectionsStyle}"
                         Title="Connect"
                         Subtitle="No connections"

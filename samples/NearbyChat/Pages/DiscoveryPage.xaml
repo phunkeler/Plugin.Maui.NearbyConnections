@@ -10,6 +10,7 @@
               RowSpacing="{StaticResource SpacingXL}"
               Margin="{StaticResource SpacingXL}">
             <Button Text="Back"
+                    AutomationId="BackButton"
                     Command="{Binding BackCommand}"
                     HorizontalOptions="Start"
                     VerticalOptions="Start"
@@ -20,6 +21,9 @@
                     BorderColor="{AppThemeBinding Light=Black, Dark=White}"
                     CornerRadius="12"
                     FontSize="{StaticResource FontSizeMD}"/>
+            <Label AutomationId="DiscoveryStatus"
+                   Text="{Binding IsDiscovering}"
+                   Opacity="0" />
             <ConnectedDevicesChip
                 Count="{Binding ConnectedDevicesCount}"
                 Command="{Binding NavigateToConnectionsCommand}"
@@ -28,6 +32,7 @@
             <FeatureControlCard
                 VerticalOptions="Start"
                 Grid.Row="1"
+                ButtonAutomationId="ToggleDiscovery"
                 FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeDiscoverStyle}"
                 Title="Discovery Mode"
                 ActiveSubtitle="Scanning"
@@ -88,6 +93,7 @@
                                     Grid.Row="2"
                                     HeightRequest="44"
                                     Text="Connect"
+                                    AutomationId="{Binding Id, StringFormat='Connect_{0}'}"
                                     Command="{Binding ConnectCommand}"
                                     BackgroundColor="{StaticResource AccentConnections}"
                                     TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"

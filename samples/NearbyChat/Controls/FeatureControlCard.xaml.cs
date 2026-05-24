@@ -80,6 +80,18 @@ public partial class FeatureControlCard : CardView
         set => SetValue(InactiveSubtitleProperty, value);
     }
 
+    public static readonly BindableProperty ButtonAutomationIdProperty = BindableProperty.Create(
+        propertyName: nameof(ButtonAutomationId),
+        returnType: typeof(string),
+        declaringType: typeof(FeatureControlCard),
+        defaultValue: default(string));
+
+    public string ButtonAutomationId
+    {
+        get => (string)GetValue(ButtonAutomationIdProperty);
+        set => SetValue(ButtonAutomationIdProperty, value);
+    }
+
     public static readonly BindableProperty CommandProperty = BindableProperty.Create(
         propertyName: nameof(Command),
         returnType: typeof(ICommand),

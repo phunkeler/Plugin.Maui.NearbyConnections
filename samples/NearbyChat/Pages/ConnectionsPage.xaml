@@ -11,6 +11,7 @@
               RowSpacing="{StaticResource SpacingXL}"
               Margin="{StaticResource SpacingXL}">
             <Button Text="Back"
+                    AutomationId="BackButton"
                     Command="{Binding BackCommand}"
                     HorizontalOptions="Start"
                     VerticalOptions="Start"
@@ -48,6 +49,7 @@
                                 <Button Text="Disconnect"
                                         Grid.Row="1"
                                         HeightRequest="44"
+                                        AutomationId="{Binding Id, StringFormat='Disconnect_{0}'}"
                                         Command="{Binding DisconnectCommand}"
                                         BackgroundColor="{StaticResource StatusError}"
                                         TextColor="White"
@@ -58,6 +60,7 @@
                                         Grid.Row="1"
                                         Grid.Column="1"
                                         HeightRequest="44"
+                                        AutomationId="{Binding Id, StringFormat='Chat_{0}'}"
                                         Command="{Binding ChatCommand}"
                                         BackgroundColor="{StaticResource AccentDiscovery}"
                                         TextColor="White"

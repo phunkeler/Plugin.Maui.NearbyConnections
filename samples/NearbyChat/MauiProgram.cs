@@ -9,6 +9,7 @@ using NearbyChat.Services;
 using NearbyChat.ViewModels;
 using Plugin.Maui.BottomSheet.Hosting;
 using Plugin.Maui.NearbyConnections;
+using Microsoft.Maui.DevFlow.Agent;
 
 namespace NearbyChat;
 
@@ -18,6 +19,9 @@ public static class MauiProgram
     {
         var builder = MauiApp.CreateBuilder()
             .UseMauiApp<App>()
+#if DEBUG
+            .AddMauiDevFlowAgent()
+#endif
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("NearbyChatIcons.ttf", "NearbyChatIcons");
