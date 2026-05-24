@@ -133,14 +133,26 @@ Releases are fully automated once changes land on `main`. You do not manually ed
 
 ### Pre-release (preview, rc)
 
-release-please does not manage pre-release tags. Create them manually:
+release-please does not manage pre-release tags. The tag must always go on a `main` commit — MinVer derives the package version from the nearest tagged ancestor, so tagging a branch commit before merging produces the wrong version.
+
+**Process:**
+
+1. Open a PR from your feature branch targeting `main`
+2. Squash merge the PR
+3. Pull `main` locally and tag the squash commit:
+   ```bash
+   git checkout main && git pull
+   git tag v0.3.0-preview.1
+   git push origin v0.3.0-preview.1
+   ```
+4. `publish.yml` fires automatically → CI → NuGet → GitHub Release
+5. Approve the deployment in the `nuget` environment when prompted
+
+Or use the release script which validates the preconditions for you:
 
 ```bash
-git tag v0.3.0-preview.1
-git push origin v0.3.0-preview.1
+bash scripts/release.sh 0.3.0-preview.1
 ```
-
-Then approve the deployment in GitHub Actions as usual.
 
 ### Breaking changes (major bump)
 
