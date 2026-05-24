@@ -38,4 +38,9 @@
     <PackageVersion Include="System.Drawing.Common" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- UI Tests AppHost -->
+  <ItemGroup>
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.3.5" />
+  </ItemGroup>
+
 </Project>
