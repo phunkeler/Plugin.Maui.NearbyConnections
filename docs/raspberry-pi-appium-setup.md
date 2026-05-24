@@ -226,6 +226,84 @@ sudo systemctl start adb-devices
 
 ---
 
+## 9. GitHub Actions Self-Hosted Runner
+
+The UI test workflow (`.github/workflows/ui-tests.yml`) targets a self-hosted runner on the Pi so CI jobs can reach the VLAN-connected devices. The runner polls GitHub over outbound HTTPS — no inbound ports or port-forwarding required.
+
+### Create a dedicated runner user
+
+Run the runner as a low-privilege user with ADB access only — not your personal login:
+
+```bash
+sudo useradd -m -s /bin/bash github-runner
+sudo usermod -aG plugdev github-runner
+```
+
+### Register the runner
+
+In the GitHub repo: **Settings → Actions → Runners → New self-hosted runner**.
+Select **Linux / ARM64**. Copy the commands GitHub generates and run them as the new user:
+
+```bash
+sudo -u github-runner bash
+mkdir ~/actions-runner && cd ~/actions-runner
+# paste GitHub's download + configure commands here
+# when prompted for labels, add: self-hosted,linux,ARM64
+./run.sh   # verify it connects, then Ctrl+C
+```
+
+Install as a systemd service so it starts on boot:
+
+```bash
+exit   # back to your normal user
+sudo /home/github-runner/actions-runner/svc.sh install github-runner
+sudo /home/github-runner/actions-runner/svc.sh start
+sudo /home/github-runner/actions-runner/svc.sh status
+```
+
+### Add repository secrets
+
+**Settings → Secrets and variables → Actions → New repository secret:**
+
+| Secret | Value |
+|--------|-------|
+| `DEVICE1_SERIAL` | ADB serial of device 1 — from `adb devices -l` |
+| `DEVICE2_SERIAL` | ADB serial of device 2 — add when second device is available |
+| `APPIUM_SERVER_URL` | `http://<pi-lan-ip>:4723` — find with `hostname -I` |
+
+---
+
+## 10. Security Hardening
+
+This repo is public. Apply all of the following before the runner goes live.
+
+### GitHub UI — Actions settings
+
+**Settings → Actions → General:**
+
+- **Fork pull request workflows** → *Require approval for all outside collaborators*
+- **Workflow permissions** → *Read repository contents only*
+
+### GitHub UI — Branch protection on `main`
+
+**Settings → Branches → Add branch ruleset for `main`:**
+
+- Require a pull request before merging
+- Require review from Code Owners (`* @phunkeler` is already set in `.github/CODEOWNERS`)
+- Dismiss stale reviews when new commits are pushed
+- Require status checks to pass (add `UI Tests (Pi device farm)` once it has run once)
+
+### Why these layers matter
+
+| Threat | Mitigated by |
+|--------|-------------|
+| Fork PR triggers runner | Settings → Require approval for outside collaborators |
+| Workflow runs for non-owner | `if: github.repository_owner == 'phunkeler'` in workflow |
+| Workflow file tampered via PR | CODEOWNERS + branch protection requiring Code Owner review |
+| Compromised runner escapes to Pi | Dedicated `github-runner` user with no sudo |
+
+---
+
 ## Troubleshooting
 
 ### ADB Device Not Appearing
