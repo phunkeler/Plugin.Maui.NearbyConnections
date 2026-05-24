@@ -74,6 +74,11 @@ jobs:
           APK=$(find apk -name "*.apk" | head -1)
           echo "Installing $APK"
           mkdir -p logs/xharness
+          prepare_device() {
+            local serial=$1
+            adb -s "$serial" shell settings put global verifier_verify_adb_installs 0 || true
+            adb -s "$serial" shell settings put global package_verifier_enable 0 || true
+          }
           install_on_device() {
             dotnet tool run xharness android install \
               --app "$APK" \
@@ -81,8 +86,10 @@ jobs:
               --device-id "$1" \
               --output-directory logs/xharness
           }
+          prepare_device "$DEVICE1_SERIAL"
           install_on_device "$DEVICE1_SERIAL"
           if [[ -n "$DEVICE2_SERIAL" ]]; then
+            prepare_device "$DEVICE2_SERIAL"
             install_on_device "$DEVICE2_SERIAL"
           fi
 
