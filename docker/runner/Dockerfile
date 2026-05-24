@@ -45,8 +45,4 @@ COPY --chmod=755 docker/runner/entrypoint.sh /entrypoint.sh
 
 USER runner
 
-RUN dotnet tool install --global Microsoft.DotNet.XHarness.CLI \
-    --add-source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-eng/nuget/v3/index.json \
-    --prerelease
-
 ENTRYPOINT ["/entrypoint.sh"]
