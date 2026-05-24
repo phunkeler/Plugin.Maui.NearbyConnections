@@ -16,14 +16,15 @@ services:
     build:
       context: ./runner
     environment:
-      - GITHUB_PAT=${GITHUB_PAT}
       - REPO_OWNER=phunkeler
       - REPO_NAME=Plugin.Maui.NearbyConnections
       - RUNNER_NAME=pi-device-farm
       - RUNNER_LABELS=self-hosted,linux,ARM64
-      # Allows adb in the runner container to reach the host ADB server
       - ANDROID_ADB_SERVER_HOST=host-gateway
       - ANDROID_ADB_SERVER_PORT=5037
+    volumes:
+      # Share host gh CLI auth so the container can call the GitHub API without a stored PAT
+      - /home/github-runner/.config/gh:/home/runner/.config/gh:ro
     extra_hosts:
       - "host-gateway:host-gateway"
     restart: unless-stopped

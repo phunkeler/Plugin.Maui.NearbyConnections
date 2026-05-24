@@ -5,15 +5,20 @@ ARG TARGETARCH=arm64
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        android-tools-adb \
+        ca-certificates \
         curl \
-        tar \
         git \
         jq \
-        ca-certificates \
         libicu-dev \
         libssl-dev \
-        android-tools-adb \
+        tar \
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | tee /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash runner \
