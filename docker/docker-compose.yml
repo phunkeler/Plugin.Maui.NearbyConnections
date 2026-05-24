@@ -1,8 +1,7 @@
 services:
 
   appium:
-    build:
-      context: ./appium
+    image: ghcr.io/phunkeler/nearbyconnections-appium:latest
     ports:
       - "4723:4723"
     environment:
@@ -13,8 +12,7 @@ services:
     restart: unless-stopped
 
   runner:
-    build:
-      context: ./runner
+    image: ghcr.io/phunkeler/nearbyconnections-runner:latest
     environment:
       - REPO_OWNER=phunkeler
       - REPO_NAME=Plugin.Maui.NearbyConnections
