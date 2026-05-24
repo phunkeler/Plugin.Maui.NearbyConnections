@@ -80,10 +80,26 @@ jobs:
 
       - name: Start Appium
         run: |
-          dotnet run --project test/Plugin.Maui.NearbyConnections.UiTests.AppHost -- --no-dashboard &
+          mkdir -p logs
+          dotnet run --project test/Plugin.Maui.NearbyConnections.UiTests.AppHost -- --no-dashboard > logs/appium.log 2>&1 &
           echo "APPHOST_PID=$!" >> "$GITHUB_ENV"
           timeout 90 bash -c 'until curl -sf http://localhost:4723/status > /dev/null; do sleep 3; done'
           echo "Appium ready"
+
+      - name: Start ADB logcat
+        env:
+          DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
+          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
+        run: |
+          mkdir -p logs
+          adb -s "$DEVICE1_SERIAL" logcat -c
+          adb -s "$DEVICE1_SERIAL" logcat > logs/logcat-device1.log 2>&1 &
+          echo "LOGCAT1_PID=$!" >> "$GITHUB_ENV"
+          if [[ -n "$DEVICE2_SERIAL" ]]; then
+            adb -s "$DEVICE2_SERIAL" logcat -c
+            adb -s "$DEVICE2_SERIAL" logcat > logs/logcat-device2.log 2>&1 &
+            echo "LOGCAT2_PID=$!" >> "$GITHUB_ENV"
+          fi
 
       - name: Run UI tests
         env:
@@ -96,14 +112,19 @@ jobs:
           --
           --settings test/Plugin.Maui.NearbyConnections.UiTests/NearbyConnections.runsettings
 
-      - name: Stop Appium
+      - name: Stop background processes
         if: always()
-        run: kill "$APPHOST_PID" 2>/dev/null || true
+        run: |
+          kill "$APPHOST_PID" 2>/dev/null || true
+          kill "$LOGCAT1_PID" 2>/dev/null || true
+          kill "${LOGCAT2_PID:-}" 2>/dev/null || true
 
-      - name: Upload evidence screenshots
+      - name: Upload logs and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ui-test-evidence
-          path: test/Plugin.Maui.NearbyConnections.UiTests/evidence/
+          path: |
+            logs/
+            test/Plugin.Maui.NearbyConnections.UiTests/evidence/
           if-no-files-found: ignore
