@@ -14,11 +14,11 @@ jobs:
     runs-on: macos-latest
     environment: nuget
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0  # Required for MinVer to resolve the version from git tags
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
 
@@ -38,7 +38,7 @@ jobs:
         run: dotnet pack src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release --output nupkgs /p:ContinuousIntegrationBuild=true
 
       - name: Login to NuGet.org (OIDC)
-        uses: NuGet/login@v1.2.0
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         id: login
         with:
           user: phunkeler

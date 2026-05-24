@@ -15,9 +15,9 @@ jobs:
     if: github.repository_owner == 'phunkeler'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           global-json-file: global.json
 
@@ -28,7 +28,7 @@ jobs:
         run: dotnet build samples/NearbyChat/NearbyChat.csproj -f net10.0-android -c Debug
 
       - name: Upload APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: nearbychat-apk
           path: samples/NearbyChat/bin/Debug/net10.0-android/**/*.apk
@@ -41,14 +41,14 @@ jobs:
     needs: build
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           global-json-file: global.json
 
       - name: Download APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: nearbychat-apk
           path: apk
@@ -89,7 +89,7 @@ jobs:
 
       - name: Upload evidence screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ui-test-evidence
           path: test/Plugin.Maui.NearbyConnections.UiTests/evidence/
