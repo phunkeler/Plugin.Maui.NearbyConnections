@@ -144,5 +144,5 @@ bootcmd:
   - ufw default allow outgoing
   - ufw allow ssh
   - ufw allow 4723/tcp
-  - ufw allow in on docker0 to any port 5037 proto tcp
+  - ufw allow from 172.16.0.0/12 to any port 5037 proto tcp
   - ufw --force enable
