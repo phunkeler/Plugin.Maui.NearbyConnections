@@ -4,6 +4,9 @@ ARG RUNNER_VERSION=2.334.0
 ARG TARGETARCH=arm64
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV DOTNET_ROOT=/home/runner/.dotnet
+ENV DOTNET_INSTALL_DIR=/home/runner/.dotnet
+ENV PATH=/home/runner/.dotnet:/home/runner/.dotnet/tools:$PATH
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         android-tools-adb \
@@ -26,16 +29,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /home/runner
 
 ADD https://dot.net/v1/dotnet-install.sh /tmp/dotnet-install.sh
+COPY global.json /tmp/global.json
 
 RUN curl -fsSL \
         "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-${TARGETARCH}-${RUNNER_VERSION}.tar.gz" \
         | tar xz \
     && ./bin/installdependencies.sh \
-    && chown -R runner:runner /home/runner \
     && chmod +x /tmp/dotnet-install.sh \
-    && /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet \
-    && ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet \
-    && rm /tmp/dotnet-install.sh
+    && DOTNET_VERSION=$(jq -r '.sdk.version' /tmp/global.json) \
+    && /tmp/dotnet-install.sh --version "$DOTNET_VERSION" --install-dir /home/runner/.dotnet \
+    && chown -R runner:runner /home/runner \
+    && rm /tmp/dotnet-install.sh /tmp/global.json
 
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
 
