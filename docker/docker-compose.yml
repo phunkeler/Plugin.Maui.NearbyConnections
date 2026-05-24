@@ -17,6 +17,6 @@ services:
     volumes:
       # Share host gh CLI auth so the container can call the GitHub API without a stored PAT
       - /home/github-runner/.config/gh:/home/runner/.config/gh:ro
-    restart: unless-stopped
+    restart: always
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
