@@ -8,7 +8,6 @@ on:
 permissions:
   id-token: write
   contents: write
-  pull-requests: write
 
 jobs:
   publish:
@@ -55,16 +54,3 @@ jobs:
             --generate-notes \
             --prerelease=${{ contains(github.ref_name, 'preview') }} \
             nupkgs/*.nupkg
-
-      - name: Open PR to main
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BRANCH="${{ github.ref_name }}"
-          BRANCH="${BRANCH#v}"
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "Release ${{ github.ref_name }}" \
-            --body "Automated release PR for ${{ github.ref_name }}. Squash and merge to update main." \
-            --label "release" || true
