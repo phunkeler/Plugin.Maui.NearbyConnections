@@ -8,9 +8,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  ui-tests:
-    name: UI Tests (Pi device farm)
-    runs-on: [self-hosted, linux, ARM64]
+
+  build:
+    name: Build NearbyChat APK
+    runs-on: ubuntu-24.04-arm
     if: github.repository_owner == 'phunkeler'
 
     steps:
@@ -20,8 +21,60 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Build APK
+        run: dotnet build samples/NearbyChat/NearbyChat.csproj -f net10.0-android -c Debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: nearbychat-apk
+          path: samples/NearbyChat/bin/Debug/net10.0-android/**/*.apk
+          if-no-files-found: error
+
+  ui-tests:
+    name: UI Tests (Pi device farm)
+    runs-on: [self-hosted, linux, ARM64]
+    if: github.repository_owner == 'phunkeler'
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: nearbychat-apk
+          path: apk
+
+      - name: Install APK on devices
+        env:
+          DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
+          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL }}
+        run: |
+          APK=$(find apk -name "*.apk" | head -1)
+          echo "Installing $APK"
+          adb -s "$DEVICE1_SERIAL" install -r "$APK"
+          if [[ -n "$DEVICE2_SERIAL" ]]; then
+            adb -s "$DEVICE2_SERIAL" install -r "$APK"
+          fi
+
       - name: Check devices
-        run: bash scripts/check-devices.sh ${{ secrets.DEVICE1_SERIAL }} ${{ secrets.DEVICE2_SERIAL }}
+        env:
+          DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
+          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL }}
+        run: |
+          SERIALS="$DEVICE1_SERIAL"
+          if [[ -n "$DEVICE2_SERIAL" ]]; then
+            SERIALS="$SERIALS $DEVICE2_SERIAL"
+          fi
+          bash scripts/check-devices.sh $SERIALS
 
       - name: Run UI tests
         env:
