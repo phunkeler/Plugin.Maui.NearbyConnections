@@ -65,6 +65,7 @@ jobs:
           DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
           DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
         run: |
+          export PATH="$HOME/.dotnet/tools:$PATH"
           APK=$(find apk -name "*.apk" | head -1)
           echo "Installing $APK"
           install_on_device() {
