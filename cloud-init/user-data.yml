@@ -145,3 +145,5 @@ bootcmd:
   - ufw allow ssh
   - ufw allow 4723/tcp
   - ufw --force enable
+  # Disable USB autosuspend so Android devices stay connected via ADB
+  - grep -q 'usbcore.autosuspend' /boot/firmware/cmdline.txt || sed -i 's/$/ usbcore.autosuspend=-1/' /boot/firmware/cmdline.txt
