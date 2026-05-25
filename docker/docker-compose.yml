@@ -17,6 +17,8 @@ services:
     volumes:
       # Share host gh CLI auth so the container can call the GitHub API without a stored PAT
       - /home/github-runner/.config/gh:/home/runner/.config/gh:ro
+      # Persist ADB keys so the same key survives container restarts — device only needs authorizing once
+      - /home/github-runner/.android:/home/runner/.android
     restart: always
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
