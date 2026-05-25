@@ -1,5 +1,5 @@
 FROM ubuntu:24.04
-
+# renovate: datasource=github-releases depName=actions/runner
 ARG RUNNER_VERSION=2.334.0
 ARG TARGETARCH=arm64
 
