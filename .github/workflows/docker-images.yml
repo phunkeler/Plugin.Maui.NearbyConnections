@@ -2,7 +2,7 @@ name: Docker Images
 
 on:
   push:
-    branches: [main, "*.*.*.preview.*"]
+    branches: [main, "*.*.*-preview.*"]
     paths:
       - 'docker/**'
   workflow_dispatch:

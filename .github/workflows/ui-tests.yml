@@ -2,7 +2,7 @@ name: UI Tests
 
 on:
   push:
-    branches: [main, "*.*.*.preview.*"]
+    branches: [main, "*.*.*-preview.*"]
   pull_request:
     branches: [main]
   workflow_dispatch:
