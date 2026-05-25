@@ -39,6 +39,7 @@ trap 'cleanup; exit 143' TERM
     --labels "${RUNNER_LABELS:-self-hosted,linux,ARM64}" \
     --work "_work" \
     --ephemeral \
+    --replace \
     --unattended
 
 ./run.sh &
