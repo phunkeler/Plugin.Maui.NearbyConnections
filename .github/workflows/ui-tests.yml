@@ -2,7 +2,7 @@ name: UI Tests
 
 on:
   push:
-    branches: [main, "*.*.*-preview.*"]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -23,16 +23,16 @@ jobs:
           global-json-file: global.json
 
       - name: Restore MAUI Android workload
-        run: dotnet workload restore samples/NearbyChat/NearbyChat.csproj -p:TargetFrameworks=net10.0-android
+        run: dotnet workload restore samples/NearbyChat/NearbyChat.csproj
 
-      - name: Build APK
-        run: dotnet build samples/NearbyChat/NearbyChat.csproj -f net10.0-android -c Debug -p:TargetFrameworks=net10.0-android
+      - name: Publish APK
+        run: dotnet publish samples/NearbyChat/NearbyChat.csproj -f net10.0-android -c Debug
 
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: nearbychat-apk
-          path: samples/NearbyChat/bin/Debug/net10.0-android/**/*.apk
+          path: samples/NearbyChat/bin/Debug/net10.0-android/publish/**/*.apk
           if-no-files-found: error
 
   ui-tests:
