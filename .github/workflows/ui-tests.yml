@@ -53,7 +53,14 @@ jobs:
         run: dotnet restore samples/NearbyChat/NearbyChat.csproj -p:TargetFramework=net10.0-android
 
       - name: Publish APK
-        run: dotnet publish samples/NearbyChat/NearbyChat.csproj -f net10.0-android -c Debug --no-restore
+        run: >
+          dotnet publish samples/NearbyChat/NearbyChat.csproj
+          -f net10.0-android -c Debug --no-restore
+          -p:AndroidKeyStore=true
+          -p:AndroidSigningKeyStore=$HOME/.android/debug.keystore
+          -p:AndroidSigningKeyAlias=androiddebugkey
+          -p:AndroidSigningKeyPass=android
+          -p:AndroidSigningStorePass=android
 
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
