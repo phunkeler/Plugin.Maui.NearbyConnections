@@ -25,7 +25,10 @@ jobs:
       - name: Cache workload packs
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae #v4
         with:
-          path: ~/.dotnet/workloads
+          path: |
+            /usr/share/dotnet/packs
+            /usr/share/dotnet/sdk-manifests
+            /usr/share/dotnet/metadata
           key: workload-maui-android-${{ hashFiles('global.json') }}
 
       - name: Install Android workload
