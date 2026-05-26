@@ -42,7 +42,7 @@ jobs:
         run: dotnet restore samples/NearbyChat/NearbyChat.csproj -p:TargetFramework=net10.0-android
 
       - name: Publish APK
-        run: dotnet publish samples/NearbyChat/NearbyChat.csproj -f net10.0-android -c Debug
+        run: dotnet publish samples/NearbyChat/NearbyChat.csproj -f net10.0-android -c Debug --no-restore
 
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
