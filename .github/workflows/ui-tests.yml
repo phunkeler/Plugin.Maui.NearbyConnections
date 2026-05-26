@@ -57,21 +57,24 @@ jobs:
 
       - name: Sign APK
         run: |
-          APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -name apksigner -type f | sort -V | tail -1)
-          APK=$(find samples/NearbyChat/bin/Debug/net10.0-android/publish -name "*.apk" | head -1)
-          echo "Signing $APK with $APKSIGNER"
-          "$APKSIGNER" sign \
-            --ks "$HOME/.android/debug.keystore" \
-            --ks-key-alias androiddebugkey \
-            --ks-pass pass:android \
-            --key-pass pass:android \
-            "$APK"
+          set -euo pipefail
+          APK=$(find samples/NearbyChat/bin/Debug/net10.0-android -name "*.apk" | head -1)
+          echo "Signing: $APK ($(stat -c%s "$APK") bytes)"
+          jarsigner \
+            -sigalg SHA256withRSA \
+            -digestalg SHA-256 \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -keypass android \
+            "$APK" androiddebugkey
+          jarsigner -verify "$APK"
+          echo "Signed: $(stat -c%s "$APK") bytes"
 
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: nearbychat-apk
-          path: samples/NearbyChat/bin/Debug/net10.0-android/publish/**/*.apk
+          path: samples/NearbyChat/bin/Debug/net10.0-android/**/*.apk
           if-no-files-found: error
 
   ui-tests:
