@@ -41,40 +41,17 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      - name: Create Android debug keystore
-        run: |
-          mkdir -p ~/.android
-          keytool -genkey -v -keystore ~/.android/debug.keystore \
-            -storepass android -alias androiddebugkey -keypass android \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-
       - name: Restore Android dependencies
         run: dotnet restore samples/NearbyChat/NearbyChat.csproj -p:TargetFramework=net10.0-android
 
-      - name: Publish APK
-        run: dotnet publish samples/NearbyChat/NearbyChat.csproj -f net10.0-android -c Debug --no-restore
-
-      - name: Sign APK
-        run: |
-          set -euo pipefail
-          APK=$(find samples/NearbyChat/bin/Debug/net10.0-android -name "*.apk" | head -1)
-          echo "Signing: $APK ($(stat -c%s "$APK") bytes)"
-          jarsigner \
-            -sigalg SHA256withRSA \
-            -digestalg SHA-256 \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android \
-            -keypass android \
-            "$APK" androiddebugkey
-          jarsigner -verify "$APK"
-          echo "Signed: $(stat -c%s "$APK") bytes"
+      - name: Build APK
+        run: dotnet build samples/NearbyChat/NearbyChat.csproj -f net10.0-android -c Debug --no-restore
 
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: nearbychat-apk
-          path: samples/NearbyChat/bin/Debug/net10.0-android/**/*.apk
+          path: samples/NearbyChat/bin/Debug/net10.0-android/*.apk
           if-no-files-found: error
 
   ui-tests:
