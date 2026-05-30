@@ -13,9 +13,13 @@ internal static class DevicePrep
     {
         var sdk = new AndroidSdkManager();
 
-        // Downloads Android SDK platform-tools if not already present.
-        // No-op when ADB is already in PATH (e.g. Pi self-hosted runner, local MAUI workload).
-        await sdk.Acquire();
+        // Only download platform-tools when adb is not already on PATH.
+        // On the Pi self-hosted runner adb is pre-installed; downloading would
+        // fail because the runner user lacks write access to the SDK cache path.
+        if (!IsAdbOnPath())
+        {
+            await sdk.Acquire();
+        }
 
         foreach (var serial in serials)
         {
@@ -28,5 +32,13 @@ internal static class DevicePrep
             // Dismiss lock screen (works when Smart Lock keeps the device unlocked)
             sdk.Adb.Shell("wm dismiss-keyguard", serial);
         }
+    }
+
+    private static bool IsAdbOnPath()
+    {
+        var pathDirs = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        var adbName = OperatingSystem.IsWindows() ? "adb.exe" : "adb";
+        return pathDirs.Any(dir => File.Exists(Path.Combine(dir, adbName)));
     }
 }
