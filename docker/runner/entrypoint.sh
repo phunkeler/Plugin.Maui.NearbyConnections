@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Kill any adb server running on the Pi host so this container's adb can claim
+# the USB devices directly. The host server holds the USB lock and must release
+# it before the container's adb can enumerate devices.
+adb kill-server 2>/dev/null || true
+
 # Fetch a short-lived registration token via gh CLI (authenticated on the host
 # via 'gh auth login' — no long-lived PAT stored in the image or .env).
 REG_TOKEN=$(gh api \

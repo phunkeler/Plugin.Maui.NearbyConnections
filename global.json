@@ -5,6 +5,6 @@
         "allowPrerelease": false
     },
     "msbuild-sdks": {
-        "MSTest.Sdk": "4.2.2"
+        "MSTest.Sdk": "4.2.3"
     }
 }

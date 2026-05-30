@@ -19,6 +19,7 @@ services:
       - /home/github-runner/.config/gh:/home/runner/.config/gh:ro
       # Persist ADB keys so the same key survives container restarts — device only needs authorizing once
       - /home/github-runner/.android:/home/runner/.android
+      # USB bus access so the container's adb can own the physical devices directly
+      - /dev/bus/usb:/dev/bus/usb
     restart: always
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
+    privileged: true
