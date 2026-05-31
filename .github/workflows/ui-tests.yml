@@ -92,7 +92,8 @@ jobs:
             adb -s "$serial" wait-for-device
             adb -s "$serial" shell settings put global verifier_verify_adb_installs 0 || true
             adb -s "$serial" shell settings put global package_verifier_enable 0 || true
-            adb -s "$serial" install -r --no-streaming "$APK"
+            adb -s "$serial" uninstall com.phunkeler.nearbychat || true
+            adb -s "$serial" install --no-streaming "$APK"
           }
           install_on_device "$DEVICE1_SERIAL"
           if [[ -n "$DEVICE2_SERIAL" ]]; then
