@@ -6,29 +6,23 @@ namespace Plugin.Maui.NearbyConnections.UiTests.Tests;
 [TestClass]
 public static class TestAssemblySetup
 {
-    internal static NearbyTestFixture Fixture { get; private set; } = null!;
+    internal static NearbyTestFixture? Fixture { get; private set; }
 
     [AssemblyInitialize]
-    public static async Task Initialize(TestContext _)
+    public static Task Initialize(TestContext _)
     {
-        var device1 = NearbyTestFixture.RequiredEnv("DEVICE1_SERIAL");
         var device2 = Environment.GetEnvironmentVariable("DEVICE2_SERIAL");
-
-        var serials = device2 is not null
-            ? new[] { device1, device2 }
-            : new[] { device1 };
-
-        await DevicePrep.PrepareAsync(serials);
-
         if (device2 is not null)
         {
             Fixture = NearbyTestFixture.FromEnvironment();
         }
+
+        return Task.CompletedTask;
     }
 
     [AssemblyCleanup]
     public static void Cleanup()
     {
-        Fixture.Dispose();
+        Fixture?.Dispose();
     }
 }

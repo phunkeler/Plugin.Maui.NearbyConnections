@@ -18,7 +18,7 @@
 //   - MCP server integration for AI-driven test authoring
 //   - Cross-platform: same driver API for iOS, Mac Catalyst, and Windows
 //
-// Device prep (wake/unlock) stays with DevicePrep.cs regardless of which agent is active.
+// Device prep (wake/unlock) is handled by the "Prepare devices" step in ui-tests.yml.
 //
 // DevFlow NuGet packages (all preview, may change):
 //   In-app agent : Microsoft.Maui.DevFlow.Agent         (NearbyChat.csproj)

@@ -8,7 +8,7 @@ public class ConnectionLifecycleTests
 {
     public TestContext TestContext { get; set; } = null!;
 
-    private static NearbyTestFixture Fixture => TestAssemblySetup.Fixture;
+    private static NearbyTestFixture? Fixture => TestAssemblySetup.Fixture;
 
     [TestInitialize]
     public void ResetState()
@@ -25,8 +25,8 @@ public class ConnectionLifecycleTests
     public void FullLifecycle_BothDevicesShowConnected()
     {
         // Arrange
-        var advertiser = Fixture.Advertiser;
-        var discoverer = Fixture.Discoverer;
+        var advertiser = Fixture!.Advertiser;
+        var discoverer = Fixture!.Discoverer;
 
         // Act
         TestHelpers.EstablishConnection(advertiser, discoverer);

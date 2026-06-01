@@ -8,17 +8,25 @@ public class DisconnectTests
 {
     public TestContext TestContext { get; set; } = null!;
 
-    private static NearbyTestFixture Fixture => TestAssemblySetup.Fixture;
+    private static NearbyTestFixture? Fixture => TestAssemblySetup.Fixture;
 
     [TestInitialize]
-    public void ResetState() => Fixture.ResetBothToMainPage();
+    public void ResetState()
+    {
+        if (Fixture is null)
+        {
+            Assert.Inconclusive("DEVICE2_SERIAL not set — two-device tests skipped.");
+        }
+
+        Fixture.ResetBothToMainPage();
+    }
 
     [TestMethod]
     public void Disconnect_BothDevicesObserveConnectionDrop()
     {
         // Arrange — connect and navigate both to ConnectionsPage
-        var advertiser = Fixture.Advertiser;
-        var discoverer = Fixture.Discoverer;
+        var advertiser = Fixture!.Advertiser;
+        var discoverer = Fixture!.Discoverer;
 
         TestHelpers.EstablishConnection(advertiser, discoverer);
         TestHelpers.NavigateBothToConnectionsPage(advertiser, discoverer);
