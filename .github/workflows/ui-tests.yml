@@ -69,10 +69,26 @@ jobs:
           name: nearbychat-apk
           path: apk
 
-      - name: Check devices
+      - name: Resolve connected devices
         env:
           DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
           DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
+        run: |
+          # Publish DEVICE1_SERIAL unconditionally — required.
+          echo "DEVICE1_SERIAL=$DEVICE1_SERIAL" >> "$GITHUB_ENV"
+
+          # Only publish DEVICE2_SERIAL when the device is actually visible to ADB.
+          # The secret may be set even when the second device is unplugged, so we
+          # check ADB rather than trusting the env var.
+          if [[ -n "$DEVICE2_SERIAL" ]] && adb devices | grep -q "^${DEVICE2_SERIAL}[[:space:]]"; then
+            echo "DEVICE2_SERIAL=$DEVICE2_SERIAL" >> "$GITHUB_ENV"
+            echo "Device 2 ($DEVICE2_SERIAL) is connected — two-device tests will run."
+          else
+            echo "DEVICE2_SERIAL=" >> "$GITHUB_ENV"
+            echo "Device 2 not connected — only smoke tests will run."
+          fi
+
+      - name: Check devices
         run: |
           SERIALS="$DEVICE1_SERIAL"
           if [[ -n "$DEVICE2_SERIAL" ]]; then
@@ -81,9 +97,6 @@ jobs:
           bash scripts/check-devices.sh $SERIALS
 
       - name: Install APK on devices
-        env:
-          DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
-          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
         run: |
           APK=$(find apk -name "*.apk" | head -1)
           echo "Installing $APK"
@@ -101,9 +114,6 @@ jobs:
           fi
 
       - name: Prepare devices
-        env:
-          DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
-          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
         run: |
           prepare_device() {
             local serial=$1
@@ -125,9 +135,6 @@ jobs:
           echo "Appium ready"
 
       - name: Start ADB logcat
-        env:
-          DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
-          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
         run: |
           mkdir -p logs
           adb -s "$DEVICE1_SERIAL" logcat -c
@@ -141,8 +148,6 @@ jobs:
 
       - name: Run UI tests
         env:
-          DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
-          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
           APPIUM_SERVER_URL: http://localhost:4723
         run: >
           dotnet run
