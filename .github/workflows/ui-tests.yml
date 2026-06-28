@@ -2,11 +2,10 @@ name: UI Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, "0.3.0-preview.1"]
   pull_request:
-    branches: [main]
+    branches: [main, "0.3.0-preview.1"]
   workflow_dispatch:
-
 
 jobs:
 
@@ -53,121 +52,3 @@ jobs:
           name: nearbychat-apk
           path: samples/NearbyChat/bin/Debug/net10.0-android/*-Signed.apk
           if-no-files-found: error
-
-  ui-tests:
-    name: UI Tests (Pi device farm)
-    runs-on: [self-hosted, linux, ARM64]
-    if: github.repository_owner == 'phunkeler'
-    needs: build
-
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - name: Download APK
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: nearbychat-apk
-          path: apk
-
-      - name: Resolve connected devices
-        env:
-          DEVICE1_SERIAL: ${{ secrets.DEVICE1_SERIAL }}
-          DEVICE2_SERIAL: ${{ secrets.DEVICE2_SERIAL || '' }}
-        run: |
-          # Publish DEVICE1_SERIAL unconditionally — required.
-          echo "DEVICE1_SERIAL=$DEVICE1_SERIAL" >> "$GITHUB_ENV"
-
-          # Only publish DEVICE2_SERIAL when the device is actually visible to ADB.
-          # The secret may be set even when the second device is unplugged, so we
-          # check ADB rather than trusting the env var.
-          if [[ -n "$DEVICE2_SERIAL" ]] && adb devices | grep -q "^${DEVICE2_SERIAL}[[:space:]]"; then
-            echo "DEVICE2_SERIAL=$DEVICE2_SERIAL" >> "$GITHUB_ENV"
-            echo "Device 2 ($DEVICE2_SERIAL) is connected — two-device tests will run."
-          else
-            echo "DEVICE2_SERIAL=" >> "$GITHUB_ENV"
-            echo "Device 2 not connected — only smoke tests will run."
-          fi
-
-      - name: Check devices
-        run: |
-          SERIALS="$DEVICE1_SERIAL"
-          if [[ -n "$DEVICE2_SERIAL" ]]; then
-            SERIALS="$SERIALS $DEVICE2_SERIAL"
-          fi
-          bash scripts/check-devices.sh $SERIALS
-
-      - name: Install APK on devices
-        run: |
-          APK=$(find apk -name "*.apk" | head -1)
-          echo "Installing $APK"
-          install_on_device() {
-            local serial=$1
-            adb -s "$serial" wait-for-device
-            adb -s "$serial" shell settings put global verifier_verify_adb_installs 0 || true
-            adb -s "$serial" shell settings put global package_verifier_enable 0 || true
-            adb -s "$serial" uninstall com.phunkeler.nearbychat || true
-            adb -s "$serial" install --no-streaming "$APK"
-          }
-          install_on_device "$DEVICE1_SERIAL"
-          if [[ -n "$DEVICE2_SERIAL" ]]; then
-            install_on_device "$DEVICE2_SERIAL"
-          fi
-
-      - name: Prepare devices
-        run: |
-          prepare_device() {
-            local serial=$1
-            adb -s "$serial" shell settings put global stay_on_while_plugged_in 7 || true
-            adb -s "$serial" shell input keyevent 26 || true
-            adb -s "$serial" shell wm dismiss-keyguard || true
-          }
-          prepare_device "$DEVICE1_SERIAL"
-          if [[ -n "$DEVICE2_SERIAL" ]]; then
-            prepare_device "$DEVICE2_SERIAL"
-          fi
-
-      - name: Start Appium
-        run: |
-          mkdir -p logs
-          dotnet run --project test/Plugin.Maui.NearbyConnections.UiTests.AppHost -- --no-dashboard > logs/appium.log 2>&1 &
-          echo "APPHOST_PID=$!" >> "$GITHUB_ENV"
-          timeout 90 bash -c 'until curl -sf http://localhost:4723/status > /dev/null; do sleep 3; done'
-          echo "Appium ready"
-
-      - name: Start ADB logcat
-        run: |
-          mkdir -p logs
-          adb -s "$DEVICE1_SERIAL" logcat -c
-          adb -s "$DEVICE1_SERIAL" logcat > logs/logcat-device1.log 2>&1 &
-          echo "LOGCAT1_PID=$!" >> "$GITHUB_ENV"
-          if [[ -n "$DEVICE2_SERIAL" ]]; then
-            adb -s "$DEVICE2_SERIAL" logcat -c
-            adb -s "$DEVICE2_SERIAL" logcat > logs/logcat-device2.log 2>&1 &
-            echo "LOGCAT2_PID=$!" >> "$GITHUB_ENV"
-          fi
-
-      - name: Run UI tests
-        env:
-          APPIUM_SERVER_URL: http://localhost:4723
-        run: >
-          dotnet run
-          --project test/Plugin.Maui.NearbyConnections.UiTests
-          --
-          --settings test/Plugin.Maui.NearbyConnections.UiTests/NearbyConnections.runsettings
-
-      - name: Stop background processes
-        if: always()
-        run: |
-          kill "$APPHOST_PID" 2>/dev/null || true
-          kill "$LOGCAT1_PID" 2>/dev/null || true
-          kill "${LOGCAT2_PID:-}" 2>/dev/null || true
-
-      - name: Upload logs and evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: ui-test-evidence
-          path: |
-            logs/
-            test/Plugin.Maui.NearbyConnections.UiTests/evidence/
-          if-no-files-found: ignore

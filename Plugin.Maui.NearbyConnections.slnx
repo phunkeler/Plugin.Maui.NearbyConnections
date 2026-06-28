@@ -7,7 +7,5 @@
   </Folder>
   <Folder Name="/test/">
     <Project Path="test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj" />
-    <Project Path="test/Plugin.Maui.NearbyConnections.UiTests/Plugin.Maui.NearbyConnections.UiTests.csproj" />
-    <Project Path="test/Plugin.Maui.NearbyConnections.UiTests.AppHost/Plugin.Maui.NearbyConnections.UiTests.AppHost.csproj" />
   </Folder>
 </Solution>

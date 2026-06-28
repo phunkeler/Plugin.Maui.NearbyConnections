@@ -424,6 +424,28 @@
                                                IsVisible="{Binding IsLoading}"
                                                HorizontalOptions="Center"
                                                VerticalOptions="Center"/>
+                            <!-- Play button overlay — hidden while thumbnail is loading -->
+                            <Border WidthRequest="52"
+                                    HeightRequest="52"
+                                    StrokeThickness="0"
+                                    StrokeShape="Ellipse"
+                                    BackgroundColor="#99000000"
+                                    HorizontalOptions="Center"
+                                    VerticalOptions="Center"
+                                    IsVisible="{Binding IsLoading, Converter={toolkit:InvertedBoolConverter}}">
+                                <Border.Shadow>
+                                    <Shadow Brush="Black"
+                                            Offset="0,2"
+                                            Radius="8"
+                                            Opacity="0.4"/>
+                                </Border.Shadow>
+                                <Label Text="▶"
+                                       FontSize="22"
+                                       TextColor="White"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       Margin="4,0,0,0"/>
+                            </Border>
                         </Grid>
                         <Label
                             Text="{Binding Model.Text}"

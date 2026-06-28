@@ -67,6 +67,7 @@
                             </ImageButton>
                             <ImageButton
                                 Grid.Column="2"
+                                AutomationId="ChatAttachButton"
                                 Command="{Binding AttachCommand}">
                                 <ImageButton.Source>
                                     <FontImageSource

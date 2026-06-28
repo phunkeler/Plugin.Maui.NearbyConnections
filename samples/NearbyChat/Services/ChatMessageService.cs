@@ -20,6 +20,7 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
     readonly IMessenger _messenger;
     readonly INearbyAdvertiser _advertiser;
     readonly INearbyDiscoverer _discoverer;
+    readonly IThumbnailService _thumbnailService;
 
     ConcurrentDictionary<string, NearbyConnection> _connections = [];
 
@@ -30,17 +31,20 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
         INearbyAdvertiser advertiser,
         INearbyDiscoverer discoverer,
         IChatMessageRepository repository,
-        IMessenger messenger)
+        IMessenger messenger,
+        IThumbnailService thumbnailService)
     {
         ArgumentNullException.ThrowIfNull(advertiser);
         ArgumentNullException.ThrowIfNull(discoverer);
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentNullException.ThrowIfNull(messenger);
+        ArgumentNullException.ThrowIfNull(thumbnailService);
 
         _advertiser = advertiser;
         _discoverer = discoverer;
         _repository = repository;
         _messenger = messenger;
+        _thumbnailService = thumbnailService;
 
         _ = advertiser.EventsAsync().RunAsync(this);
         _ = discoverer.EventsAsync().RunAsync(this);
@@ -89,10 +93,7 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
     }
 
     Task IAdvertiserHandler.OnPayloadReceived(AdvertiserEvent.PayloadReceived ev)
-    {
-        ProcessPayload(ev.Connection.RemoteDevice, ev.Payload);
-        return Task.CompletedTask;
-    }
+        => ProcessPayloadAsync(ev.Connection.RemoteDevice, ev.Payload);
 
     Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
     {
@@ -108,10 +109,7 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
     }
 
     Task IDiscovererHandler.OnPayloadReceived(DiscovererEvent.PayloadReceived ev)
-    {
-        ProcessPayload(ev.Connection.RemoteDevice, ev.Payload);
-        return Task.CompletedTask;
-    }
+        => ProcessPayloadAsync(ev.Connection.RemoteDevice, ev.Payload);
 
     NearbyConnection? FindConnection(NearbyDevice device)
     {
@@ -119,7 +117,7 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
         return conn;
     }
 
-    void ProcessPayload(NearbyDevice device, NearbyPayload payload)
+    async Task ProcessPayloadAsync(NearbyDevice device, NearbyPayload payload)
     {
         ChatMessage message;
 
@@ -145,7 +143,12 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
             }
             else if (contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
             {
-                message.Attachments.Add(new VideoAttachment { FilePath = path });
+                var thumbnail = await _thumbnailService.GetVideoThumbnailAsync(path);
+                message.Attachments.Add(new VideoAttachment
+                {
+                    FilePath = path,
+                    Thumbnail = thumbnail
+                });
             }
         }
         else
