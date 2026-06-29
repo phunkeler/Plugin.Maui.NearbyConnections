@@ -430,3 +430,5 @@ docker/.env
 # SSH keys — never commit private keys
 *_key
 !*_key.pub
+# UI test evidence screenshots (generated at runtime)
+test/NearbyChat.UiTests/evidence/

@@ -52,3 +52,20 @@ jobs:
           name: nearbychat-apk
           path: samples/NearbyChat/bin/Debug/net10.0-android/*-Signed.apk
           if-no-files-found: error
+
+  dispatch:
+    name: Trigger android-lab UI tests
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'phunkeler'
+
+    steps:
+      - name: Fire repository_dispatch to android-lab
+        env:
+          GH_TOKEN: ${{ secrets.ANDROID_LAB_DISPATCH_TOKEN }}
+        run: |
+          gh api repos/phunkeler/android-lab/dispatches \
+            --method POST \
+            --field event_type=nearbychat-apk-ready \
+            --field "client_payload[run_id]=${{ github.run_id }}" \
+            --field "client_payload[repo]=phunkeler/Plugin.Maui.NearbyConnections"

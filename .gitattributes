@@ -1,3 +1,4 @@
 * text=auto
 
 *.md linguist-detectable=true
+test/NearbyChat.UiTests/Assets/*.mp4 binary
