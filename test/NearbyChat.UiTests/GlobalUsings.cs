@@ -5,4 +5,3 @@ global using OpenQA.Selenium.Appium;
 global using OpenQA.Selenium.Appium.Android;
 global using OpenQA.Selenium.Support.UI;
 global using Xunit;
-global using Xunit.v3;
