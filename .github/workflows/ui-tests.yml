@@ -58,11 +58,36 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.repository_owner == 'phunkeler'
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Pull GitHub App credentials from Key Vault
+        uses: Azure/get-keyvault-secrets@b5c723b9ac7870c022b8c35befe620b7009b336f # v1
+        with:
+          keyvault: android-lab
+          secrets: 'github-app-id, github-app-private-key'
+        id: kv
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ steps.kv.outputs.github-app-id }}
+          private-key: ${{ steps.kv.outputs.github-app-private-key }}
+          repositories: android-lab
+
       - name: Fire repository_dispatch to android-lab
         env:
-          GH_TOKEN: ${{ secrets.ANDROID_LAB_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           gh api repos/phunkeler/android-lab/dispatches \
             --method POST \
