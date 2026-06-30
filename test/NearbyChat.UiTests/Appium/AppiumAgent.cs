@@ -10,7 +10,8 @@ internal sealed class AppiumAgent : IDisposable
     public string Label { get; }
     public string DeviceSerial { get; }
 
-    public AppiumAgent(Uri serverUrl, string deviceSerial, string appPackage, string label)
+    public AppiumAgent(Uri serverUrl, string deviceSerial, string appPackage, string label,
+        string? adbHost = null, int adbPort = 5037)
     {
         Label = label;
         DeviceSerial = deviceSerial;
@@ -28,6 +29,11 @@ internal sealed class AppiumAgent : IDisposable
         // Devices in the lab have screen lock disabled. Skip the driver's unlock
         // check entirely — it's slower and can be flaky on physical devices.
         options.AddAdditionalCapability("appium:skipUnlock", true);
+        if (adbHost is not null)
+        {
+            options.AddAdditionalCapability("appium:adbHost", adbHost);
+            options.AddAdditionalCapability("appium:adbPort", adbPort);
+        }
 
         _driver = new AndroidDriver<IWebElement>(serverUrl, options, TimeSpan.FromSeconds(120));
     }

@@ -21,6 +21,11 @@ internal sealed class NearbyTestFixture : IDisposable
     public static NearbyTestFixture FromEnvironment()
     {
         var appPackage = GetEnv("APP_PACKAGE", DefaultAppPackage);
+        var adbHost = Environment.GetEnvironmentVariable("ANDROID_ADB_SERVER_HOST");
+        var adbPort = int.TryParse(Environment.GetEnvironmentVariable("ANDROID_ADB_SERVER_PORT"),
+            System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var p) ? p : 5037;
         var agents = new List<AppiumAgent>(s_deviceCount);
 
         for (var i = 1; i <= s_deviceCount; i++)
@@ -28,7 +33,7 @@ internal sealed class NearbyTestFixture : IDisposable
             var serverUrl = new Uri(RequiredEnv($"APPIUM_{i}_URL"));
             var serial = RequiredEnv($"DEVICE{i}_SERIAL");
             var role = i == 1 ? "advertiser" : $"discoverer{i - 1}";
-            agents.Add(new AppiumAgent(serverUrl, serial, appPackage, $"{role}:{serial}"));
+            agents.Add(new AppiumAgent(serverUrl, serial, appPackage, $"{role}:{serial}", adbHost, adbPort));
         }
 
         return new NearbyTestFixture(agents);
