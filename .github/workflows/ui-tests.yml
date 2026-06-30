@@ -94,4 +94,4 @@ jobs:
             --field event_type=nearbychat-apk-ready \
             --field "client_payload[run_id]=${{ github.run_id }}" \
             --field "client_payload[repo]=phunkeler/Plugin.Maui.NearbyConnections" \
-            --field "client_payload[ref]=${{ github.ref_name }}"
+            --field "client_payload[ref]=${{ github.head_ref || github.ref_name }}"
