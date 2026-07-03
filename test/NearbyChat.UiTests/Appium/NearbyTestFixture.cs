@@ -18,6 +18,12 @@ internal sealed class NearbyTestFixture : IDisposable
         Discoverers = agents.Skip(1).ToList();
     }
 
+    // Base ports for UiAutomator2's system/MJPEG servers. All devices in the
+    // lab share one adb server, so concurrent sessions must use distinct
+    // ports per device or their "adb forward" calls collide.
+    private const int BaseSystemPort = 8200;
+    private const int BaseMjpegServerPort = 7810;
+
     public static NearbyTestFixture FromEnvironment()
     {
         var appPackage = GetEnv("APP_PACKAGE", DefaultAppPackage);
@@ -33,7 +39,8 @@ internal sealed class NearbyTestFixture : IDisposable
             var serverUrl = new Uri(RequiredEnv($"APPIUM_{i}_URL"));
             var serial = RequiredEnv($"DEVICE{i}_SERIAL");
             var role = i == 1 ? "advertiser" : $"discoverer{i - 1}";
-            agents.Add(new AppiumAgent(serverUrl, serial, appPackage, $"{role}:{serial}", adbHost, adbPort));
+            agents.Add(new AppiumAgent(serverUrl, serial, appPackage, $"{role}:{serial}", adbHost, adbPort,
+                BaseSystemPort + i, BaseMjpegServerPort + i));
         }
 
         return new NearbyTestFixture(agents);

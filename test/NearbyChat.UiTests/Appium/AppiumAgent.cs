@@ -11,7 +11,7 @@ internal sealed class AppiumAgent : IDisposable
     public string DeviceSerial { get; }
 
     public AppiumAgent(Uri serverUrl, string deviceSerial, string appPackage, string label,
-        string? adbHost = null, int adbPort = 5037)
+        string? adbHost = null, int adbPort = 5037, int? systemPort = null, int? mjpegServerPort = null)
     {
         Label = label;
         DeviceSerial = deviceSerial;
@@ -33,6 +33,20 @@ internal sealed class AppiumAgent : IDisposable
         {
             options.AddAdditionalCapability("appium:adbHost", adbHost);
             options.AddAdditionalCapability("appium:adbPort", adbPort);
+        }
+        // The lab runs one adb server shared by all Appium containers/devices.
+        // UiAutomator2's default system/MJPEG ports collide across concurrent
+        // sessions on a shared adb server — each session's "adb forward" for
+        // 8200/7810 races the others, leaving some devices' on-device servers
+        // (bound fine, e.g. port 6790) unreachable at the expected local port.
+        // Assigning unique ports per device avoids the collision.
+        if (systemPort is not null)
+        {
+            options.AddAdditionalCapability("appium:systemPort", systemPort.Value);
+        }
+        if (mjpegServerPort is not null)
+        {
+            options.AddAdditionalCapability("appium:mjpegServerPort", mjpegServerPort.Value);
         }
 
         _driver = new AndroidDriver<IWebElement>(serverUrl, options, TimeSpan.FromSeconds(120));
