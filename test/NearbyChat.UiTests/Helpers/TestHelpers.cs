@@ -48,6 +48,18 @@ internal static class TestHelpers
     // guaranteed to be the invocation directory (dotnet test's CWD) — anchor
     // to the test assembly's own runtime directory instead, which is stable
     // regardless of how/where `dotnet test` was invoked from.
+    //
+    // AppiumAgent.Label embeds the device serial as "role:serial" (e.g.
+    // "advertiser:R5CX..."). ':' is a valid filename character on the Linux
+    // CI runner's filesystem (Path.GetInvalidFileNameChars() only rejects
+    // NUL and '/' on Unix), but actions/upload-artifact rejects it anyway —
+    // it enforces its own reserved-character list for cross-filesystem
+    // portability, so sanitize against that list rather than the OS's.
+    private static readonly char[] s_artifactReservedChars = ['"', ':', '<', '>', '|', '*', '?', '\r', '\n'];
+
     internal static string EvidencePath(string tag, string label) =>
-        Path.Combine(AppContext.BaseDirectory, "evidence", $"{tag}-{label}.png");
+        Path.Combine(AppContext.BaseDirectory, "evidence", $"{tag}-{SanitizeForFileName(label)}.png");
+
+    private static string SanitizeForFileName(string value) =>
+        string.Concat(value.Select(c => s_artifactReservedChars.Contains(c) ? '-' : c));
 }
