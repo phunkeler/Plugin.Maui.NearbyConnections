@@ -44,6 +44,10 @@ internal static class TestHelpers
             });
     }
 
+    // VSTest runs tests in a testhost process whose working directory is not
+    // guaranteed to be the invocation directory (dotnet test's CWD) — anchor
+    // to the test assembly's own runtime directory instead, which is stable
+    // regardless of how/where `dotnet test` was invoked from.
     internal static string EvidencePath(string tag, string label) =>
-        Path.Combine("evidence", $"{tag}-{label}.png");
+        Path.Combine(AppContext.BaseDirectory, "evidence", $"{tag}-{label}.png");
 }
