@@ -23,7 +23,10 @@ internal sealed class AppiumAgent : IDisposable
         options.AddAdditionalCapability("appium:automationName", "UIAutomator2");
         options.AddAdditionalCapability("appium:udid", deviceSerial);
         options.AddAdditionalCapability("appium:appPackage", appPackage);
-        options.AddAdditionalCapability("appium:appActivity", $"{appPackage}.MainActivity");
+        // .NET for Android mangles the launcher Activity's Java class name (e.g.
+        // "crc6424d577a2eb62e007.MainActivity") — it is not derivable from the
+        // ApplicationId/appPackage. Omit appActivity so UiAutomator2 resolves the
+        // launcher activity itself via the package manager.
         options.AddAdditionalCapability("appium:noReset", true);
         options.AddAdditionalCapability("appium:newCommandTimeout", 120);
         // Devices in the lab have screen lock disabled. Skip the driver's unlock

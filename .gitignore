@@ -432,3 +432,6 @@ docker/.env
 !*_key.pub
 # UI test evidence screenshots (generated at runtime)
 test/NearbyChat.UiTests/evidence/
+
+# Personal task (gpg-unlock on folder open) — not shared team config
+.vscode/tasks.json
