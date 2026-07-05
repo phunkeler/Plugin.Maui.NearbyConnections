@@ -6,28 +6,54 @@ internal static class TestHelpers
         AppiumAgent advertiser,
         IReadOnlyList<AppiumAgent> discoverers)
     {
-        advertiser.Tap("Advertise");
-        advertiser.Tap("ToggleAdvertising");
-        advertiser.WaitForText("AdvertisingStatus", "True", TimeSpan.FromSeconds(15));
-
-        Parallel.ForEach(discoverers, d =>
+        try
         {
-            d.Tap("Discover");
-            d.Tap("ToggleDiscovery");
-            d.WaitForText("DiscoveryStatus", "True", TimeSpan.FromSeconds(15));
-        });
+            advertiser.Tap("Advertise");
+            advertiser.Tap("ToggleAdvertising");
+            advertiser.WaitForText("AdvertisingStatus", "True", TimeSpan.FromSeconds(15));
 
-        // Connect in parallel; accept serially (one Accept dialog at a time).
-        Parallel.ForEach(discoverers, discoverer =>
-        {
-            var connectIds = discoverer.WaitForElementsByPrefix("Connect_", TimeSpan.FromSeconds(30));
-            discoverer.Tap(connectIds[0]);
-        });
+            Parallel.ForEach(discoverers, d =>
+            {
+                d.Tap("Discover");
+                d.Tap("ToggleDiscovery");
+                d.WaitForText("DiscoveryStatus", "True", TimeSpan.FromSeconds(15));
+            });
 
-        foreach (var _ in discoverers)
+            // Connect in parallel; accept serially (one Accept dialog at a time).
+            Parallel.ForEach(discoverers, discoverer =>
+            {
+                var connectIds = discoverer.WaitForElementsByPrefix("Connect_", TimeSpan.FromSeconds(30));
+                discoverer.Tap(connectIds[0]);
+            });
+
+            foreach (var _ in discoverers)
+            {
+                var acceptIds = advertiser.WaitForElementsByPrefix("Accept_", TimeSpan.FromSeconds(15));
+                advertiser.Tap(acceptIds[0]);
+            }
+        }
+        catch
         {
-            var acceptIds = advertiser.WaitForElementsByPrefix("Accept_", TimeSpan.FromSeconds(15));
-            advertiser.Tap(acceptIds[0]);
+            DumpFailureEvidence("establish-connection-FAILURE", advertiser);
+            foreach (var discoverer in discoverers)
+            {
+                DumpFailureEvidence("establish-connection-FAILURE", discoverer);
+            }
+            throw;
+        }
+    }
+
+    private static void DumpFailureEvidence(string tag, AppiumAgent agent)
+    {
+        try
+        {
+            agent.Screenshot(EvidencePath(tag, agent.Label));
+            agent.DumpPageSource(EvidencePath(tag, agent.Label) + ".xml");
+        }
+        catch
+        {
+            // Best-effort diagnostics — a failure capturing evidence must not
+            // mask or replace the original test failure.
         }
     }
 
