@@ -28,6 +28,13 @@ internal sealed class AppiumAgent : IDisposable
         // ApplicationId/appPackage. Omit appActivity so UiAutomator2 resolves the
         // launcher activity itself via the package manager.
         options.AddAdditionalCapability("appium:noReset", true);
+        // MainActivity requests runtime permissions on every cold start (see
+        // MainActivity.OnCreate), which throws up a system dialog that blocks
+        // the app's own UI. Granting permissions after the session/app launch
+        // (e.g. via `mobile: changePermissions`) is too late — the dialog has
+        // already appeared. autoGrantPermissions grants them during session
+        // creation, before the app's first activity starts.
+        options.AddAdditionalCapability("appium:autoGrantPermissions", true);
         options.AddAdditionalCapability("appium:newCommandTimeout", 120);
         // Devices in the lab have screen lock disabled. Skip the driver's unlock
         // check entirely — it's slower and can be flaky on physical devices.
