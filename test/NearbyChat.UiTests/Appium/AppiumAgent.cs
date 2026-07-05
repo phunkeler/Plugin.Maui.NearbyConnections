@@ -188,6 +188,13 @@ internal sealed class AppiumAgent : IDisposable
         File.WriteAllBytes(path, _driver.GetScreenshot().AsByteArray);
     }
 
+    public void DumpPageSource(string path)
+    {
+        var dir = Path.GetDirectoryName(path) ?? "evidence";
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(path, _driver.PageSource);
+    }
+
     private WebDriverWait NewWait(TimeSpan timeout) =>
         new(_driver, timeout) { PollingInterval = TimeSpan.FromMilliseconds(500) };
 
