@@ -1,6 +1,13 @@
 using Xunit.v3;
 
 [assembly: AssemblyFixture(typeof(NearbyChat.UiTests.Tests.AssemblySetup))]
+// All test classes share the same 3 physical Android devices via
+// AssemblySetup.Fixture. xUnit v3's default parallelizes test classes
+// against each other, which drives the same devices' UI concurrently from
+// multiple tests and produces StaleElementReferenceException /
+// androidx.test.uiautomator.StaleObjectException. These tests must run
+// strictly sequentially since they contend for shared hardware state.
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace NearbyChat.UiTests.Tests;
 
