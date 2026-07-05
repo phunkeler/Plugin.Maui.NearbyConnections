@@ -28,6 +28,17 @@ internal sealed class AppiumAgent : IDisposable
         // ApplicationId/appPackage. Omit appActivity so UiAutomator2 resolves the
         // launcher activity itself via the package manager.
         options.AddAdditionalCapability("appium:noReset", true);
+        // The android-lab Appium containers are long-lived (restart:
+        // unless-stopped) and the CI workflow installs the APK out-of-band
+        // via `adb install -r` before the session starts. The on-device
+        // UiAutomator2 instrumentation server persists across CI runs and
+        // can resolve the launcher activity against a stale view of the
+        // previous build (a different crc64-mangled MainActivity name),
+        // even though `dumpsys`/`pm resolve-activity` already see the new
+        // APK correctly. Forcing Appium to (re)install the APK itself
+        // through its own driver-managed path makes it refresh that state
+        // instead of trusting the out-of-band install.
+        options.AddAdditionalCapability("appium:enforceAppInstall", true);
         // MainActivity requests runtime permissions on every cold start (see
         // MainActivity.OnCreate), which throws up a system dialog that blocks
         // the app's own UI. Granting permissions after the session/app launch
