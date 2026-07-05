@@ -27,6 +27,14 @@ internal sealed class NearbyTestFixture : IDisposable
     public static NearbyTestFixture FromEnvironment()
     {
         var appPackage = GetEnv("APP_PACKAGE", DefaultAppPackage);
+        // .NET for Android mangles the launcher Activity's Java class name
+        // (e.g. "crc6424d577a2eb62e007.MainActivity") in a way that isn't
+        // derivable from source and can change between builds. The CI
+        // workflow resolves the real value per run via
+        // `adb shell cmd package resolve-activity` and exports it here —
+        // see the "Resolve launcher activity for Appium" step in
+        // android-lab's nearbychat-ui-tests.yml.
+        var appActivity = RequiredEnv("APP_ACTIVITY");
         var adbHost = Environment.GetEnvironmentVariable("ANDROID_ADB_SERVER_HOST");
         var adbPort = int.TryParse(Environment.GetEnvironmentVariable("ANDROID_ADB_SERVER_PORT"),
             System.Globalization.NumberStyles.Integer,
@@ -39,8 +47,8 @@ internal sealed class NearbyTestFixture : IDisposable
             var serverUrl = new Uri(RequiredEnv($"APPIUM_{i}_URL"));
             var serial = RequiredEnv($"DEVICE{i}_SERIAL");
             var role = i == 1 ? "advertiser" : $"discoverer{i - 1}";
-            agents.Add(new AppiumAgent(serverUrl, serial, appPackage, $"{role}:{serial}", adbHost, adbPort,
-                BaseSystemPort + i, BaseMjpegServerPort + i));
+            agents.Add(new AppiumAgent(serverUrl, serial, appPackage, appActivity, $"{role}:{serial}", adbHost,
+                adbPort, BaseSystemPort + i, BaseMjpegServerPort + i));
         }
 
         return new NearbyTestFixture(agents);
