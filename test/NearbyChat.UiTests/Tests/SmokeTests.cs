@@ -10,6 +10,7 @@ public class SmokeTests
             ?? throw new InvalidOperationException("Fixture is null after skip guard.");
 
         var agent = fixture.Advertiser;
+        fixture.ResetAllToMainPage();
         try
         {
             agent.WaitForElement("Advertise", TimeSpan.FromSeconds(15));

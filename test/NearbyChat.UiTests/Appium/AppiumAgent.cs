@@ -220,6 +220,21 @@ internal sealed class AppiumAgent : IDisposable
             return;
         }
 
+        // Wait for ConnectionsPage to actually finish navigating/rendering
+        // before searching for Disconnect_ buttons — without this, an empty
+        // FindElements result is indistinguishable from "no connections" and
+        // "page hasn't loaded yet", and returning early in the latter case
+        // leaves the caller's follow-up ReturnToMainPage() racing the
+        // in-flight navigation.
+        try
+        {
+            WaitForElement("BackButton", TimeSpan.FromSeconds(5));
+        }
+        catch (WebDriverTimeoutException)
+        {
+            return;
+        }
+
         for (var i = 0; i < 10; i++)
         {
             var disconnectButtons = _driver.FindElements(
