@@ -3,9 +3,11 @@ name: UI Tests
 on:
   push:
     branches: [main, "0.3.0-preview.1"]
-  pull_request:
-    branches: [main, "0.3.0-preview.1"]
   workflow_dispatch:
+
+concurrency:
+  group: ui-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
 
