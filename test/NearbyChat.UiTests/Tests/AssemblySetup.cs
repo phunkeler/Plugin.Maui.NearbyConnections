@@ -17,9 +17,6 @@ public sealed class AssemblySetup : IAsyncLifetime
 
         Fixture = NearbyTestFixture.FromEnvironment();
 
-        var appPackage = NearbyTestFixture.GetEnv("APP_PACKAGE", "com.phunkeler.nearbychat");
-        Parallel.ForEach(Fixture.All, agent => agent.GrantAllPermissions(appPackage));
-
         return ValueTask.CompletedTask;
     }
 

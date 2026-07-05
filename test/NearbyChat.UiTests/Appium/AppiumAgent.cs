@@ -35,11 +35,14 @@ internal sealed class AppiumAgent : IDisposable
         options.AddAdditionalCapability("appium:noReset", true);
         // MainActivity requests runtime permissions on every cold start (see
         // MainActivity.OnCreate), which throws up a system dialog that blocks
-        // the app's own UI. Granting permissions after the session/app launch
-        // (e.g. via `mobile: changePermissions`) is too late — the dialog has
-        // already appeared. autoGrantPermissions grants them during session
-        // creation, before the app's first activity starts.
-        options.AddAdditionalCapability("appium:autoGrantPermissions", true);
+        // the app's own UI. appium:autoGrantPermissions does NOT help here:
+        // the APK is installed out-of-band via raw `adb install` (no `app`
+        // capability is ever given to Appium), and UIAutomator2 only grants
+        // permissions as part of its own install path, which is skipped
+        // entirely when no `app` capability is present. Permissions must
+        // instead be granted via `adb shell pm grant` before this driver is
+        // constructed — see the "Grant runtime permissions before first
+        // launch" step in android-lab's nearbychat-ui-tests.yml.
         options.AddAdditionalCapability("appium:newCommandTimeout", 120);
         // Devices in the lab have screen lock disabled. Skip the driver's unlock
         // check entirely — it's slower and can be flaky on physical devices.
@@ -152,18 +155,6 @@ internal sealed class AppiumAgent : IDisposable
         AdbShell($"am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE " +
                  $"-d file://{deviceDestination}");
     }
-
-    /// <summary>
-    /// Grants all permissions declared by the app package.
-    /// Called once in AssemblySetup rather than as a CI adb step.
-    /// </summary>
-    public void GrantAllPermissions(string appPackage)
-        => _driver.ExecuteScript("mobile: changePermissions", new Dictionary<string, object>
-        {
-            ["permissions"] = "all",
-            ["appPackage"] = appPackage,
-            ["action"] = "grant",
-        });
 
     public string AdbShell(string command)
     {
