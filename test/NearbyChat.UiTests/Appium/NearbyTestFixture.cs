@@ -55,7 +55,12 @@ internal sealed class NearbyTestFixture : IDisposable
     }
 
     public void ResetAllToMainPage()
-        => Parallel.ForEach(All, a => a.ReturnToMainPage());
+        => Parallel.ForEach(All, a =>
+        {
+            a.ReturnToMainPage();
+            a.DisconnectAllConnections();
+            a.ReturnToMainPage();
+        });
 
     public void Dispose()
     {

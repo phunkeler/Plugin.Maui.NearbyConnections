@@ -200,6 +200,47 @@ internal sealed class AppiumAgent : IDisposable
         }
     }
 
+    /// <summary>
+    /// Disconnects every connected peer via the Connections page. Tests don't
+    /// tear down connections they establish, and ReturnToMainPage only
+    /// navigates back — it doesn't disconnect — so a connection from one test
+    /// can still be active when the next test starts, breaking its own
+    /// EstablishConnection flow (e.g. advertising/discovery toggles behave
+    /// differently against an already-connected peer). Call this before
+    /// ReturnToMainPage as part of resetting state between tests.
+    /// </summary>
+    public void DisconnectAllConnections()
+    {
+        try
+        {
+            _driver.FindElement(MobileBy.Id(ResourceId("Connections"))).Click();
+        }
+        catch (NoSuchElementException)
+        {
+            return;
+        }
+
+        for (var i = 0; i < 10; i++)
+        {
+            var disconnectButtons = _driver.FindElements(
+                MobileBy.AndroidUIAutomator(ResourceIdPrefixSelector("Disconnect_")));
+            if (disconnectButtons.Count == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                disconnectButtons[0].Click();
+                Thread.Sleep(TimeSpan.FromSeconds(1));
+            }
+            catch (StaleElementReferenceException)
+            {
+                // The list re-rendered between FindElements and Click; retry.
+            }
+        }
+    }
+
     public void Screenshot(string path)
     {
         var dir = Path.GetDirectoryName(path) ?? "evidence";
