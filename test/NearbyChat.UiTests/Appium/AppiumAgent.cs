@@ -5,6 +5,7 @@ namespace NearbyChat.UiTests.Appium;
 internal sealed class AppiumAgent : IDisposable
 {
     private readonly AndroidDriver<IWebElement> _driver;
+    private readonly string _appPackage;
     private bool _disposed;
 
     public string Label { get; }
@@ -15,6 +16,7 @@ internal sealed class AppiumAgent : IDisposable
     {
         Label = label;
         DeviceSerial = deviceSerial;
+        _appPackage = appPackage;
 
         var options = new AppiumOptions
         {
@@ -70,8 +72,19 @@ internal sealed class AppiumAgent : IDisposable
         _driver = new AndroidDriver<IWebElement>(serverUrl, options, TimeSpan.FromSeconds(120));
     }
 
+    // MAUI (as of Controls 10.0.41) does not map AutomationId to Android's
+    // ContentDescription when a non-empty AutomationId is set — instead it
+    // sets AccessibilityNodeInfo.ViewIdResourceName ("<package>:id/<id>") and
+    // clears ContentDescription if it equalled AutomationId (see
+    // dotnet/maui's SemanticExtensions.cs). UIAutomator2's "accessibility id"
+    // strategy (MobileBy.AccessibilityId) searches content-desc only, so it
+    // can never find these elements. MobileBy.Id targets ViewIdResourceName
+    // instead, which is what MAUI actually populates — use that everywhere
+    // an AutomationId-based lookup is needed.
+    private string ResourceId(string automationId) => $"{_appPackage}:id/{automationId}";
+
     public void Tap(string accessibilityId)
-        => _driver.FindElement(MobileBy.AccessibilityId(accessibilityId)).Click();
+        => _driver.FindElement(MobileBy.Id(ResourceId(accessibilityId))).Click();
 
     public void TapByText(string text)
         => _driver
@@ -80,7 +93,7 @@ internal sealed class AppiumAgent : IDisposable
 
     public void Fill(string accessibilityId, string text)
     {
-        var el = _driver.FindElement(MobileBy.AccessibilityId(accessibilityId));
+        var el = _driver.FindElement(MobileBy.Id(ResourceId(accessibilityId)));
         el.Clear();
         el.SendKeys(text);
     }
@@ -88,14 +101,14 @@ internal sealed class AppiumAgent : IDisposable
     public void WaitForElement(string accessibilityId, TimeSpan timeout)
         => NewWait(timeout).Until(d =>
         {
-            try { return d.FindElement(MobileBy.AccessibilityId(accessibilityId)) is not null; }
+            try { return d.FindElement(MobileBy.Id(ResourceId(accessibilityId))) is not null; }
             catch (NoSuchElementException) { return false; }
         });
 
     public void WaitForText(string accessibilityId, string expectedText, TimeSpan timeout)
         => NewWait(timeout).Until(d =>
         {
-            try { return d.FindElement(MobileBy.AccessibilityId(accessibilityId)).Text == expectedText; }
+            try { return d.FindElement(MobileBy.Id(ResourceId(accessibilityId))).Text == expectedText; }
             catch (NoSuchElementException) { return false; }
         });
 
@@ -108,26 +121,32 @@ internal sealed class AppiumAgent : IDisposable
             d.FindElements(
                 MobileBy.AndroidUIAutomator($"new UiSelector().textContains(\"{containsText}\")")).Count > 0);
 
+    // resourceIdMatches uses whole-string regex matching (unlike
+    // descriptionStartsWith/textStartsWith, there is no *StartsWith
+    // equivalent for resource-id) — anchor with a trailing ".*" to emulate
+    // a prefix match against the package-qualified resource-id.
+    private string ResourceIdPrefixSelector(string prefix) =>
+        $"new UiSelector().resourceIdMatches(\"{System.Text.RegularExpressions.Regex.Escape(ResourceId(prefix))}.*\")";
+
     public IReadOnlyList<string> WaitForElementsByPrefix(string prefix, TimeSpan timeout)
     {
         ReadOnlyCollection<IWebElement> found = [];
         NewWait(timeout).Until(d =>
         {
-            found = d.FindElements(
-                MobileBy.AndroidUIAutomator($"new UiSelector().descriptionStartsWith(\"{prefix}\")"));
+            found = d.FindElements(MobileBy.AndroidUIAutomator(ResourceIdPrefixSelector(prefix)));
             return found.Count > 0;
         });
+        var resourceIdPrefix = ResourceId(string.Empty);
         return found
-            .Select(e => e.GetAttribute("content-desc") ?? string.Empty)
-            .Where(id => !string.IsNullOrEmpty(id))
+            .Select(e => e.GetAttribute("resource-id") ?? string.Empty)
+            .Where(id => id.StartsWith(resourceIdPrefix, StringComparison.Ordinal))
+            .Select(id => id[resourceIdPrefix.Length..])
             .ToList();
     }
 
     public void WaitForNoElementsByPrefix(string prefix, TimeSpan timeout)
         => NewWait(timeout).Until(d =>
-            d.FindElements(
-                MobileBy.AndroidUIAutomator($"new UiSelector().descriptionStartsWith(\"{prefix}\")"))
-             .Count == 0);
+            d.FindElements(MobileBy.AndroidUIAutomator(ResourceIdPrefixSelector(prefix))).Count == 0);
 
     /// <summary>
     /// Scrolls the first scrollable container until an element with the given text
@@ -171,7 +190,7 @@ internal sealed class AppiumAgent : IDisposable
         {
             try
             {
-                _driver.FindElement(MobileBy.AccessibilityId("BackButton")).Click();
+                _driver.FindElement(MobileBy.Id(ResourceId("BackButton"))).Click();
                 Thread.Sleep(TimeSpan.FromSeconds(1));
             }
             catch (NoSuchElementException)
