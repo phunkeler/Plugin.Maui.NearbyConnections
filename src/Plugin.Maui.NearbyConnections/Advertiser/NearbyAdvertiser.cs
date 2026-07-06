@@ -200,7 +200,23 @@ public sealed partial class NearbyAdvertiser : INearbyAdvertiser
         }
         catch (OperationCanceledException)
         {
-            lock (_stateLock) { _activeSnapshot.Remove(conn); }
+            // serviceToken is cancelled by StopAsync(), not by the connection
+            // itself dropping - but from a subscriber's perspective (e.g.
+            // ConnectionsPageViewModel.ConnectedDevices, built by replaying
+            // EventsAsync's snapshot + live events) this connection is gone
+            // either way. Removing it from _activeSnapshot without publishing
+            // ConnectionDropped meant a subscriber that already added this
+            // connection before the stop never learned it should remove it -
+            // it would silently stay in a UI collection forever, even though
+            // it no longer appears in any future EventsAsync snapshot replay.
+            // Confirmed via observed "5+ connections" accumulating in the
+            // Connections page across repeated advertise/stop cycles.
+            LogConnectionDropped(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName);
+            lock (_stateLock)
+            {
+                _activeSnapshot.Remove(conn);
+                _broadcaster.Publish(new AdvertiserEvent.ConnectionDropped(conn));
+            }
         }
     }
 
