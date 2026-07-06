@@ -21,9 +21,16 @@
                     BorderColor="{AppThemeBinding Light=Black, Dark=White}"
                     CornerRadius="12"
                     FontSize="{StaticResource FontSizeMD}"/>
+            <!-- Test-only hook for UI automation. Opacity="0" (fully zero
+                 alpha) is pruned from Android's accessibility tree by the
+                 OS itself — independent of MAUI's own accessibility mapping
+                 — so UIAutomator2 can never find it via any locator, no
+                 matter what AutomationId is set to. A small nonzero
+                 opacity keeps it out of the accessibility-pruning path
+                 while remaining visually imperceptible. -->
             <Label AutomationId="DiscoveryStatus"
                    Text="{Binding IsDiscovering}"
-                   Opacity="0" />
+                   Opacity="0.01" />
             <ConnectedDevicesChip
                 Count="{Binding ConnectedDevicesCount}"
                 Command="{Binding NavigateToConnectionsCommand}"
