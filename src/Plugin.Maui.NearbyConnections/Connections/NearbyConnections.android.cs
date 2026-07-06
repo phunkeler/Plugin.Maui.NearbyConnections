@@ -380,16 +380,39 @@ sealed partial class NearbyConnectionsImplementation
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        return NearbyClass
-            .GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
-            .RequestConnectionAsync(
-                Options.DisplayName,
-                device.Id,
-                new AdvertiseCallback(
-                    OnConnectionInitiatedAsync,
-                    OnConnectionResult,
-                    OnDisconnected,
-                    LogOnConnectionInitiatedError));
+        try
+        {
+            return NearbyClass
+                .GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
+                .RequestConnectionAsync(
+                    Options.DisplayName,
+                    device.Id,
+                    new AdvertiseCallback(
+                        OnConnectionInitiatedAsync,
+                        OnConnectionResult,
+                        OnDisconnected,
+                        LogOnConnectionInitiatedError));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // RequestConnectionAsync can fail synchronously (e.g. Google Play
+            // Services' ApiException STATUS_ALREADY_CONNECTED_TO_ENDPOINT when
+            // stale connection state persists on either side). Left unguarded,
+            // this exception propagated straight out of ConnectAsync's await
+            // and crashed the whole app when a caller's own catch clause only
+            // handled NearbyConnectionsException. Fault the already-registered
+            // TCS instead, consistent with how every other platform failure in
+            // this file is surfaced (see PlatformStartAdvertisingAsync,
+            // OnConnectionResult), so callers get a normal, typed, catchable
+            // failure instead of an unhandled platform exception.
+            FaultConnectionTcs(device.Id, new NearbyConnectionsException(
+                $"Failed to initiate connection to endpoint '{device.Id}'.", ex));
+            return Task.CompletedTask;
+        }
     }
 
     Task PlatformRespondToConnectionAsync(NearbyDevice device, bool accept)
