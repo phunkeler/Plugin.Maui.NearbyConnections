@@ -83,8 +83,30 @@ internal sealed class AppiumAgent : IDisposable
     // an AutomationId-based lookup is needed.
     private string ResourceId(string automationId) => $"{_appPackage}:id/{automationId}";
 
+    // A caller often just learned an element exists (e.g. via
+    // WaitForElement/WaitForElementsByPrefix) immediately before calling
+    // Tap, but a MAUI page transition or CollectionView re-template can
+    // still remove/replace it in the brief gap between that check and this
+    // FindElement — confirmed via failure evidence (mid-transition
+    // screenshots, and an Accept_ button vanishing between being found and
+    // being tapped). Retry briefly instead of failing on the first miss.
     public void Tap(string accessibilityId)
-        => _driver.FindElement(MobileBy.Id(ResourceId(accessibilityId))).Click();
+    {
+        var resourceId = ResourceId(accessibilityId);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (true)
+        {
+            try
+            {
+                _driver.FindElement(MobileBy.Id(resourceId)).Click();
+                return;
+            }
+            catch (NoSuchElementException) when (DateTime.UtcNow < deadline)
+            {
+                Thread.Sleep(TimeSpan.FromMilliseconds(300));
+            }
+        }
+    }
 
     public void TapByText(string text)
         => _driver

@@ -8,13 +8,23 @@ internal static class TestHelpers
     {
         try
         {
+            // Tap("Advertise") starts a Shell page-transition animation to
+            // AdvertisingPage. Without waiting for it to finish rendering,
+            // the very next Tap("ToggleAdvertising") can fire mid-transition
+            // and miss the button entirely (NoSuchElementException) —
+            // confirmed via a failure screenshot showing MainPage and
+            // AdvertisingPage both partially visible mid-slide. Wait for the
+            // destination page's own button to actually appear before
+            // acting on it.
             advertiser.Tap("Advertise");
+            advertiser.WaitForElement("ToggleAdvertising", TimeSpan.FromSeconds(5));
             advertiser.Tap("ToggleAdvertising");
             advertiser.WaitForText("AdvertisingStatus", "True", TimeSpan.FromSeconds(15));
 
             Parallel.ForEach(discoverers, d =>
             {
                 d.Tap("Discover");
+                d.WaitForElement("ToggleDiscovery", TimeSpan.FromSeconds(5));
                 d.Tap("ToggleDiscovery");
                 d.WaitForText("DiscoveryStatus", "True", TimeSpan.FromSeconds(15));
             });
@@ -66,6 +76,7 @@ internal static class TestHelpers
             agent =>
             {
                 agent.Tap("BackButton");
+                agent.WaitForElement("Connections", TimeSpan.FromSeconds(5));
                 agent.Tap("Connections");
             });
     }
