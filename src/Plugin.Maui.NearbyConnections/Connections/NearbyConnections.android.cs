@@ -409,15 +409,39 @@ sealed partial class NearbyConnectionsImplementation
         catch (Exception ex)
         {
             // RequestConnectionAsync can fail (e.g. Google Play Services'
-            // ApiException STATUS_ALREADY_CONNECTED_TO_ENDPOINT when stale
-            // connection state persists on either side). Left unguarded, this
-            // exception propagated out of ConnectAsync's await and crashed the
-            // whole app when a caller's own catch clause only handled
-            // NearbyConnectionsException. Fault the already-registered TCS
-            // instead, consistent with how every other platform failure in this
-            // file is surfaced (see PlatformStartAdvertisingAsync,
+            // ApiException STATUS_ALREADY_CONNECTED_TO_ENDPOINT). Left
+            // unguarded, this exception propagated out of ConnectAsync's await
+            // and crashed the whole app when a caller's own catch clause only
+            // handled NearbyConnectionsException. Fault the already-registered
+            // TCS instead, consistent with how every other platform failure in
+            // this file is surfaced (see PlatformStartAdvertisingAsync,
             // OnConnectionResult), so callers get a normal, typed, catchable
             // failure instead of an unhandled platform exception.
+            //
+            // STATUS_ALREADY_CONNECTED_TO_ENDPOINT specifically means Google
+            // Play Services' Nearby Connections client (a system-level
+            // process, not part of this app's object graph) still considers
+            // this endpoint connected from a PRIOR attempt that never called
+            // DisconnectFromEndpoint — e.g. this ConnectAsync call itself
+            // previously threw/was cancelled before a NearbyConnection object
+            // (whose disposal is normally what triggers
+            // PlatformDisconnectEndpointAsync) was ever created. That GMS-side
+            // state is independent of the app's own belief about whether
+            // it's connected, and persists until explicitly cleared — per
+            // Google's own reference implementations, the fix is to always
+            // call DisconnectFromEndpoint on a failed connection attempt too,
+            // not just on an explicit user-initiated disconnect, so a
+            // subsequent retry doesn't hit the same stuck state.
+            try
+            {
+                NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
+                    .DisconnectFromEndpoint(device.Id);
+            }
+            catch (Exception disconnectEx)
+            {
+                LogFailedToClearStaleConnectionState(device.Id, disconnectEx);
+            }
+
             FaultConnectionTcs(device.Id, new NearbyConnectionsException(
                 $"Failed to initiate connection to endpoint '{device.Id}'.", ex));
         }

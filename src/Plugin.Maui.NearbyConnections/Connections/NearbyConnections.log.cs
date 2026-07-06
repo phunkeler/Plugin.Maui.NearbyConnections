@@ -134,6 +134,9 @@ sealed partial class NearbyConnectionsImplementation
     [LoggerMessage(Level = LogLevel.Error, Message = "OnConnectionResult callback error: EndpointId={EndpointId}")]
     partial void LogOnConnectionResultError(string endpointId, Exception ex);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to clear stale connection state for endpoint: EndpointId={EndpointId}")]
+    partial void LogFailedToClearStaleConnectionState(string endpointId, Exception ex);
+
     [LoggerMessage(Level = LogLevel.Error, Message = "OnDisconnected callback error: EndpointId={EndpointId}")]
     partial void LogOnDisconnectedError(string endpointId, Exception ex);
 
