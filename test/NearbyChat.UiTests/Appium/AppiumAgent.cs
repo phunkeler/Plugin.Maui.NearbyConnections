@@ -201,6 +201,72 @@ internal sealed class AppiumAgent : IDisposable
     }
 
     /// <summary>
+    /// Stops advertising or discovery if either is currently active.
+    /// AdvertisingPageViewModel/DiscoveryPageViewModel only stop on an
+    /// explicit toggle tap — navigating away (NavigatedFrom) does NOT stop
+    /// them, so a session left running by a previous test carries into the
+    /// next one. When that happens, the next test's own ToggleAdvertising/
+    /// ToggleDiscovery tap flips an already-"on" session back OFF instead of
+    /// turning it on, since the toggle just inverts whatever
+    /// _advertiser.IsAdvertising/_discoverer.IsDiscovering already is. Call
+    /// this before DisconnectAllConnections as part of resetting state
+    /// between tests.
+    /// </summary>
+    public void StopAdvertisingAndDiscoveryIfActive()
+    {
+        StopIfActive("Advertise", "ToggleAdvertising", "AdvertisingStatus");
+        StopIfActive("Discover", "ToggleDiscovery", "DiscoveryStatus");
+    }
+
+    private void StopIfActive(string navigationCardId, string toggleId, string statusId)
+    {
+        try
+        {
+            _driver.FindElement(MobileBy.Id(ResourceId(navigationCardId))).Click();
+        }
+        catch (NoSuchElementException)
+        {
+            return;
+        }
+
+        try
+        {
+            WaitForElement("BackButton", TimeSpan.FromSeconds(5));
+        }
+        catch (WebDriverTimeoutException)
+        {
+            return;
+        }
+
+        IWebElement statusElement;
+        try
+        {
+            statusElement = _driver.FindElement(MobileBy.Id(ResourceId(statusId)));
+        }
+        catch (NoSuchElementException)
+        {
+            ReturnToMainPage();
+            return;
+        }
+
+        if (statusElement.Text == "True")
+        {
+            Tap(toggleId);
+            try
+            {
+                WaitForText(statusId, "False", TimeSpan.FromSeconds(15));
+            }
+            catch (WebDriverTimeoutException)
+            {
+                // Best-effort — fall through and still return to MainPage so
+                // the rest of the reset pipeline isn't blocked by this.
+            }
+        }
+
+        ReturnToMainPage();
+    }
+
+    /// <summary>
     /// Disconnects every connected peer via the Connections page. Tests don't
     /// tear down connections they establish, and ReturnToMainPage only
     /// navigates back — it doesn't disconnect — so a connection from one test

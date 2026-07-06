@@ -58,6 +58,7 @@ internal sealed class NearbyTestFixture : IDisposable
         => Parallel.ForEach(All, a =>
         {
             a.ReturnToMainPage();
+            a.StopAdvertisingAndDiscoveryIfActive();
             a.DisconnectAllConnections();
             a.ReturnToMainPage();
         });
