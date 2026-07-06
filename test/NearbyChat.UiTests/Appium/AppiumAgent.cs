@@ -201,6 +201,32 @@ internal sealed class AppiumAgent : IDisposable
     }
 
     /// <summary>
+    /// Dismisses the chat bottom sheet (Plugin.Maui.BottomSheet) if one is
+    /// currently open. A test that opens the chat sheet and never closes it
+    /// (e.g. BytesTransferTests) leaves it open on top of whatever page the
+    /// app is otherwise on; a normal BackButton tap in ReturnToMainPage
+    /// doesn't reach it, since the sheet's close button carries no
+    /// AutomationId and the sheet itself sits above the page's own Grid in
+    /// the view hierarchy. Android's system Back key is the standard way to
+    /// dismiss a modal bottom sheet, so use that directly (KEYCODE_BACK = 4)
+    /// instead of trying to locate the sheet's close button.
+    /// </summary>
+    public void CloseChatBottomSheetIfOpen()
+    {
+        try
+        {
+            _driver.FindElement(MobileBy.Id(ResourceId("ChatMessageEntry")));
+        }
+        catch (NoSuchElementException)
+        {
+            return;
+        }
+
+        _driver.PressKeyCode(4);
+        Thread.Sleep(TimeSpan.FromSeconds(1));
+    }
+
+    /// <summary>
     /// Stops advertising or discovery if either is currently active.
     /// AdvertisingPageViewModel/DiscoveryPageViewModel only stop on an
     /// explicit toggle tap — navigating away (NavigatedFrom) does NOT stop
