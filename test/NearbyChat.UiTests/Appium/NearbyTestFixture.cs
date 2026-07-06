@@ -57,6 +57,7 @@ internal sealed class NearbyTestFixture : IDisposable
     public void ResetAllToMainPage()
         => Parallel.ForEach(All, a =>
         {
+            a.ReturnToOurAppIfNot();
             a.CloseChatBottomSheetIfOpen();
             a.ReturnToMainPage();
             a.StopAdvertisingAndDiscoveryIfActive();

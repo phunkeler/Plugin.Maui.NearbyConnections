@@ -223,6 +223,27 @@ internal sealed class AppiumAgent : IDisposable
     }
 
     /// <summary>
+    /// Presses the Android system Back key until our own app is foregrounded
+    /// again. A test that fails partway through the photo/video attachment
+    /// flow (e.g. PhotoAttachmentTests, VideoAttachmentTests) can leave the
+    /// system media picker — a separate Android activity entirely outside
+    /// our app, with none of our AutomationIds — open on top of everything.
+    /// Confirmed via a failure screenshot showing the advertiser stuck
+    /// inside the native video picker from a previous test. Detect this
+    /// generically via the foreground package rather than assuming any
+    /// specific in-app element is present, since the picker (or any other
+    /// external activity) has none.
+    /// </summary>
+    public void ReturnToOurAppIfNot()
+    {
+        for (var i = 0; i < 5 && _driver.CurrentPackage != _appPackage; i++)
+        {
+            _driver.PressKeyCode(4);
+            Thread.Sleep(TimeSpan.FromSeconds(1));
+        }
+    }
+
+    /// <summary>
     /// Dismisses the chat bottom sheet (Plugin.Maui.BottomSheet) if one is
     /// currently open. A test that opens the chat sheet and never closes it
     /// (e.g. BytesTransferTests) leaves it open on top of whatever page the
