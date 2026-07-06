@@ -30,16 +30,41 @@ internal static class TestHelpers
             });
 
             // Connect in parallel; accept serially (one Accept dialog at a time).
-            Parallel.ForEach(discoverers, discoverer =>
+            //
+            // The underlying Nearby Connections handshake is a real
+            // WiFi-LAN/BLE encrypted channel negotiation between physical
+            // devices and can genuinely fail mid-handshake on real hardware —
+            // confirmed via logcat showing a "safe-to-disconnect" protocol
+            // EOFException tearing down the channel seconds after connect,
+            // with no app-level exception on either side (not a code bug,
+            // a real transient RF/channel failure). Retry the tap-connect/
+            // wait-for-accept cycle a few times before giving up, since a
+            // fresh attempt after a dropped handshake reliably succeeds.
+            const int maxHandshakeAttempts = 3;
+            for (var attempt = 1; attempt <= maxHandshakeAttempts; attempt++)
             {
-                var connectIds = discoverer.WaitForElementsByPrefix("Connect_", TimeSpan.FromSeconds(30));
-                discoverer.Tap(connectIds[0]);
-            });
+                try
+                {
+                    Parallel.ForEach(discoverers, discoverer =>
+                    {
+                        var connectIds = discoverer.WaitForElementsByPrefix("Connect_", TimeSpan.FromSeconds(30));
+                        discoverer.Tap(connectIds[0]);
+                    });
 
-            foreach (var _ in discoverers)
-            {
-                var acceptIds = advertiser.WaitForElementsByPrefix("Accept_", TimeSpan.FromSeconds(15));
-                advertiser.Tap(acceptIds[0]);
+                    foreach (var _ in discoverers)
+                    {
+                        var acceptIds = advertiser.WaitForElementsByPrefix("Accept_", TimeSpan.FromSeconds(15));
+                        advertiser.Tap(acceptIds[0]);
+                    }
+
+                    break;
+                }
+                catch when (attempt < maxHandshakeAttempts)
+                {
+                    // Let the dropped handshake fully settle before retrying —
+                    // the peer needs to re-advertise its Connect_ button.
+                    Thread.Sleep(TimeSpan.FromSeconds(2));
+                }
             }
         }
         catch
