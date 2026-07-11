@@ -2,6 +2,7 @@
 using CommunityToolkit.Maui;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.DevFlow.Agent;
 using NearbyChat.Controls;
 using NearbyChat.Data;
 using NearbyChat.Pages;
@@ -9,7 +10,6 @@ using NearbyChat.Services;
 using NearbyChat.ViewModels;
 using Plugin.Maui.BottomSheet.Hosting;
 using Plugin.Maui.NearbyConnections;
-using Microsoft.Maui.DevFlow.Agent;
 
 namespace NearbyChat;
 

@@ -17,7 +17,7 @@ public sealed class NearbyAdvertiserTests
     // ---------------------------------------------------------------------------
     // FakeNearbyConnections — backed by live channels that test methods write to.
     // ---------------------------------------------------------------------------
-    private sealed class FakeNearbyConnections : INearbyConnections
+    sealed class FakeNearbyConnections : INearbyConnections
     {
         readonly Channel<NearbyConnectionRequest> _advertiseChannel =
             Channel.CreateUnbounded<NearbyConnectionRequest>();

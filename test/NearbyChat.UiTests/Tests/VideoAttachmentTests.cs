@@ -2,8 +2,8 @@ namespace NearbyChat.UiTests.Tests;
 
 public class VideoAttachmentTests
 {
-    private const string VideoFilename = "nearbychat_test.mp4";
-    private const string DeviceVideoPath = "/sdcard/Movies/" + VideoFilename;
+    const string VideoFilename = "nearbychat_test.mp4";
+    const string DeviceVideoPath = "/sdcard/Movies/" + VideoFilename;
 
     [Fact]
     public void VideoAttachment_ReceivedOnPeer()

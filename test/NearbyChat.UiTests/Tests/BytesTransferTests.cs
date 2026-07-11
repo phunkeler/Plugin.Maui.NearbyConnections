@@ -2,7 +2,7 @@ namespace NearbyChat.UiTests.Tests;
 
 public class BytesTransferTests
 {
-    private const string TestMessage = "e2e-ping";
+    const string TestMessage = "e2e-ping";
 
     [Fact]
     public void SendTextMessage_AppearsOnReceiverSide()

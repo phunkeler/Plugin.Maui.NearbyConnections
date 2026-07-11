@@ -3,7 +3,7 @@ namespace NearbyChat.UiTests.Tests;
 public class PhotoAttachmentTests
 {
     // Minimal 1×1 white JPEG — generated inline, no committed binary needed.
-    private static readonly byte[] MinimalJpeg = Convert.FromBase64String(
+    static readonly byte[] MinimalJpeg = Convert.FromBase64String(
         "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8U" +
         "HRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgN" +
         "DRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIy" +
@@ -11,8 +11,8 @@ public class PhotoAttachmentTests
         "AAAAAAAAAAAAAP/EABQBAQAAAAAAAAAAAAAAAAAAAAD/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oA" +
         "DAMBAAIRAxEAPwCwABmX/9k=");
 
-    private const string PhotoFilename = "nearbychat_test.jpg";
-    private const string DevicePhotoPath = "/sdcard/Pictures/" + PhotoFilename;
+    const string PhotoFilename = "nearbychat_test.jpg";
+    const string DevicePhotoPath = "/sdcard/Pictures/" + PhotoFilename;
 
     [Fact]
     public void PhotoAttachment_ReceivedOnPeer()

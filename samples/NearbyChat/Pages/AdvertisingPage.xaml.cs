@@ -1,5 +1,5 @@
-using NearbyChat.ViewModels;
 using System.ComponentModel;
+using NearbyChat.ViewModels;
 
 namespace NearbyChat.Pages;
 

@@ -6,7 +6,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// Lock-free fan-out broadcaster for <see cref="System.Threading.Channels"/>.
 /// All methods must be called while the caller holds its own state lock.
 /// </summary>
-internal sealed class ChannelBroadcaster<T>
+sealed class ChannelBroadcaster<T>
 {
     readonly List<Channel<T>> _channels = [];
 

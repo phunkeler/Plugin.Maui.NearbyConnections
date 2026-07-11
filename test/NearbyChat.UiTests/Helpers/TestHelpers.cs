@@ -1,6 +1,6 @@
 namespace NearbyChat.UiTests.Helpers;
 
-internal static class TestHelpers
+static class TestHelpers
 {
     internal static void EstablishConnection(
         AppiumAgent advertiser,
@@ -78,7 +78,7 @@ internal static class TestHelpers
         }
     }
 
-    private static void DumpFailureEvidence(string tag, AppiumAgent agent)
+    static void DumpFailureEvidence(string tag, AppiumAgent agent)
     {
         try
         {
@@ -117,11 +117,11 @@ internal static class TestHelpers
     // NUL and '/' on Unix), but actions/upload-artifact rejects it anyway —
     // it enforces its own reserved-character list for cross-filesystem
     // portability, so sanitize against that list rather than the OS's.
-    private static readonly char[] s_artifactReservedChars = ['"', ':', '<', '>', '|', '*', '?', '\r', '\n'];
+    static readonly char[] s_artifactReservedChars = ['"', ':', '<', '>', '|', '*', '?', '\r', '\n'];
 
     internal static string EvidencePath(string tag, string label) =>
         Path.Combine(AppContext.BaseDirectory, "evidence", $"{tag}-{SanitizeForFileName(label)}.png");
 
-    private static string SanitizeForFileName(string value) =>
+    static string SanitizeForFileName(string value) =>
         string.Concat(value.Select(c => s_artifactReservedChars.Contains(c) ? '-' : c));
 }

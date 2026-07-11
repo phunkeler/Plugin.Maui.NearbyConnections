@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <see cref="IProgress{T}"/> and completing an awaitable task when the transfer
 /// reaches a terminal state.
 /// </summary>
-internal sealed class OutgoingTransfer(
+sealed class OutgoingTransfer(
     IProgress<NearbyTransferProgress>? progress,
     TimeSpan inactivityTimeout) : IDisposable
 {

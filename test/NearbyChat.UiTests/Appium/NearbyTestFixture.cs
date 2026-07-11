@@ -1,10 +1,10 @@
 namespace NearbyChat.UiTests.Appium;
 
-internal sealed class NearbyTestFixture : IDisposable
+sealed class NearbyTestFixture : IDisposable
 {
-    private const string DefaultAppPackage = "com.phunkeler.nearbychat";
+    const string DefaultAppPackage = "com.phunkeler.nearbychat";
 
-    private static readonly int s_deviceCount =
+    static readonly int s_deviceCount =
         int.Parse(Environment.GetEnvironmentVariable("DEVICE_COUNT") ?? "3",
             System.Globalization.CultureInfo.InvariantCulture);
 
@@ -12,7 +12,7 @@ internal sealed class NearbyTestFixture : IDisposable
     public IReadOnlyList<AppiumAgent> Discoverers { get; }
     public IReadOnlyList<AppiumAgent> All { get; }
 
-    private NearbyTestFixture(IReadOnlyList<AppiumAgent> agents)
+    NearbyTestFixture(IReadOnlyList<AppiumAgent> agents)
     {
         All = agents;
         Discoverers = agents.Skip(1).ToList();
@@ -21,8 +21,8 @@ internal sealed class NearbyTestFixture : IDisposable
     // Base ports for UiAutomator2's system/MJPEG servers. All devices in the
     // lab share one adb server, so concurrent sessions must use distinct
     // ports per device or their "adb forward" calls collide.
-    private const int BaseSystemPort = 8200;
-    private const int BaseMjpegServerPort = 7810;
+    const int BaseSystemPort = 8200;
+    const int BaseMjpegServerPort = 7810;
 
     public static NearbyTestFixture FromEnvironment()
     {

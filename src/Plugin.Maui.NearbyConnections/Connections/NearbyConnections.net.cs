@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-internal sealed partial class NearbyConnectionsImplementation
+sealed partial class NearbyConnectionsImplementation
 {
 #pragma warning disable CA1822, S2325, S1144, S1172
     const string PlatformNotSupportedMessage = "Nearby Connections is only supported on Android and iOS. The current platform is not supported.";

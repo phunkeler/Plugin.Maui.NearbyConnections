@@ -118,7 +118,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
         GC.SuppressFinalize(this);
     }
 
-    private async Task RunLoopAsync(CancellationToken ct)
+    async Task RunLoopAsync(CancellationToken ct)
     {
         Exception? fault = null;
         try
@@ -189,7 +189,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
         return conn;
     }
 
-    private async Task MonitorConnectionAsync(NearbyConnection conn, CancellationToken serviceToken)
+    async Task MonitorConnectionAsync(NearbyConnection conn, CancellationToken serviceToken)
     {
         try
         {
@@ -223,7 +223,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
         }
     }
 
-    private async Task ForwardPayloadsAsync(NearbyConnection conn, CancellationToken ct)
+    async Task ForwardPayloadsAsync(NearbyConnection conn, CancellationToken ct)
     {
         try
         {

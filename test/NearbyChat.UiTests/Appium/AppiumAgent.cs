@@ -2,11 +2,11 @@ using System.Collections.ObjectModel;
 
 namespace NearbyChat.UiTests.Appium;
 
-internal sealed class AppiumAgent : IDisposable
+sealed class AppiumAgent : IDisposable
 {
-    private readonly AndroidDriver<IWebElement> _driver;
-    private readonly string _appPackage;
-    private bool _disposed;
+    readonly AndroidDriver<IWebElement> _driver;
+    readonly string _appPackage;
+    bool _disposed;
 
     public string Label { get; }
     public string DeviceSerial { get; }
@@ -81,7 +81,7 @@ internal sealed class AppiumAgent : IDisposable
     // can never find these elements. MobileBy.Id targets ViewIdResourceName
     // instead, which is what MAUI actually populates — use that everywhere
     // an AutomationId-based lookup is needed.
-    private string ResourceId(string automationId) => $"{_appPackage}:id/{automationId}";
+    string ResourceId(string automationId) => $"{_appPackage}:id/{automationId}";
 
     // A caller often just learned an element exists (e.g. via
     // WaitForElement/WaitForElementsByPrefix) immediately before calling
@@ -147,7 +147,7 @@ internal sealed class AppiumAgent : IDisposable
     // descriptionStartsWith/textStartsWith, there is no *StartsWith
     // equivalent for resource-id) — anchor with a trailing ".*" to emulate
     // a prefix match against the package-qualified resource-id.
-    private string ResourceIdPrefixSelector(string prefix) =>
+    string ResourceIdPrefixSelector(string prefix) =>
         $"new UiSelector().resourceIdMatches(\"{System.Text.RegularExpressions.Regex.Escape(ResourceId(prefix))}.*\")";
 
     public IReadOnlyList<string> WaitForElementsByPrefix(string prefix, TimeSpan timeout)
@@ -287,7 +287,7 @@ internal sealed class AppiumAgent : IDisposable
         StopIfActive("Discover", "ToggleDiscovery", "DiscoveryStatus");
     }
 
-    private void StopIfActive(string navigationCardId, string toggleId, string statusId)
+    void StopIfActive(string navigationCardId, string toggleId, string statusId)
     {
         try
         {
@@ -405,7 +405,7 @@ internal sealed class AppiumAgent : IDisposable
         File.WriteAllText(path, _driver.PageSource);
     }
 
-    private WebDriverWait NewWait(TimeSpan timeout) =>
+    WebDriverWait NewWait(TimeSpan timeout) =>
         new(_driver, timeout) { PollingInterval = TimeSpan.FromMilliseconds(500) };
 
     public void Dispose()

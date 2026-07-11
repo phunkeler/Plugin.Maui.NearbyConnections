@@ -10,7 +10,7 @@ public sealed class NearbyDiscovererTests
     // ---------------------------------------------------------------------------
     // FakeNearbyConnections — discover channel + ConnectAsync TCS backed by tests.
     // ---------------------------------------------------------------------------
-    private sealed class FakeNearbyConnections : INearbyConnections
+    sealed class FakeNearbyConnections : INearbyConnections
     {
         readonly Channel<NearbyDeviceEvent> _discoverChannel =
             Channel.CreateUnbounded<NearbyDeviceEvent>();
@@ -45,7 +45,7 @@ public sealed class NearbyDiscovererTests
     // ---------------------------------------------------------------------------
     // MultiConnectFake — returns pre-built connections in sequence, one per call.
     // ---------------------------------------------------------------------------
-    private sealed class MultiConnectFake(params NearbyConnection[] connections) : INearbyConnections
+    sealed class MultiConnectFake(params NearbyConnection[] connections) : INearbyConnections
     {
         int _index;
 

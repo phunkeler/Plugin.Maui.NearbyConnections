@@ -5,7 +5,7 @@ enum ControlMessageType : byte
     Disconnect = 0x01,
 }
 
-internal static class ControlMessage
+static class ControlMessage
 {
     const uint SIGNATURE = 0x504D4E43; // = "PMNC" (Plugin.Maui.NearbyConnections)
     const int SIZE = sizeof(uint) + sizeof(byte);
