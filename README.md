@@ -37,8 +37,6 @@ The tier-1 API (`INearbyConnections`) exposes these two phases directly as `Adve
 dotnet add package Plugin.Maui.NearbyConnections
 ```
 
-</details>
-
 # Getting Started
 
 ## 1. Register the plugin
