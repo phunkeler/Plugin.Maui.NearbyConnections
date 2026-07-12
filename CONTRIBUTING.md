@@ -187,6 +187,20 @@ Versions are derived automatically from git tags at pack time via [MinVer](https
 dotnet run --project test/Plugin.Maui.NearbyConnections.UnitTests
 ```
 
+### UI tests
+
+`test/NearbyChat.UiTests` is an Appium-driven xUnit suite that exercises the `samples/NearbyChat` sample app end-to-end (advertise/discover, connect, send/receive, disconnect) across 3 physical Android devices.
+
+It can't be run standalone on a dev machine — it requires a live Appium server per device and expects these environment variables to already be set (normally supplied by CI):
+
+```
+DEVICE1_SERIAL, DEVICE2_SERIAL, DEVICE3_SERIAL   # adb device serials
+APPIUM_1_URL, APPIUM_2_URL, APPIUM_3_URL          # Appium server URLs, one per device
+APP_ACTIVITY                                      # resolved launcher activity (adb shell cmd package resolve-activity)
+APP_PACKAGE                                       # optional, defaults to com.phunkeler.nearbychat
+```
+
+If `DEVICE1_SERIAL` is unset, every test in the suite skips rather than failing. In CI, the `UI Tests` workflow (`.github/workflows/ui-tests.yml`) builds the sample APK and dispatches the run to a private `android-lab` device farm that provisions the devices, installs the APK, grants permissions, and resolves the launcher activity before invoking these tests.
 
 ## Building
 

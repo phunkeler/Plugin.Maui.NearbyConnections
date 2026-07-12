@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a .NET MAUI plugin that provides peer-to-peer (P2P) connectivity with nearby devices by unifying Google's Nearby Connections (Android) and Apple's Multipeer Connectivity (iOS) capabilities. The project is in early development phase following an MVP-first approach.
 
+## Knowledge Base (`/learnings`)
+
+This project has a real history of hard-won platform-specific bugs (GMS zombie connection state, MAUI accessibility-tree mapping changes, Android accessibility pruning, xUnit parallelization races, async/await task-fault traps). That knowledge lives in the shared `~/.claude/skills/learnings/LEARNINGS.md` knowledge base, tagged `**Project:** Plugin.Maui.NearbyConnections`.
+
+- **Before debugging any non-trivial Android/iOS/Appium/test-infrastructure issue**, search `LEARNINGS.md` for this project first — the root cause may already be documented as `[CONFIRMED]` or `[DRAFT]`. Don't re-derive a fix that's already recorded, and don't re-try a fix already marked `[INVALIDATED]` for this project.
+- **After solving any non-trivial bug**, add a `[DRAFT]` entry (or promote an existing draft to `[CONFIRMED]` if this is the second time it's been verified). If you don't record it, the next session re-investigates from zero.
+- `.building/` artifacts (RCAs, proposals) are gitignored and disappear once a debugging/planning cycle ends. Before closing out a `/debugging` cycle, check whether the RCA contains a reusable fact (SDK quirk, platform gotcha, non-obvious root cause) worth promoting into `LEARNINGS.md` — otherwise that knowledge is lost when `.building/` cycles.
+
 ## Tech Stack
 - .NET 10 / C# (modern style)
 - .NET MAUI (Minimal APIs)
