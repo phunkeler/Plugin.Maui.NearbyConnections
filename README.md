@@ -1,9 +1,9 @@
-# Plugin.Maui.NearbyConnections
+# Plugin.Maui.NearbyDevices
 
-A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices by unifying Google's [Nearby Connections](https://developers.google.com/nearby/connections/overview) and Apple's [Multipeer Connectivity](https://developer.apple.com/documentation/multipeerconnectivity) capabilities.
+A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices by unifying Google's [Nearby Connections](https://developers.google.com/nearby/connections/overview) and Apple's [Multipeer Connectivity](https://developer.apple.com/documentation/multipeerconnectivity).
 
-[![NuGet Version](https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections)](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
-[![GitHub License](https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections)](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/LICENSE)
+[![NuGet Version](https://img.shields.io/nuget/v/Plugin.Maui.NearbyDevices)](https://www.nuget.org/packages/Plugin.Maui.NearbyDevices)
+[![GitHub License](https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyDevices)](https://github.com/phunkeler/Plugin.Maui.NearbyDevices/blob/main/LICENSE)
 
 Peer-to-peer communication happens in two phases: **finding peers** (advertise/discover nearby devices) and **talking to them** (send/receive payloads over an established connection).
 
@@ -23,10 +23,10 @@ Peer-to-peer communication happens in two phases: **finding peers** (advertise/d
 | [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) | ✅ | |
 
 # Installation
-`Plugin.Maui.NearbyConnections` is available on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
+`Plugin.Maui.NearbyDevices` is available on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyDevices)
 
 ```bash
-dotnet add package Plugin.Maui.NearbyConnections
+dotnet add package Plugin.Maui.NearbyDevices
 ```
 
 # Getting Started
@@ -38,7 +38,7 @@ dotnet add package Plugin.Maui.NearbyConnections
 public static MauiApp CreateMauiApp()
     => MauiApp.CreateBuilder()
         .UseMauiApp<App>()
-        .AddNearbyConnections()
+        .AddNearbyDevices()
         .Build();
 ```
 
@@ -75,24 +75,24 @@ Add to `Info.plist`:
 <string>Used to discover and connect to nearby devices.</string>
 ```
 
-The service ID in `NSBonjourServices` must match `NearbyConnectionsOptions.ServiceId` (_**default**: app name_).
+The service ID in `NSBonjourServices` must match `NearbyDevicesOptions.ServiceId` (_**default**: app name_).
 
 ## 3. Advertise and discover
 
 One device advertises while the other discovers, or both do both simultaneously.
 
-**Phase 1 — Finding peers.** One device advertises its presence; another scans for advertisers. This is a continuous `IAsyncEnumerable` stream of "device appeared" / "device disappeared" events. Nothing is connected yet — you are learning who is nearby.
+**Phase 1 — Finding peers.** One device advertises its presence; another scans for advertisers. This is a continuous `IAsyncEnumerable` stream of "device appeared" / "device disappeared" events.
 
-**Phase 2 — Talking to them.** Once you pick a peer and connect (or accept their inbound request), a `NearbyConnection` is established. That object is itself an async stream of incoming payloads, and exposes `SendAsync` for the outbound direction.
+**Phase 2 — Talking to them.** Once you pick a peer and connect (or accept their inbound request), a `NearbyConnection` is established. That object is itself an async stream of incoming payloads.
 
-The tier-1 API (`INearbyConnections`) exposes these two phases directly as `AdvertiseAsync` / `DiscoverAsync` streams, as shown below. For MAUI app code, the tier-2 services (`INearbyAdvertiser` / `INearbyDiscoverer`) stitch both phases into a single `EventsAsync` stream per role — lifecycle events and payload delivery unified, with current state replayed atomically on subscribe.
+The tier-1 API (`INearbyDevices`) exposes these two phases directly as `AdvertiseAsync` / `DiscoverAsync` streams, as shown below. For MAUI app code, the tier-2 services (`INearbyAdvertiser` / `INearbyDiscoverer`) provide additional utilities.
 
 ### Advertiser side — accept inbound connection requests
 
 ```csharp
 using var cts = new CancellationTokenSource();
 
-await foreach (var request in nearbyConnections.AdvertiseAsync(cts.Token))
+await foreach (var request in nearbyDevices.AdvertiseAsync(cts.Token))
 {
     Console.WriteLine($"Connection request from: {request.RemoteDevice.DisplayName}");
 
@@ -111,13 +111,13 @@ To reject a request call `request.RejectAsync()` instead of `AcceptAsync()`.
 ```csharp
 using var cts = new CancellationTokenSource();
 
-await foreach (var evt in nearbyConnections.DiscoverAsync(cts.Token))
+await foreach (var evt in nearbyDevices.DiscoverAsync(cts.Token))
 {
     if (evt.Type == NearbyDeviceEventType.Found)
     {
         Console.WriteLine($"Found: {evt.Device.DisplayName}");
 
-        NearbyConnection connection = await nearbyConnections.ConnectAsync(evt.Device, cts.Token);
+        NearbyConnection connection = await nearbyDevices.ConnectAsync(evt.Device, cts.Token);
         Console.WriteLine($"Connected to {connection.RemoteDevice.DisplayName}");
 
         // Send and receive on this connection (see section 4)
@@ -169,7 +169,7 @@ await foreach (var payload in connection.ReceiveAsync(cancellationToken))
 }
 ```
 
-Received files are saved to `NearbyConnectionsOptions.ReceivedFilesDirectory` (default: `FileSystem.AppDataDirectory`).
+Received files are saved to `NearbyDevicesOptions.ReceivedFilesDirectory` (default: `FileSystem.AppDataDirectory`).
 
 ## 5. Disconnect and clean up
 
@@ -181,7 +181,7 @@ await connection.DisposeAsync();
 cts.Cancel();
 
 // Dispose the plugin when done (e.g. in page OnDisappearing)
-await nearbyConnections.DisposeAsync();
+await nearbyDevices.DisposeAsync();
 ```
 
 # Acknowledgements
