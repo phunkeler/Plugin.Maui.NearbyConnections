@@ -25,12 +25,12 @@
 
   <ItemGroup>
     <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
-    <MauiSplashScreen Include="..\..\.assets\nuget.svg" Color="#512BD4" BaseSize="128,128" />
+    <MauiSplashScreen Include="..\..\..assets\nuget.svg" Color="#512BD4" BaseSize="128,128" />
     <MauiImage Include="Resources\Images\*" />
     <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     <MauiFont Include="Resources\Fonts\*" />
 
-    <TrimmerRootAssembly Include="Plugin.Maui.NearbyConnections" RootMode="all" />
+    <TrimmerRootAssembly Include="Plugin.Maui.NearbyDevices" RootMode="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -43,7 +43,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Plugin.Maui.NearbyConnections\Plugin.Maui.NearbyConnections.csproj" />
+    <ProjectReference Include="...\src\Plugin.Maui.NearbyDevices\Plugin.Maui.NearbyDevices.csproj" />
   </ItemGroup>
 </Project>
-
