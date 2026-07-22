@@ -11,10 +11,14 @@ public class LocalTimeConverter : IValueConverter
         CultureInfo culture)
     {
         if (value is DateTimeOffset dateTimeOffset)
+        {
             return dateTimeOffset.ToLocalTime().ToString("t", culture);
+        }
 
         if (value is DateTime dateTime)
+        {
             return dateTime.ToLocalTime().ToString("t", culture);
+        }
 
         return string.Empty;
     }

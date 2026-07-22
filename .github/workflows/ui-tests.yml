@@ -1,0 +1,99 @@
+name: UI Tests
+
+on:
+  push:
+    branches: [main, "0.3.0-preview.1"]
+  workflow_dispatch:
+
+concurrency:
+  group: ui-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  build:
+    name: Build NearbyChat APK
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'phunkeler'
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache workload packs
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae #v4
+        with:
+          path: |
+            /usr/share/dotnet/packs
+            /usr/share/dotnet/sdk-manifests
+            /usr/share/dotnet/metadata
+          key: workload-maui-android-${{ hashFiles('global.json') }}
+
+      - name: Install Android workload
+        run: dotnet workload install maui-android
+
+      - name: Cache NuGet packages
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae #v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore Android dependencies
+        run: dotnet restore samples/NearbyChat/NearbyChat.csproj -p:TargetFramework=net10.0-android
+
+      - name: Build APK
+        run: dotnet build samples/NearbyChat/NearbyChat.csproj -f net10.0-android -c Release --no-restore
+
+      - name: Upload APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nearbychat-apk
+          path: samples/NearbyChat/bin/Release/net10.0-android/*-Signed.apk
+          if-no-files-found: error
+
+  dispatch:
+    name: Trigger android-lab UI tests
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'phunkeler'
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Pull GitHub App credentials from Key Vault
+        uses: Azure/get-keyvault-secrets@b5c723b9ac7870c022b8c35befe620b7009b336f # v1
+        with:
+          keyvault: android-lab
+          secrets: 'github-app-id, github-app-private-key'
+        id: kv
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ steps.kv.outputs.github-app-id }}
+          private-key: ${{ steps.kv.outputs.github-app-private-key }}
+          repositories: android-lab
+
+      - name: Fire repository_dispatch to android-lab
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh api repos/phunkeler/android-lab/dispatches \
+            --method POST \
+            --field event_type=nearbychat-apk-ready \
+            --field "client_payload[run_id]=${{ github.run_id }}" \
+            --field "client_payload[repo]=phunkeler/Plugin.Maui.NearbyConnections" \
+            --field "client_payload[ref]=${{ github.head_ref || github.ref_name }}"

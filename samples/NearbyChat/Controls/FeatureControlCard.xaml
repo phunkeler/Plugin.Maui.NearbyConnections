@@ -39,6 +39,7 @@
                     Grid.Row="1"
                     CornerRadius="12"
                     Grid.ColumnSpan="2"
+                    AutomationId="{Binding ButtonAutomationId, Source={x:Reference this}}"
                     Command="{Binding Command, Source={x:Reference this}}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button"

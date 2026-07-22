@@ -1,23 +1,16 @@
-using Plugin.Maui.NearbyConnections;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using NearbyChat.Messages;
 using NearbyChat.Services;
+using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
-public partial class DiscoveryPageViewModel : BasePageViewModel,
-    IRecipient<DiscoveringStateChangedMessage>,
-    IRecipient<DeviceFoundMessage>,
-    IRecipient<DeviceLostMessage>,
-    IRecipient<DeviceDisconnectedMessage>,
-    IRecipient<ConnectionResponseMessage>,
-    IRecipient<ConnectedDevicesCountChangedMessage>
+public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHandler
 {
     readonly INavigationService _navigationService;
-    readonly INearbyConnectionsService _nearbyConnectionsService;
+    readonly INearbyDiscoverer _discoverer;
     readonly INearbyDeviceViewModelFactory _nearbyDeviceViewModelFactory;
 
     IDispatcherTimer? _relativeTimeRefreshTimer;
@@ -34,32 +27,23 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
 
     public ObservableCollection<DiscoveredDeviceViewModel> DiscoveredDevices { get; } = [];
 
+    IDispatcher? IDiscovererHandler.Dispatcher => Dispatcher;
+
     public DiscoveryPageViewModel(
         IDispatcher dispatcher,
         IMessenger messenger,
         INavigationService navigationService,
-        INearbyConnectionsService nearbyConnectionsService,
+        INearbyDiscoverer discoverer,
         INearbyDeviceViewModelFactory nearbyDeviceViewModelFactory)
         : base(dispatcher, messenger)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
-        ArgumentNullException.ThrowIfNull(nearbyConnectionsService);
+        ArgumentNullException.ThrowIfNull(discoverer);
         ArgumentNullException.ThrowIfNull(nearbyDeviceViewModelFactory);
 
         _navigationService = navigationService;
-        _nearbyConnectionsService = nearbyConnectionsService;
+        _discoverer = discoverer;
         _nearbyDeviceViewModelFactory = nearbyDeviceViewModelFactory;
-
-        IsDiscovering = _nearbyConnectionsService.IsDiscovering;
-        ConnectedDevicesCount = _nearbyConnectionsService.Devices.Count(d => d.State == NearbyDeviceState.Connected);
-
-        foreach (var discovered in _nearbyConnectionsService.Devices.Where(d => d.State == NearbyDeviceState.Discovered))
-        {
-            var vm = _nearbyDeviceViewModelFactory.CreateDiscoverer(discovered);
-            vm.IsActive = true;
-            DiscoveredDevices.Add(vm);
-            UpdateRelativeTimeRefreshTimer();
-        }
     }
 
     [RelayCommand]
@@ -79,17 +63,28 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
         {
             if (IsDiscovering)
             {
-                await _nearbyConnectionsService.StopDiscoveryAsync(cancellationToken);
+                await _discoverer.StopAsync();
             }
             else
             {
-                await _nearbyConnectionsService.StartDiscoveryAsync(cancellationToken);
+                await _discoverer.StartAsync();
             }
+
+            IsDiscovering = _discoverer.IsDiscovering;
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    protected override void NavigatedTo()
+    {
+        base.NavigatedTo();
+
+        DiscoveredDevices.Clear();
+        IsDiscovering = _discoverer.IsDiscovering;
+        _ = _discoverer.EventsAsync(NavigationToken).RunAsync(this);
     }
 
     protected override void NavigatedFrom()
@@ -102,80 +97,59 @@ public partial class DiscoveryPageViewModel : BasePageViewModel,
         base.NavigatedFrom();
     }
 
-    public async void Receive(ConnectedDevicesCountChangedMessage message)
-        => await Dispatcher.DispatchAsync(() => ConnectedDevicesCount = message.Value);
-
-    public async void Receive(DiscoveringStateChangedMessage message)
-        => await Dispatcher.DispatchAsync(() => IsDiscovering = message.Value);
-
-    public async void Receive(DeviceFoundMessage message)
-        => await Dispatcher.DispatchAsync(() =>
+    Task IDiscovererHandler.OnDeviceFound(DiscovererEvent.DeviceFound ev)
+    {
+        if (DiscoveredDevices.Any(d => d.Id == ev.Device.Id))
         {
-            if (DiscoveredDevices.Any(d => d.Id == message.Value.Id))
-            {
-                return;
-            }
+            return Task.CompletedTask;
+        }
 
-            var vm = _nearbyDeviceViewModelFactory.CreateDiscoverer(message.Value);
-            vm.IsActive = true;
-            DiscoveredDevices.Add(vm);
+        var vm = _nearbyDeviceViewModelFactory.CreateDiscoverer(ev.Device);
+        vm.IsActive = true;
+        DiscoveredDevices.Add(vm);
+        UpdateRelativeTimeRefreshTimer();
+        return Task.CompletedTask;
+    }
+
+    Task IDiscovererHandler.OnDeviceLost(DiscovererEvent.DeviceLost ev)
+    {
+        var vm = DiscoveredDevices.FirstOrDefault(d => d.Id == ev.Device.Id);
+        if (vm is not null)
+        {
+            vm.IsActive = false;
+            DiscoveredDevices.Remove(vm);
             UpdateRelativeTimeRefreshTimer();
-        });
+        }
+        return Task.CompletedTask;
+    }
 
-    public async void Receive(DeviceLostMessage message)
-        => await Dispatcher.DispatchAsync(() =>
+    Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
+    {
+        ConnectedDevicesCount++;
+
+        var vm = DiscoveredDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
+        if (vm is not null)
         {
-            var device = DiscoveredDevices.FirstOrDefault(d => d.Id == message.Value.Id);
+            vm.IsActive = false;
+            DiscoveredDevices.Remove(vm);
+            UpdateRelativeTimeRefreshTimer();
+        }
+        return Task.CompletedTask;
+    }
 
-            if (device is not null)
-            {
-                device.IsActive = false;
-                DiscoveredDevices.Remove(device);
-                UpdateRelativeTimeRefreshTimer();
-            }
-        });
+    Task IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
+    {
+        ConnectedDevicesCount--;
 
-    public async void Receive(DeviceDisconnectedMessage message)
-        => await Dispatcher.DispatchAsync(() =>
+        var vm = DiscoveredDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
+        if (vm is not null)
         {
-            var device = DiscoveredDevices.FirstOrDefault(d => d.Id == message.Value.Id);
-
-            if (device is not null)
-            {
-                device.IsActive = false;
-                DiscoveredDevices.Remove(device);
-                UpdateRelativeTimeRefreshTimer();
-            }
-        });
-
-    public async void Receive(ConnectionResponseMessage message)
-        => await Dispatcher.DispatchAsync(() =>
-        {
-            var device = DiscoveredDevices.FirstOrDefault(d => d.Id == message.Value.Id);
-
-            if (device is null)
-            {
-                return;
-            }
-
-            if (message.Accepted && device.State == NearbyDeviceState.Connected)
-            {
-                Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(5), async () =>
-                {
-                    // Update "Connections" badge
-
-                    device.IsActive = false;
-                    DiscoveredDevices.Remove(device);
-                    UpdateRelativeTimeRefreshTimer();
-                });
-            }
-            else if (!message.Accepted)
-            {
-                device.IsActive = false;
-                DiscoveredDevices.Remove(device);
-                UpdateRelativeTimeRefreshTimer();
-            }
-        });
+            vm.IsActive = false;
+            DiscoveredDevices.Remove(vm);
+            UpdateRelativeTimeRefreshTimer();
+        }
+        return Task.CompletedTask;
+    }
 
     bool CanToggleDiscovery() => !IsBusy;
 

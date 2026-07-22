@@ -49,11 +49,13 @@
                               Grid.Row="1">
                             <Entry
                                 HeightRequest="44"
+                                AutomationId="ChatMessageEntry"
                                 Placeholder="Type a message..."
                                 Text="{Binding Message}"
                                 TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
                             <ImageButton
                                 Grid.Column="1"
+                                AutomationId="ChatSendButton"
                                 Command="{Binding SendCommand}">
                                 <ImageButton.Source>
                                     <FontImageSource
@@ -65,6 +67,7 @@
                             </ImageButton>
                             <ImageButton
                                 Grid.Column="2"
+                                AutomationId="ChatAttachButton"
                                 Command="{Binding AttachCommand}">
                                 <ImageButton.Source>
                                     <FontImageSource

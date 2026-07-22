@@ -17,16 +17,16 @@ jobs:
     runs-on: macos-26-intel
     steps:
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
 
       - name: Cache SonarQube Cloud packages
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
@@ -34,7 +34,7 @@ jobs:
 
       - name: Cache SonarQube Cloud scanner
         id: cache-sonar-scanner
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: ${{ runner.temp }}/scanner
           key: ${{ runner.os }}-sonar-scanner
@@ -63,13 +63,13 @@ jobs:
           ${{ runner.temp }}/scanner/dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage
           path: ${{ runner.temp }}/coverage.xml
 
       - name: Generate coverage report
-        uses: danielpalme/ReportGenerator-GitHub-Action@5.5.9
+        uses: danielpalme/ReportGenerator-GitHub-Action@c31aa4ed4f12f147061186cf2a029f307b5c3636 # 5.5.9
         with:
           reports: ${{ runner.temp }}/coverage.xml
           targetdir: ${{ runner.temp }}/coveragereport

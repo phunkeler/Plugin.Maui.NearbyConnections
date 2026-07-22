@@ -7,7 +7,9 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IncludeSymbols>true</IncludeSymbols>
+    <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
     <PackageIcon>icon.png</PackageIcon>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/phunkeler/Plugin.Maui.NearbyConnections</PackageProjectUrl>

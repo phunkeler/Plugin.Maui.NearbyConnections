@@ -5,6 +5,8 @@ A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices by un
 [![NuGet Version](https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections)](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
 [![GitHub License](https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections)](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/LICENSE)
 
+Peer-to-peer communication happens in two phases: **finding peers** (advertise/discover nearby devices) and **talking to them** (send/receive payloads over an established connection).
+
 # Supported Platforms
 
 | Platform | Minimum Version |
@@ -26,8 +28,6 @@ A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices by un
 ```bash
 dotnet add package Plugin.Maui.NearbyConnections
 ```
-
-</details>
 
 # Getting Started
 
@@ -75,105 +75,113 @@ Add to `Info.plist`:
 <string>Used to discover and connect to nearby devices.</string>
 ```
 
-The service ID in `NSBonjourServices` must match `NearbyConnectionsOptions.ServiceId` (_**default**: app name_).
+`NearbyConnectionsOptions.ServiceId` is a **separate, shorter value** from the `NSBonjourServices` entries above — on iOS it's passed directly as `MCNearbyServiceAdvertiser`/`MCNearbyServiceBrowser`'s `serviceType`, which Apple requires to be a bare string 1–15 characters long (e.g. `"nearbychat"`), not the `_name._tcp` Bonjour form. There is no default; it must be set explicitly or startup validation throws.
 
-## 3. Discover and connect
+## 3. Advertise and discover
 
-Devices in range must advertise and/or discover simultaneously. Typically one device advertises while another discovers, or both do both.
+One device advertises while the other discovers, or both do both simultaneously.
+
+**Phase 1 — Finding peers.** One device advertises its presence; another scans for advertisers. This is a continuous `IAsyncEnumerable` stream of "device appeared" / "device disappeared" events. Nothing is connected yet — you are learning who is nearby.
+
+**Phase 2 — Talking to them.** Once you pick a peer and connect (or accept their inbound request), a `NearbyConnection` is established. That object is itself an async stream of incoming payloads, and exposes `SendAsync` for the outbound direction.
+
+The tier-1 API (`INearbyConnections`) exposes these two phases directly as `AdvertiseAsync` / `DiscoverAsync` streams, as shown below. For MAUI app code, the tier-2 services (`INearbyAdvertiser` / `INearbyDiscoverer`) stitch both phases into a single `EventsAsync` stream per role — lifecycle events and payload delivery unified, with current state replayed atomically on subscribe.
+
+### Advertiser side — accept inbound connection requests
 
 ```csharp
-// Subscribe to events before starting
-nearbyConnections.DeviceFound += (s, e) =>
+using var cts = new CancellationTokenSource();
+
+await foreach (var request in nearbyConnections.AdvertiseAsync(cts.Token))
 {
-    Console.WriteLine($"Found: {e.NearbyDevice.DisplayName}");
+    Console.WriteLine($"Connection request from: {request.RemoteDevice.DisplayName}");
 
-    // Request a connection
-    await nearbyConnections.RequestConnectionAsync(e.NearbyDevice);
-};
+    // Accept to get an established NearbyConnection
+    NearbyConnection connection = await request.AcceptAsync(cts.Token);
+    Console.WriteLine($"Connected to {connection.RemoteDevice.DisplayName}");
 
-nearbyConnections.DeviceStateChanged += (s, e) =>
-{
-    if (e.CurrentState == NearbyDeviceState.Connected)
-        Console.WriteLine($"Connected to {e.NearbyDevice.DisplayName}");
-};
-
-// Start advertising so other devices can find this one
-await nearbyConnections.StartAdvertisingAsync();
-
-// Start discovering nearby advertisers
-await nearbyConnections.StartDiscoveryAsync();
+    // Send and receive on this connection (see section 4)
+}
 ```
 
-When `AutoAcceptConnections` is `false`, handle inbound requests manually:
+To reject a request call `request.RejectAsync()` instead of `AcceptAsync()`.
+
+### Discoverer side — find devices and initiate a connection
 
 ```csharp
-nearbyConnections.ConnectionRequested += async (s, e) =>
+using var cts = new CancellationTokenSource();
+
+await foreach (var evt in nearbyConnections.DiscoverAsync(cts.Token))
 {
-    bool accept = true; // your logic here
-    await nearbyConnections.RespondToConnectionAsync(e.NearbyDevice, accept);
-};
+    if (evt.Type == NearbyDeviceEventType.Found)
+    {
+        Console.WriteLine($"Found: {evt.Device.DisplayName}");
+
+        NearbyConnection connection = await nearbyConnections.ConnectAsync(evt.Device, cts.Token);
+        Console.WriteLine($"Connected to {connection.RemoteDevice.DisplayName}");
+
+        // Send and receive on this connection (see section 4)
+    }
+}
 ```
 
 ## 4. Send and receive data
 
+`NearbyConnection` is obtained from `AcceptAsync` (advertiser) or `ConnectAsync` (discoverer).
+
 ### Send bytes
 
 ```csharp
-var device = nearbyConnections.Devices.First(d => d.State == NearbyDeviceState.Connected);
 byte[] data = Encoding.UTF8.GetBytes("Hello!");
-
-await nearbyConnections.SendAsync(device, data);
+await connection.SendAsync(data, cancellationToken);
 ```
 
 ### Send a file
 
 ```csharp
-// Pass a file:// URI or a content:// URI (Android)
-await nearbyConnections.SendAsync(device, "file:///path/to/file.bin");
+// Pass a file:// URI, or a content:// URI on Android
+await connection.SendAsync("file:///path/to/file.bin", cancellationToken: cancellationToken);
 ```
 
 ### Track send progress
 
 ```csharp
 var progress = new Progress<NearbyTransferProgress>(p =>
-{
-    Console.WriteLine($"Sent {p.BytesTransferred}/{p.TotalBytes} ({p.Fraction:P0})");
-});
+    Console.WriteLine($"Sent {p.BytesTransferred}/{p.TotalBytes} ({p.Fraction:P0})"));
 
-await nearbyConnections.SendAsync(device, data, progress);
+await connection.SendAsync("file:///path/to/file.bin", progress, cancellationToken);
 ```
 
 ### Receive data
 
 ```csharp
-nearbyConnections.DataReceived += (s, e) =>
+await foreach (var payload in connection.ReceiveAsync(cancellationToken))
 {
-    if (e.Payload is BytesPayload bytes)
+    if (payload is BytesPayload bytes)
     {
         string message = Encoding.UTF8.GetString(bytes.Data);
-        Console.WriteLine($"From {e.NearbyDevice.DisplayName}: {message}");
+        Console.WriteLine($"From {connection.RemoteDevice.DisplayName}: {message}");
     }
-    else if (e.Payload is FilePayload file)
+    else if (payload is FilePayload file)
     {
         Console.WriteLine($"Received file: {file.FileResult.FullPath}");
     }
-};
+}
 ```
 
-Received files are saved to `NearbyConnectionsOptions.ReceivedFilesDirectory` (default: `FileSystem.CacheDirectory`).
+Received files are saved to `NearbyConnectionsOptions.ReceivedFilesDirectory` (default: `FileSystem.AppDataDirectory`).
 
 ## 5. Disconnect and clean up
 
 ```csharp
-// Disconnect a specific peer
-await nearbyConnections.DisconnectAsync(device);
+// Disconnect from a specific peer
+await connection.DisposeAsync();
 
-// Stop advertising/discovering
-await nearbyConnections.StopAdvertisingAsync();
-await nearbyConnections.StopDiscoveryAsync();
+// Stop advertising or discovering by canceling the token passed to AdvertiseAsync/DiscoverAsync
+cts.Cancel();
 
-// Dispose when done (e.g. page OnDisappearing)
-nearbyConnections.Dispose();
+// Dispose the plugin when done (e.g. in page OnDisappearing)
+await nearbyConnections.DisposeAsync();
 ```
 
 # Acknowledgements

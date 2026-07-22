@@ -114,4 +114,23 @@ public partial class FeatureNavigationCard : ContentView
     {
         InitializeComponent();
     }
+
+    public static readonly BindableProperty TapAutomationIdProperty = BindableProperty.Create(
+        propertyName: nameof(TapAutomationId),
+        returnType: typeof(string),
+        declaringType: typeof(FeatureNavigationCard),
+        propertyChanged: (b, _, newValue) =>
+        {
+            var card = (FeatureNavigationCard)b;
+            if (card.TapButton is not null)
+            {
+                card.TapButton.AutomationId = (string?)newValue;
+            }
+        });
+
+    public string? TapAutomationId
+    {
+        get => (string?)GetValue(TapAutomationIdProperty);
+        set => SetValue(TapAutomationIdProperty, value);
+    }
 }

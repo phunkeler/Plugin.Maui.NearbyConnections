@@ -10,6 +10,7 @@
               RowSpacing="{StaticResource SpacingXL}"
               Margin="{StaticResource SpacingXL}">
             <Button Text="Back"
+                    AutomationId="BackButton"
                     Command="{Binding BackCommand}"
                     HorizontalOptions="Start"
                     VerticalOptions="Start"
@@ -20,6 +21,16 @@
                     BorderColor="{AppThemeBinding Light=Black, Dark=White}"
                     CornerRadius="12"
                     FontSize="{StaticResource FontSizeMD}"/>
+            <!-- Test-only hook for UI automation. Opacity="0" (fully zero
+                 alpha) is pruned from Android's accessibility tree by the
+                 OS itself — independent of MAUI's own accessibility mapping
+                 — so UIAutomator2 can never find it via any locator, no
+                 matter what AutomationId is set to. A small nonzero
+                 opacity keeps it out of the accessibility-pruning path
+                 while remaining visually imperceptible. -->
+            <Label AutomationId="DiscoveryStatus"
+                   Text="{Binding IsDiscovering}"
+                   Opacity="0.01" />
             <ConnectedDevicesChip
                 Count="{Binding ConnectedDevicesCount}"
                 Command="{Binding NavigateToConnectionsCommand}"
@@ -28,6 +39,7 @@
             <FeatureControlCard
                 VerticalOptions="Start"
                 Grid.Row="1"
+                ButtonAutomationId="ToggleDiscovery"
                 FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeDiscoverStyle}"
                 Title="Discovery Mode"
                 ActiveSubtitle="Scanning"
@@ -67,14 +79,14 @@
                                     HeightRequest="20"
                                     HorizontalOptions="End"
                                     StrokeShape="RoundRectangle 10"
-                                    Background="{Binding State, Converter={StaticResource nearbyDeviceStateColorConverter}}">
+                                    Background="{Binding StateColor}">
                                     <Image
                                         WidthRequest="10"
                                         HeightRequest="10">
                                         <Image.Source>
                                             <FontImageSource
                                                 FontFamily="NearbyChatIcons"
-                                                Glyph="{Binding State, Converter={StaticResource nearbyDeviceStateGlyphConverter}}"
+                                                Glyph="{Binding StateGlyph}"
                                                 Color="White"/>
                                         </Image.Source>
                                     </Image>
@@ -83,11 +95,12 @@
                                     Grid.Row="1"
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardSubtitle}"
-                                    Text="{Binding LastSeen, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
+                                    Text="{Binding ReceivedAt, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
                                 <Button
                                     Grid.Row="2"
                                     HeightRequest="44"
                                     Text="Connect"
+                                    AutomationId="{Binding Id, StringFormat='Connect_{0}'}"
                                     Command="{Binding ConnectCommand}"
                                     BackgroundColor="{StaticResource AccentConnections}"
                                     TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"

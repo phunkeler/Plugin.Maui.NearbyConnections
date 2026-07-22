@@ -1,5 +1,5 @@
-using NearbyChat.ViewModels;
 using System.ComponentModel;
+using NearbyChat.ViewModels;
 
 namespace NearbyChat.Pages;
 
@@ -72,7 +72,9 @@ public partial class AdvertisingPage : BasePage<AdvertisingPageViewModel>
         _animationCts = null;
 
         if (AntennaIcon is null || AntennaIconSource is null)
+        {
             return;
+        }
 
         AntennaIcon.CancelAnimations();
         AntennaIcon.Opacity = 1;
@@ -82,7 +84,9 @@ public partial class AdvertisingPage : BasePage<AdvertisingPageViewModel>
     async Task RunPulseAnimationAsync(CancellationToken cancellationToken)
     {
         if (AntennaIcon is null || AntennaIconSource is null)
+        {
             return;
+        }
 
         AntennaIconSource.Color = _pulseColor;
 
@@ -90,7 +94,10 @@ public partial class AdvertisingPage : BasePage<AdvertisingPageViewModel>
         {
             await AntennaIcon.FadeToAsync(0.4, 800, Easing.CubicInOut);
 
-            if (cancellationToken.IsCancellationRequested) break;
+            if (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
 
             await AntennaIcon.FadeToAsync(1, 800, Easing.CubicInOut);
         }
