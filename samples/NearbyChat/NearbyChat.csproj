@@ -43,6 +43,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="...\src\Plugin.Maui.NearbyDevices\Plugin.Maui.NearbyDevices.csproj" />
+    <ProjectReference Include="..\..\src\Plugin.Maui.NearbyDevices\Plugin.Maui.NearbyDevices.csproj" />
   </ItemGroup>
 </Project>

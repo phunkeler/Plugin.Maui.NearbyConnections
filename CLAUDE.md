@@ -8,7 +8,7 @@ This is a .NET MAUI plugin that provides peer-to-peer (P2P) connectivity with ne
 
 ## Knowledge Base (`/learnings`)
 
-This project has a real history of hard-won platform-specific bugs (GMS zombie connection state, MAUI accessibility-tree mapping changes, Android accessibility pruning, xUnit parallelization races, async/await task-fault traps). That knowledge lives in the shared `~/.claude/skills/learnings/LEARNINGS.md` knowledge base, tagged `**Project:** Plugin.Maui.NearbyConnections`.
+This project has a real history of hard-won platform-specific bugs (GMS zombie connection state, MAUI accessibility-tree mapping changes, Android accessibility pruning, xUnit parallelization races, async/await task-fault traps). That knowledge lives in the shared `~/.claude/skills/learnings/LEARNINGS.md` knowledge base, tagged `**Project:** Plugin.Maui.NearbyDevices`.
 
 - **Before debugging any non-trivial Android/iOS/Appium/test-infrastructure issue**, search `LEARNINGS.md` for this project first — the root cause may already be documented as `[CONFIRMED]` or `[DRAFT]`. Don't re-derive a fix that's already recorded, and don't re-try a fix already marked `[INVALIDATED]` for this project.
 - **After solving any non-trivial bug**, add a `[DRAFT]` entry (or promote an existing draft to `[CONFIRMED]` if this is the second time it's been verified). If you don't record it, the next session re-investigates from zero.
@@ -21,7 +21,7 @@ This project has a real history of hard-won platform-specific bugs (GMS zombie c
 ## Build System
 - **Project Type**: Multi-targeted .NET MAUI plugin
 - **Target Frameworks**: `net10.0`, `net10.0-android`, `net10.0-ios` (`Directory.Build.props:3-8`)
-- **Solution File**: `Plugin.Maui.NearbyConnections.slnx` (Visual Studio solution)
+- **Solution File**: `Plugin.Maui.NearbyDevices.slnx` (Visual Studio solution)
 
 ### Build Commands
 
@@ -41,20 +41,20 @@ dotnet build -f net10.0-ios
 
 ### Platform-Specific Implementation Pattern
 
-The project uses a platform-specific partial class pattern across a single sealed class `NearbyConnectionsImplementation`:
+The project uses a platform-specific partial class pattern across a single sealed class `NearbyDevicesImplementation`:
 
-- **Interface**: `INearbyConnections.cs` — defines the full public API
-- **Shared logic**: `NearbyConnections.shared.cs` — DI constructor, semaphore-guarded start/stop, send/disconnect dispatch
+- **Interface**: `INearbyDevices.cs` — defines the full public API
+- **Shared logic**: `NearbyDevices.shared.cs` — DI constructor, semaphore-guarded start/stop, send/disconnect dispatch
 - **Platform partials**:
-  - `NearbyConnections.android.cs` — Android advertising, discovery, and data transfer via Google Nearby Connections
-  - `NearbyConnections.ios.cs` — iOS advertising, discovery, and data transfer via Multipeer Connectivity
-  - `NearbyConnections.net.cs` — Generic .NET stub (throws `PlatformNotSupportedException`)
-  - `NearbyConnections.log.cs` — Source-generated `ILogger` partial methods
-  - `NearbyConnections.events.cs` — Event declarations and `internal On*()` raise helpers
+  - `NearbyDevices.android.cs` — Android advertising, discovery, and data transfer via Google Nearby Connections
+  - `NearbyDevices.ios.cs` — iOS advertising, discovery, and data transfer via Multipeer Connectivity
+  - `NearbyDevices.net.cs` — Generic .NET stub (throws `PlatformNotSupportedException`)
+  - `NearbyDevices.log.cs` — Source-generated `ILogger` partial methods
+  - `NearbyDevices.events.cs` — Event declarations and `internal On*()` raise helpers
 - **Supporting types**:
   - `NearbyDeviceManager.cs` — Thread-safe device registry (`ConcurrentDictionary`-backed)
   - `PeerIdManager.ios.cs` — `MCPeerID` lifecycle management (iOS only)
-  - `NearbyConnectionsOptions.cs` / `.android.cs` / `.ios.cs` — Immutable startup configuration
+  - `NearbyDevicesOptions.cs` / `.android.cs` / `.ios.cs` — Immutable startup configuration
   - `OutgoingTransfer.cs` — Inactivity-timeout wrapper for outgoing file transfers
 
 ### Platform Dependencies
@@ -121,7 +121,7 @@ Apps using this plugin need these `Info.plist` entries:
 <string>Used to discover and connect to nearby devices.</string>
 ```
 
-The service ID must match `NearbyConnectionsOptions.ServiceId` (default: app name).
+The service ID must match `NearbyDevicesOptions.ServiceId` (default: app name).
 
 ## Project Strategy
 

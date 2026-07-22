@@ -42,4 +42,4 @@ fi
 echo "Tagging $TAG on $(git rev-parse --short HEAD) (main)"
 git tag "$TAG"
 git push origin "$TAG"
-echo "Done — publish workflow is running: https://github.com/phunkeler/Plugin.Maui.NearbyConnections/actions"
+echo "Done — publish workflow is running: https://github.com/phunkeler/Plugin.Maui.NearbyDevices/actions"

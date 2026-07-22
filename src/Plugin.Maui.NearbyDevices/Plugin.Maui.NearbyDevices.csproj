@@ -18,5 +18,4 @@
 
     <InternalsVisibleTo Include="Plugin.Maui.NearbyDevices.UnitTests" />
   </ItemGroup>
-
 </Project>

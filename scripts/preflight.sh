@@ -62,7 +62,7 @@ echo
 # ── 4. GitHub Actions runner registered and idle ─────────────────────────────
 echo "── GitHub runner ────────────────────────────────────"
 if command -v gh >/dev/null 2>&1; then
-    RUNNER_JSON=$(gh api repos/phunkeler/Plugin.Maui.NearbyConnections/actions/runners 2>/dev/null || echo "")
+    RUNNER_JSON=$(gh api repos/phunkeler/Plugin.Maui.NearbyDevices/actions/runners 2>/dev/null || echo "")
     if [[ -z "$RUNNER_JSON" ]]; then
         fail "Could not reach GitHub API — check: gh auth status"
     else
