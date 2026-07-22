@@ -4,6 +4,12 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
 {
+    // Thread-safety of these fields depends entirely on the tier-2 guarantee, enforced by
+    // NearbyAdvertiser/NearbyDiscoverer, that at most one AdvertiseAsync/DiscoverAsync
+    // invocation is ever in flight at a time. A future change to tier-1 or tier-2 that
+    // reintroduces overlapping invocations would reintroduce a native use-after-dispose race
+    // here (see the fix for the fire-and-forget RunLoopAsync race). Do not add concurrent
+    // callers of these fields without re-establishing that guarantee.
     MCNearbyServiceAdvertiser? _mcAdvertiser;
     MCNearbyServiceBrowser? _mcBrowser;
 
@@ -19,7 +25,6 @@ sealed partial class NearbyConnectionsImplementation
     Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateBonjourServiceId(Options.ServiceId);
 
         var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName);
 
@@ -125,7 +130,6 @@ sealed partial class NearbyConnectionsImplementation
     Task PlatformStartDiscoveringAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateBonjourServiceId(Options.ServiceId);
 
         var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName);
 
@@ -363,29 +367,6 @@ sealed partial class NearbyConnectionsImplementation
         }
     }
 
-    /// <summary>
-    /// Validates that <paramref name="serviceId"/> is a legal Bonjour service type in the form
-    /// <c>_&lt;name&gt;._tcp</c> or <c>_&lt;name&gt;._udp</c>, as required by
-    /// <see cref="MCNearbyServiceAdvertiser"/> and <see cref="MCNearbyServiceBrowser"/>.
-    /// </summary>
-    /// <exception cref="ArgumentException">
-    /// Thrown when <paramref name="serviceId"/> is null, empty, or does not match the required format.
-    /// </exception>
-    static void ValidateBonjourServiceId(string serviceId)
-    {
-        if (string.IsNullOrEmpty(serviceId)
-            || (!serviceId.EndsWith("._tcp", StringComparison.OrdinalIgnoreCase)
-                && !serviceId.EndsWith("._udp", StringComparison.OrdinalIgnoreCase))
-            || !serviceId.StartsWith('_'))
-        {
-            throw new ArgumentException(
-                $"'{nameof(NearbyConnectionsOptions.ServiceId)}' must be a valid Bonjour service type in the form '_<name>._tcp' or '_<name>._udp' (e.g. '_mygame._tcp'). " +
-                $"The current value '{serviceId}' is not valid. " +
-                $"Set {nameof(NearbyConnectionsOptions)}.{nameof(NearbyConnectionsOptions.ServiceId)} before calling AdvertiseAsync or DiscoverAsync on iOS.",
-                nameof(serviceId));
-        }
-    }
-
     void PlatformDispose()
     {
         PlatformStopAdvertising();
@@ -472,6 +453,14 @@ sealed partial class NearbyConnectionsImplementation
                     {
                         disconnectedConnection.CompleteReceive();
                     }
+
+                    // A pending _connectionTcs entry means this peer never reached Connected -
+                    // the handshake itself failed or was rejected by the native layer. Without
+                    // this, both AcceptAsync (advertiser) and ConnectAsync (discoverer) hang
+                    // forever awaiting a TCS that nothing will ever resolve or fault, since only
+                    // the Connected case above calls ResolveConnectionTcs.
+                    FaultConnectionTcs(id, new NearbyConnectionsException(
+                        $"Connection to peer '{peerID.DisplayName}' failed: session state changed to NotConnected before the connection was established."));
 
                     // MPC fires NotConnected for the departing peer before removing it from
                     // ConnectedPeers, so check whether this peer was the only remaining one

@@ -17,16 +17,20 @@ public sealed partial class NearbyConnectionsOptions
     private static partial string GetDefaultDisplayName() => DeviceInfo.Name;
 
     /// <remarks>
-    /// On iOS there is no meaningful default for <c>ServiceId</c>: it must be a valid Bonjour
-    /// service type in the form <c>_&lt;name&gt;._tcp</c> or <c>_&lt;name&gt;._udp</c> and must
-    /// match an entry in the app's <c>Info.plist</c> under <c>NSBonjourServices</c>.
-    /// The sentinel value <c>"_UNSET._tcp"</c> is intentionally invalid so that validation
-    /// at startup throws immediately with a descriptive message rather than silently failing
-    /// deep inside MultipeerConnectivity.
+    /// On iOS there is no meaningful default for <c>ServiceId</c>: it is passed directly as
+    /// <c>MCNearbyServiceAdvertiser</c>/<c>MCNearbyServiceBrowser</c>'s <c>serviceType</c>,
+    /// which Apple requires to be a bare string 1-15 characters long identifying the network
+    /// protocol (e.g. <c>"xamarin-txtchat"</c>) — it is NOT a DNS-SD/Bonjour service type in
+    /// the <c>_name._tcp</c> form used by <c>Info.plist</c>'s <c>NSBonjourServices</c> entries.
+    /// Passing a string in that form (or over 15 characters) causes
+    /// <c>MCNearbyServiceAdvertiser</c>'s native initializer to throw an unmanaged
+    /// <c>NSInvalidArgumentException</c> that crosses the native/managed boundary as a fatal
+    /// native crash rather than a catchable .NET exception.
+    /// The sentinel value <c>"_UNSET"</c> is intentionally invalid (over the eventual length
+    /// budget is not needed here since any un-overridden value should fail loudly) so that
+    /// validation at startup throws immediately with a descriptive message instead.
     /// </remarks>
-#pragma warning disable S3400 // Partial method implementation — cannot be replaced with a constant
-    private static partial string GetDefaultServiceId() => "_UNSET._tcp";
-#pragma warning restore S3400
+    private static partial string GetDefaultServiceId() => "_UNSET";
 
     private static partial string GetDefaultReceivedFilesDirectory() => FileSystem.AppDataDirectory;
 }

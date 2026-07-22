@@ -15,6 +15,9 @@ sealed partial class PeerIdManager
     readonly ConcurrentDictionary<string, MCPeerID> _remotePeers = [];
     readonly ILogger<PeerIdManager> _logger;
 
+    MCPeerID? _localPeerId;
+    readonly Lock _localPeerIdLock = new();
+
     public PeerIdManager(ILogger<PeerIdManager> logger)
     {
         ArgumentNullException.ThrowIfNull(logger);
@@ -22,30 +25,58 @@ sealed partial class PeerIdManager
     }
 
     /// <summary>
-    /// Returns the persisted local <see cref="MCPeerID"/> for the given display name,
-    /// or creates and persists a new one if none exists.
+    /// Returns the process's single canonical local <see cref="MCPeerID"/>, memoized after
+    /// its first successful resolution. The first call either loads a previously persisted
+    /// peer ID for <paramref name="displayName"/> or creates and persists a new one; the
+    /// resulting instance is cached for the lifetime of this <see cref="PeerIdManager"/> and
+    /// returned as-is by every subsequent call, regardless of the <paramref name="displayName"/>
+    /// argument passed to those later calls. This is safe because
+    /// <see cref="NearbyConnectionsOptions.DisplayName"/> is one-time startup configuration
+    /// that cannot change after initialization (see that property's doc comment), so within
+    /// one process every caller already passes the same value.
     /// </summary>
+    /// <remarks>
+    /// Memoization also closes a native-interop lifetime hazard: without a durable managed
+    /// reference, a freshly-returned <see cref="MCPeerID"/> wrapper could be collected by the
+    /// GC before .NET-for-iOS's toggle-ref mechanism promotes it to a strong root, even while
+    /// native code (e.g. <see cref="MCNearbyServiceAdvertiser"/>) still depends on it.
+    /// </remarks>
     public MCPeerID GetLocalPeerId(string displayName)
     {
-        if (TryGetStoredPeerId(displayName, out var peerId))
+        if (_localPeerId is not null)
         {
-            LogLoadedLocalPeer(displayName);
-            return peerId;
+            return _localPeerId;
         }
 
-        peerId = new MCPeerID(displayName);
-
-        try
+        lock (_localPeerIdLock)
         {
-            StorePeerId(displayName, Archive(peerId));
-        }
-        catch (Exception ex)
-        {
-            LogFailedToStoreLocalPeer(displayName, ex.Message);
-        }
+            if (_localPeerId is not null)
+            {
+                return _localPeerId;
+            }
 
-        LogCreatedLocalPeer(displayName);
-        return peerId;
+            if (TryGetStoredPeerId(displayName, out var storedPeerId))
+            {
+                LogLoadedLocalPeer(displayName);
+                _localPeerId = storedPeerId;
+                return _localPeerId;
+            }
+
+            var peerId = new MCPeerID(displayName);
+
+            try
+            {
+                StorePeerId(displayName, Archive(peerId));
+            }
+            catch (Exception ex)
+            {
+                LogFailedToStoreLocalPeer(displayName, ex.Message);
+            }
+
+            LogCreatedLocalPeer(displayName);
+            _localPeerId = peerId;
+            return _localPeerId;
+        }
     }
 
     /// <summary>

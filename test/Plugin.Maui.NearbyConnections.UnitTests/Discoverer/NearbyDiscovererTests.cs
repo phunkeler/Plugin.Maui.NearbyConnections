@@ -87,6 +87,53 @@ public sealed class NearbyDiscovererTests
     }
 
     // ---------------------------------------------------------------------------
+    // ObservableDiscoverFake — an INearbyConnections whose DiscoverAsync enumerator
+    // signals (via TaskCompletionSources) exactly when it has observed cancellation and
+    // when it has fully stopped yielding. Used to prove sequencing of the run-loop task,
+    // not merely the absence of an exception.
+    // ---------------------------------------------------------------------------
+    sealed class ObservableDiscoverFake : INearbyConnections
+    {
+        readonly Channel<NearbyDeviceEvent> _discoverChannel =
+            Channel.CreateUnbounded<NearbyDeviceEvent>();
+
+        public TaskCompletionSource ObservedCancellation { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource StoppedYielding { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(CancellationToken cancellationToken = default)
+            => Channel.CreateUnbounded<NearbyConnectionRequest>().Reader.ReadAllAsync(cancellationToken);
+
+        public async IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await foreach (var ev in _discoverChannel.Reader.ReadAllAsync(cancellationToken))
+                {
+                    yield return ev;
+                }
+            }
+            finally
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    ObservedCancellation.TrySetResult();
+                }
+
+                StoppedYielding.TrySetResult();
+            }
+        }
+
+        public Task<NearbyConnection> ConnectAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    // ---------------------------------------------------------------------------
     // Helper: create a NearbyConnection with a writable receive channel.
     // ---------------------------------------------------------------------------
     static (NearbyConnection Connection, Channel<NearbyPayload> ReceiveChannel) CreateConnection(
@@ -163,6 +210,34 @@ public sealed class NearbyDiscovererTests
 
             // Assert
             Assert.IsTrue(discoverer.IsDiscovering);
+
+            await discoverer.StopAsync();
+        }
+
+        // Regression test for the fire-and-forget RunLoopAsync race: a second StartAsync()
+        // must not return until the first run loop's underlying DiscoverAsync enumerator has
+        // actually observed cancellation and stopped yielding — not merely that no exception
+        // was thrown. This proves sequencing, since the old bug allowed a second run loop to
+        // start while the first was still unwinding.
+        [TestMethod]
+        public async Task StartAsync_CalledAgain_AwaitsPreviousLoopFullyStoppingBeforeReturning()
+        {
+            // Arrange
+            var fake = new ObservableDiscoverFake();
+            var discoverer = new NearbyDiscoverer(fake);
+            await discoverer.StartAsync();
+
+            // Act
+            await discoverer.StartAsync();
+
+            // Assert — by the time the second StartAsync() has returned, the first loop's
+            // DiscoverAsync enumerator must have already observed cancellation and stopped
+            // yielding; a fire-and-forget implementation could complete StartAsync() before
+            // this happened.
+            Assert.IsTrue(fake.ObservedCancellation.Task.IsCompletedSuccessfully,
+                "Second StartAsync() returned before the first loop observed cancellation.");
+            Assert.IsTrue(fake.StoppedYielding.Task.IsCompletedSuccessfully,
+                "Second StartAsync() returned before the first loop's enumerator stopped yielding.");
 
             await discoverer.StopAsync();
         }

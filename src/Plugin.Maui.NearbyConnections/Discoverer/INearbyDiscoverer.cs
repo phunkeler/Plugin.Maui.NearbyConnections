@@ -47,16 +47,24 @@ public interface INearbyDiscoverer : IDisposable, IAsyncDisposable
     bool IsDiscovering { get; }
 
     /// <summary>
-    /// Starts the background discover loop. Returns <see cref="Task.CompletedTask"/> once the loop
-    /// is launched (fire-and-forget internally).
+    /// Starts the background discover loop. If a previous discover loop is still winding down
+    /// (for example, from a prior <see cref="StartAsync"/> or <see cref="StopAsync"/> call), this
+    /// method first awaits its complete teardown before starting the new one, so at most one
+    /// discover loop is ever in flight at a time.
     /// </summary>
-    /// <returns>A <see cref="Task"/> that completes once the loop has been started.</returns>
+    /// <returns>
+    /// A <see cref="Task"/> that completes only once the underlying platform discovery session
+    /// has fully started.
+    /// </returns>
     Task StartAsync();
 
     /// <summary>
-    /// Cancels the discover loop and returns immediately.
+    /// Cancels the discover loop.
     /// </summary>
-    /// <returns>A <see cref="Task"/> that completes immediately after the loop is signalled to stop.</returns>
+    /// <returns>
+    /// A <see cref="Task"/> that completes only once the underlying platform discovery session
+    /// has fully stopped.
+    /// </returns>
     Task StopAsync();
 
     /// <summary>

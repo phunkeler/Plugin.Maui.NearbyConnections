@@ -63,6 +63,53 @@ public sealed class NearbyAdvertiserTests
     }
 
     // ---------------------------------------------------------------------------
+    // ObservableAdvertiseFake — an INearbyConnections whose AdvertiseAsync enumerator
+    // signals (via TaskCompletionSources) exactly when it has observed cancellation and
+    // when it has fully stopped yielding. Used to prove sequencing of the run-loop task,
+    // not merely the absence of an exception.
+    // ---------------------------------------------------------------------------
+    sealed class ObservableAdvertiseFake : INearbyConnections
+    {
+        readonly Channel<NearbyConnectionRequest> _advertiseChannel =
+            Channel.CreateUnbounded<NearbyConnectionRequest>();
+
+        public TaskCompletionSource ObservedCancellation { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource StoppedYielding { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await foreach (var req in _advertiseChannel.Reader.ReadAllAsync(cancellationToken))
+                {
+                    yield return req;
+                }
+            }
+            finally
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    ObservedCancellation.TrySetResult();
+                }
+
+                StoppedYielding.TrySetResult();
+            }
+        }
+
+        public IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(CancellationToken cancellationToken = default)
+            => Channel.CreateUnbounded<NearbyDeviceEvent>().Reader.ReadAllAsync(cancellationToken);
+
+        public Task<NearbyConnection> ConnectAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    // ---------------------------------------------------------------------------
     // Helper: create a NearbyConnection with a writable receive channel.
     // ---------------------------------------------------------------------------
     static (NearbyConnection Connection, Channel<NearbyPayload> ReceiveChannel) CreateConnection(
@@ -162,6 +209,34 @@ public sealed class NearbyAdvertiserTests
 
             // Assert
             Assert.IsTrue(advertiser.IsAdvertising);
+
+            await advertiser.StopAsync();
+        }
+
+        // Regression test for the fire-and-forget RunLoopAsync race: a second StartAsync()
+        // must not return until the first run loop's underlying AdvertiseAsync enumerator has
+        // actually observed cancellation and stopped yielding — not merely that no exception
+        // was thrown. This proves sequencing, since the old bug allowed a second run loop to
+        // start while the first was still unwinding.
+        [TestMethod]
+        public async Task StartAsync_CalledAgain_AwaitsPreviousLoopFullyStoppingBeforeReturning()
+        {
+            // Arrange
+            var fake = new ObservableAdvertiseFake();
+            var advertiser = new NearbyAdvertiser(fake);
+            await advertiser.StartAsync();
+
+            // Act
+            await advertiser.StartAsync();
+
+            // Assert — by the time the second StartAsync() has returned, the first loop's
+            // AdvertiseAsync enumerator must have already observed cancellation and stopped
+            // yielding; a fire-and-forget implementation could complete StartAsync() before
+            // this happened.
+            Assert.IsTrue(fake.ObservedCancellation.Task.IsCompletedSuccessfully,
+                "Second StartAsync() returned before the first loop observed cancellation.");
+            Assert.IsTrue(fake.StoppedYielding.Task.IsCompletedSuccessfully,
+                "Second StartAsync() returned before the first loop's enumerator stopped yielding.");
 
             await advertiser.StopAsync();
         }

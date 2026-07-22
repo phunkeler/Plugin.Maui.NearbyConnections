@@ -23,11 +23,16 @@ public sealed partial class NearbyConnectionsOptions
     /// (<see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/package-summary">developers.google.com</see>).
     /// </para>
     /// <para>
-    /// On iOS, this must be a Bonjour service type in the form <c>_&lt;name&gt;._tcp</c> or
-    /// <c>_&lt;name&gt;._udp</c> (for example <c>_mygame._tcp</c>), matching the entry declared in the
-    /// application's <c>Info.plist</c> under <c>NSBonjourServices</c>
-    /// (<see href="https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSBonjourServices">developer.apple.com</see>).
-    /// There is no meaningful default on iOS; app startup will fail if this property is not set.
+    /// On iOS, this is passed directly as <c>MCNearbyServiceAdvertiser</c>/
+    /// <c>MCNearbyServiceBrowser</c>'s <c>serviceType</c>, which Apple requires to be a bare
+    /// string 1-15 characters long identifying the network protocol (for example
+    /// <c>"xamarin-txtchat"</c>) — this is <b>not</b> the same as the Bonjour <c>_name._tcp</c>
+    /// service type format used in the application's <c>Info.plist</c> under
+    /// <c>NSBonjourServices</c>
+    /// (<see href="https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSBonjourServices">developer.apple.com</see>);
+    /// that longer form must still be declared in <c>Info.plist</c>, but this property's value
+    /// itself must be the short <c>serviceType</c> form. There is no meaningful default on iOS;
+    /// app startup will fail if this property is not set.
     /// </para>
     /// </remarks>
     public string ServiceId { get; set; } = GetDefaultServiceId();

@@ -7,6 +7,12 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
 {
+    // Thread-safety of these fields depends entirely on the tier-2 guarantee, enforced by
+    // NearbyAdvertiser/NearbyDiscoverer, that at most one AdvertiseAsync/DiscoverAsync
+    // invocation is ever in flight at a time. A future change to tier-1 or tier-2 that
+    // reintroduces overlapping invocations would reintroduce a native use-after-dispose race
+    // here (see the fix for the fire-and-forget RunLoopAsync race). Do not add concurrent
+    // callers of these fields without re-establishing that guarantee.
     IConnectionsClient? _advertiseClient;
     IConnectionsClient? _discoverClient;
 
@@ -512,13 +518,7 @@ sealed partial class NearbyConnectionsImplementation
             throw new InvalidOperationException($"Cannot send file: the URI is not a valid or supported scheme. Use a file:// or content:// URI.");
         }
 
-        var filePayload = BuildFilePayload(androidUri);
-
-        if (filePayload is null)
-        {
-            throw new InvalidOperationException($"Cannot send file: failed to open the file descriptor for the given URI.");
-        }
-
+        var filePayload = BuildFilePayload(androidUri) ?? throw new InvalidOperationException($"Cannot send file: failed to open the file descriptor for the given URI.");
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
         var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
 

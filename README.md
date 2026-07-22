@@ -75,7 +75,7 @@ Add to `Info.plist`:
 <string>Used to discover and connect to nearby devices.</string>
 ```
 
-The service ID in `NSBonjourServices` must match `NearbyConnectionsOptions.ServiceId` (_**default**: app name_).
+`NearbyConnectionsOptions.ServiceId` is a **separate, shorter value** from the `NSBonjourServices` entries above — on iOS it's passed directly as `MCNearbyServiceAdvertiser`/`MCNearbyServiceBrowser`'s `serviceType`, which Apple requires to be a bare string 1–15 characters long (e.g. `"nearbychat"`), not the `_name._tcp` Bonjour form. There is no default; it must be set explicitly or startup validation throws.
 
 ## 3. Advertise and discover
 

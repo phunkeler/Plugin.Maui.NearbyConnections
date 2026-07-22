@@ -15,6 +15,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
     readonly INearbyConnections _inner;
     readonly ILogger _logger;
     CancellationTokenSource? _cts;
+    Task? _runLoopTask;
     readonly ChannelBroadcaster<DiscovererEvent> _broadcaster = new();
     readonly Lock _stateLock = new();
     readonly List<NearbyDevice> _visibleSnapshot = [];
@@ -38,37 +39,60 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
     public bool IsDiscovering => _isDiscovering;
 
     /// <inheritdoc/>
-    public Task StartAsync()
+    public async Task StartAsync()
     {
-        CancellationTokenSource cts;
+        Task? previousRunLoopTask;
         lock (_stateLock)
         {
             _cts?.Cancel();
             _cts?.Dispose();
+            previousRunLoopTask = _runLoopTask;
             foreach (var device in _visibleSnapshot)
             {
                 _broadcaster.Publish(new DiscovererEvent.DeviceLost(device));
             }
             _visibleSnapshot.Clear();
-            _cts = new CancellationTokenSource();
-            cts = _cts;
+        }
+
+        // Wait for the previous run loop to fully unwind — including the platform's
+        // stop-discovering teardown, which runs synchronously inside its finally block —
+        // before starting a new one. Without this, a rapid stop/restart could have two
+        // run loops alive at once, both touching the same native browser field.
+        if (previousRunLoopTask is not null)
+        {
+            try
+            {
+                await previousRunLoopTask;
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal exit when the previous StartAsync/StopAsync cancelled the token.
+            }
+        }
+
+        CancellationTokenSource cts;
+        lock (_stateLock)
+        {
+            cts = new CancellationTokenSource();
+            _cts = cts;
+            _runLoopTask = RunLoopAsync(cts.Token);
         }
 
         _isDiscovering = true;
         LogDiscoveryStarted();
-        _ = RunLoopAsync(cts.Token);
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public Task StopAsync()
+    public async Task StopAsync()
     {
         _isDiscovering = false;
+        Task? runLoopTask;
         lock (_stateLock)
         {
             _cts?.Cancel();
             _cts?.Dispose();
             _cts = null;
+            runLoopTask = _runLoopTask;
             foreach (var device in _visibleSnapshot)
             {
                 _broadcaster.Publish(new DiscovererEvent.DeviceLost(device));
@@ -77,9 +101,25 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
         }
 
         LogDiscoveryStopped();
-        return Task.CompletedTask;
+
+        if (runLoopTask is not null)
+        {
+            try
+            {
+                await runLoopTask;
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal exit when the cancellation above stops the run loop.
+            }
+        }
     }
 
+    // A synchronous Dispose() cannot await the run loop's teardown without either blocking
+    // the calling thread (violating async-all-the-way) or risking deadlock. This is a
+    // pre-existing, accepted limitation of implementing both IDisposable and
+    // IAsyncDisposable side by side — callers who need to know the platform session has
+    // fully stopped before returning must use DisposeAsync() instead.
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -96,6 +136,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
+        Task? runLoopTask;
         NearbyConnection[] connections;
         lock (_stateLock)
         {
@@ -104,6 +145,19 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
             _cts?.Cancel();
             _cts?.Dispose();
             _cts = null;
+            runLoopTask = _runLoopTask;
+        }
+
+        if (runLoopTask is not null)
+        {
+            try
+            {
+                await runLoopTask;
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal exit when the cancellation above stops the run loop.
+            }
         }
 
         foreach (var conn in connections)

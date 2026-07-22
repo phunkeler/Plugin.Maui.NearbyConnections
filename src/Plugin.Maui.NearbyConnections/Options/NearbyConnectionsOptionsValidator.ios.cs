@@ -4,12 +4,22 @@ sealed partial class NearbyConnectionsOptionsValidator
 {
     static partial void PlatformValidate(NearbyConnectionsOptions options, List<string> failures)
     {
-        if (options.ServiceId == "_UNSET._tcp")
+        if (options.ServiceId == "_UNSET")
         {
             failures.Add(
-                "ServiceId has not been set. On iOS, ServiceId must be a valid Bonjour service type " +
-                "in the form '_<name>._tcp' or '_<name>._udp' (for example '_mygame._tcp'), " +
-                "matching an entry declared in the app's Info.plist under NSBonjourServices.");
+                "ServiceId has not been set. On iOS, ServiceId is passed directly as " +
+                "MCNearbyServiceAdvertiser/MCNearbyServiceBrowser's serviceType, which Apple " +
+                "requires to be 1-15 characters long identifying the network protocol " +
+                "(for example 'xamarin-txtchat') — it is NOT a Bonjour '_name._tcp' service " +
+                "type; that format is only used for the app's Info.plist NSBonjourServices entries.");
+        }
+        else if (options.ServiceId.Length is < 1 or > 15)
+        {
+            failures.Add(
+                $"ServiceId '{options.ServiceId}' is {options.ServiceId.Length} characters long. " +
+                "On iOS, ServiceId is passed directly as MCNearbyServiceAdvertiser/" +
+                "MCNearbyServiceBrowser's serviceType, which Apple requires to be between 1 and " +
+                "15 characters long (for example 'xamarin-txtchat').");
         }
     }
 }

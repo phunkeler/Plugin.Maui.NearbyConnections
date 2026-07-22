@@ -32,6 +32,7 @@ public static class MauiProgram
         builder.UseNearbyConnections(opts =>
             {
 #if IOS
+                opts.ServiceId = "nearbychat";
                 opts.InvitationTimeout = TimeSpan.FromSeconds(10);
 #endif
             })
