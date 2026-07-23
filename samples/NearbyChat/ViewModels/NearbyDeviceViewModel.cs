@@ -1,5 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Plugin.Maui.NearbyConnections;
+using Plugin.Maui.NearbyDevices;
 
 namespace NearbyChat.ViewModels;
 

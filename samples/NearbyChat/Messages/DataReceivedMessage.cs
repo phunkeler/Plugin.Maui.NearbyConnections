@@ -1,5 +1,5 @@
 using CommunityToolkit.Mvvm.Messaging.Messages;
-using Plugin.Maui.NearbyConnections;
+using Plugin.Maui.NearbyDevices;
 
 namespace NearbyChat.Messages;
 

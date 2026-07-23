@@ -8,7 +8,7 @@ using NearbyChat.Messages;
 using NearbyChat.Models;
 using NearbyChat.Services;
 using Plugin.Maui.BottomSheet.Navigation;
-using Plugin.Maui.NearbyConnections;
+using Plugin.Maui.NearbyDevices;
 
 namespace NearbyChat.ViewModels;
 

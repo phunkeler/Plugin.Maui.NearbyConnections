@@ -9,7 +9,7 @@ using NearbyChat.Pages;
 using NearbyChat.Services;
 using NearbyChat.ViewModels;
 using Plugin.Maui.BottomSheet.Hosting;
-using Plugin.Maui.NearbyConnections;
+using Plugin.Maui.NearbyDevices;
 
 namespace NearbyChat;
 
@@ -29,7 +29,7 @@ public static class MauiProgram
             .UseMauiCommunityToolkit()
             .UseBottomSheet();
 
-        builder.UseNearbyConnections(opts =>
+        builder.UseNearbyDevices(opts =>
             {
 #if IOS
                 opts.ServiceId = "nearbychat";
@@ -41,7 +41,7 @@ public static class MauiProgram
 
 #if DEBUG
         builder.Logging.AddDebug();
-        builder.Logging.AddFilter("Plugin.Maui.NearbyConnections", LogLevel.Trace);
+        builder.Logging.AddFilter("Plugin.Maui.NearbyDevices", LogLevel.Trace);
 #endif
 
         builder.Services.AddSingleton(DeviceInfo.Current);

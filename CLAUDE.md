@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a .NET MAUI plugin that provides peer-to-peer (P2P) connectivity with nearby devices by unifying Google's Nearby Connections (Android) and Apple's Multipeer Connectivity (iOS) capabilities.
 
+## Knowledge Base (`/learnings`)
+
+This project has a real history of hard-won platform-specific bugs (GMS zombie connection state, MAUI accessibility-tree mapping changes, Android accessibility pruning, xUnit parallelization races, async/await task-fault traps). That knowledge lives in the shared `~/.claude/skills/learnings/LEARNINGS.md` knowledge base, tagged `**Project:** Plugin.Maui.NearbyDevices`.
+
+- **Before debugging any non-trivial Android/iOS/Appium/test-infrastructure issue**, search `LEARNINGS.md` for this project first — the root cause may already be documented as `[CONFIRMED]` or `[DRAFT]`. Don't re-derive a fix that's already recorded, and don't re-try a fix already marked `[INVALIDATED]` for this project.
+- **After solving any non-trivial bug**, add a `[DRAFT]` entry (or promote an existing draft to `[CONFIRMED]` if this is the second time it's been verified). If you don't record it, the next session re-investigates from zero.
+- `.building/` artifacts (RCAs, proposals) are gitignored and disappear once a debugging/planning cycle ends. Before closing out a `/debugging` cycle, check whether the RCA contains a reusable fact (SDK quirk, platform gotcha, non-obvious root cause) worth promoting into `LEARNINGS.md` — otherwise that knowledge is lost when `.building/` cycles.
+
 ## Tech Stack
 - .NET 10 / C# (modern style)
 - .NET MAUI (Minimal APIs)
@@ -13,7 +21,7 @@ This is a .NET MAUI plugin that provides peer-to-peer (P2P) connectivity with ne
 ## Build System
 - **Project Type**: Multi-targeted .NET MAUI plugin
 - **Target Frameworks**: `net10.0`, `net10.0-android`, `net10.0-ios` (`Directory.Build.props:3-8`)
-- **Solution File**: `Plugin.Maui.NearbyConnections.slnx` (Visual Studio solution)
+- **Solution File**: `Plugin.Maui.NearbyDevices.slnx` (Visual Studio solution)
 
 ### Build Commands
 
@@ -31,20 +39,20 @@ dotnet build -f net10.0-ios
 
 ## Architecture
 
-The plugin is a two-tier API over a single sealed class, `NearbyConnectionsImplementation`.
+The plugin is a two-tier API over a single sealed class, `NearbyDevicesImplementation`.
 
 ### Tier 1 — `Connections/`: the platform-partial core
 
-`NearbyConnectionsImplementation` implements `INearbyConnections` as a partial class split by platform:
+`NearbyDevicesImplementation` implements `INearbyDevices` as a partial class split by platform:
 
-- `INearbyConnections.cs` — the full public API surface
-- `NearbyConnections.shared.cs` — DI constructor, semaphore-guarded start/stop, send/disconnect dispatch
-- `NearbyConnections.android.cs` — Android advertising, discovery, and data transfer via Google Nearby Connections
-- `NearbyConnections.ios.cs` — iOS advertising, discovery, and data transfer via Multipeer Connectivity
-- `NearbyConnections.net.cs` — Generic .NET stub (throws `PlatformNotSupportedException`)
-- `NearbyConnections.log.cs` — Source-generated `ILogger` partial methods
-- `NearbyConnections.events.cs` — Event declarations and `internal On*()` raise helpers
-- `NearbyConnectionsOptions.cs` / `.android.cs` / `.ios.cs` / `.net.cs` — Immutable startup configuration, one partial per platform
+- `INearbyDevices.cs` — the full public API surface
+- `NearbyDevices.shared.cs` — DI constructor, semaphore-guarded start/stop, send/disconnect dispatch
+- `NearbyDevices.android.cs` — Android advertising, discovery, and data transfer via Google Nearby Connections
+- `NearbyDevices.ios.cs` — iOS advertising, discovery, and data transfer via Multipeer Connectivity
+- `NearbyDevices.net.cs` — Generic .NET stub (throws `PlatformNotSupportedException`)
+- `NearbyDevices.log.cs` — Source-generated `ILogger` partial methods
+- `NearbyDevices.events.cs` — Event declarations and `internal On*()` raise helpers
+- `NearbyDevicesOptions.cs` / `.android.cs` / `.ios.cs` / `.net.cs` — Immutable startup configuration, one partial per platform
 - `PeerIdManager.ios.cs` — `MCPeerID` lifecycle management (iOS only)
 - `OutgoingTransfer.cs` — Inactivity-timeout wrapper for outgoing file transfers
 - `NearbyConnection.cs` — `IAsyncDisposable` handle to an established P2P session (`SendAsync`/`ReceiveAsync`/`Disconnected`)
@@ -54,18 +62,18 @@ The plugin is a two-tier API over a single sealed class, `NearbyConnectionsImple
 
 ### Tier 2 — `Advertiser/` and `Discoverer/`: opt-in higher-level services
 
-`INearbyAdvertiser`/`NearbyAdvertiser` and `INearbyDiscoverer`/`NearbyDiscoverer` wrap Tier 1 with a multi-subscriber, `IAsyncEnumerable`-based event stream (`EventsAsync(CancellationToken)` yielding `AdvertiserEvent` / `DiscovererEvent`), fanned out via the shared `ChannelBroadcaster<T>` primitive (`src/Plugin.Maui.NearbyConnections/ChannelBroadcaster.cs`). Each has its own handler interface (`IAdvertiserHandler`, `IDiscovererHandler`), event-extension helpers, dedicated exception type (`NearbyAdvertisingException`, `NearbyDiscoveryException`), and source-generated logging partial (`NearbyAdvertiser.log.cs`, `NearbyDiscoverer.log.cs`). Tier 2 is optional — apps can consume `INearbyConnections` directly without it.
+`INearbyAdvertiser`/`NearbyAdvertiser` and `INearbyDiscoverer`/`NearbyDiscoverer` wrap Tier 1 with a multi-subscriber, `IAsyncEnumerable`-based event stream (`EventsAsync(CancellationToken)` yielding `AdvertiserEvent` / `DiscovererEvent`), fanned out via the shared `ChannelBroadcaster<T>` primitive (`src/Plugin.Maui.NearbyDevices/ChannelBroadcaster.cs`). Each has its own handler interface (`IAdvertiserHandler`, `IDiscovererHandler`), event-extension helpers, dedicated exception type (`NearbyAdvertisingException`, `NearbyDiscoveryException`), and source-generated logging partial (`NearbyAdvertiser.log.cs`, `NearbyDiscoverer.log.cs`). Tier 2 is optional — apps can consume `INearbyDevices` directly without it.
 
 ### `Options/`: DI registration
 
-- `ServiceCollectionExtensions.cs` — `AddNearbyConnections()` registers Tier 1 as a singleton and returns a `NearbyConnectionsBuilder`; `.AddAdvertiser()` / `.AddDiscoverer()` on that builder opt in to Tier 2
-- `MauiAppBuilderExtensions.cs` (project root) — `UseNearbyConnections()` is the `MauiAppBuilder`-facing entry point apps call from `MauiProgram.cs`; internally wraps `AddNearbyConnections()`
-- `NearbyConnectionsBuilder.cs`, `NearbyConnectionsOptionsSetup.cs`, `NearbyConnectionsOptionsValidator.cs` (+ `.android.cs` / `.ios.cs` / `.net.cs`) — options binding and per-platform startup validation via `IValidateOptions<T>`
+- `ServiceCollectionExtensions.cs` — `AddNearbyDevices()` registers Tier 1 as a singleton and returns a `NearbyDevicesBuilder`; `.AddAdvertiser()` / `.AddDiscoverer()` on that builder opt in to Tier 2
+- `MauiAppBuilderExtensions.cs` (project root) — `UseNearbyDevices()` is the `MauiAppBuilder`-facing entry point apps call from `MauiProgram.cs`; internally wraps `AddNearbyDevices()`
+- `NearbyDevicesBuilder.cs`, `NearbyDevicesOptionsSetup.cs`, `NearbyDevicesOptionsValidator.cs` (+ `.android.cs` / `.ios.cs` / `.net.cs`) — options binding and per-platform startup validation via `IValidateOptions<T>`
 
 Typical app registration (`samples/NearbyChat/MauiProgram.cs`):
 
 ```csharp
-builder.UseNearbyConnections(opts =>
+builder.UseNearbyDevices(opts =>
     {
 #if IOS
         opts.ServiceId = "nearbychat";
@@ -147,7 +155,7 @@ Apps using this plugin need these `Info.plist` entries:
 <string>Used to discover and connect to nearby devices.</string>
 ```
 
-`NearbyConnectionsOptions.ServiceId` is a **separate, shorter value** from the `Info.plist` entries above — it is passed directly as `MCNearbyServiceAdvertiser`/`MCNearbyServiceBrowser`'s `serviceType`, which Apple requires to be a bare string 1–15 characters long (e.g. `"nearbychat"`), *not* the `_name._tcp` Bonjour form used in `NSBonjourServices`. Passing a string in the `_..._tcp` form or over 15 characters throws at startup via `NearbyConnectionsOptionsValidator.ios.cs`. Apps must still declare `NSBonjourServices` in `Info.plist` — the two values are just no longer required (or expected) to match.
+`NearbyDevicesOptions.ServiceId` is a **separate, shorter value** from the `Info.plist` entries above — it is passed directly as `MCNearbyServiceAdvertiser`/`MCNearbyServiceBrowser`'s `serviceType`, which Apple requires to be a bare string 1–15 characters long (e.g. `"nearbychat"`), *not* the `_name._tcp` Bonjour form used in `NSBonjourServices`. Passing a string in the `_..._tcp` form or over 15 characters throws at startup via `NearbyDevicesOptionsValidator.ios.cs`. Apps must still declare `NSBonjourServices` in `Info.plist` — the two values are just no longer required (or expected) to match.
 
 ## Project Strategy
 
