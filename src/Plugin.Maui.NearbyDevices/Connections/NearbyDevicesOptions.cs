@@ -72,4 +72,18 @@ public sealed partial class NearbyDevicesOptions
     /// </summary>
     public TimeSpan TransferInactivityTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
+    /// <summary>
+    /// Gets a value indicating whether reader continuations on internal event/payload channels
+    /// may run synchronously on the writer's thread instead of being scheduled to the thread pool.
+    /// Defaults to <see langword="false"/>.
+    /// </summary>
+    /// <remarks>
+    /// Channel writes originate from SDK-owned native callback threads (see the platform callback
+    /// remarks on <see cref="INearbyDevices"/>). Setting this to <see langword="true"/> means your
+    /// <c>await foreach</c> body may execute directly on that native thread, avoiding a thread-pool
+    /// hop — but a slow consumer body will stall the platform SDK's own callback dispatch. Only
+    /// enable this if your <c>AdvertiseAsync</c>/<c>DiscoverAsync</c>/<c>ReceiveAsync</c> consumer
+    /// bodies are trivially fast (e.g. forwarding to another channel).
+    /// </remarks>
+    public bool AllowSynchronousContinuations { get; set; }
 }

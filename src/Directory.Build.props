@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Authors>phunkeler and contributors</Authors>
     <Copyright>Copyright © $([System.DateTime]::Now.ToString(`yyyy`)) phunkeler and contributors</Copyright>
-    <Description>A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices by unifying Google's Nearby Connections and Apple's Multipeer Connectivity capabilities.</Description>
+    <Description>A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices — discover, connect, and exchange data — by unifying Google's Nearby Connections and Apple's Multipeer Connectivity capabilities.</Description>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IncludeSymbols>true</IncludeSymbols>
@@ -15,11 +15,11 @@
     <PackageProjectUrl>https://github.com/phunkeler/Plugin.Maui.NearbyDevices</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageTags>offline-first;peer-to-peer;nearby-devices;cross-platform;android;ios;dotnet-maui;maui;plugin;google-nearby;google-nearby-connections;multipeer-connectivity;wifi;bluetooth;bluetooth-ble</PackageTags>
+    <PackageTags>offline-first;peer-to-peer;nearby-devices;cross-platform;android;ios;dotnet-maui;maui;plugin;google-nearby;google-nearby-connections;multipeer-connectivity;wifi;bluetooth;bluetooth-ble;file-transfer;file-sharing</PackageTags>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/phunkeler/Plugin.Maui.NearbyDevices</RepositoryUrl>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <Title>.NET MAUI Nearby Device Discovery Plugin</Title>
+    <Title>.NET MAUI Nearby Connectivity Plugin</Title>
   </PropertyGroup>
 </Project>

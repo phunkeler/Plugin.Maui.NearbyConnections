@@ -1,6 +1,6 @@
 # Plugin.Maui.NearbyDevices
 
-A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices by unifying Google's [Nearby Connections](https://developers.google.com/nearby/connections/overview) and Apple's [Multipeer Connectivity](https://developer.apple.com/documentation/multipeerconnectivity).
+A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices — discover, connect, and exchange data — by unifying Google's [Nearby Connections](https://developers.google.com/nearby/connections/overview) and Apple's [Multipeer Connectivity](https://developer.apple.com/documentation/multipeerconnectivity).
 
 [![NuGet Version](https://img.shields.io/nuget/v/Plugin.Maui.NearbyDevices)](https://www.nuget.org/packages/Plugin.Maui.NearbyDevices)
 [![GitHub License](https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyDevices)](https://github.com/phunkeler/Plugin.Maui.NearbyDevices/blob/main/LICENSE)
@@ -13,6 +13,13 @@ Peer-to-peer communication happens in two phases: **finding peers** (advertise/d
 | --- | --- |
 | Android | API 24 (_Android 7.0_) |
 | iOS | iOS 13.0 |
+
+# How connections work
+
+Neither platform gives you direct control over which radio carries your data — both automatically negotiate between Bluetooth and Wi-Fi per connection, so you don't manage radios directly.
+
+- **Android** ([Nearby Connections](https://developers.google.com/nearby/connections/overview)) picks between Bluetooth Classic, BLE, and Wi-Fi based on the [`Strategy`](https://developers.google.com/nearby/connections/strategies) you configure in `NearbyDevicesOptions`: `P2pCluster` (default) allows many-to-many mesh connections at the cost of lower bandwidth, `P2pStar` allows one-to-many with higher bandwidth, and `P2pPointToPoint` is one-to-one at the highest throughput. Choose based on your topology and data size — `P2pCluster` for small messages across a cluster of devices, `P2pPointToPoint` for large file transfers between two devices.
+- **iOS** (Multipeer Connectivity) auto-selects Bluetooth vs. peer-to-peer Wi-Fi vs. infrastructure Wi-Fi per link with no app-level topology control — there is no iOS equivalent to `Strategy`.
 
 # Dependencies
 

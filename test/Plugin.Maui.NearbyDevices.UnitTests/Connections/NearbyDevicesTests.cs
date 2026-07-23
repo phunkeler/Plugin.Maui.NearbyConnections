@@ -8,16 +8,15 @@ namespace Plugin.Maui.NearbyDevices.UnitTests;
 [TestCategory("Connections")]
 public class NearbyDevicesTests
 {
-    // Builds a NearbyDevicesImplementation wired to a no-op device manager
-    // without hitting any platform APIs.
-    static NearbyDevicesImplementation CreateSut(FakeTimeProvider? timeProvider = null)
+    // Builds a NearbyDevicesImplementation without hitting any platform APIs.
+    static NearbyDevicesImplementation CreateSut(
+        FakeTimeProvider? timeProvider = null,
+        NearbyDevicesOptions? options = null)
     {
         var tp = timeProvider ?? new FakeTimeProvider();
-        var deviceManager = new NearbyDeviceManager();
         return new NearbyDevicesImplementation(
-            deviceManager,
             tp,
-            new NearbyDevicesOptions(),
+            options ?? new NearbyDevicesOptions(),
             NullLogger.Instance);
     }
 
@@ -271,6 +270,55 @@ public class NearbyDevicesTests
 
             // Assert — unknown peer silently ignored; no connection was registered
             Assert.IsFalse(sut._activeConnections.ContainsKey("nonexistent-peer"));
+        }
+    }
+
+    [TestClass]
+    public sealed class AllowSynchronousContinuations : NearbyDevicesTests
+    {
+        [TestMethod]
+        public void False_WriteReturnsBeforeAwaitingReaderContinuationRuns()
+        {
+            // Arrange — default options: AllowSynchronousContinuations is false, so the
+            // channel schedules the waiting reader's continuation to the thread pool
+            // instead of running it inline on the writer's call stack.
+            var sut = CreateSut();
+            var device = new NearbyDevice("peer-1", "Alice");
+            var continuationRan = false;
+
+            var readValueTask = sut._discoverChannel.Reader.ReadAsync();
+            _ = readValueTask.AsTask().ContinueWith(
+                _ => continuationRan = true,
+                TaskContinuationOptions.ExecuteSynchronously);
+
+            // Act
+            sut.WriteDeviceFound(device);
+
+            // Assert — WriteDeviceFound (a synchronous TryWrite) has already returned, but
+            // the continuation was scheduled rather than run inline, so it hasn't run yet.
+            Assert.IsFalse(continuationRan);
+        }
+
+        [TestMethod]
+        public void True_WriteRunsAwaitingReaderContinuationInline()
+        {
+            // Arrange
+            var options = new NearbyDevicesOptions { AllowSynchronousContinuations = true };
+            var sut = CreateSut(options: options);
+            var device = new NearbyDevice("peer-1", "Alice");
+            var continuationRan = false;
+
+            var readValueTask = sut._discoverChannel.Reader.ReadAsync();
+            _ = readValueTask.AsTask().ContinueWith(
+                _ => continuationRan = true,
+                TaskContinuationOptions.ExecuteSynchronously);
+
+            // Act
+            sut.WriteDeviceFound(device);
+
+            // Assert — the continuation ran synchronously, inline within TryWrite,
+            // before WriteDeviceFound returned.
+            Assert.IsTrue(continuationRan);
         }
     }
 

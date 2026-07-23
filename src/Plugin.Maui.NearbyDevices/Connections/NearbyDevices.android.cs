@@ -64,7 +64,7 @@ sealed partial class NearbyDevicesImplementation
     {
         try
         {
-            var device = _deviceManager.RecordDeviceFound(endpointId, connectionInfo.EndpointName);
+            var device = Devices.Record(endpointId, endpointId, connectionInfo.EndpointName);
 
             if (connectionInfo.IsIncomingConnection)
             {
@@ -116,7 +116,7 @@ sealed partial class NearbyDevicesImplementation
 
             if (resolution.Status.IsSuccess)
             {
-                if (!_deviceManager.TryGetDevice(endpointId, out var device))
+                if (!Devices.TryGetDevice(endpointId, out var device))
                 {
                     FaultConnectionTcs(endpointId, new NearbyDevicesException($"Device not found in manager for endpoint '{endpointId}' after successful connection."));
                     return;
@@ -126,6 +126,7 @@ sealed partial class NearbyDevicesImplementation
                 {
                     SingleReader = true,
                     SingleWriter = false,
+                    AllowSynchronousContinuations = Options.AllowSynchronousContinuations,
                 });
 
                 var connection = new NearbyConnection(
@@ -143,7 +144,7 @@ sealed partial class NearbyDevicesImplementation
             }
             else
             {
-                _deviceManager.RemoveDevice(endpointId);
+                Devices.Remove(endpointId);
                 FaultConnectionTcs(endpointId, new NearbyDevicesException(
                     $"Connection to endpoint '{endpointId}' failed: {resolution.Status.StatusMessage} (code {resolution.Status.StatusCode})."));
             }
@@ -169,7 +170,7 @@ sealed partial class NearbyDevicesImplementation
                 connection.CompleteReceive();
             }
 
-            _deviceManager.RemoveDevice(endpointId);
+            Devices.Remove(endpointId);
         }
         catch (Exception ex)
         {
@@ -217,7 +218,7 @@ sealed partial class NearbyDevicesImplementation
     {
         try
         {
-            var device = _deviceManager.RecordDeviceFound(endpointId, info.EndpointName);
+            var device = Devices.Record(endpointId, endpointId, info.EndpointName);
 
             LogDeviceFound(device.Id, device.DisplayName);
 
@@ -235,14 +236,14 @@ sealed partial class NearbyDevicesImplementation
         {
             if (_activeConnections.ContainsKey(endpointId))
             {
-                if (_deviceManager.TryGetDevice(endpointId, out var existingDevice))
+                if (Devices.TryGetDevice(endpointId, out var existingDevice))
                 {
                     LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
                 }
                 return;
             }
 
-            var device = _deviceManager.RemoveDevice(endpointId);
+            var device = Devices.Remove(endpointId);
 
             LogDeviceLost(endpointId, device?.DisplayName);
 
@@ -464,7 +465,7 @@ sealed partial class NearbyDevicesImplementation
 
     void PlatformDisconnectEndpointAsync(string endpointId)
     {
-        LogDisconnecting(endpointId, _deviceManager.TryGetDevice(endpointId, out var d) ? d.DisplayName : null);
+        LogDisconnecting(endpointId, Devices.TryGetDevice(endpointId, out var d) ? d.DisplayName : null);
 
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
         client.DisconnectFromEndpoint(endpointId);
@@ -474,7 +475,7 @@ sealed partial class NearbyDevicesImplementation
             conn.CompleteReceive();
         }
 
-        _deviceManager.RemoveDevice(endpointId);
+        Devices.Remove(endpointId);
     }
 
     Task PlatformSendBytesAsync(

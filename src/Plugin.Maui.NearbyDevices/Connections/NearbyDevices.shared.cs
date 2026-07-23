@@ -5,7 +5,6 @@ namespace Plugin.Maui.NearbyDevices;
 
 sealed partial class NearbyDevicesImplementation : INearbyDevices
 {
-    readonly INearbyDeviceManager _deviceManager;
     readonly ILogger _logger;
 
     internal Channel<NearbyConnectionRequest> _advertiseChannel;
@@ -13,8 +12,18 @@ sealed partial class NearbyDevicesImplementation : INearbyDevices
     internal readonly ConcurrentDictionary<string, (TaskCompletionSource<NearbyConnection> Tcs, CancellationToken Ct)> _connectionTcs;
     internal readonly ConcurrentDictionary<string, NearbyConnection> _activeConnections;
 
+    /// <summary>
+    /// Tracks discovered/connected remote devices on Android, where the endpoint ID is already
+    /// its own native handle so this registry uses <see cref="string"/> as the handle type.
+    /// iOS uses a separate <c>RemotePeers</c> registry (see <c>NearbyDevices.shared.cs</c>'s
+    /// <c>#if IOS</c> members) keyed by <c>MCPeerID</c> instead.
+    /// </summary>
+    internal PeerRegistry<string> Devices { get; } = new();
+
 #if IOS
-    internal PeerIdManager PeerIdManager { get; init; }
+    internal PeerRegistry<MCPeerID> RemotePeers { get; init; }
+    internal PeerKeyProvider PeerKeyProvider { get; init; }
+    internal LocalPeerIdentityStore LocalPeerIdentityStore { get; init; }
 #endif
 
     bool _isDisposed;
@@ -24,32 +33,34 @@ sealed partial class NearbyDevicesImplementation : INearbyDevices
     public NearbyDevicesOptions Options { get; }
 
     internal NearbyDevicesImplementation(
-        INearbyDeviceManager deviceManager,
         TimeProvider timeProvider,
         NearbyDevicesOptions options,
         ILogger logger
 #if IOS
-        , PeerIdManager peerIdManager
+        , PeerRegistry<MCPeerID> remotePeers
+        , PeerKeyProvider peerKeyProvider
+        , LocalPeerIdentityStore localPeerIdentityStore
 #endif
         )
     {
-        ArgumentNullException.ThrowIfNull(deviceManager);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _deviceManager = deviceManager;
         TimeProvider = timeProvider;
         Options = options;
         _logger = logger;
 #if IOS
-        PeerIdManager = peerIdManager;
+        RemotePeers = remotePeers;
+        PeerKeyProvider = peerKeyProvider;
+        LocalPeerIdentityStore = localPeerIdentityStore;
 #endif
 
         var channelOptions = new UnboundedChannelOptions
         {
             SingleReader = false,
             SingleWriter = false,
+            AllowSynchronousContinuations = options.AllowSynchronousContinuations,
         };
 
         _advertiseChannel = Channel.CreateUnbounded<NearbyConnectionRequest>(channelOptions);
@@ -63,7 +74,12 @@ sealed partial class NearbyDevicesImplementation : INearbyDevices
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var newAdvertiseChannel = Channel.CreateUnbounded<NearbyConnectionRequest>(
-            new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
+            new UnboundedChannelOptions
+            {
+                SingleReader = false,
+                SingleWriter = false,
+                AllowSynchronousContinuations = Options.AllowSynchronousContinuations,
+            });
         Interlocked.Exchange(ref _advertiseChannel, newAdvertiseChannel);
         await PlatformStartAdvertisingAsync(cancellationToken);
 
@@ -86,7 +102,12 @@ sealed partial class NearbyDevicesImplementation : INearbyDevices
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var newDiscoverChannel = Channel.CreateUnbounded<NearbyDeviceEvent>(
-            new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
+            new UnboundedChannelOptions
+            {
+                SingleReader = false,
+                SingleWriter = false,
+                AllowSynchronousContinuations = Options.AllowSynchronousContinuations,
+            });
         Interlocked.Exchange(ref _discoverChannel, newDiscoverChannel);
         await PlatformStartDiscoveringAsync(cancellationToken);
 
@@ -149,7 +170,7 @@ sealed partial class NearbyDevicesImplementation : INearbyDevices
         _connectionTcs.Clear();
 
         PlatformDispose();
-        _deviceManager.Clear();
+        Devices.Clear();
         _isDisposed = true;
 
         return ValueTask.CompletedTask;

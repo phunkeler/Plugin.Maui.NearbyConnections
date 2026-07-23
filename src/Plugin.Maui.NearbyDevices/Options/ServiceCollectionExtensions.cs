@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Plugin.Maui.NearbyDevices;
@@ -26,8 +27,6 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddLogging();
-
         if (configure is not null)
         {
             services.Configure(configure);
@@ -41,16 +40,23 @@ public static class ServiceCollectionExtensions
         {
             var resolvedOptions = sp.GetRequiredService<IOptions<NearbyDevicesOptions>>().Value;
             var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
-            var deviceManager = new NearbyDeviceManager();
-            var logger = sp.GetRequiredService<ILoggerFactory>()
-                .CreateLogger<NearbyDevicesImplementation>();
+            var logger = sp.GetService<ILogger<NearbyDevicesImplementation>>()
+                ?? NullLogger<NearbyDevicesImplementation>.Instance;
+#if IOS
+            var remotePeers = new PeerRegistry<MCPeerID>();
+            var peerKeyProvider = new PeerKeyProvider(
+                sp.GetService<ILogger<PeerKeyProvider>>() ?? NullLogger<PeerKeyProvider>.Instance);
+            var localPeerIdentityStore = new LocalPeerIdentityStore(
+                sp.GetService<ILogger<LocalPeerIdentityStore>>() ?? NullLogger<LocalPeerIdentityStore>.Instance);
+#endif
             return new NearbyDevicesImplementation(
-                deviceManager,
                 timeProvider,
                 resolvedOptions,
                 logger
 #if IOS
-                , new PeerIdManager(sp.GetRequiredService<ILogger<PeerIdManager>>())
+                , remotePeers
+                , peerKeyProvider
+                , localPeerIdentityStore
 #endif
             );
         });
@@ -69,7 +75,7 @@ public static class ServiceCollectionExtensions
         builder.Services.AddSingleton<INearbyAdvertiser>(sp =>
             new NearbyAdvertiser(
                 sp.GetRequiredService<INearbyDevices>(),
-                sp.GetRequiredService<ILogger<NearbyAdvertiser>>()));
+                sp.GetService<ILogger<NearbyAdvertiser>>() ?? NullLogger<NearbyAdvertiser>.Instance));
         return builder;
     }
 
@@ -84,7 +90,7 @@ public static class ServiceCollectionExtensions
         builder.Services.AddSingleton<INearbyDiscoverer>(sp =>
             new NearbyDiscoverer(
                 sp.GetRequiredService<INearbyDevices>(),
-                sp.GetRequiredService<ILogger<NearbyDiscoverer>>()));
+                sp.GetService<ILogger<NearbyDiscoverer>>() ?? NullLogger<NearbyDiscoverer>.Instance));
         return builder;
     }
 }

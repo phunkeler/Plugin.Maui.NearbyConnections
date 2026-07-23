@@ -4,21 +4,14 @@ namespace Plugin.Maui.NearbyDevices;
 
 sealed partial class NearbyDevicesImplementation
 {
-    // Thread-safety of these fields depends entirely on the tier-2 guarantee, enforced by
-    // NearbyAdvertiser/NearbyDiscoverer, that at most one AdvertiseAsync/DiscoverAsync
-    // invocation is ever in flight at a time. A future change to tier-1 or tier-2 that
-    // reintroduces overlapping invocations would reintroduce a native use-after-dispose race
-    // here (see the fix for the fire-and-forget RunLoopAsync race). Do not add concurrent
-    // callers of these fields without re-establishing that guarantee.
+    static long s_nextPayloadId;
+
+    readonly ConcurrentDictionary<string, IDisposable> _progressObservers = [];
+    readonly Lock _sessionLock = new();
+
     MCNearbyServiceAdvertiser? _mcAdvertiser;
     MCNearbyServiceBrowser? _mcBrowser;
-
-    readonly ConcurrentDictionary<string, IDisposable> _progressObservers = new();
-
-    static long _nextPayloadId;
-
     MCSession? _session;
-    readonly Lock _sessionLock = new();
 
     #region Advertising
 
@@ -26,7 +19,7 @@ sealed partial class NearbyDevicesImplementation
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName);
+        var myPeerId = LocalPeerIdentityStore.GetLocalPeerId(Options.DisplayName);
 
         _mcAdvertiser = new MCNearbyServiceAdvertiser(
             myPeerID: myPeerId,
@@ -68,9 +61,8 @@ sealed partial class NearbyDevicesImplementation
     {
         try
         {
-            var id = PeerIdManager.TrackRemotePeer(peerID);
-
-            var device = _deviceManager.RecordDeviceFound(id, peerID.DisplayName);
+            var device = RemotePeers.TrackRemotePeer(PeerKeyProvider, peerID, _logger);
+            var id = device.Id;
 
             LogConnectionRequestReceived(device.Id, device.DisplayName);
 
@@ -82,7 +74,7 @@ sealed partial class NearbyDevicesImplementation
                     lock (_sessionLock)
                     {
                         _session ??= new MCSession(
-                            PeerIdManager.GetLocalPeerId(Options.DisplayName),
+                            LocalPeerIdentityStore.GetLocalPeerId(Options.DisplayName),
                             identity: null!,
                             Options.EncryptionPreference)
                         {
@@ -111,7 +103,7 @@ sealed partial class NearbyDevicesImplementation
                 rejectFactory: ct =>
                 {
                     invitationHandler(false, null);
-                    _deviceManager.RemoveDevice(id);
+                    RemotePeers.RemoveRemotePeer(id, _logger);
                     return Task.CompletedTask;
                 });
 
@@ -131,7 +123,7 @@ sealed partial class NearbyDevicesImplementation
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var myPeerId = PeerIdManager.GetLocalPeerId(Options.DisplayName);
+        var myPeerId = LocalPeerIdentityStore.GetLocalPeerId(Options.DisplayName);
 
         _mcBrowser = new MCNearbyServiceBrowser(
             myPeerID: myPeerId,
@@ -156,8 +148,7 @@ sealed partial class NearbyDevicesImplementation
     {
         try
         {
-            var id = PeerIdManager.TrackRemotePeer(peerID);
-            var device = _deviceManager.RecordDeviceFound(id, peerID.DisplayName);
+            var device = RemotePeers.TrackRemotePeer(PeerKeyProvider, peerID, _logger);
 
             LogDeviceFound(device.Id, device.DisplayName);
 
@@ -173,19 +164,18 @@ sealed partial class NearbyDevicesImplementation
     {
         try
         {
-            var id = PeerIdManager.PeerKey(peerID);
+            var id = PeerKeyProvider.PeerKey(peerID);
 
             if (_activeConnections.ContainsKey(id))
             {
-                if (_deviceManager.TryGetDevice(id, out var existingDevice))
+                if (RemotePeers.TryGetDevice(id, out var existingDevice))
                 {
                     LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
                 }
                 return;
             }
 
-            PeerIdManager.RemoveRemotePeer(id);
-            var device = _deviceManager.RemoveDevice(id);
+            var device = RemotePeers.RemoveRemotePeer(id, _logger);
 
             LogDeviceLost(id, device?.DisplayName);
 
@@ -206,7 +196,7 @@ sealed partial class NearbyDevicesImplementation
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!PeerIdManager.TryGetRemotePeer(device.Id, out var peerID))
+        if (!RemotePeers.TryGetHandle(device.Id, out var peerID))
         {
             LogNoPeerFoundForDevice(device.Id, device.DisplayName);
             FaultConnectionTcs(device.Id, new InvalidOperationException(
@@ -218,7 +208,7 @@ sealed partial class NearbyDevicesImplementation
         lock (_sessionLock)
         {
             _session ??= new MCSession(
-                PeerIdManager.GetLocalPeerId(Options.DisplayName),
+                LocalPeerIdentityStore.GetLocalPeerId(Options.DisplayName),
                 identity: null!,
                 Options.EncryptionPreference)
             {
@@ -250,7 +240,7 @@ sealed partial class NearbyDevicesImplementation
             throw new NearbyDevicesException("No active session. Ensure a connection has been established before sending data.");
         }
 
-        if (!PeerIdManager.TryGetRemotePeer(peerId, out var peerID))
+        if (!RemotePeers.TryGetHandle(peerId, out var peerID))
         {
             throw new NearbyDevicesException($"No peer found for device: Id={peerId}");
         }
@@ -286,7 +276,7 @@ sealed partial class NearbyDevicesImplementation
             throw new NearbyDevicesException("No active session. Ensure a connection has been established before sending data.");
         }
 
-        if (!PeerIdManager.TryGetRemotePeer(peerId, out var peerID))
+        if (!RemotePeers.TryGetHandle(peerId, out var peerID))
         {
             throw new NearbyDevicesException($"No peer found for device: Id={peerId}");
         }
@@ -295,7 +285,7 @@ sealed partial class NearbyDevicesImplementation
         using var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
         var resourceName = nsUrl.LastPathComponent ?? Path.GetFileName(uri);
         var sendTask = session.SendResourceAsync(nsUrl, resourceName, peerID, out var nsProgress);
-        var payloadId = Interlocked.Increment(ref _nextPayloadId);
+        var payloadId = Interlocked.Increment(ref s_nextPayloadId);
 
         IDisposable? observer = null;
 
@@ -377,7 +367,7 @@ sealed partial class NearbyDevicesImplementation
             observer.Dispose();
         }
         _progressObservers.Clear();
-        PeerIdManager.ClearRemotePeers();
+        RemotePeers.Clear();
 
         MCSession? sessionToDispose;
         lock (_sessionLock)
@@ -399,7 +389,7 @@ sealed partial class NearbyDevicesImplementation
     {
         try
         {
-            var id = PeerIdManager.PeerKey(peerID);
+            var id = PeerKeyProvider.PeerKey(peerID);
             var st = Enum.GetName(state);
 
             LogPeerStateChanged(id, peerID.DisplayName, st);
@@ -407,12 +397,13 @@ sealed partial class NearbyDevicesImplementation
             switch (state)
             {
                 case MCSessionState.Connected:
-                    var connectedDevice = _deviceManager.RecordDeviceFound(id, peerID.DisplayName);
+                    var connectedDevice = RemotePeers.TrackRemotePeer(PeerKeyProvider, peerID, _logger);
 
                     var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(new UnboundedChannelOptions
                     {
                         SingleReader = true,
                         SingleWriter = false,
+                        AllowSynchronousContinuations = Options.AllowSynchronousContinuations,
                     });
 
                     var connection = new NearbyConnection(
@@ -428,19 +419,17 @@ sealed partial class NearbyDevicesImplementation
                                 disposeSession = _session;
                             }
 
-                            if (disposeSession is not null && PeerIdManager.TryGetRemotePeer(id, out var peer))
+                            if (disposeSession is not null && RemotePeers.TryGetHandle(id, out var peer))
                             {
                                 using var controlData = NSData.FromArray(ControlMessage.Encode(ControlMessageType.Disconnect));
                                 disposeSession.SendData(controlData, [peer], MCSessionSendDataMode.Reliable, out _);
                             }
 
-                            PeerIdManager.RemoveRemotePeer(id);
+                            RemotePeers.RemoveRemotePeer(id, _logger);
                             if (_activeConnections.TryRemove(id, out var removed))
                             {
                                 removed.CompleteReceive();
                             }
-
-                            _deviceManager.RemoveDevice(id);
                         });
 
                     ResolveConnectionTcs(id, connection);
@@ -469,7 +458,7 @@ sealed partial class NearbyDevicesImplementation
                     lock (_sessionLock)
                     {
                         var isLastPeer = _session is not null
-                            && _session.ConnectedPeers.All(p => PeerIdManager.PeerKey(p) == id);
+                            && _session.ConnectedPeers.All(p => PeerKeyProvider.PeerKey(p) == id);
                         sessionToDisposePeer = isLastPeer ? _session : null;
                         if (isLastPeer)
                         {
@@ -477,8 +466,7 @@ sealed partial class NearbyDevicesImplementation
                         }
                     }
 
-                    PeerIdManager.RemoveRemotePeer(id);
-                    _deviceManager.RemoveDevice(id);
+                    RemotePeers.RemoveRemotePeer(id, _logger);
 
                     if (sessionToDisposePeer is not null)
                     {
@@ -502,7 +490,7 @@ sealed partial class NearbyDevicesImplementation
     {
         try
         {
-            var id = PeerIdManager.PeerKey(peerID);
+            var id = PeerKeyProvider.PeerKey(peerID);
 
             LogDataReceived(id, peerID.DisplayName, (long)data.Length);
 
@@ -546,7 +534,7 @@ sealed partial class NearbyDevicesImplementation
 
     void OnResourceStarted(string resourceName, MCPeerID fromPeer, NSProgress progress)
     {
-        var id = PeerIdManager.PeerKey(fromPeer);
+        var id = PeerKeyProvider.PeerKey(fromPeer);
 
         LogResourceReceiveStarted(id, fromPeer.DisplayName, resourceName);
 
@@ -577,7 +565,7 @@ sealed partial class NearbyDevicesImplementation
     {
         try
         {
-            var id = PeerIdManager.PeerKey(fromPeer);
+            var id = PeerKeyProvider.PeerKey(fromPeer);
             var loc = localUrl?.ToString() ?? "null";
 
             LogResourceReceiveFinished(id, fromPeer.DisplayName, resourceName, loc, error?.LocalizedDescription);
