@@ -31,7 +31,11 @@ sealed partial class NearbyDevicesImplementation
             return _advertiseClient.StartAdvertisingAsync(
                 Options.DisplayName,
                 Options.ServiceId,
-                new AdvertiseCallback(OnConnectionInitiatedAsync, OnConnectionResult, OnDisconnected, LogOnConnectionInitiatedError),
+                new AdvertiseCallback(
+                    OnConnectionInitiatedAsync,
+                    OnConnectionResult,
+                    OnDisconnected,
+                    LogOnConnectionInitiatedError),
                 new AdvertisingOptions.Builder()
                     .SetStrategy(Options.Strategy)
                     .SetLowPower(Options.UseLowPower)

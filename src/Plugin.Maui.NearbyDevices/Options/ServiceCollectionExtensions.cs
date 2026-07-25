@@ -33,7 +33,6 @@ public static class ServiceCollectionExtensions
         }
 
         services.AddOptions<NearbyDevicesOptions>().ValidateOnStart();
-        services.AddSingleton<IConfigureOptions<NearbyDevicesOptions>, NearbyDevicesOptionsSetup>();
         services.AddSingleton<IValidateOptions<NearbyDevicesOptions>, NearbyDevicesOptionsValidator>();
 
         services.AddSingleton<INearbyDevices>(sp =>
