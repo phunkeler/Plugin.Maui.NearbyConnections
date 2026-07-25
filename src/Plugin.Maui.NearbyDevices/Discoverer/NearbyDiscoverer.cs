@@ -1,7 +1,5 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Runtime.CompilerServices;
-using System.Threading.Channels;
 
 namespace Plugin.Maui.NearbyDevices;
 
@@ -14,12 +12,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
 {
     readonly INearbyDevices _inner;
     readonly ILogger _logger;
-    CancellationTokenSource? _cts;
-    Task? _runLoopTask;
-    readonly ChannelBroadcaster<DiscovererEvent> _broadcaster = new();
-    readonly Lock _stateLock = new();
-    readonly List<NearbyDevice> _visibleSnapshot = [];
-    readonly List<NearbyConnection> _activeSnapshot = [];
+    readonly ConnectionLifecycle<NearbyDevice, DiscovererEvent> _lifecycle = new();
 
     /// <summary>
     /// Initializes a new <see cref="NearbyDiscoverer"/>.
@@ -39,136 +32,47 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
     public bool IsDiscovering => _isDiscovering;
 
     /// <inheritdoc/>
-    public async Task StartAsync()
+    public Task StartAsync()
     {
-        Task? previousRunLoopTask;
-        lock (_stateLock)
-        {
-            _cts?.Cancel();
-            _cts?.Dispose();
-            previousRunLoopTask = _runLoopTask;
-            foreach (var device in _visibleSnapshot)
+        return _lifecycle.StartAsync(
+            executeTaskFactory: RunLoopAsync,
+            onPendingExpired: device => new DiscovererEvent.DeviceLost(device),
+            setRunningFlag: v =>
             {
-                _broadcaster.Publish(new DiscovererEvent.DeviceLost(device));
-            }
-            _visibleSnapshot.Clear();
-        }
-
-        // Wait for the previous run loop to fully unwind — including the platform's
-        // stop-discovering teardown, which runs synchronously inside its finally block —
-        // before starting a new one. Without this, a rapid stop/restart could have two
-        // run loops alive at once, both touching the same native browser field.
-        if (previousRunLoopTask is not null)
-        {
-            try
-            {
-                await previousRunLoopTask;
-            }
-            catch (OperationCanceledException)
-            {
-                // Normal exit when the previous StartAsync/StopAsync cancelled the token.
-            }
-        }
-
-        CancellationTokenSource cts;
-        lock (_stateLock)
-        {
-            cts = new CancellationTokenSource();
-            _cts = cts;
-            _runLoopTask = RunLoopAsync(cts.Token);
-        }
-
-        _isDiscovering = true;
-        LogDiscoveryStarted();
+                _isDiscovering = v;
+                if (v)
+                {
+                    LogDiscoveryStarted();
+                }
+            });
     }
 
     /// <inheritdoc/>
-    public async Task StopAsync()
+    public Task StopAsync()
     {
-        _isDiscovering = false;
-        Task? runLoopTask;
-        lock (_stateLock)
-        {
-            _cts?.Cancel();
-            _cts?.Dispose();
-            _cts = null;
-            runLoopTask = _runLoopTask;
-            foreach (var device in _visibleSnapshot)
+        return _lifecycle.StopAsync(
+            onPendingExpired: device => new DiscovererEvent.DeviceLost(device),
+            setRunningFlag: v =>
             {
-                _broadcaster.Publish(new DiscovererEvent.DeviceLost(device));
-            }
-            _visibleSnapshot.Clear();
-        }
-
-        LogDiscoveryStopped();
-
-        if (runLoopTask is not null)
-        {
-            try
-            {
-                await runLoopTask;
-            }
-            catch (OperationCanceledException)
-            {
-                // Normal exit when the cancellation above stops the run loop.
-            }
-        }
+                _isDiscovering = v;
+                if (!v)
+                {
+                    LogDiscoveryStopped();
+                }
+            });
     }
 
-    // A synchronous Dispose() cannot await the run loop's teardown without either blocking
-    // the calling thread (violating async-all-the-way) or risking deadlock. This is a
-    // pre-existing, accepted limitation of implementing both IDisposable and
-    // IAsyncDisposable side by side — callers who need to know the platform session has
-    // fully stopped before returning must use DisposeAsync() instead.
     /// <inheritdoc/>
     public void Dispose()
     {
-        lock (_stateLock)
-        {
-            _cts?.Cancel();
-            _cts?.Dispose();
-            _cts = null;
-            _broadcaster.Complete();
-        }
+        _lifecycle.Dispose();
         GC.SuppressFinalize(this);
     }
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        Task? runLoopTask;
-        NearbyConnection[] connections;
-        lock (_stateLock)
-        {
-            connections = [.. _activeSnapshot];
-            _activeSnapshot.Clear();
-            _cts?.Cancel();
-            _cts?.Dispose();
-            _cts = null;
-            runLoopTask = _runLoopTask;
-        }
-
-        if (runLoopTask is not null)
-        {
-            try
-            {
-                await runLoopTask;
-            }
-            catch (OperationCanceledException)
-            {
-                // Normal exit when the cancellation above stops the run loop.
-            }
-        }
-
-        foreach (var conn in connections)
-        {
-            await conn.DisposeAsync();
-        }
-
-        lock (_stateLock)
-        {
-            _broadcaster.Complete();
-        }
+        await _lifecycle.DisposeAsync();
         GC.SuppressFinalize(this);
     }
 
@@ -182,19 +86,19 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
                 if (ev.Type == NearbyDeviceEventType.Found)
                 {
                     LogDeviceFound(ev.Device.Id, ev.Device.DisplayName);
-                    lock (_stateLock)
+                    lock (_lifecycle.StateLock)
                     {
-                        _visibleSnapshot.Add(ev.Device);
-                        _broadcaster.Publish(new DiscovererEvent.DeviceFound(ev.Device));
+                        _lifecycle.PendingSnapshot.Add(ev.Device);
+                        _lifecycle.Publish(new DiscovererEvent.DeviceFound(ev.Device));
                     }
                 }
                 else
                 {
                     LogDeviceLost(ev.Device.Id, ev.Device.DisplayName);
-                    lock (_stateLock)
+                    lock (_lifecycle.StateLock)
                     {
-                        _visibleSnapshot.Remove(ev.Device);
-                        _broadcaster.Publish(new DiscovererEvent.DeviceLost(ev.Device));
+                        _lifecycle.PendingSnapshot.Remove(ev.Device);
+                        _lifecycle.Publish(new DiscovererEvent.DeviceLost(ev.Device));
                     }
                 }
             }
@@ -212,10 +116,7 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
             _isDiscovering = false;
             if (fault is not null)
             {
-                lock (_stateLock)
-                {
-                    _broadcaster.Complete(fault);
-                }
+                _lifecycle.Fault(fault);
             }
         }
     }
@@ -224,113 +125,40 @@ public sealed partial class NearbyDiscoverer : INearbyDiscoverer
     public async Task<NearbyConnection> ConnectAsync(NearbyDevice device, CancellationToken cancellationToken = default)
     {
         LogConnecting(device.Id, device.DisplayName);
-        lock (_stateLock)
+        lock (_lifecycle.StateLock)
         {
-            _visibleSnapshot.Remove(device);
+            _lifecycle.PendingSnapshot.Remove(device);
         }
         var conn = await _inner.ConnectAsync(device, cancellationToken);
         conn.Role = ConnectionRole.Initiator;
         CancellationToken serviceToken;
-        lock (_stateLock)
+        lock (_lifecycle.StateLock)
         {
-            serviceToken = _cts?.Token ?? CancellationToken.None;
-            _activeSnapshot.Add(conn);
-            _broadcaster.Publish(new DiscovererEvent.DeviceConnected(conn));
+            serviceToken = _lifecycle.CurrentServiceToken;
+            _lifecycle.ActiveSnapshot.Add(conn);
+            _lifecycle.Publish(new DiscovererEvent.DeviceConnected(conn));
         }
         LogConnected(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName);
-        _ = MonitorConnectionAsync(conn, serviceToken);
-        _ = ForwardPayloadsAsync(conn, serviceToken);
+        _ = _lifecycle.MonitorConnectionAsync(
+            conn,
+            onDropped: c => new DiscovererEvent.DeviceDisconnected(c),
+            logDropped: LogConnectionDropped,
+            serviceToken);
+        _ = _lifecycle.ForwardPayloadsAsync(
+            conn,
+            onPayload: (c, p) => new DiscovererEvent.PayloadReceived(c, p),
+            logError: LogForwardPayloadsError,
+            serviceToken);
         return conn;
     }
 
-    async Task MonitorConnectionAsync(NearbyConnection conn, CancellationToken serviceToken)
-    {
-        try
-        {
-            await conn.Disconnected.WaitAsync(serviceToken);
-            LogConnectionDropped(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName);
-            lock (_stateLock)
-            {
-                _activeSnapshot.Remove(conn);
-                _broadcaster.Publish(new DiscovererEvent.DeviceDisconnected(conn));
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // serviceToken is cancelled by StopAsync(), not by the connection
-            // itself dropping - but from a subscriber's perspective (e.g.
-            // ConnectionsPageViewModel.ConnectedDevices, built by replaying
-            // EventsAsync's snapshot + live events) this connection is gone
-            // either way. Removing it from _activeSnapshot without publishing
-            // DeviceDisconnected meant a subscriber that already added this
-            // connection before the stop never learned it should remove it -
-            // it would silently stay in a UI collection forever, even though
-            // it no longer appears in any future EventsAsync snapshot replay.
-            // Confirmed via observed "5+ connections" accumulating in the
-            // Connections page across repeated discover/stop cycles.
-            LogConnectionDropped(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName);
-            lock (_stateLock)
-            {
-                _activeSnapshot.Remove(conn);
-                _broadcaster.Publish(new DiscovererEvent.DeviceDisconnected(conn));
-            }
-        }
-    }
-
-    async Task ForwardPayloadsAsync(NearbyConnection conn, CancellationToken ct)
-    {
-        try
-        {
-            await foreach (var payload in conn.ReceiveAsync(ct))
-            {
-                lock (_stateLock)
-                {
-                    _broadcaster.Publish(new DiscovererEvent.PayloadReceived(conn, payload));
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Service stopped; normal exit.
-        }
-        catch (Exception ex)
-        {
-            LogForwardPayloadsError(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName, ex);
-        }
-    }
-
     /// <inheritdoc/>
-    public async IAsyncEnumerable<DiscovererEvent> EventsAsync(
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<DiscovererEvent> EventsAsync(CancellationToken cancellationToken = default)
     {
-        Channel<DiscovererEvent> sub;
-        IEnumerable<DiscovererEvent> snapshot;
-
-        lock (_stateLock)
-        {
-            snapshot = _visibleSnapshot.Select(d => (DiscovererEvent)new DiscovererEvent.DeviceFound(d))
-                .Concat(_activeSnapshot.Select(c => new DiscovererEvent.DeviceConnected(c)))
-                .ToList();
-            sub = _broadcaster.Subscribe();
-        }
-
-        try
-        {
-            foreach (var ev in snapshot)
-            {
-                yield return ev;
-            }
-
-            yield return new DiscovererEvent.Synchronized();
-
-            await foreach (var ev in sub.Reader.ReadAllAsync(cancellationToken))
-            {
-                yield return ev;
-            }
-        }
-        finally
-        {
-            lock (_stateLock) { _broadcaster.Unsubscribe(sub); }
-        }
+        return _lifecycle.EventsAsync(
+            buildSnapshot: () => _lifecycle.PendingSnapshot.Select(d => (DiscovererEvent)new DiscovererEvent.DeviceFound(d))
+                .Concat(_lifecycle.ActiveSnapshot.Select(c => new DiscovererEvent.DeviceConnected(c))),
+            synchronized: () => new DiscovererEvent.Synchronized(),
+            cancellationToken);
     }
 }

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Runtime.CompilerServices;
-using System.Threading.Channels;
 
 namespace Plugin.Maui.NearbyDevices;
 
@@ -14,12 +13,7 @@ public sealed partial class NearbyAdvertiser : INearbyAdvertiser
 {
     readonly INearbyDevices _inner;
     readonly ILogger _logger;
-    CancellationTokenSource? _cts;
-    Task? _runLoopTask;
-    readonly ChannelBroadcaster<AdvertiserEvent> _broadcaster = new();
-    readonly Lock _stateLock = new();
-    readonly List<NearbyConnectionRequest> _pendingSnapshot = [];
-    readonly List<NearbyConnection> _activeSnapshot = [];
+    readonly ConnectionLifecycle<NearbyConnectionRequest, AdvertiserEvent> _lifecycle = new();
 
     /// <summary>
     /// Initializes a new <see cref="NearbyAdvertiser"/>.
@@ -39,136 +33,47 @@ public sealed partial class NearbyAdvertiser : INearbyAdvertiser
     public bool IsAdvertising => _isAdvertising;
 
     /// <inheritdoc/>
-    public async Task StartAsync()
+    public Task StartAsync()
     {
-        Task? previousRunLoopTask;
-        lock (_stateLock)
-        {
-            _cts?.Cancel();
-            _cts?.Dispose();
-            previousRunLoopTask = _runLoopTask;
-            foreach (var req in _pendingSnapshot)
+        return _lifecycle.StartAsync(
+            executeTaskFactory: RunLoopAsync,
+            onPendingExpired: req => new AdvertiserEvent.ConnectionRequestExpired(req),
+            setRunningFlag: v =>
             {
-                _broadcaster.Publish(new AdvertiserEvent.ConnectionRequestExpired(req));
-            }
-            _pendingSnapshot.Clear();
-        }
-
-        // Wait for the previous run loop to fully unwind — including the platform's
-        // stop-advertising teardown, which runs synchronously inside its finally block —
-        // before starting a new one. Without this, a rapid stop/restart could have two
-        // run loops alive at once, both touching the same native advertiser field.
-        if (previousRunLoopTask is not null)
-        {
-            try
-            {
-                await previousRunLoopTask;
-            }
-            catch (OperationCanceledException)
-            {
-                // Normal exit when the previous StartAsync/StopAsync cancelled the token.
-            }
-        }
-
-        CancellationTokenSource cts;
-        lock (_stateLock)
-        {
-            cts = new CancellationTokenSource();
-            _cts = cts;
-            _runLoopTask = RunLoopAsync(cts.Token);
-        }
-
-        _isAdvertising = true;
-        LogAdvertisingStarted();
+                _isAdvertising = v;
+                if (v)
+                {
+                    LogAdvertisingStarted();
+                }
+            });
     }
 
     /// <inheritdoc/>
-    public async Task StopAsync()
+    public Task StopAsync()
     {
-        _isAdvertising = false;
-        Task? runLoopTask;
-        lock (_stateLock)
-        {
-            _cts?.Cancel();
-            _cts?.Dispose();
-            _cts = null;
-            runLoopTask = _runLoopTask;
-            foreach (var req in _pendingSnapshot)
+        return _lifecycle.StopAsync(
+            onPendingExpired: req => new AdvertiserEvent.ConnectionRequestExpired(req),
+            setRunningFlag: v =>
             {
-                _broadcaster.Publish(new AdvertiserEvent.ConnectionRequestExpired(req));
-            }
-            _pendingSnapshot.Clear();
-        }
-
-        LogAdvertisingStopped();
-
-        if (runLoopTask is not null)
-        {
-            try
-            {
-                await runLoopTask;
-            }
-            catch (OperationCanceledException)
-            {
-                // Normal exit when the cancellation above stops the run loop.
-            }
-        }
+                _isAdvertising = v;
+                if (!v)
+                {
+                    LogAdvertisingStopped();
+                }
+            });
     }
 
-    // A synchronous Dispose() cannot await the run loop's teardown without either blocking
-    // the calling thread (violating async-all-the-way) or risking deadlock. This is a
-    // pre-existing, accepted limitation of implementing both IDisposable and
-    // IAsyncDisposable side by side — callers who need to know the platform session has
-    // fully stopped before returning must use DisposeAsync() instead.
     /// <inheritdoc/>
     public void Dispose()
     {
-        lock (_stateLock)
-        {
-            _cts?.Cancel();
-            _cts?.Dispose();
-            _cts = null;
-            _broadcaster.Complete();
-        }
+        _lifecycle.Dispose();
         GC.SuppressFinalize(this);
     }
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        Task? runLoopTask;
-        NearbyConnection[] connections;
-        lock (_stateLock)
-        {
-            connections = [.. _activeSnapshot];
-            _activeSnapshot.Clear();
-            _cts?.Cancel();
-            _cts?.Dispose();
-            _cts = null;
-            runLoopTask = _runLoopTask;
-        }
-
-        if (runLoopTask is not null)
-        {
-            try
-            {
-                await runLoopTask;
-            }
-            catch (OperationCanceledException)
-            {
-                // Normal exit when the cancellation above stops the run loop.
-            }
-        }
-
-        foreach (var conn in connections)
-        {
-            await conn.DisposeAsync();
-        }
-
-        lock (_stateLock)
-        {
-            _broadcaster.Complete();
-        }
+        await _lifecycle.DisposeAsync();
         GC.SuppressFinalize(this);
     }
 
@@ -180,10 +85,10 @@ public sealed partial class NearbyAdvertiser : INearbyAdvertiser
             await foreach (var request in _inner.AdvertiseAsync(ct))
             {
                 LogConnectionRequested(request.RemoteDevice.Id, request.RemoteDevice.DisplayName);
-                lock (_stateLock)
+                lock (_lifecycle.StateLock)
                 {
-                    _pendingSnapshot.Add(request);
-                    _broadcaster.Publish(new AdvertiserEvent.ConnectionRequested(request));
+                    _lifecycle.PendingSnapshot.Add(request);
+                    _lifecycle.Publish(new AdvertiserEvent.ConnectionRequested(request));
                 }
             }
         }
@@ -200,10 +105,7 @@ public sealed partial class NearbyAdvertiser : INearbyAdvertiser
             _isAdvertising = false;
             if (fault is not null)
             {
-                lock (_stateLock)
-                {
-                    _broadcaster.Complete(fault);
-                }
+                _lifecycle.Fault(fault);
             }
         }
     }
@@ -214,17 +116,25 @@ public sealed partial class NearbyAdvertiser : INearbyAdvertiser
         var conn = await request.AcceptAsync(cancellationToken);
         conn.Role = ConnectionRole.Acceptor;
         CancellationToken serviceToken;
-        lock (_stateLock)
+        lock (_lifecycle.StateLock)
         {
-            serviceToken = _cts?.Token ?? CancellationToken.None;
-            _pendingSnapshot.Remove(request);
-            _activeSnapshot.Add(conn);
-            _broadcaster.Publish(new AdvertiserEvent.ConnectionAccepted(conn));
+            serviceToken = _lifecycle.CurrentServiceToken;
+            _lifecycle.PendingSnapshot.Remove(request);
+            _lifecycle.ActiveSnapshot.Add(conn);
+            _lifecycle.Publish(new AdvertiserEvent.ConnectionAccepted(conn));
         }
         LogConnectionAccepted(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName);
 
-        _ = MonitorConnectionAsync(conn, serviceToken);
-        _ = ForwardPayloadsAsync(conn, serviceToken);
+        _ = _lifecycle.MonitorConnectionAsync(
+            conn,
+            onDropped: c => new AdvertiserEvent.ConnectionDropped(c),
+            logDropped: LogConnectionDropped,
+            serviceToken);
+        _ = _lifecycle.ForwardPayloadsAsync(
+            conn,
+            onPayload: (c, p) => new AdvertiserEvent.PayloadReceived(c, p),
+            logError: LogForwardPayloadsError,
+            serviceToken);
 
         return conn;
     }
@@ -233,101 +143,20 @@ public sealed partial class NearbyAdvertiser : INearbyAdvertiser
     public Task RejectAsync(NearbyConnectionRequest request, CancellationToken cancellationToken = default)
     {
         LogConnectionRejected(request.RemoteDevice.Id, request.RemoteDevice.DisplayName);
-        lock (_stateLock)
+        lock (_lifecycle.StateLock)
         {
-            _pendingSnapshot.Remove(request);
+            _lifecycle.PendingSnapshot.Remove(request);
         }
         return request.RejectAsync(cancellationToken);
     }
 
-    async Task MonitorConnectionAsync(NearbyConnection conn, CancellationToken serviceToken)
-    {
-        try
-        {
-            await conn.Disconnected.WaitAsync(serviceToken);
-            LogConnectionDropped(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName);
-            lock (_stateLock)
-            {
-                _activeSnapshot.Remove(conn);
-                _broadcaster.Publish(new AdvertiserEvent.ConnectionDropped(conn));
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // serviceToken is cancelled by StopAsync(), not by the connection
-            // itself dropping - but from a subscriber's perspective (e.g.
-            // ConnectionsPageViewModel.ConnectedDevices, built by replaying
-            // EventsAsync's snapshot + live events) this connection is gone
-            // either way. Removing it from _activeSnapshot without publishing
-            // ConnectionDropped meant a subscriber that already added this
-            // connection before the stop never learned it should remove it -
-            // it would silently stay in a UI collection forever, even though
-            // it no longer appears in any future EventsAsync snapshot replay.
-            // Confirmed via observed "5+ connections" accumulating in the
-            // Connections page across repeated advertise/stop cycles.
-            LogConnectionDropped(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName);
-            lock (_stateLock)
-            {
-                _activeSnapshot.Remove(conn);
-                _broadcaster.Publish(new AdvertiserEvent.ConnectionDropped(conn));
-            }
-        }
-    }
-
-    async Task ForwardPayloadsAsync(NearbyConnection conn, CancellationToken ct)
-    {
-        try
-        {
-            await foreach (var payload in conn.ReceiveAsync(ct))
-            {
-                lock (_stateLock)
-                {
-                    _broadcaster.Publish(new AdvertiserEvent.PayloadReceived(conn, payload));
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Service stopped; normal exit.
-        }
-        catch (Exception ex)
-        {
-            LogForwardPayloadsError(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName, ex);
-        }
-    }
-
     /// <inheritdoc/>
-    public async IAsyncEnumerable<AdvertiserEvent> EventsAsync(
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<AdvertiserEvent> EventsAsync(CancellationToken cancellationToken = default)
     {
-        Channel<AdvertiserEvent> sub;
-        IEnumerable<AdvertiserEvent> snapshot;
-
-        lock (_stateLock)
-        {
-            snapshot = _pendingSnapshot.Select(r => (AdvertiserEvent)new AdvertiserEvent.ConnectionRequested(r))
-                .Concat(_activeSnapshot.Select(c => new AdvertiserEvent.ConnectionAccepted(c)))
-                .ToList();
-            sub = _broadcaster.Subscribe();
-        }
-
-        try
-        {
-            foreach (var ev in snapshot)
-            {
-                yield return ev;
-            }
-
-            yield return new AdvertiserEvent.Synchronized();
-
-            await foreach (var ev in sub.Reader.ReadAllAsync(cancellationToken))
-            {
-                yield return ev;
-            }
-        }
-        finally
-        {
-            lock (_stateLock) { _broadcaster.Unsubscribe(sub); }
-        }
+        return _lifecycle.EventsAsync(
+            buildSnapshot: () => _lifecycle.PendingSnapshot.Select(r => (AdvertiserEvent)new AdvertiserEvent.ConnectionRequested(r))
+                .Concat(_lifecycle.ActiveSnapshot.Select(c => new AdvertiserEvent.ConnectionAccepted(c))),
+            synchronized: () => new AdvertiserEvent.Synchronized(),
+            cancellationToken);
     }
 }
