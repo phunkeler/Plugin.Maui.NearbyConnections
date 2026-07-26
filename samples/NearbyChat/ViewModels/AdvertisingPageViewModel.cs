@@ -44,6 +44,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
         Connections = connectionTracker;
         _permissions = permissions;
         _relativeTimeTicker = new RelativeTimeTicker(dispatcher, TimeSpan.FromSeconds(30), OnRelativeTimeRefreshTimerTick);
+        IsAdvertising = advertiser.IsAdvertising;
     }
 
     [RelayCommand]

@@ -44,6 +44,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
         Connections = connectionTracker;
         _permissions = permissions;
         _relativeTimeTicker = new RelativeTimeTicker(dispatcher, TimeSpan.FromSeconds(30), OnRelativeTimeRefreshTimerTick);
+        IsDiscovering = discoverer.IsDiscovering;
     }
 
     [RelayCommand]
