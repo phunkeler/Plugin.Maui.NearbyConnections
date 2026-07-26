@@ -16,10 +16,12 @@
     <SupportedOSPlatformVersion Condition="$(IsTargetPlatformIos) == true">15.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$(IsTargetPlatformAndroid) == true">21.0</SupportedOSPlatformVersion>
 
-    <NoWarn>CA1822</NoWarn>
     <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
     <DefineConstants>$(DefineConstants);MauiAllowImplicitXmlnsDeclaration</DefineConstants>
-    <DefineConstants Condition="$(RuntimeIdentifier.Contains('simulator'))">$(DefineConstants);IOS_SIMULATOR</DefineConstants>
+    <!-- Required by MauiAllowImplicitXmlnsDeclaration above: the generated
+         GlobalXmlns.g.cs applies AllowImplicitXmlnsDeclarationAttribute, which
+         is itself a preview-features API (CA2252) — removing this flag fails
+         the build with CA2252 on that generated file. -->
     <EnablePreviewFeatures>true</EnablePreviewFeatures>
   </PropertyGroup>
 

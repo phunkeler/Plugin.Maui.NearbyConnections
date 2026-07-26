@@ -6,7 +6,10 @@ public enum NearbyDirection
     Outgoing
 }
 
-public record ChatMessage(string? Text, NearbyDirection Direction, DateTimeOffset Timestamp)
+public record ChatMessage(
+    string? Text,
+    NearbyDirection Direction,
+    DateTimeOffset Timestamp)
 {
     public IList<IAttachment> Attachments { get; } = [];
 }

@@ -44,21 +44,20 @@ public static class MauiProgram
         builder.Logging.AddFilter("Plugin.Maui.NearbyDevices", LogLevel.Trace);
 #endif
 
-        builder.Services.AddSingleton(DeviceInfo.Current);
-        builder.Services.AddSingleton(FileSystem.Current);
         builder.Services.AddSingleton(MediaPicker.Default);
+        builder.Services.AddSingleton(Launcher.Default);
         builder.Services.AddSingleton<AppShell>();
         builder.Services.AddSingleton(_ =>
         {
             return Application.Current?.Dispatcher ?? throw new InvalidOperationException("Dispatcher is not available.");
         });
         builder.Services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
-        builder.Services.AddSingleton<INearbyDeviceViewModelFactory, NearbyDeviceViewModelFactory>();
-        builder.Services.AddSingleton<IChatMessageViewModelFactory, ChatMessageViewModelFactory>();
         builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<IThumbnailService, ThumbnailService>();
+        builder.Services.AddSingleton<INearbyPermissions, NearbyPermissions>();
         builder.Services.AddSingleton<IChatMessageRepository, ChatMessageRepository>();
         builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
+        builder.Services.AddSingleton<IConnectionTracker, ConnectionTracker>();
 
         builder.Services.AddTransientWithShellRoute<AdvertisingPage, AdvertisingPageViewModel>();
         builder.Services.AddTransientWithShellRoute<ConnectionsPage, ConnectionsPageViewModel>();

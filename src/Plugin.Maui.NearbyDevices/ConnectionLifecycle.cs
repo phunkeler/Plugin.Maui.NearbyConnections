@@ -71,10 +71,6 @@ sealed class ConnectionLifecycle<TPending, TEvent> where TPending : notnull
             PendingSnapshot.Clear();
         }
 
-        // Wait for the previous execution to fully unwind — including the platform's stop
-        // teardown, which runs synchronously inside its finally block — before starting a new
-        // one. Without this, a rapid stop/restart could have two operations alive at once, both
-        // touching the same native advertiser/browser field.
         if (previousExecuteTask is not null)
         {
             try
@@ -225,15 +221,6 @@ sealed class ConnectionLifecycle<TPending, TEvent> where TPending : notnull
         }
         catch (OperationCanceledException)
         {
-            // serviceToken is cancelled by StopAsync(), not by the connection itself dropping -
-            // but from a subscriber's perspective (e.g. ConnectionsPageViewModel.ConnectedDevices,
-            // built by replaying EventsAsync's snapshot + live events) this connection is gone
-            // either way. Removing it from _activeSnapshot without publishing the dropped event
-            // meant a subscriber that already added this connection before the stop never learned
-            // it should remove it - it would silently stay in a UI collection forever, even though
-            // it no longer appears in any future EventsAsync snapshot replay. Confirmed via
-            // observed "5+ connections" accumulating in the Connections page across repeated
-            // advertise-or-discover/stop cycles.
             logDropped(conn.RemoteDevice.Id, conn.RemoteDevice.DisplayName);
             lock (StateLock)
             {
@@ -293,10 +280,6 @@ sealed class ConnectionLifecycle<TPending, TEvent> where TPending : notnull
 
         lock (StateLock)
         {
-            // Materialize inside the lock: buildSnapshot() may return a lazy query closed over
-            // the live, mutable PendingSnapshot/ActiveSnapshot lists. Enumerating it after the
-            // lock releases would race any concurrent mutation (Accept/Reject/RunLoopAsync) and
-            // throw InvalidOperationException ("Collection was modified") mid-enumeration.
             snapshot = [.. buildSnapshot()];
             sub = _broadcaster.Subscribe();
         }
@@ -317,7 +300,10 @@ sealed class ConnectionLifecycle<TPending, TEvent> where TPending : notnull
         }
         finally
         {
-            lock (StateLock) { _broadcaster.Unsubscribe(sub); }
+            lock (StateLock)
+            {
+                _broadcaster.Unsubscribe(sub);
+            }
         }
     }
 }

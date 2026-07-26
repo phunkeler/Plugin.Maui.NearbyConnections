@@ -31,19 +31,15 @@
     <!-- ========================================== -->
     <x:String x:Key="icon-antenna">&#xe001;</x:String>
     <x:String x:Key="icon-attachment">&#xe002;</x:String>
-    <x:String x:Key="icon-camera">&#xe003;</x:String>
     <x:String x:Key="icon-check">&#xe005;</x:String>
     <x:String x:Key="icon-down">&#xe006;</x:String>
-    <x:String x:Key="icon-left">&#xe008;</x:String>
     <x:String x:Key="icon-link">&#xe009;</x:String>
     <x:String x:Key="icon-magnify">&#xe010;</x:String>
     <x:String x:Key="icon-message">&#xe011;</x:String>
     <x:String x:Key="icon-right">&#xe013;</x:String>
     <x:String x:Key="icon-send">&#xe014;</x:String>
     <x:String x:Key="icon-sonar">&#xe015;</x:String>
-    <x:String x:Key="icon-up">&#xe016;</x:String>
     <x:String x:Key="icon-users">&#xe017;</x:String>
-    <x:String x:Key="icon-video">&#xe018;</x:String>
 
     <!-- ========================================== -->
     <!--          FEATURE ICON BADGE PARTS          -->
@@ -230,69 +226,6 @@
         </Setter>
     </Style>
 
-    <!-- Advertising Icon Container -->
-    <Style x:Key="AdvertiseIconContainer"
-           TargetType="Border">
-        <Setter Property="BackgroundColor"
-                Value="{StaticResource AccentAdvertising}"/>
-        <Setter Property="WidthRequest"
-                Value="56"/>
-        <Setter Property="HeightRequest"
-                Value="56"/>
-        <Setter Property="StrokeThickness"
-                Value="0"/>
-        <Setter Property="StrokeShape"
-                Value="RoundRectangle 16"/>
-        <Setter Property="Shadow">
-            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentAdvertisingShadow}, Dark={StaticResource DarkAccentAdvertisingLight}}"
-                    Offset="0,4"
-                    Radius="12"
-                    Opacity="0.3"/>
-        </Setter>
-    </Style>
-
-    <!-- Discover Icon Container -->
-    <Style x:Key="DiscoverIconContainer"
-           TargetType="Border">
-        <Setter Property="BackgroundColor"
-                Value="{StaticResource AccentDiscovery}"/>
-        <Setter Property="WidthRequest"
-                Value="56"/>
-        <Setter Property="HeightRequest"
-                Value="56"/>
-        <Setter Property="StrokeThickness"
-                Value="0"/>
-        <Setter Property="StrokeShape"
-                Value="RoundRectangle 16"/>
-        <Setter Property="Shadow">
-            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentDiscoveryShadow}, Dark={StaticResource DarkAccentDiscoveryLight}}"
-                    Offset="0,4"
-                    Radius="12"
-                    Opacity="0.3"/>
-        </Setter>
-    </Style>
-
-    <!-- Connections Icon Container -->
-    <Style x:Key="ConnectionsIconContainer"
-           TargetType="Border">
-        <Setter Property="BackgroundColor"
-                Value="{StaticResource AccentConnections}"/>
-        <Setter Property="WidthRequest"
-                Value="56"/>
-        <Setter Property="HeightRequest"
-                Value="56"/>
-        <Setter Property="StrokeThickness"
-                Value="0"/>
-        <Setter Property="StrokeShape"
-                Value="RoundRectangle 16"/>
-        <Setter Property="Shadow">
-            <Shadow Brush="{AppThemeBinding Light={StaticResource LightAccentConnectionsShadow}, Dark={StaticResource DarkAccentConnectionsLight}}"
-                    Offset="0,4"
-                    Radius="12"
-                    Opacity="0.3"/>
-        </Setter>
-    </Style>
-
     <Style x:Key="BackButtonStyle"
            TargetType="Button">
         <Setter Property="Text"
@@ -303,62 +236,73 @@
                 Value="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"/>
         <Setter Property="FontAttributes"
                 Value="Bold"/>
+        <Setter Property="BorderWidth"
+                Value="1"/>
+        <Setter Property="BorderColor"
+                Value="{AppThemeBinding Light=Black, Dark=Gray}"/>
         <Setter Property="CornerRadius"
                 Value="12"/>
-        <Setter Property="FontFamily"
-                Value="NearbyChatIcons"/>
-        <Setter Property="BorderColor"
-                Value="{AppThemeBinding Light=Black, Dark=White}"/>
-        <Setter Property="Shadow">
-            <Shadow Brush="{AppThemeBinding Light={StaticResource LightButtonShadow}, Dark={StaticResource DarkShadowLight}}"
-                    Offset="0,2"
-                    Radius="4"
-                    Opacity="0.2"/>
-        </Setter>
+        <Setter Property="FontSize"
+                Value="{StaticResource FontSizeMD}"/>
+    </Style>
+
+    <!-- Chat bubble parts (shared across Text/Photo/Video templates) -->
+    <Style x:Key="ChatBubbleBorder"
+           TargetType="Border">
+        <Setter Property="StrokeThickness"
+                Value="0"/>
+        <Setter Property="Margin"
+                Value="0,8,0,0"/>
+        <Setter Property="Padding"
+                Value="{StaticResource SpacingSM}"/>
+        <Setter Property="Background"
+                Value="{StaticResource ChatBubbleBackground}"/>
+        <Setter Property="HorizontalOptions"
+                Value="Start"/>
+        <Setter Property="StrokeShape"
+                Value="RoundRectangle 16"/>
+        <Style.Triggers>
+            <!-- User messages: right aligned, accent background -->
+            <DataTrigger TargetType="Border"
+                         Binding="{Binding Model.Direction}"
+                         Value="Outgoing">
+                <Setter Property="HorizontalOptions"
+                        Value="End"/>
+                <Setter Property="Background"
+                        Value="{StaticResource ChatBubbleOutgoingBackground}"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ChatTimestampLabel"
+           TargetType="Label">
+        <Setter Property="FontSize"
+                Value="10"/>
+        <Setter Property="TextColor"
+                Value="{StaticResource ChatBubbleTimestampColor}"/>
+        <Setter Property="HorizontalTextAlignment"
+                Value="End"/>
     </Style>
 
     <!-- Data Templates -->
     <controls:ChatMessageViewModelDataTemplateSelector x:Key="ChatMessageViewModelDataTemplateSelector">
         <controls:ChatMessageViewModelDataTemplateSelector.TextTemplate>
             <DataTemplate x:DataType="vm:ChatMessageViewModel">
-                <Border StrokeThickness="0"
-                        Margin="0,8,0,0"
-                        Padding="{StaticResource SpacingSM}"
-                        Background="#F1F1F1"
-                        HorizontalOptions="Start"
-                        StrokeShape="RoundRectangle 16">
+                <Border Style="{StaticResource ChatBubbleBorder}">
                     <VerticalStackLayout Spacing="4">
                         <Label
                             Text="{Binding Model.Text}"
-                            TextColor="#222"
+                            TextColor="{StaticResource ChatBubbleTextTextColor}"
                             LineBreakMode="WordWrap"/>
-                        <Label Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"
-                               FontSize="10"
-                               TextColor="#888"
-                               HorizontalTextAlignment="End"/>
+                        <Label Style="{StaticResource ChatTimestampLabel}"
+                               Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"/>
                     </VerticalStackLayout>
-                    <Border.Triggers>
-                        <!-- User messages: right aligned, accent background -->
-                        <DataTrigger TargetType="Border"
-                                     Binding="{Binding Model.Direction}"
-                                     Value="Outgoing">
-                            <Setter Property="HorizontalOptions"
-                                    Value="End"/>
-                            <Setter Property="Background"
-                                    Value="#D1E8FF"/>
-                        </DataTrigger>
-                    </Border.Triggers>
                 </Border>
             </DataTemplate>
         </controls:ChatMessageViewModelDataTemplateSelector.TextTemplate>
         <controls:ChatMessageViewModelDataTemplateSelector.PhotoTemplate>
             <DataTemplate x:DataType="vm:PhotoMessageViewModel">
-                <Border StrokeThickness="0"
-                        Margin="0,8,0,0"
-                        Padding="{StaticResource SpacingSM}"
-                        Background="#F1F1F1"
-                        HorizontalOptions="Start"
-                        StrokeShape="RoundRectangle 16">
+                <Border Style="{StaticResource ChatBubbleBorder}">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenFileCommand}"
                                               CommandParameter="{Binding MediaAttachment.FilePath}"/>
@@ -376,38 +320,23 @@
                                                HorizontalOptions="Center"
                                                VerticalOptions="Center"/>
                         </Grid>
+                        <!-- Outbound transfer progress; visible only while the file is in flight -->
+                        <ProgressBar Progress="{Binding TransferProgress}"
+                                     IsVisible="{Binding IsTransferring}"/>
                         <Label
                             Text="{Binding Model.Text}"
-                            TextColor="#555"
+                            TextColor="{StaticResource ChatBubbleMediaTextColor}"
                             LineBreakMode="TailTruncation"/>
-                        <Label Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"
-                               FontSize="10"
-                               TextColor="#888"
-                               HorizontalTextAlignment="End"/>
+                        <Label Style="{StaticResource ChatTimestampLabel}"
+                               Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"/>
                     </VerticalStackLayout>
-                    <Border.Triggers>
-                        <!-- User messages: right aligned, accent background -->
-                        <DataTrigger TargetType="Border"
-                                     Binding="{Binding Model.Direction}"
-                                     Value="Outgoing">
-                            <Setter Property="HorizontalOptions"
-                                    Value="End"/>
-                            <Setter Property="Background"
-                                    Value="#D1E8FF"/>
-                        </DataTrigger>
-                    </Border.Triggers>
                 </Border>
             </DataTemplate>
 
         </controls:ChatMessageViewModelDataTemplateSelector.PhotoTemplate>
         <controls:ChatMessageViewModelDataTemplateSelector.VideoTemplate>
             <DataTemplate x:DataType="vm:VideoMessageViewModel">
-                <Border StrokeThickness="0"
-                        Margin="0,8,0,0"
-                        Padding="{StaticResource SpacingSM}"
-                        Background="#F1F1F1"
-                        HorizontalOptions="Start"
-                        StrokeShape="RoundRectangle 16">
+                <Border Style="{StaticResource ChatBubbleBorder}">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenFileCommand}"
                                               CommandParameter="{Binding MediaAttachment.FilePath}"/>
@@ -447,26 +376,16 @@
                                        Margin="4,0,0,0"/>
                             </Border>
                         </Grid>
+                        <!-- Outbound transfer progress; visible only while the file is in flight -->
+                        <ProgressBar Progress="{Binding TransferProgress}"
+                                     IsVisible="{Binding IsTransferring}"/>
                         <Label
                             Text="{Binding Model.Text}"
-                            TextColor="#555"
+                            TextColor="{StaticResource ChatBubbleMediaTextColor}"
                             LineBreakMode="TailTruncation"/>
-                        <Label Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"
-                               FontSize="10"
-                               TextColor="#888"
-                               HorizontalTextAlignment="End"/>
+                        <Label Style="{StaticResource ChatTimestampLabel}"
+                               Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"/>
                     </VerticalStackLayout>
-                    <Border.Triggers>
-                        <!-- User messages: right aligned, accent background -->
-                        <DataTrigger TargetType="Border"
-                                     Binding="{Binding Model.Direction}"
-                                     Value="Outgoing">
-                            <Setter Property="HorizontalOptions"
-                                    Value="End"/>
-                            <Setter Property="Background"
-                                    Value="#D1E8FF"/>
-                        </DataTrigger>
-                    </Border.Triggers>
                 </Border>
             </DataTemplate>
         </controls:ChatMessageViewModelDataTemplateSelector.VideoTemplate>

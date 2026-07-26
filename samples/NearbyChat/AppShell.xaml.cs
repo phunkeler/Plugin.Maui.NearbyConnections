@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Collections.Frozen;
 using NearbyChat.Pages;
 using NearbyChat.ViewModels;
 
@@ -6,14 +6,13 @@ namespace NearbyChat;
 
 public partial class AppShell : Shell
 {
-    static readonly ReadOnlyDictionary<Type, Type> s_viewModelMappings = new(
-        new KeyValuePair<Type, Type>[]
-        {
-            CreateViewModelMapping<MainPage, MainPageViewModel>(),
-            CreateViewModelMapping<AdvertisingPage, AdvertisingPageViewModel>(),
-            CreateViewModelMapping<DiscoveryPage, DiscoveryPageViewModel>(),
-            CreateViewModelMapping<ConnectionsPage, ConnectionsPageViewModel>(),
-        }.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
+    static readonly FrozenDictionary<Type, Type> s_viewModelMappings = new[]
+    {
+        CreateViewModelMapping<MainPage, MainPageViewModel>(),
+        CreateViewModelMapping<AdvertisingPage, AdvertisingPageViewModel>(),
+        CreateViewModelMapping<DiscoveryPage, DiscoveryPageViewModel>(),
+        CreateViewModelMapping<ConnectionsPage, ConnectionsPageViewModel>(),
+    }.ToFrozenDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
     public AppShell()
     {
@@ -25,18 +24,12 @@ public partial class AppShell : Shell
     {
         var viewModelType = typeof(TViewModel);
 
-        if (!viewModelType.IsAssignableTo(typeof(BasePageViewModel)))
-        {
-            throw new ArgumentException($"{nameof(viewModelType)} must implement {nameof(BasePageViewModel)}", nameof(viewModelType));
-        }
-
         if (!s_viewModelMappings.TryGetValue(viewModelType, out var mapping))
         {
             throw new KeyNotFoundException($"No map for ${viewModelType} was found on navigation mappings. Please register your ViewModel in {nameof(AppShell)}.{nameof(s_viewModelMappings)}");
         }
 
-        var uri = new UriBuilder("", $"//{mapping.Name}");
-        return uri.Uri.OriginalString[..^1];
+        return $"//{mapping.Name}";
     }
 
     static KeyValuePair<Type, Type> CreateViewModelMapping<TPage, TViewModel>()

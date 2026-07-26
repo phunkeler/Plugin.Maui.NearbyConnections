@@ -4,31 +4,38 @@ using NearbyChat.Models;
 
 namespace NearbyChat.ViewModels;
 
-public partial class ChatMessageViewModel(ChatMessage model) : ObservableObject
+public partial class ChatMessageViewModel(ChatMessage model, ILauncher launcher) : ObservableObject
 {
-    public ChatMessage Model { get; } = model ?? throw new ArgumentNullException(nameof(model));
+    readonly ILauncher _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
 
-    // helpers for dealing with attachments
-    public IAttachment? FirstAttachment =>
-        Model.Attachments.Count > 0 ? Model.Attachments[0] : null;
+    public ChatMessage Model { get; } = model ?? throw new ArgumentNullException(nameof(model));
 
     public MediaAttachment? MediaAttachment =>
         Model.Attachments.OfType<MediaAttachment>().FirstOrDefault();
 
     public ImageSource? Thumbnail => MediaAttachment?.Thumbnail;
 
-    public bool HasMedia => MediaAttachment is not null;
-
-    public bool IsPhoto => MediaAttachment is PhotoAttachment;
-
-    public bool IsVideo => MediaAttachment is VideoAttachment;
-
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
+    [ObservableProperty]
+    public partial bool IsTransferring { get; set; }
+
+    [ObservableProperty]
+    public partial double TransferProgress { get; set; }
+
+    public static ChatMessageViewModel Create(ChatMessage model, ILauncher launcher) => model switch
+    {
+        { Attachments: var attachments } when attachments.Any(a => a.Type == AttachmentType.Photo)
+            => new PhotoMessageViewModel(model, launcher),
+        { Attachments: var attachments } when attachments.Any(a => a.Type == AttachmentType.Video)
+            => new VideoMessageViewModel(model, launcher),
+        _ => new ChatMessageViewModel(model, launcher)
+    };
+
     [RelayCommand]
     Task<bool> OpenFile(string filePath)
-        => Launcher.Default.OpenAsync(new OpenFileRequest
+        => _launcher.OpenAsync(new OpenFileRequest
         {
             Title = Path.GetFileName(filePath),
             File = new ReadOnlyFile(filePath)

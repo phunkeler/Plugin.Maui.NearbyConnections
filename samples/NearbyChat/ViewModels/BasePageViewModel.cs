@@ -1,13 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
 
 namespace NearbyChat.ViewModels;
 
 public abstract partial class BasePageViewModel(
-    IDispatcher dispatcher,
-    IMessenger messenger)
-    : ObservableRecipient(messenger), IDisposable
+    IDispatcher dispatcher)
+    : ObservableObject, IDisposable
 {
     CancellationTokenSource? _navigationCts;
     bool _disposed;
@@ -23,7 +21,6 @@ public abstract partial class BasePageViewModel(
         _navigationCts = new CancellationTokenSource();
         old?.Cancel();
         old?.Dispose();
-        IsActive = true;
     }
 
     [RelayCommand]
@@ -33,7 +30,6 @@ public abstract partial class BasePageViewModel(
         _navigationCts = null;
         old?.Cancel();
         old?.Dispose();
-        IsActive = false;
     }
 
     public void Dispose()

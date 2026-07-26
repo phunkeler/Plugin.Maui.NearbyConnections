@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyDevices;
 
@@ -11,9 +10,8 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
 {
     readonly INavigationService _navigationService;
     readonly INearbyAdvertiser _advertiser;
-    readonly INearbyDeviceViewModelFactory _nearbyDeviceViewModelFactory;
-
-    IDispatcherTimer? _relativeTimeRefreshTimer;
+    readonly INearbyPermissions _permissions;
+    readonly RelativeTimeTicker _relativeTimeTicker;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleAdvertisingCommand))]
@@ -22,8 +20,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
     [ObservableProperty]
     public partial bool IsAdvertising { get; set; }
 
-    [ObservableProperty]
-    public partial int ConnectedDevicesCount { get; set; }
+    public IConnectionTracker Connections { get; }
 
     public ObservableCollection<AdvertisedDeviceViewModel> AdvertisedDevices { get; } = [];
 
@@ -31,19 +28,22 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
 
     public AdvertisingPageViewModel(
         IDispatcher dispatcher,
-        IMessenger messenger,
         INavigationService navigationService,
         INearbyAdvertiser advertiser,
-        INearbyDeviceViewModelFactory nearbyDeviceViewModelFactory)
-        : base(dispatcher, messenger)
+        IConnectionTracker connectionTracker,
+        INearbyPermissions permissions)
+        : base(dispatcher)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(advertiser);
-        ArgumentNullException.ThrowIfNull(nearbyDeviceViewModelFactory);
+        ArgumentNullException.ThrowIfNull(connectionTracker);
+        ArgumentNullException.ThrowIfNull(permissions);
 
         _navigationService = navigationService;
         _advertiser = advertiser;
-        _nearbyDeviceViewModelFactory = nearbyDeviceViewModelFactory;
+        Connections = connectionTracker;
+        _permissions = permissions;
+        _relativeTimeTicker = new RelativeTimeTicker(dispatcher, TimeSpan.FromSeconds(30), OnRelativeTimeRefreshTimerTick);
     }
 
     [RelayCommand]
@@ -57,6 +57,11 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
     [RelayCommand(CanExecute = nameof(CanToggleAdvertising))]
     async Task ToggleAdvertising(CancellationToken cancellationToken)
     {
+        if (!IsAdvertising && !await _permissions.EnsureGrantedAsync())
+        {
+            return;
+        }
+
         IsBusy = true;
 
         try
@@ -89,12 +94,9 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
 
     protected override void NavigatedFrom()
     {
-        foreach (var device in AdvertisedDevices)
-        {
-            device.IsActive = false;
-        }
-
         base.NavigatedFrom();
+
+        _relativeTimeTicker.SetActive(false);
     }
 
     Task IAdvertiserHandler.OnConnectionRequested(AdvertiserEvent.ConnectionRequested ev)
@@ -104,8 +106,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
             return Task.CompletedTask;
         }
 
-        var vm = _nearbyDeviceViewModelFactory.CreateAdvertiser(ev.Request);
-        vm.IsActive = true;
+        var vm = new AdvertisedDeviceViewModel(ev.Request, _advertiser);
         AdvertisedDevices.Add(vm);
         UpdateRelativeTimeRefreshTimer();
         return Task.CompletedTask;
@@ -113,12 +114,9 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
 
     Task IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
     {
-        ConnectedDevicesCount++;
-
         var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
         if (vm is not null)
         {
-            vm.IsActive = false;
             AdvertisedDevices.Remove(vm);
             UpdateRelativeTimeRefreshTimer();
         }
@@ -130,9 +128,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
         var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
         if (vm is not null)
         {
-            vm.IsActive = false;
             AdvertisedDevices.Remove(vm);
-            ConnectedDevicesCount--;
             UpdateRelativeTimeRefreshTimer();
         }
         return Task.CompletedTask;
@@ -143,7 +139,6 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
         var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Request.RemoteDevice.Id);
         if (vm is not null)
         {
-            vm.IsActive = false;
             AdvertisedDevices.Remove(vm);
             UpdateRelativeTimeRefreshTimer();
         }
@@ -153,33 +148,9 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
     bool CanToggleAdvertising() => !IsBusy;
 
     void UpdateRelativeTimeRefreshTimer()
-    {
-        if (AdvertisedDevices.Count >= 1)
-        {
-            StartRelativeTimeRefreshTimer();
-        }
-        else
-        {
-            StopRelativeTimeRefreshTimer();
-        }
-    }
+        => _relativeTimeTicker.SetActive(AdvertisedDevices.Count >= 1);
 
-    void StartRelativeTimeRefreshTimer()
-    {
-        _relativeTimeRefreshTimer = Dispatcher.CreateTimer();
-        _relativeTimeRefreshTimer.Interval = TimeSpan.FromSeconds(30);
-        _relativeTimeRefreshTimer.Tick += OnRelativeTimeRefreshTimerTick;
-        _relativeTimeRefreshTimer.Start();
-    }
-
-    void StopRelativeTimeRefreshTimer()
-    {
-        _relativeTimeRefreshTimer?.Stop();
-        _relativeTimeRefreshTimer?.Tick -= OnRelativeTimeRefreshTimerTick;
-        _relativeTimeRefreshTimer = null;
-    }
-
-    void OnRelativeTimeRefreshTimerTick(object? sender, EventArgs e)
+    void OnRelativeTimeRefreshTimerTick()
     {
         foreach (var advertisedDevice in AdvertisedDevices)
         {

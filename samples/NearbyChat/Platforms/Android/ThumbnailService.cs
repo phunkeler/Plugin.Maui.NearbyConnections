@@ -6,7 +6,7 @@ namespace NearbyChat.Services;
 
 public class ThumbnailService : IThumbnailService
 {
-    public Task<ImageSource> GetVideoThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
+    public Task<ImageSource?> GetVideoThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -16,24 +16,25 @@ public class ThumbnailService : IThumbnailService
 
             if (bitmap is null)
             {
-                return Task.FromResult(ImageSource.FromFile(""));
+                return Task.FromResult<ImageSource?>(null);
             }
 
             var tempFilePath = SaveBitmapToCache(bitmap);
 
             if (string.IsNullOrWhiteSpace(tempFilePath))
             {
-                return Task.FromResult(ImageSource.FromFile(""));
+                return Task.FromResult<ImageSource?>(null);
             }
 
-            return Task.FromResult(ImageSource.FromFile(tempFilePath));
-
+            return Task.FromResult<ImageSource?>(ImageSource.FromFile(tempFilePath));
         }
-        catch
+        catch (Java.Lang.Exception)
         {
-            return Task.FromResult(ImageSource.FromFile(""));
+            // Thumbnail extraction is best-effort: Android media failures
+            // (corrupt file, unsupported codec) degrade to "no thumbnail"
+            // rather than failing the incoming message.
+            return Task.FromResult<ImageSource?>(null);
         }
-
     }
 
     public static Bitmap? CreateThumbnail(string filePath)

@@ -10,19 +10,20 @@ namespace NearbyChat.Services;
 
 public interface IChatMessageService
 {
-    void ProcessIncomingChatMessage(NearbyDevice device, ChatMessage message);
-    Task SendChatMessage(NearbyDevice device, ChatMessage message);
+    Task SendChatMessageAsync(
+        NearbyDevice device,
+        ChatMessage message,
+        IProgress<NearbyTransferProgress>? progress = null,
+        CancellationToken cancellationToken = default);
 }
 
 public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDiscovererHandler
 {
     readonly IChatMessageRepository _repository;
     readonly IMessenger _messenger;
-    readonly INearbyAdvertiser _advertiser;
-    readonly INearbyDiscoverer _discoverer;
     readonly IThumbnailService _thumbnailService;
 
-    ConcurrentDictionary<string, NearbyConnection> _connections = [];
+    readonly ConcurrentDictionary<string, NearbyConnection> _connections = [];
 
     IDispatcher? IAdvertiserHandler.Dispatcher => null;
     IDispatcher? IDiscovererHandler.Dispatcher => null;
@@ -40,23 +41,28 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
         ArgumentNullException.ThrowIfNull(messenger);
         ArgumentNullException.ThrowIfNull(thumbnailService);
 
-        _advertiser = advertiser;
-        _discoverer = discoverer;
         _repository = repository;
         _messenger = messenger;
         _thumbnailService = thumbnailService;
 
+        // Singleton-lifetime subscriptions: this service is registered as a singleton and
+        // must observe every connection and payload for the whole app lifetime, so it
+        // subscribes to both event streams once here and never unsubscribes.
         _ = advertiser.EventsAsync().RunAsync(this);
         _ = discoverer.EventsAsync().RunAsync(this);
     }
 
-    public void ProcessIncomingChatMessage(NearbyDevice device, ChatMessage message)
+    void ProcessIncomingChatMessage(NearbyDevice device, ChatMessage message)
     {
         _repository.Save(device, message);
         _messenger.Send(new ChatMessageReceived(device, message));
     }
 
-    public async Task SendChatMessage(NearbyDevice device, ChatMessage message)
+    public async Task SendChatMessageAsync(
+        NearbyDevice device,
+        ChatMessage message,
+        IProgress<NearbyTransferProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         _repository.Save(device, message);
 
@@ -70,18 +76,18 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
         {
             if (!string.IsNullOrWhiteSpace(mediaAttachment.FilePath))
             {
-                await conn.SendAsync(mediaAttachment.FilePath);
+                await conn.SendAsync(mediaAttachment.FilePath, progress, cancellationToken);
             }
         }
         else if (!string.IsNullOrWhiteSpace(message.Text))
         {
-            await conn.SendAsync(Encoding.UTF8.GetBytes(message.Text));
+            await conn.SendAsync(Encoding.UTF8.GetBytes(message.Text), cancellationToken);
         }
     }
 
     Task IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
     {
-        _connections[ev.Connection.RemoteDevice.Id] = ev.Connection;
+        TrackConnection(ev.Connection);
         return Task.CompletedTask;
     }
 
@@ -97,7 +103,7 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
 
     Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
     {
-        _connections[ev.Connection.RemoteDevice.Id] = ev.Connection;
+        TrackConnection(ev.Connection);
         return Task.CompletedTask;
     }
 
@@ -111,6 +117,12 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
     Task IDiscovererHandler.OnPayloadReceived(DiscovererEvent.PayloadReceived ev)
         => ProcessPayloadAsync(ev.Connection.RemoteDevice, ev.Payload);
 
+    void TrackConnection(NearbyConnection connection)
+    {
+        connection.InboundProgress = new InboundProgressRelay(_messenger, connection.RemoteDevice);
+        _connections[connection.RemoteDevice.Id] = connection;
+    }
+
     NearbyConnection? FindConnection(NearbyDevice device)
     {
         _connections.TryGetValue(device.Id, out var conn);
@@ -121,41 +133,53 @@ public class ChatMessageService : IChatMessageService, IAdvertiserHandler, IDisc
     {
         ChatMessage message;
 
-        if (payload is BytesPayload bytes)
+        switch (payload)
         {
-            var text = Encoding.UTF8.GetString(bytes.Data);
-            message = new ChatMessage(text, NearbyDirection.Incoming, DateTimeOffset.UtcNow);
-        }
-        else if (payload is FilePayload file)
-        {
-            var path = file.FileResult.FullPath;
-            var contentType = file.FileResult.ContentType ?? string.Empty;
-
-            message = new ChatMessage(file.FileResult.FileName, NearbyDirection.Incoming, DateTimeOffset.UtcNow);
-
-            if (contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            case BytesPayload bytes:
             {
-                message.Attachments.Add(new PhotoAttachment
-                {
-                    FilePath = path,
-                    Thumbnail = ImageSource.FromFile(path)
-                });
+                var text = Encoding.UTF8.GetString(bytes.Data);
+                message = new ChatMessage(text, NearbyDirection.Incoming, DateTimeOffset.UtcNow);
+                break;
             }
-            else if (contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+
+            case FilePayload file:
             {
-                var thumbnail = await _thumbnailService.GetVideoThumbnailAsync(path);
-                message.Attachments.Add(new VideoAttachment
+                var path = file.FileResult.FullPath;
+                var contentType = file.FileResult.ContentType ?? string.Empty;
+
+                message = new ChatMessage(file.FileResult.FileName, NearbyDirection.Incoming, DateTimeOffset.UtcNow);
+
+                if (contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                 {
-                    FilePath = path,
-                    Thumbnail = thumbnail
-                });
+                    message.Attachments.Add(new PhotoAttachment
+                    {
+                        FilePath = path,
+                        Thumbnail = ImageSource.FromFile(path)
+                    });
+                }
+                else if (contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+                {
+                    var thumbnail = await _thumbnailService.GetVideoThumbnailAsync(path);
+                    message.Attachments.Add(new VideoAttachment
+                    {
+                        FilePath = path,
+                        Thumbnail = thumbnail
+                    });
+                }
+
+                break;
             }
-        }
-        else
-        {
-            return;
+
+            default:
+                return;
         }
 
         ProcessIncomingChatMessage(device, message);
+    }
+
+    sealed class InboundProgressRelay(IMessenger messenger, NearbyDevice device) : IProgress<NearbyTransferProgress>
+    {
+        public void Report(NearbyTransferProgress value)
+            => messenger.Send(new InboundTransferProgress(device, value));
     }
 }

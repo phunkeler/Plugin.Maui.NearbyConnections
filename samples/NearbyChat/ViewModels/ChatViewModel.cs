@@ -13,22 +13,25 @@ using Plugin.Maui.NearbyDevices;
 namespace NearbyChat.ViewModels;
 
 public partial class ChatViewModel(
+    IMessenger messenger,
+    IDispatcher dispatcher,
+    ILauncher launcher,
     IMediaPicker mediaPicker,
     IThumbnailService thumbnailService,
+    INavigationService navigationService,
     IChatMessageRepository chatMessageRepository,
-    IChatMessageViewModelFactory chatMessageViewModelFactory,
-    IChatMessageService chatMessageService) : ObservableRecipient,
+    IChatMessageService chatMessageService) : ObservableRecipient(messenger),
     INavigationAware,
-    IRecipient<ChatMessageReceived>
+    IRecipient<ChatMessageReceived>,
+    IRecipient<InboundTransferProgress>
 {
-    [MemberNotNullWhen(true, nameof(Message))]
+    [MemberNotNullWhen(true, nameof(Device), nameof(Message))]
     public bool CanSend
         => Device is not null
-            && !string.IsNullOrWhiteSpace(Message)
-            && TransferStatus is not NearbyTransferStatus.InProgress;
+            && !string.IsNullOrWhiteSpace(Message);
 
     [ObservableProperty]
-    public partial NearbyDevice Device { get; set; }
+    public partial NearbyDevice? Device { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
@@ -36,14 +39,13 @@ public partial class ChatViewModel(
     public partial string? Message { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(SendCommand))]
-    public partial NearbyTransferStatus? TransferStatus { get; set; }
-
-    [ObservableProperty]
-    public partial FileResult? SelectedFile { get; set; }
-
-    [ObservableProperty]
     public partial MediaAttachment? MediaAttachment { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsReceiving { get; set; }
+
+    [ObservableProperty]
+    public partial double ReceiveProgress { get; set; }
 
     public ObservableCollection<ChatMessageViewModel> Messages { get; } = [];
 
@@ -64,10 +66,29 @@ public partial class ChatViewModel(
             chatMessage.Attachments.Add(MediaAttachment);
         }
 
-        await chatMessageService.SendChatMessage(Device, chatMessage);
         Message = null;
-        var vm = chatMessageViewModelFactory.Create(chatMessage);
+
+        // Add the bubble before awaiting the send so outbound transfer progress
+        // has a message to render against while the file is in flight.
+        var vm = ChatMessageViewModel.Create(chatMessage, launcher);
         Messages.Add(vm);
+
+        IProgress<NearbyTransferProgress>? progress = null;
+
+        if (vm.MediaAttachment is not null)
+        {
+            vm.IsTransferring = true;
+            progress = new OutboundProgressRelay(dispatcher, vm);
+        }
+
+        try
+        {
+            await chatMessageService.SendChatMessageAsync(Device, chatMessage, progress, cancellationToken);
+        }
+        finally
+        {
+            vm.IsTransferring = false;
+        }
     }
 
     [RelayCommand]
@@ -76,60 +97,57 @@ public partial class ChatViewModel(
         const string photoOption = "Photo";
         const string videoOption = "Video";
 
-        var choice = await Shell.Current.DisplayActionSheetAsync(
+        var choice = await navigationService.DisplayActionSheetAsync(
             title: "Attach",
             cancel: "Cancel",
             destruction: null,
             photoOption,
             videoOption);
 
-        if (choice is photoOption)
+        if (choice is not (photoOption or videoOption))
         {
-            var photo = await mediaPicker.PickPhotosAsync();
+            return;
+        }
 
-            if (photo?.FirstOrDefault() is FileResult fileResult)
+        var attachment = await PickAsync(video: choice is videoOption);
+
+        if (attachment is not null)
+        {
+            MediaAttachment = attachment;
+        }
+
+        async Task<MediaAttachment?> PickAsync(bool video)
+        {
+            var files = video
+                ? await mediaPicker.PickVideosAsync()
+                : await mediaPicker.PickPhotosAsync();
+
+            if (files?.FirstOrDefault() is not FileResult fileResult)
             {
-                var fullPath = fileResult.FullPath;
+                return null;
+            }
 
-                if (OperatingSystem.IsIOS())
+            var fullPath = fileResult.FullPath;
+
+            if (OperatingSystem.IsIOS())
+            {
+                fullPath = await CreateTempFile(fileResult);
+            }
+
+            MediaAttachment picked = video
+                ? new VideoAttachment
                 {
-                    fullPath = await CreateTempFile(fileResult);
+                    FilePath = fullPath,
+                    Thumbnail = await thumbnailService.GetVideoThumbnailAsync(fullPath)
                 }
-
-                var photoAttachment = new PhotoAttachment
+                : new PhotoAttachment
                 {
                     FilePath = fullPath,
                     Thumbnail = ImageSource.FromFile(fullPath)
                 };
 
-                MediaAttachment = photoAttachment;
-                Message = fileResult.FileName;
-            }
-        }
-        else if (choice is videoOption)
-        {
-            var video = await mediaPicker.PickVideosAsync();
-
-            if (video?.FirstOrDefault() is FileResult fileResult)
-            {
-                var fullPath = fileResult.FullPath;
-
-                if (OperatingSystem.IsIOS())
-                {
-                    fullPath = await CreateTempFile(fileResult);
-                }
-
-                var thumbnail = await thumbnailService.GetVideoThumbnailAsync(fullPath);
-
-                var videoAttachment = new VideoAttachment
-                {
-                    FilePath = fullPath,
-                    Thumbnail = thumbnail
-                };
-
-                MediaAttachment = videoAttachment;
-                Message = fileResult.FileName;
-            }
+            Message = fileResult.FileName;
+            return picked;
         }
     }
 
@@ -139,12 +157,14 @@ public partial class ChatViewModel(
     public void OnNavigatedTo(IBottomSheetNavigationParameters parameters)
     {
         IsActive = true;
+        IsReceiving = false;
+        ReceiveProgress = 0;
 
         if (parameters.TryGetValue(nameof(NearbyDevice), out var device)
             && device is NearbyDevice nearbyDevice)
         {
             Device = nearbyDevice;
-            _ = Task.Run(() => LoadHistoryAsync(nearbyDevice));
+            LoadHistory(nearbyDevice);
         }
     }
 
@@ -153,47 +173,71 @@ public partial class ChatViewModel(
         // On iOS, FullPath may be just a filename.
         // Copy via stream to a known local path before sending.
         var localPath = Path.Combine(FileSystem.CacheDirectory, fileResult.FileName);
-        using (var source = await fileResult.OpenReadAsync())
-        using (var dest = File.Create(localPath))
-        {
-            await source.CopyToAsync(dest);
-        }
+        await using var source = await fileResult.OpenReadAsync();
+        await using var dest = File.Create(localPath);
+        await source.CopyToAsync(dest);
 
         return localPath;
     }
 
-    Task LoadHistoryAsync(NearbyDevice device)
+    void LoadHistory(NearbyDevice device)
     {
         Messages.Clear();
 
         foreach (var message in chatMessageRepository.GetAll(device))
         {
-            var vm = chatMessageViewModelFactory.Create(message);
-            Messages.Add(vm);
+            Messages.Add(ChatMessageViewModel.Create(message, launcher));
         }
-
-        return Task.CompletedTask;
     }
 
     public void Receive(ChatMessageReceived receivedMsg)
     {
-        if (receivedMsg.Value.Id != Device?.Id)
+        if (receivedMsg.Device.Id != Device?.Id)
         {
             return;
         }
 
-        var stored = chatMessageRepository.GetAll(receivedMsg.Value);
-
-        if (stored.Count <= 0)
+        // Published from the ChatMessageService handler thread — marshal before
+        // touching the bound collection.
+        dispatcher.Dispatch(() =>
         {
-            return;
-        }
-
-        var message = stored[^1];
-        var vm = chatMessageViewModelFactory.Create(message);
-        Messages.Add(vm);
+            IsReceiving = false;
+            ReceiveProgress = 0;
+            Messages.Add(ChatMessageViewModel.Create(receivedMsg.Message, launcher));
+        });
     }
 
-    void OnNearbyTransferProgress(NearbyTransferProgress progress)
-        => TransferStatus = progress.Status;
+    public void Receive(InboundTransferProgress progressMsg)
+    {
+        if (progressMsg.Device.Id != Device?.Id)
+        {
+            return;
+        }
+
+        dispatcher.Dispatch(() =>
+        {
+            // Inbound transfers only ever report InProgress; the transfer is complete
+            // when the materialized message arrives via ChatMessageReceived, which
+            // clears this indicator.
+            IsReceiving = true;
+            ReceiveProgress = progressMsg.Progress.Fraction ?? 0;
+        });
+    }
+
+    sealed class OutboundProgressRelay(IDispatcher dispatcher, ChatMessageViewModel message) : IProgress<NearbyTransferProgress>
+    {
+        public void Report(NearbyTransferProgress value)
+            => dispatcher.Dispatch(() =>
+            {
+                if (value.Fraction is { } fraction)
+                {
+                    message.TransferProgress = fraction;
+                }
+
+                if (value.Status is not NearbyTransferStatus.InProgress)
+                {
+                    message.IsTransferring = false;
+                }
+            });
+    }
 }

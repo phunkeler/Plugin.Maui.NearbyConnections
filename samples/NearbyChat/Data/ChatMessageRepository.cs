@@ -6,25 +6,36 @@ namespace NearbyChat.Data;
 
 public class ChatMessageRepository : IChatMessageRepository
 {
-    readonly ConcurrentDictionary<NearbyDevice, List<ChatMessage>> _sessions = [];
+    // Keyed by device Id — the identity contract the rest of the app uses.
+    readonly ConcurrentDictionary<string, List<ChatMessage>> _sessions = [];
 
     public IReadOnlyList<ChatMessage> GetAll(NearbyDevice device)
-        => _sessions.TryGetValue(device, out var messages)
-            ? messages.AsReadOnly()
-            : [];
+    {
+        if (!_sessions.TryGetValue(device.Id, out var messages))
+        {
+            return [];
+        }
+
+        // Snapshot under the lock: handler threads mutate the inner list, so a
+        // live read-only wrapper over it would race with those mutations.
+        lock (messages)
+        {
+            return [.. messages];
+        }
+    }
 
     public ChatMessage Save(NearbyDevice device, ChatMessage message)
     {
-        if (!_sessions.TryGetValue(device, out var messages))
+        var messages = _sessions.GetOrAdd(device.Id, _ => []);
+
+        lock (messages)
         {
-            messages = [];
-            _sessions.TryAdd(device, messages);
+            messages.Add(message);
         }
 
-        messages.Add(message);
         return message;
     }
 
     public void ClearSession(NearbyDevice device)
-        => _sessions.TryRemove(device, out _);
+        => _sessions.TryRemove(device.Id, out _);
 }

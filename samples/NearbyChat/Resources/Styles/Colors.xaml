@@ -3,10 +3,6 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
                     x:Class="NearbyChat.Resources.Styles.Colors">
 
-    <Color x:Key="Inbound">#FF9500</Color>
-    <Color x:Key="Outbound">#007AFF</Color>
-    <Color x:Key="Success">#28DD1F</Color>
-
     <!-- ========================================== -->
     <!-- DARK THEME COLORS (Layered Design)         -->
     <!-- ========================================== -->
@@ -168,6 +164,17 @@
     <!-- yellow-600 -->
     <Color x:Key="StatusInfo">#2563eb</Color>
     <!-- blue-600 -->
+
+
+    <!-- ========================================== -->
+    <!-- CHAT BUBBLE COLORS (Same in both themes)   -->
+    <!-- ========================================== -->
+
+    <Color x:Key="ChatBubbleBackground">#F1F1F1</Color>
+    <Color x:Key="ChatBubbleOutgoingBackground">#D1E8FF</Color>
+    <Color x:Key="ChatBubbleTextTextColor">#222</Color>
+    <Color x:Key="ChatBubbleMediaTextColor">#555</Color>
+    <Color x:Key="ChatBubbleTimestampColor">#888</Color>
 
 
     <!-- ========================================== -->

@@ -44,14 +44,14 @@
                         FeatureIconBadgeStyle="{StaticResource FeatureIconBadgeConnectionsStyle}"
                         Title="Connect"
                         Subtitle="No connections"
-                        FeatureIsActive="{Binding ConnectedDevicesCount, Converter={StaticResource intToBoolConverter}}"
-                        ActiveSubtitle="{Binding ConnectedDevicesCount, StringFormat='{0} connected'}"
+                        FeatureIsActive="{Binding Connections.Count, Converter={StaticResource intToBoolConverter}}"
+                        ActiveSubtitle="{Binding Connections.Count, StringFormat='{0} connected'}"
                         Command="{Binding NavigateToConnectionsCommand}"/>
 
                 </StackLayout>
             </ScrollView>
             <ConnectedDevicesChip
-                Count="{Binding ConnectedDevicesCount}"
+                Count="{Binding Connections.Count}"
                 Command="{Binding NavigateToConnectionsCommand}"
                 HorizontalOptions="End"
                 VerticalOptions="Start"

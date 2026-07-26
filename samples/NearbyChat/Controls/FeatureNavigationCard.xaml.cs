@@ -9,18 +9,6 @@ public partial class FeatureNavigationCard : ContentView
         returnType: typeof(Style),
         declaringType: typeof(FeatureNavigationCard));
 
-    public static readonly BindableProperty IconProperty = BindableProperty.Create(
-        propertyName: nameof(Icon),
-        returnType: typeof(string),
-        declaringType: typeof(FeatureNavigationCard),
-        defaultValue: default(string));
-
-    public static readonly BindableProperty IconStyleProperty = BindableProperty.Create(
-        propertyName: nameof(IconStyle),
-        returnType: typeof(Style),
-        declaringType: typeof(FeatureNavigationCard),
-        defaultValue: default(Style));
-
     public static readonly BindableProperty TitleProperty = BindableProperty.Create(
         propertyName: nameof(Title),
         returnType: typeof(string),
@@ -72,18 +60,6 @@ public partial class FeatureNavigationCard : ContentView
     {
         get => (Style)GetValue(FeatureIconBadgeStyleProperty);
         set => SetValue(FeatureIconBadgeStyleProperty, value);
-    }
-
-    public string Icon
-    {
-        get => (string)GetValue(IconProperty);
-        set => SetValue(IconProperty, value);
-    }
-
-    public Style IconStyle
-    {
-        get => (Style)GetValue(IconStyleProperty);
-        set => SetValue(IconStyleProperty, value);
     }
 
     public string Title

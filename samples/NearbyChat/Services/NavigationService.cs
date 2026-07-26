@@ -9,23 +9,19 @@ public interface INavigationService
         where TViewModel : BasePageViewModel;
 
     Task GoBackAsync();
+
+    Task<string?> DisplayActionSheetAsync(string? title, string? cancel, string? destruction, params string[] buttons);
 }
 
-public class NavigationService : INavigationService
+public class NavigationService(AppShell appShell) : INavigationService
 {
-    readonly AppShell _appShell;
-
-    public NavigationService(AppShell appShell)
-    {
-        ArgumentNullException.ThrowIfNull(appShell);
-
-        _appShell = appShell;
-    }
-
     public Task GoToAsync<TViewModel>()
         where TViewModel : BasePageViewModel
-        => _appShell.GoToAsync<TViewModel>();
+        => appShell.GoToAsync<TViewModel>();
 
     public Task GoBackAsync()
-        => _appShell.GoToAsync("..");
+        => appShell.GoToAsync("..");
+
+    public Task<string?> DisplayActionSheetAsync(string? title, string? cancel, string? destruction, params string[] buttons)
+        => appShell.DisplayActionSheetAsync(title, cancel, destruction, buttons);
 }

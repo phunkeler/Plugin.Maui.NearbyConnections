@@ -45,7 +45,6 @@ public sealed partial class NearbyDevicesOptions
     /// <para>
     /// When <see langword="false"/> (the default), each <see cref="NearbyConnectionRequest"/> yielded by
     /// <c>AdvertiseAsync</c> must be explicitly accepted or rejected by the caller.
-    /// Call <see cref="NearbyConnectionRequest.RejectAsync"/> to reject.
     /// </para>
     /// <para>
     /// When <see langword="true"/>, the platform automatically accepts every inbound request without

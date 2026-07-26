@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyDevices;
 
@@ -11,9 +10,8 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
 {
     readonly INavigationService _navigationService;
     readonly INearbyDiscoverer _discoverer;
-    readonly INearbyDeviceViewModelFactory _nearbyDeviceViewModelFactory;
-
-    IDispatcherTimer? _relativeTimeRefreshTimer;
+    readonly INearbyPermissions _permissions;
+    readonly RelativeTimeTicker _relativeTimeTicker;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleDiscoveryCommand))]
@@ -22,8 +20,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
     [ObservableProperty]
     public partial bool IsDiscovering { get; set; }
 
-    [ObservableProperty]
-    public partial int ConnectedDevicesCount { get; set; }
+    public IConnectionTracker Connections { get; }
 
     public ObservableCollection<DiscoveredDeviceViewModel> DiscoveredDevices { get; } = [];
 
@@ -31,19 +28,22 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
 
     public DiscoveryPageViewModel(
         IDispatcher dispatcher,
-        IMessenger messenger,
         INavigationService navigationService,
         INearbyDiscoverer discoverer,
-        INearbyDeviceViewModelFactory nearbyDeviceViewModelFactory)
-        : base(dispatcher, messenger)
+        IConnectionTracker connectionTracker,
+        INearbyPermissions permissions)
+        : base(dispatcher)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(discoverer);
-        ArgumentNullException.ThrowIfNull(nearbyDeviceViewModelFactory);
+        ArgumentNullException.ThrowIfNull(connectionTracker);
+        ArgumentNullException.ThrowIfNull(permissions);
 
         _navigationService = navigationService;
         _discoverer = discoverer;
-        _nearbyDeviceViewModelFactory = nearbyDeviceViewModelFactory;
+        Connections = connectionTracker;
+        _permissions = permissions;
+        _relativeTimeTicker = new RelativeTimeTicker(dispatcher, TimeSpan.FromSeconds(30), OnRelativeTimeRefreshTimerTick);
     }
 
     [RelayCommand]
@@ -57,6 +57,11 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
     [RelayCommand(CanExecute = nameof(CanToggleDiscovery))]
     async Task ToggleDiscovery(CancellationToken cancellationToken)
     {
+        if (!IsDiscovering && !await _permissions.EnsureGrantedAsync())
+        {
+            return;
+        }
+
         IsBusy = true;
 
         try
@@ -89,12 +94,9 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
 
     protected override void NavigatedFrom()
     {
-        foreach (var device in DiscoveredDevices)
-        {
-            device.IsActive = false;
-        }
-
         base.NavigatedFrom();
+
+        _relativeTimeTicker.SetActive(false);
     }
 
     Task IDiscovererHandler.OnDeviceFound(DiscovererEvent.DeviceFound ev)
@@ -104,8 +106,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
             return Task.CompletedTask;
         }
 
-        var vm = _nearbyDeviceViewModelFactory.CreateDiscoverer(ev.Device);
-        vm.IsActive = true;
+        var vm = new DiscoveredDeviceViewModel(ev.Device, _discoverer);
         DiscoveredDevices.Add(vm);
         UpdateRelativeTimeRefreshTimer();
         return Task.CompletedTask;
@@ -116,7 +117,6 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
         var vm = DiscoveredDevices.FirstOrDefault(d => d.Id == ev.Device.Id);
         if (vm is not null)
         {
-            vm.IsActive = false;
             DiscoveredDevices.Remove(vm);
             UpdateRelativeTimeRefreshTimer();
         }
@@ -125,12 +125,9 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
 
     Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
     {
-        ConnectedDevicesCount++;
-
         var vm = DiscoveredDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
         if (vm is not null)
         {
-            vm.IsActive = false;
             DiscoveredDevices.Remove(vm);
             UpdateRelativeTimeRefreshTimer();
         }
@@ -139,12 +136,9 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
 
     Task IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
     {
-        ConnectedDevicesCount--;
-
         var vm = DiscoveredDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
         if (vm is not null)
         {
-            vm.IsActive = false;
             DiscoveredDevices.Remove(vm);
             UpdateRelativeTimeRefreshTimer();
         }
@@ -154,33 +148,9 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
     bool CanToggleDiscovery() => !IsBusy;
 
     void UpdateRelativeTimeRefreshTimer()
-    {
-        if (DiscoveredDevices.Count >= 1)
-        {
-            StartRelativeTimeRefreshTimer();
-        }
-        else
-        {
-            StopRelativeTimeRefreshTimer();
-        }
-    }
+        => _relativeTimeTicker.SetActive(DiscoveredDevices.Count >= 1);
 
-    void StartRelativeTimeRefreshTimer()
-    {
-        _relativeTimeRefreshTimer = Dispatcher.CreateTimer();
-        _relativeTimeRefreshTimer.Interval = TimeSpan.FromSeconds(30);
-        _relativeTimeRefreshTimer.Tick += OnRelativeTimeRefreshTimerTick;
-        _relativeTimeRefreshTimer.Start();
-    }
-
-    void StopRelativeTimeRefreshTimer()
-    {
-        _relativeTimeRefreshTimer?.Stop();
-        _relativeTimeRefreshTimer?.Tick -= OnRelativeTimeRefreshTimerTick;
-        _relativeTimeRefreshTimer = null;
-    }
-
-    void OnRelativeTimeRefreshTimerTick(object? sender, EventArgs e)
+    void OnRelativeTimeRefreshTimerTick()
     {
         foreach (var discoveredDevice in DiscoveredDevices)
         {

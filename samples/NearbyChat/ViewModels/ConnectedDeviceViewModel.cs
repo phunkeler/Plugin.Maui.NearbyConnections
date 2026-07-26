@@ -8,9 +8,6 @@ public partial class ConnectedDeviceViewModel(
     NearbyConnection connection,
     IBottomSheetNavigationService bottomSheetNavigationService) : NearbyDeviceViewModel(connection.RemoteDevice)
 {
-    public override string StateGlyph => Resource<string>("icon-check");
-    public override Color StateColor => Resource<Color>("StatusSuccess");
-
     [RelayCommand]
     Task<INavigationResult> Chat()
         => bottomSheetNavigationService.NavigateToAsync(nameof(ChatViewModel), new BottomSheetNavigationParameters

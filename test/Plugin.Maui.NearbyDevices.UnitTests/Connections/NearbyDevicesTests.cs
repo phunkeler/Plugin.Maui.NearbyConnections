@@ -158,6 +158,33 @@ public class NearbyDevicesTests
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(
                 async () => await tcs.Task);
         }
+
+        [TestMethod]
+        public void ResolveConnectionTcs_NoRegisteredTcs_SilentlyNoOps()
+        {
+            // Arrange - reproduces the iOS advertiser race window where a platform callback
+            // (e.g. MCSessionState.Connected) can fire before the acceptFactory continuation
+            // has registered its TCS in _connectionTcs. Callers must register the TCS before
+            // triggering any platform operation that could resolve it; this test pins down
+            // that ResolveConnectionTcs offers no rescue if that ordering is violated.
+            var sut = CreateSut();
+            var device = new NearbyDevice("peer-1", "Alice");
+
+            var receiveChannel = Channel.CreateUnbounded<NearbyPayload>();
+            var connection = new NearbyConnection(
+                device,
+                receiveChannel,
+                sendBytesFactory: (_, _) => ValueTask.CompletedTask,
+                sendFileFactory: (_, _, _) => Task.CompletedTask,
+                disposeFactory: () => ValueTask.CompletedTask);
+
+            // Act
+            sut.ResolveConnectionTcs("peer-1", connection);
+
+            // Assert - no TCS was registered, so the resolution is dropped and the connection
+            // is never tracked as active; nothing throws.
+            Assert.IsFalse(sut._activeConnections.ContainsKey("peer-1"));
+        }
     }
 
     [TestClass]

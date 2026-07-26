@@ -258,7 +258,7 @@ sealed class AppiumAgent : IDisposable
     {
         try
         {
-            _driver.FindElement(MobileBy.Id(ResourceId("ChatMessageEntry")));
+            _driver.FindElement(By.Id(ResourceId("ChatMessageEntry")));
         }
         catch (NoSuchElementException)
         {

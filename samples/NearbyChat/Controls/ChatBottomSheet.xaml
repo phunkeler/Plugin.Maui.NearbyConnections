@@ -44,6 +44,13 @@
                             </CollectionView.ItemsLayout>
                         </CollectionView>
 
+                        <!-- Inbound transfer indicator: incoming files only materialize as a
+                             message once fully received, so progress renders as a transient
+                             bar at the bottom of the message list until the message arrives. -->
+                        <ProgressBar VerticalOptions="End"
+                                     Progress="{Binding ReceiveProgress}"
+                                     IsVisible="{Binding IsReceiving}"/>
+
                         <Grid ColumnDefinitions="*, Auto, Auto"
                               ColumnSpacing="{StaticResource SpacingLG}"
                               Grid.Row="1">

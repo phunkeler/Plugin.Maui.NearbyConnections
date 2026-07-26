@@ -83,11 +83,13 @@ sealed partial class NearbyDevicesImplementation
                         session = _session;
                     }
 
-                    invitationHandler(true, session);
-
-                    // Create TCS so OnPeerStateChanged(Connected) can resolve it
+                    // Register the TCS before handing the session to MPC - OnPeerStateChanged(Connected)
+                    // can fire on another thread as soon as invitationHandler is called, and it only
+                    // resolves a TCS that is already present in _connectionTcs.
                     var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
                     _connectionTcs[id] = (tcs, ct);
+
+                    invitationHandler(true, session);
 
                     try
                     {

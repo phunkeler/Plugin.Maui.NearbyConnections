@@ -9,18 +9,11 @@
         <Grid RowDefinitions="Auto,Auto,*"
               RowSpacing="{StaticResource SpacingXL}"
               Margin="{StaticResource SpacingXL}">
-            <Button Text="Back"
+            <Button Style="{StaticResource BackButtonStyle}"
                     AutomationId="BackButton"
                     Command="{Binding BackCommand}"
                     HorizontalOptions="Start"
-                    VerticalOptions="Start"
-                    BackgroundColor="Transparent"
-                    TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
-                    FontAttributes="Bold"
-                    BorderWidth="1"
-                    BorderColor="{AppThemeBinding Light=Black, Dark=Gray}"
-                    CornerRadius="12"
-                    FontSize="{StaticResource FontSizeMD}"/>
+                    VerticalOptions="Start"/>
             <!-- Test-only hook for UI automation. Opacity="0" (fully zero
                  alpha) is pruned from Android's accessibility tree by the
                  OS itself — independent of MAUI's own accessibility mapping
@@ -30,9 +23,9 @@
                  while remaining visually imperceptible. -->
             <Label AutomationId="AdvertisingStatus"
                    Text="{Binding IsAdvertising}"
-                   Opacity="0.01" />
+                   Opacity="0.01"/>
             <ConnectedDevicesChip
-                Count="{Binding ConnectedDevicesCount}"
+                Count="{Binding Connections.Count}"
                 Command="{Binding NavigateToConnectionsCommand}"
                 HorizontalOptions="End"
                 VerticalOptions="Center"/>
@@ -83,14 +76,14 @@
                                     HeightRequest="20"
                                     HorizontalOptions="End"
                                     StrokeShape="RoundRectangle 10"
-                                    Background="{Binding StateColor}">
+                                    Background="{StaticResource LightTextQuaternary}">
                                     <Image
                                         WidthRequest="10"
                                         HeightRequest="10">
                                         <Image.Source>
                                             <FontImageSource
                                                 FontFamily="NearbyChatIcons"
-                                                Glyph="{Binding StateGlyph}"
+                                                Glyph="{StaticResource icon-down}"
                                                 Color="White"/>
                                         </Image.Source>
                                     </Image>
