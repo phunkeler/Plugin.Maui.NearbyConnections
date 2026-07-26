@@ -268,7 +268,7 @@ public sealed class NearbyAdvertiserTests
                 }
             }, cts.Token);
 
-            var completed = await Task.WhenAny(consumerTask, Task.Delay(TimeSpan.FromSeconds(2), _testContext.CancellationToken));
+            var completed = await Task.WhenAny(consumerTask, Task.Delay(TimeSpan.FromSeconds(2)));
             Assert.AreSame(consumerTask, completed, "EventsAsync did not emit Synchronized within 2 s.");
             await consumerTask;
 
@@ -550,8 +550,6 @@ public sealed class NearbyAdvertiserTests
             await advertiser.StopAsync();
             conn.CompleteReceive();
         }
-
-        public TestContext TestContext { get; set; }
     }
 
     // ===========================================================================
