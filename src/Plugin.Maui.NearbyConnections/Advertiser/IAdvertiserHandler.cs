@@ -8,7 +8,9 @@ public interface IAdvertiserHandler
 {
     /// <summary>
     /// Gets an optional dispatcher used to marshal all <c>On*</c> invocations to the UI thread.
-    /// Return <see langword="null"/> to invoke handlers on the channel reader thread (Android=UI, iOS=background).
+    /// Return <see langword="null"/> to invoke handlers directly on the channel reader thread —
+    /// a background thread on both platforms; do not assume the UI thread. Supply a dispatcher
+    /// to marshal handler invocations to the UI thread.
     /// </summary>
     IDispatcher? Dispatcher => null;
 

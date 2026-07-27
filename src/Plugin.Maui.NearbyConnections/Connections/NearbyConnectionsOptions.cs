@@ -1,8 +1,10 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// One-time startup configuration for Nearby Connections. All properties are set once
-/// via <c>AddNearbyConnections</c> and cannot be changed after initialization.
+/// One-time startup configuration for Nearby Connections. Set values in the
+/// <c>UseNearbyConnections</c>/<c>AddNearbyConnections</c> configure delegate; the plugin reads
+/// the resolved instance once at construction, so mutating properties after startup is
+/// unsupported and has no defined effect.
 /// </summary>
 public sealed partial class NearbyConnectionsOptions
 {
@@ -56,7 +58,10 @@ public sealed partial class NearbyConnectionsOptions
 
     /// <summary>
     /// Gets the directory where received files are saved after transfer.
-    /// Defaults to <see cref="FileSystem.AppDataDirectory"/> (persistent storage).
+    /// The default differs per platform: on Android, <see cref="FileSystem.CacheDirectory"/>
+    /// (which the OS may purge to reclaim space); on iOS, <see cref="FileSystem.AppDataDirectory"/>
+    /// (persistent). Set this explicitly (or move files after receipt) if received files must
+    /// persist on Android.
     /// </summary>
     public string ReceivedFilesDirectory { get; set; } = GetDefaultReceivedFilesDirectory();
 

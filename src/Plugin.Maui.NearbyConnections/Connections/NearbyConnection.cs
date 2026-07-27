@@ -88,6 +88,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <returns>A task that completes when the transfer is fully enqueued or finished.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="fileUri"/> is <see langword="null"/>.</exception>
     /// <exception cref="OperationCanceledException">Thrown if the operation is canceled.</exception>
+    /// <exception cref="NearbyTransferTimeoutException">Thrown when no transfer progress is observed for <see cref="NearbyConnectionsOptions.TransferInactivityTimeout"/> (default 10 seconds).</exception>
     public Task SendAsync(
         string fileUri,
         IProgress<NearbyTransferProgress>? progress = null,
@@ -107,6 +108,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <returns>A task that completes when the transfer is fully enqueued or finished.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="fileResult"/> is <see langword="null"/>.</exception>
     /// <exception cref="OperationCanceledException">Thrown if the operation is canceled.</exception>
+    /// <exception cref="NearbyTransferTimeoutException">Thrown when no transfer progress is observed for <see cref="NearbyConnectionsOptions.TransferInactivityTimeout"/> (default 10 seconds).</exception>
     public Task SendAsync(
         FileResult fileResult,
         IProgress<NearbyTransferProgress>? progress = null,
@@ -131,6 +133,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="payload"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="payload"/> is an unrecognised subtype.</exception>
     /// <exception cref="OperationCanceledException">Thrown if the operation is canceled.</exception>
+    /// <exception cref="NearbyTransferTimeoutException">Thrown when <paramref name="payload"/> is a <see cref="FilePayload"/> and no transfer progress is observed for <see cref="NearbyConnectionsOptions.TransferInactivityTimeout"/> (default 10 seconds).</exception>
     public ValueTask SendAsync(
         NearbyPayload payload,
         IProgress<NearbyTransferProgress>? progress = null,

@@ -17,7 +17,7 @@ The codebase has two layers:
 
 All async delivery is backed by `System.Threading.Channels`. Platform callbacks (Bluetooth/WiFi hardware events, arriving bytes) write into an unbounded channel; consumer `await foreach` reads from it. When there is nothing to read the read suspends cheaply until a write occurs. This is why the API is a stream and not polling.
 
-`NearbyConnection` wraps its own per-connection `Channel<NearbyPayload>`. The tier-2 services maintain a unified `Channel<(NearbyConnection, NearbyPayload)>` that aggregates payloads across all active connections.
+`NearbyConnection` wraps its own per-connection `Channel<NearbyPayload>`. The `INearbyAdvertiser` / `INearbyDiscoverer` services forward each active connection's payloads as `PayloadReceived` events through the same per-subscriber `ChannelBroadcaster` fan-out that carries their lifecycle events (`ConnectionLifecycle.cs`, `ForwardPayloadsAsync`).
 
 ### Three messaging patterns
 
@@ -62,7 +62,7 @@ builder.UseNearbyConnections(opts =>
     .AddDiscoverer();  // opt-in: INearbyDiscoverer (Tier 2)
 ```
 
-**Pure DI / non-MAUI hosts** — use `AddNearbyConnections()` on `IServiceCollection`:
+**Testing seam** — `AddNearbyConnections()` also exists directly on `IServiceCollection`, and `INearbyConnections` is public, because consumers mock or implement the interface to test their own app code against the plugin (decision recorded 2026-07-27, `docs/BACKLOG.md` #1). The public test-double constructors on `NearbyConnection` (`Connections/NearbyConnection.cs`) and `NearbyConnectionRequest` (`Connections/NearbyConnectionRequest.cs`) exist for exactly this: they let a fake `INearbyConnections` yield real connection/request objects into the code under test.
 
 ```csharp
 services.AddNearbyConnections()
@@ -70,7 +70,7 @@ services.AddNearbyConnections()
     .AddDiscoverer();
 ```
 
-`AddAdvertiser()` / `AddDiscoverer()` are explicit opt-in calls because they register `INearbyAdvertiser` / `INearbyDiscoverer` as singletons (Tier 2). Apps that only need Tier 1 (`INearbyConnections`) can omit them.
+`AddAdvertiser()` / `AddDiscoverer()` are explicit opt-in calls because they register the optional `INearbyAdvertiser` / `INearbyDiscoverer` services as singletons. Apps that only need the core `INearbyConnections` API can omit them.
 
 ### Lifecycle wiring — app responsibility
 
@@ -83,14 +83,14 @@ Apps that want to stop proactively — for example, to release Bluetooth/WiFi sc
 builder.ConfigureLifecycleEvents(lifecycle =>
 {
 #if ANDROID
-    lifecycle.AddAndroid(android => android.OnStop(_ =>
+    lifecycle.AddAndroid(android => android.OnStop(activity =>
     {
         var sp = IPlatformApplication.Current?.Services;
         _ = sp?.GetService<INearbyAdvertiser>()?.StopAsync();
         _ = sp?.GetService<INearbyDiscoverer>()?.StopAsync();
     }));
 #elif IOS
-    lifecycle.AddiOS(ios => ios.DidEnterBackground(_ =>
+    lifecycle.AddiOS(ios => ios.DidEnterBackground(app =>
     {
         var sp = IPlatformApplication.Current?.Services;
         _ = sp?.GetService<INearbyAdvertiser>()?.StopAsync();
@@ -126,7 +126,7 @@ Releases are fully automated once changes land on `main`. You do not manually ed
 ### Normal release (patch or minor)
 
 1. Commits accumulate on `main` via merged PRs.
-2. [release-please](https://github.com/googleapis/release-please) automatically maintains an open **Release PR** titled `chore(main): release x.y.z`. It updates `CHANGELOG.md` and `version.txt` as new commits land.
+2. [release-please](https://github.com/googleapis/release-please) automatically maintains an open **Release PR** titled `chore(main): release x.y.z`. It updates `version.txt` and maintains `CHANGELOG.md` (the file is created when the first Release PR merges) as new commits land.
 3. When you're ready to ship, **merge the Release PR**.
 4. Merging creates a git tag (e.g. `v0.2.0`) and a GitHub Release.
 5. The tag triggers the `publish` workflow → approve the `nuget` environment deployment in GitHub Actions → package is pushed to NuGet.org.

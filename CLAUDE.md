@@ -38,29 +38,31 @@ The plugin is a two-tier API over a single sealed class, `NearbyConnectionsImple
 `NearbyConnectionsImplementation` implements `INearbyConnections` as a partial class split by platform:
 
 - `INearbyConnections.cs` — the full public API surface
-- `NearbyConnections.shared.cs` — DI constructor, semaphore-guarded start/stop, send/disconnect dispatch
+- `NearbyConnections.shared.cs` — DI constructor; `AdvertiseAsync`/`DiscoverAsync` swap in a fresh session channel per enumeration (`Interlocked.Exchange`); `ConnectAsync` and dispose dispatch
 - `NearbyConnections.android.cs` — Android advertising, discovery, and data transfer via Google Nearby Connections
 - `NearbyConnections.ios.cs` — iOS advertising, discovery, and data transfer via Multipeer Connectivity
 - `NearbyConnections.net.cs` — Generic .NET stub (throws `PlatformNotSupportedException`)
 - `NearbyConnections.log.cs` — Source-generated `ILogger` partial methods
 - `NearbyConnections.events.cs` — Event declarations and `internal On*()` raise helpers
-- `NearbyConnectionsOptions.cs` / `.android.cs` / `.ios.cs` / `.net.cs` — Immutable startup configuration, one partial per platform
-- `PeerIdManager.ios.cs` — `MCPeerID` lifecycle management (iOS only)
+- `NearbyConnectionsOptions.cs` / `.android.cs` / `.ios.cs` / `.net.cs` — One-time startup configuration (configure via the registration delegate; not re-read after start), one partial per platform
+- `PeerRegistry.cs` — Internal generic `PeerRegistry<THandle>`, the `ConcurrentDictionary`-backed registry of remote devices and their native handles
+- `LocalPeerIdentityStore.ios.cs` / `PeerIdArchive.ios.cs` / `PeerKeyProvider.ios.cs` / `PeerRegistryExtensions.ios.cs` — iOS `MCPeerID` identity persistence and peer-registry helpers
 - `OutgoingTransfer.cs` — Inactivity-timeout wrapper for outgoing file transfers
 - `NearbyConnection.cs` — `IAsyncDisposable` handle to an established P2P session (`SendAsync`/`ReceiveAsync`/`Disconnected`)
 - `NearbyConnectionRequest.cs` — Inbound connection request with `AcceptAsync`/`RejectAsync`
+- `NearbyConnectionsException.cs` — `NearbyConnectionsException` base type (supported extension contract) plus sealed `NearbyTransferTimeoutException`
 - `ConnectionRole.cs` — `Initiator` / `Acceptor` enum
 - `ControlMessage.cs` — Internal wire-protocol control messages
 
 ### Tier 2 — `Advertiser/` and `Discoverer/`: opt-in higher-level services
 
-`INearbyAdvertiser`/`NearbyAdvertiser` and `INearbyDiscoverer`/`NearbyDiscoverer` wrap Tier 1 with a multi-subscriber, `IAsyncEnumerable`-based event stream (`EventsAsync(CancellationToken)` yielding `AdvertiserEvent` / `DiscovererEvent`), fanned out via the shared `ChannelBroadcaster<T>` primitive (`src/Plugin.Maui.NearbyConnections/ChannelBroadcaster.cs`). Each has its own handler interface (`IAdvertiserHandler`, `IDiscovererHandler`), event-extension helpers, dedicated exception type (`NearbyAdvertisingException`, `NearbyDiscoveryException`), and source-generated logging partial (`NearbyAdvertiser.log.cs`, `NearbyDiscoverer.log.cs`). Tier 2 is optional — apps can consume `INearbyConnections` directly without it.
+`INearbyAdvertiser`/`NearbyAdvertiser` and `INearbyDiscoverer`/`NearbyDiscoverer` wrap Tier 1 with a multi-subscriber, `IAsyncEnumerable`-based event stream (`EventsAsync(CancellationToken)` yielding `AdvertiserEvent` / `DiscovererEvent`), fanned out via the shared `ChannelBroadcaster<T>` primitive (`src/Plugin.Maui.NearbyConnections/ChannelBroadcaster.cs`). Both services compose the internal `ConnectionLifecycle<TPending, TEvent>` helper (`src/Plugin.Maui.NearbyConnections/ConnectionLifecycle.cs`) for the shared start/stop, monitoring, and event fan-out plumbing. Each has its own handler interface (`IAdvertiserHandler`, `IDiscovererHandler`), event-extension helpers, dedicated exception type (`NearbyAdvertisingException`, `NearbyDiscoveryException`), and source-generated logging partial (`NearbyAdvertiser.log.cs`, `NearbyDiscoverer.log.cs`). Tier 2 is optional — apps can consume `INearbyConnections` directly without it.
 
 ### `Options/`: DI registration
 
 - `ServiceCollectionExtensions.cs` — `AddNearbyConnections()` registers Tier 1 as a singleton and returns a `NearbyConnectionsBuilder`; `.AddAdvertiser()` / `.AddDiscoverer()` on that builder opt in to Tier 2
 - `MauiAppBuilderExtensions.cs` (project root) — `UseNearbyConnections()` is the `MauiAppBuilder`-facing entry point apps call from `MauiProgram.cs`; internally wraps `AddNearbyConnections()`
-- `NearbyConnectionsBuilder.cs`, `NearbyConnectionsOptionsSetup.cs`, `NearbyConnectionsOptionsValidator.cs` (+ `.android.cs` / `.ios.cs` / `.net.cs`) — options binding and per-platform startup validation via `IValidateOptions<T>`
+- `NearbyConnectionsBuilder.cs`, `NearbyConnectionsOptionsValidator.cs` (+ `.android.cs` / `.ios.cs` / `.net.cs`) — the opt-in builder type and per-platform startup validation via `IValidateOptions<T>`
 
 Typical app registration (`samples/NearbyChat/MauiProgram.cs`):
 
@@ -77,7 +79,7 @@ builder.UseNearbyConnections(opts =>
 
 ### Other supporting types
 
-- `Devices/NearbyDevice.cs`, `NearbyDeviceEvent.cs`, `NearbyDeviceEventType.cs`, `NearbyDeviceManager.cs` — thread-safe (`ConcurrentDictionary`-backed) device registry and change events
+- `Devices/NearbyDevice.cs`, `NearbyDeviceEvent.cs`, `NearbyDeviceEventType.cs` — device record and visibility-event types; the thread-safe (`ConcurrentDictionary`-backed) device registry itself is the internal `PeerRegistry<THandle>` in `Connections/`
 - `Transfer/NearbyPayload.cs` — abstract `NearbyPayload` record with `BytesPayload`/`FilePayload` subtypes; `NearbyTransferProgress.cs` for progress reporting
 
 ### Platform Dependencies
@@ -151,4 +153,4 @@ Apps using this plugin need these `Info.plist` entries:
 
 ## Project Strategy
 
-This project follows an "Anti-Detail-Trap Strategy" focusing on shipping early and iterating fast (`docs/PROJECTPLAN.md`). Current release: `0.3.0-preview.1` — pre-release versioning, tagging, and NuGet publishing are automated via `scripts/release.sh` and `.github/workflows/publish.yml` (see `CONTRIBUTING.md` for the full release process).
+This project follows an "Anti-Detail-Trap Strategy" focusing on shipping early and iterating fast (`docs/PROJECTPLAN.md`). Current release: `0.3.0-preview.2` — pre-release versioning, tagging, and NuGet publishing are automated via `scripts/release.sh` and `.github/workflows/publish.yml` (see `CONTRIBUTING.md` for the full release process).

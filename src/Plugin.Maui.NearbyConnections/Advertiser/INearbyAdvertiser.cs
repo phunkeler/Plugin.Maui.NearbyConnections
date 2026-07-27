@@ -14,20 +14,28 @@ namespace Plugin.Maui.NearbyConnections;
 /// over <see cref="EventsAsync"/> to drain and exit naturally.
 /// </para>
 /// <para>
-/// Cancelling the <c>cancellationToken</c> passed to <see cref="EventsAsync"/> only detaches the
-/// current observer — the background advertising loop and the underlying platform operation
-/// continue running until <see cref="StopAsync"/> is called. Use the pattern below for clean
-/// teardown:
+/// Exiting the <see langword="await foreach"/> loop — via <see langword="break"/>, or by
+/// cancelling the <c>cancellationToken</c> passed to <see cref="EventsAsync"/> (which ends the
+/// enumeration with an <see cref="OperationCanceledException"/>) — only detaches the current
+/// observer; the background advertising loop and the underlying platform operation continue
+/// running until <see cref="StopAsync"/> is called. Use the pattern below for clean teardown —
+/// exit the loop, then stop, then dispose (disposing completes the channels of any remaining
+/// subscribers):
 /// </para>
 /// <code>
 /// await advertiser.StartAsync();
-/// await foreach (var ev in advertiser.EventsAsync())
+///
+/// await foreach (var ev in advertiser.EventsAsync(cancellationToken))
 /// {
-///     // handle ev
+///     // handle ev; break when done observing
+///     if (done)
+///     {
+///         break;
+///     }
 /// }
-/// // When done:
-/// await advertiser.StopAsync();  // cancels platform operation, emits cleanup events
-/// await advertiser.DisposeAsync(); // completes channels → foreach exits
+///
+/// await advertiser.StopAsync();    // stops the platform advertising operation, emits cleanup events
+/// await advertiser.DisposeAsync(); // completes remaining subscriber channels
 /// </code>
 /// <para>
 /// <strong>Thread safety.</strong>

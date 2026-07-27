@@ -18,12 +18,11 @@ namespace Plugin.Maui.NearbyConnections;
 /// <see cref="DiscoverAsync"/>.
 /// </para>
 /// <para>
-/// <strong>Error delivery.</strong> On iOS, start failures (advertising or discovery) are
-/// delivered asynchronously as a faulted channel — the exception surfaces when the consumer
-/// first awaits the <c>await foreach</c> body. On Android, start failures throw synchronously
-/// from <see cref="AdvertiseAsync"/> / <see cref="DiscoverAsync"/> before the loop begins.
-/// Wrap both the <c>await foreach</c> header and its body in the same <c>try/catch</c> to
-/// handle start failures uniformly across platforms.
+/// <strong>Error delivery.</strong> On both platforms, start failures (advertising or
+/// discovery) are delivered asynchronously as a faulted stream — the exception surfaces at
+/// the first <c>await</c> of the enumeration, not when <see cref="AdvertiseAsync"/> /
+/// <see cref="DiscoverAsync"/> is called. Wrap the <c>await foreach</c> (header and body) in
+/// a <c>try/catch</c> to handle start failures.
 /// </para>
 /// </remarks>
 public interface INearbyConnections : IAsyncDisposable
@@ -56,7 +55,7 @@ public interface INearbyConnections : IAsyncDisposable
     /// one per inbound connection request received while advertising.
     /// </returns>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
-    /// <exception cref="NearbyAdvertisingException">Thrown if the platform fails to start advertising.</exception>
+    /// <exception cref="NearbyAdvertisingException">Thrown if the platform fails to start advertising. Observed while enumerating the returned stream.</exception>
     IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -79,7 +78,7 @@ public interface INearbyConnections : IAsyncDisposable
     /// An <see cref="IAsyncEnumerable{T}"/> of <see cref="NearbyDeviceEvent"/> items.
     /// </returns>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
-    /// <exception cref="NearbyDiscoveryException">Thrown if the platform fails to start discovery.</exception>
+    /// <exception cref="NearbyDiscoveryException">Thrown if the platform fails to start discovery. Observed while enumerating the returned stream.</exception>
     IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
