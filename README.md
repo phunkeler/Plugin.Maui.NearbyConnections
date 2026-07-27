@@ -1,9 +1,9 @@
-# Plugin.Maui.NearbyDevices
+# Plugin.Maui.NearbyConnections
 
 A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices — discover, connect, and exchange data — by unifying Google's [Nearby Connections](https://developers.google.com/nearby/connections/overview) and Apple's [Multipeer Connectivity](https://developer.apple.com/documentation/multipeerconnectivity).
 
-[![NuGet Version](https://img.shields.io/nuget/v/Plugin.Maui.NearbyDevices)](https://www.nuget.org/packages/Plugin.Maui.NearbyDevices)
-[![GitHub License](https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyDevices)](https://github.com/phunkeler/Plugin.Maui.NearbyDevices/blob/main/LICENSE)
+[![NuGet Version](https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections)](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
+[![GitHub License](https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections)](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/LICENSE)
 
 Peer-to-peer communication happens in two phases: **finding peers** (advertise/discover nearby devices) and **talking to them** (send/receive payloads over an established connection).
 
@@ -18,7 +18,7 @@ Peer-to-peer communication happens in two phases: **finding peers** (advertise/d
 
 Neither platform gives you direct control over which radio carries your data — both automatically negotiate between Bluetooth and Wi-Fi per connection, so you don't manage radios directly.
 
-- **Android** ([Nearby Connections](https://developers.google.com/nearby/connections/overview)) picks between Bluetooth Classic, BLE, and Wi-Fi based on the [`Strategy`](https://developers.google.com/nearby/connections/strategies) you configure in `NearbyDevicesOptions`: `P2pCluster` (default) allows many-to-many mesh connections at the cost of lower bandwidth, `P2pStar` allows one-to-many with higher bandwidth, and `P2pPointToPoint` is one-to-one at the highest throughput. Choose based on your topology and data size — `P2pCluster` for small messages across a cluster of devices, `P2pPointToPoint` for large file transfers between two devices.
+- **Android** ([Nearby Connections](https://developers.google.com/nearby/connections/overview)) picks between Bluetooth Classic, BLE, and Wi-Fi based on the [`Strategy`](https://developers.google.com/nearby/connections/strategies) you configure in `NearbyConnectionsOptions`: `P2pCluster` (default) allows many-to-many mesh connections at the cost of lower bandwidth, `P2pStar` allows one-to-many with higher bandwidth, and `P2pPointToPoint` is one-to-one at the highest throughput. Choose based on your topology and data size — `P2pCluster` for small messages across a cluster of devices, `P2pPointToPoint` for large file transfers between two devices.
 - **iOS** (Multipeer Connectivity) auto-selects Bluetooth vs. peer-to-peer Wi-Fi vs. infrastructure Wi-Fi per link with no app-level topology control — there is no iOS equivalent to `Strategy`.
 
 # Dependencies
@@ -30,10 +30,10 @@ Neither platform gives you direct control over which radio carries your data —
 | [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) | ✅ | |
 
 # Installation
-`Plugin.Maui.NearbyDevices` is available on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyDevices)
+`Plugin.Maui.NearbyConnections` is available on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
 
 ```bash
-dotnet add package Plugin.Maui.NearbyDevices
+dotnet add package Plugin.Maui.NearbyConnections
 ```
 
 # Getting Started
@@ -45,7 +45,7 @@ dotnet add package Plugin.Maui.NearbyDevices
 public static MauiApp CreateMauiApp()
     => MauiApp.CreateBuilder()
         .UseMauiApp<App>()
-        .AddNearbyDevices()
+        .AddNearbyConnections()
         .Build();
 ```
 
@@ -82,7 +82,7 @@ Add to `Info.plist`:
 <string>Used to discover and connect to nearby devices.</string>
 ```
 
-`NearbyDevicesOptions.ServiceId` is a **separate, shorter value** from the `NSBonjourServices` entries above — on iOS it's passed directly as `MCNearbyServiceAdvertiser`/`MCNearbyServiceBrowser`'s `serviceType`, which Apple requires to be a bare string 1–15 characters long (e.g. `"nearbychat"`), not the `_name._tcp` Bonjour form. There is no default; it must be set explicitly or startup validation throws.
+`NearbyConnectionsOptions.ServiceId` is a **separate, shorter value** from the `NSBonjourServices` entries above — on iOS it's passed directly as `MCNearbyServiceAdvertiser`/`MCNearbyServiceBrowser`'s `serviceType`, which Apple requires to be a bare string 1–15 characters long (e.g. `"nearbychat"`), not the `_name._tcp` Bonjour form. There is no default; it must be set explicitly or startup validation throws.
 
 ## 3. Advertise and discover
 
@@ -92,14 +92,14 @@ One device advertises while the other discovers, or both do both simultaneously.
 
 **Phase 2 — Talking to them.** Once you pick a peer and connect (or accept their inbound request), a `NearbyConnection` is established. That object is itself an async stream of incoming payloads.
 
-The tier-1 API (`INearbyDevices`) exposes these two phases directly as `AdvertiseAsync` / `DiscoverAsync` streams, as shown below. For MAUI app code, the tier-2 services (`INearbyAdvertiser` / `INearbyDiscoverer`) provide additional utilities.
+The tier-1 API (`INearbyConnections`) exposes these two phases directly as `AdvertiseAsync` / `DiscoverAsync` streams, as shown below. For MAUI app code, the tier-2 services (`INearbyAdvertiser` / `INearbyDiscoverer`) provide additional utilities.
 
 ### Advertiser side — accept inbound connection requests
 
 ```csharp
 using var cts = new CancellationTokenSource();
 
-await foreach (var request in nearbyDevices.AdvertiseAsync(cts.Token))
+await foreach (var request in nearbyConnections.AdvertiseAsync(cts.Token))
 {
     Console.WriteLine($"Connection request from: {request.RemoteDevice.DisplayName}");
 
@@ -118,13 +118,13 @@ To reject a request call `request.RejectAsync()` instead of `AcceptAsync()`.
 ```csharp
 using var cts = new CancellationTokenSource();
 
-await foreach (var evt in nearbyDevices.DiscoverAsync(cts.Token))
+await foreach (var evt in nearbyConnections.DiscoverAsync(cts.Token))
 {
     if (evt.Type == NearbyDeviceEventType.Found)
     {
         Console.WriteLine($"Found: {evt.Device.DisplayName}");
 
-        NearbyConnection connection = await nearbyDevices.ConnectAsync(evt.Device, cts.Token);
+        NearbyConnection connection = await nearbyConnections.ConnectAsync(evt.Device, cts.Token);
         Console.WriteLine($"Connected to {connection.RemoteDevice.DisplayName}");
 
         // Send and receive on this connection (see section 4)
@@ -176,7 +176,7 @@ await foreach (var payload in connection.ReceiveAsync(cancellationToken))
 }
 ```
 
-Received files are saved to `NearbyDevicesOptions.ReceivedFilesDirectory` (default: `FileSystem.AppDataDirectory`).
+Received files are saved to `NearbyConnectionsOptions.ReceivedFilesDirectory` (default: `FileSystem.AppDataDirectory`).
 
 ## 5. Disconnect and clean up
 
@@ -188,7 +188,7 @@ await connection.DisposeAsync();
 cts.Cancel();
 
 // Dispose the plugin when done (e.g. in page OnDisappearing)
-await nearbyDevices.DisposeAsync();
+await nearbyConnections.DisposeAsync();
 ```
 
 # Acknowledgements

@@ -7,7 +7,7 @@
     NearbyChat
   </h1>
   <p>
-    A showcase app demonstrating the peer-to-peer capabilities of <a href="https://www.nuget.org/packages/Plugin.Maui.NearbyDevices" target="_blank">Plugin.Maui.NearbyDevices</a> in a practical chat application scenario.
+    A showcase app demonstrating the peer-to-peer capabilities of <a href="https://www.nuget.org/packages/Plugin.Maui.NearbyConnections" target="_blank">Plugin.Maui.NearbyConnections</a> in a practical chat application scenario.
   </p>
 </div>
 

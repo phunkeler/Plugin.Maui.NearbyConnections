@@ -1,4 +1,4 @@
-# Plugin.Maui.NearbyDevices - Business Analysis
+# Plugin.Maui.NearbyConnections - Business Analysis
 
 ## SWOT Analysis
 
@@ -42,4 +42,4 @@ _"
 
 ### The Solution
 
-**Plugin.Maui.NearbyDevices** - A .NET MAUI plugin that unifies Google's Nearby Connections and Apple's Multipeer Connectivity into a single, elegant API.
+**Plugin.Maui.NearbyConnections** - A .NET MAUI plugin that unifies Google's Nearby Connections and Apple's Multipeer Connectivity into a single, elegant API.

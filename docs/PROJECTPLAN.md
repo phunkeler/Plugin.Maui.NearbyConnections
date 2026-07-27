@@ -1,4 +1,4 @@
-# Plugin.Maui.NearbyDevices Plan
+# Plugin.Maui.NearbyConnections Plan
 
 ## 📝 Anti-Detail-Trap Strategy
 

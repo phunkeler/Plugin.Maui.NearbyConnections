@@ -10,7 +10,7 @@ The codebase has two layers:
 
 | Tier | Type | Responsibility |
 |------|------|----------------|
-| 1 | `INearbyDevices` | Raw platform streams. `AdvertiseAsync` yields inbound connection requests; `DiscoverAsync` yields device visibility events; `ConnectAsync` establishes a connection. No state ownership, no threading concern. |
+| 1 | `INearbyConnections` | Raw platform streams. `AdvertiseAsync` yields inbound connection requests; `DiscoverAsync` yields device visibility events; `ConnectAsync` establishes a connection. No state ownership, no threading concern. |
 | 2 | `INearbyAdvertiser` / `INearbyDiscoverer` | MAUI-friendly services. Absorb loop hosting, lifecycle state, and unified event delivery. `EventsAsync` merges connection lifecycle and payload events into one stream with atomic current-state replay on subscribe. |
 
 ### Stream primitive — `System.Threading.Channels`
@@ -49,10 +49,10 @@ Do not rely on `StopAsync()` to terminate a stream — use the caller's cancella
 
 The plugin follows a builder pattern with two entry points:
 
-**MAUI apps** — use `UseNearbyDevices()` on `MauiAppBuilder` (the MAUI-idiomatic style):
+**MAUI apps** — use `UseNearbyConnections()` on `MauiAppBuilder` (the MAUI-idiomatic style):
 
 ```csharp
-builder.UseNearbyDevices(opts =>
+builder.UseNearbyConnections(opts =>
     {
 #if IOS
         opts.InvitationTimeout = TimeSpan.FromSeconds(10);
@@ -62,15 +62,15 @@ builder.UseNearbyDevices(opts =>
     .AddDiscoverer();  // opt-in: INearbyDiscoverer (Tier 2)
 ```
 
-**Pure DI / non-MAUI hosts** — use `AddNearbyDevices()` on `IServiceCollection`:
+**Pure DI / non-MAUI hosts** — use `AddNearbyConnections()` on `IServiceCollection`:
 
 ```csharp
-services.AddNearbyDevices()
+services.AddNearbyConnections()
     .AddAdvertiser()
     .AddDiscoverer();
 ```
 
-`AddAdvertiser()` / `AddDiscoverer()` are explicit opt-in calls because they register `INearbyAdvertiser` / `INearbyDiscoverer` as singletons (Tier 2). Apps that only need Tier 1 (`INearbyDevices`) can omit them.
+`AddAdvertiser()` / `AddDiscoverer()` are explicit opt-in calls because they register `INearbyAdvertiser` / `INearbyDiscoverer` as singletons (Tier 2). Apps that only need Tier 1 (`INearbyConnections`) can omit them.
 
 ### Lifecycle wiring — app responsibility
 
@@ -104,7 +104,7 @@ Use `OnStop` on Android and `DidEnterBackground` on iOS — these fire only on t
 
 ### Platform implementations
 
-Each platform implements `INearbyDevices` as a partial class sealed against `NearbyDevicesImplementation`. Platform-specific files are excluded from non-matching build targets via `src/Directory.Build.targets`. Global usings per platform are also injected there.
+Each platform implements `INearbyConnections` as a partial class sealed against `NearbyConnectionsImplementation`. Platform-specific files are excluded from non-matching build targets via `src/Directory.Build.targets`. Global usings per platform are also injected there.
 
 ## Day-to-day development
 
@@ -159,7 +159,7 @@ bash scripts/release.sh 0.3.0-preview.1
 Use a `!` suffix or a `BREAKING CHANGE:` footer in your commit message:
 
 ```
-feat!: remove NearbyDevicesEvents
+feat!: remove NearbyConnectionsEvents
 ```
 
 release-please will propose a major version bump in the next Release PR.
@@ -184,7 +184,7 @@ Versions are derived automatically from git tags at pack time via [MinVer](https
 ### Unit tests
 
 ```bash
-dotnet run --project test/Plugin.Maui.NearbyDevices.UnitTests
+dotnet run --project test/Plugin.Maui.NearbyConnections.UnitTests
 ```
 
 ### UI tests
@@ -213,5 +213,5 @@ dotnet build -f net10.0-android
 dotnet build -f net10.0-ios
 
 # Pack
-dotnet pack src/Plugin.Maui.NearbyDevices/Plugin.Maui.NearbyDevices.csproj -c Release
+dotnet pack src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release
 ```
