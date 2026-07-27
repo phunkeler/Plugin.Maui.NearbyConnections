@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NearbyChat.Services;
-using Plugin.Maui.NearbyDevices;
+using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 

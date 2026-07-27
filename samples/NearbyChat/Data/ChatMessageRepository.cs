@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using NearbyChat.Models;
-using Plugin.Maui.NearbyDevices;
+using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.Data;
 

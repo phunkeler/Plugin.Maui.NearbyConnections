@@ -12,14 +12,14 @@
     <MinVerTagPrefix>v</MinVerTagPrefix>
     <PackageIcon>icon.png</PackageIcon>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/phunkeler/Plugin.Maui.NearbyDevices</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/phunkeler/Plugin.Maui.NearbyConnections</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageTags>offline-first;peer-to-peer;nearby-devices;cross-platform;android;ios;dotnet-maui;maui;plugin;google-nearby;google-nearby-connections;multipeer-connectivity;wifi;bluetooth;bluetooth-ble;file-transfer;file-sharing</PackageTags>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/phunkeler/Plugin.Maui.NearbyDevices</RepositoryUrl>
+    <RepositoryUrl>https://github.com/phunkeler/Plugin.Maui.NearbyConnections</RepositoryUrl>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <Title>.NET MAUI Nearby Connectivity Plugin</Title>
+    <Title>.NET MAUI Nearby Connections Plugin</Title>
   </PropertyGroup>
 </Project>

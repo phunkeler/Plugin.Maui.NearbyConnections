@@ -1,11 +1,11 @@
 {
     "debug.internalConsoleOptions": "openOnSessionStart",
     "dotnet.debug.hotReloadXAML": false, // Issues with GlobalXmlns
-    "dotnet.defaultSolution": "Plugin.Maui.NearbyDevices.slnx",
+    "dotnet.defaultSolution": "Plugin.Maui.NearbyConnections.slnx",
     "editor.formatOnSave": true,
     "files.autoSave": "onFocusChange",
     "sonarlint.connectedMode.project": {
         "connectionId": "phunkeler",
-        "projectKey": "phunkeler_Plugin.Maui.NearbyDevices"
+        "projectKey": "phunkeler_Plugin.Maui.NearbyConnections"
     },
 }

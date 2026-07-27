@@ -4,7 +4,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using NearbyChat.Data;
 using NearbyChat.Messages;
 using NearbyChat.Models;
-using Plugin.Maui.NearbyDevices;
+using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.Services;
 

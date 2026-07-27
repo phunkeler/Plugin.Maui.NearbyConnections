@@ -32,7 +32,7 @@
     <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     <MauiFont Include="Resources\Fonts\*" />
 
-    <TrimmerRootAssembly Include="Plugin.Maui.NearbyDevices" RootMode="all" />
+    <TrimmerRootAssembly Include="Plugin.Maui.NearbyConnections" RootMode="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -45,6 +45,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Plugin.Maui.NearbyDevices\Plugin.Maui.NearbyDevices.csproj" />
+    <ProjectReference Include="..\..\src\Plugin.Maui.NearbyConnections\Plugin.Maui.NearbyConnections.csproj" />
   </ItemGroup>
 </Project>

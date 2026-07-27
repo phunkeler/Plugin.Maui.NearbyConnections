@@ -51,7 +51,7 @@
       <Using Include="Microsoft.Maui.Devices" />
       <Using Include="Microsoft.Maui.Media" />
       <Using Include="Microsoft.Maui.Storage" />
-      <Using Include="Plugin.Maui.NearbyDevices" />
+      <Using Include="Plugin.Maui.NearbyConnections" />
       <Using Include="System.Buffers.Binary" />
       <Using Include="System.ComponentModel" />
       <Using Include="System.Collections.Concurrent" />

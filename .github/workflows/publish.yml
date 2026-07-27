@@ -23,19 +23,19 @@ jobs:
           global-json-file: global.json
 
       - name: Restore workloads
-        run: dotnet workload restore src/Plugin.Maui.NearbyDevices/Plugin.Maui.NearbyDevices.csproj
+        run: dotnet workload restore src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj
 
       - name: Build
-        run: dotnet build src/Plugin.Maui.NearbyDevices/Plugin.Maui.NearbyDevices.csproj -c Release
+        run: dotnet build src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release
 
       - name: Build tests
-        run: dotnet build test/Plugin.Maui.NearbyDevices.UnitTests/Plugin.Maui.NearbyDevices.UnitTests.csproj -c Release
+        run: dotnet build test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj -c Release
 
       - name: Test
-        run: dotnet exec test/Plugin.Maui.NearbyDevices.UnitTests/bin/Release/net10.0/Plugin.Maui.NearbyDevices.UnitTests.dll
+        run: dotnet exec test/Plugin.Maui.NearbyConnections.UnitTests/bin/Release/net10.0/Plugin.Maui.NearbyConnections.UnitTests.dll
 
       - name: Pack
-        run: dotnet pack src/Plugin.Maui.NearbyDevices/Plugin.Maui.NearbyDevices.csproj -c Release --output nupkgs /p:ContinuousIntegrationBuild=true
+        run: dotnet pack src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release --output nupkgs /p:ContinuousIntegrationBuild=true
 
       - name: Login to NuGet.org (OIDC)
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0

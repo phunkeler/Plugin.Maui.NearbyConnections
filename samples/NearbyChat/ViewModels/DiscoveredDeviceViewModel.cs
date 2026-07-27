@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Plugin.Maui.NearbyDevices;
+using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
@@ -19,7 +19,7 @@ public partial class DiscoveredDeviceViewModel(
         {
             await discoverer.ConnectAsync(Device);
         }
-        catch (NearbyDevicesException)
+        catch (NearbyConnectionsException)
         {
             IsConnecting = false;
         }
