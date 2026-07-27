@@ -419,7 +419,6 @@ sample/NearbyChat/Scripts/tmp/
 **/coveragereport
 
 .claude/
-docs/
 
 # Local test settings — never commit real device serials or IPs
 *.local.runsettings
