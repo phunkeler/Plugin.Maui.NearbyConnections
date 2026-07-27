@@ -11,7 +11,8 @@ if it's non-trivial (most of these are) before jumping to implementation.
 
 ## 1. Should `INearbyConnections` be `internal` instead of `public`?
 
-**Status:** Open — leaning toward "make it internal," not yet decided or actioned.
+**Status:** RESOLVED 2026-07-27 — **stays `public`.** See "Decision" at the end of this entry.
+The "leaning toward internal" position below is preserved as the reasoning that was superseded.
 
 **Context:** The plugin exposes two API "tiers": `INearbyConnections` (raw platform streams — always
 registered by `AddNearbyConnections()`, no opt-out) and `INearbyAdvertiser`/`INearbyDiscoverer`
@@ -50,11 +51,45 @@ there's nothing left in the root namespace for `.Extensions` to be "extending" f
 point of view — the public surface would just be `INearbyAdvertiser`/`INearbyDiscoverer` in the
 root namespace, no split needed. Decide the namespace shape only after this item is resolved.
 
+### Decision (2026-07-27): `INearbyConnections` stays `public`
+
+**What changed the answer.** The 2026-07-24/25 finding stands on its own terms — a repo-wide grep
+still shows zero direct consumers of `INearbyConnections` outside the plugin's own DI wiring, Tier 2's
+constructor dependencies, and test fakes. What that grep cannot see is a consumer affordance the
+codebase deliberately ships: `NearbyConnection` and `NearbyConnectionRequest` both expose **public
+constructors whose XML docs state they exist "for use in test doubles of `INearbyConnections`"**
+(`Connections/NearbyConnection.cs:41`, `Connections/NearbyConnectionRequest.cs:18`). Those
+constructors are only meaningful if an app developer can *implement or mock the interface* in their
+own test suite — which requires it to be public.
+
+That is the named, concrete consumer the original finding said was missing. It was never
+"speculative layering"; it was a real testing seam whose justification had simply been written down
+wrong in CONTRIBUTING.md (as "Pure DI / non-MAUI hosts", a use case nobody could demonstrate).
+
+**Consequences:**
+- No code change. The interface, its implementation, and both test-double constructors stay public.
+- CONTRIBUTING.md's rationale is replaced: the reason `INearbyConnections` is public is that
+  **consumers mock it to test their own app code against the plugin**, supported by the two
+  public test-double constructors. Any doc pass must state this rationale, not the old one.
+- Item #2 ("Tier 1/Tier 2" terminology) is **unblocked and still open** — the public surface really
+  does have two layers, so the terminology problem is real and needs its own fix. It is no longer
+  waiting on this item.
+- The `.Extensions` namespace option above remains viable (the "if it stays public" branch), still
+  undecided, and is now decidable independently.
+- Audit findings F-02 and F-07 are unblocked: docs may be written against a permanently public
+  `INearbyConnections`.
+
+**Reversal trigger:** if the test-double constructors are ever removed or the mocking seam is
+replaced (e.g. by a shipped fake/test-harness package), this decision loses its basis and
+`internal` should be reconsidered — deliberately, and paired with removing those constructors.
+
 ---
 
 ## 2. "Tier 1 / Tier 2" terminology cleanup
 
-**Status:** Open — root cause identified, fix deferred pending #1 above.
+**Status:** Open — root cause identified. **Unblocked 2026-07-27:** #1 resolved as "stays public",
+so the public surface genuinely has two layers and this terminology problem is real (it does not
+evaporate as the "How to apply" note below speculated). Ready to fix; not yet fixed.
 
 **Context:** "Tier 1" (`INearbyConnections`) / "Tier 2" (`INearbyAdvertiser`/`INearbyDiscoverer`) is
 used inconsistently across the codebase: `Tier 1`/`Tier 2` (capitalized, CLAUDE.md and doc
