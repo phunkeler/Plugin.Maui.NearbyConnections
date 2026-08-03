@@ -26,7 +26,12 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     internal LocalPeerIdentityStore LocalPeerIdentityStore { get; init; }
 #endif
 
-    bool _isDisposed;
+    // Interlocked guard, not a plain bool: INearbyConnections is a DI singleton shared by both
+    // NearbyAdvertiser and NearbyDiscoverer, so container teardown can dispose it from two
+    // threads at once. A non-atomic check-then-set let both callers past the guard and ran
+    // PlatformDispose() twice — on iOS that double-disposes the native MCSession. Mirrors the
+    // pattern already used in NearbyConnection.DisposeAsync.
+    int _disposeGuard;
 
     internal TimeProvider TimeProvider { get; }
 
@@ -149,11 +154,11 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     }
 
     /// <inheritdoc/>
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        if (_isDisposed)
+        if (Interlocked.Exchange(ref _disposeGuard, 1) != 0)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
 
         PlatformStopAdvertising();
@@ -169,10 +174,29 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
 
         _connectionTcs.Clear();
 
+        // Dispose every established connection before tearing down the platform. Without this,
+        // each live NearbyConnection kept its receive channel open and its Disconnected task
+        // unresolved, so any consumer awaiting Disconnected hung forever and the native endpoint
+        // was never disconnected. Tier 2's ConnectionLifecycle.DisposeAsync already did this for
+        // connections it owned; consumers using INearbyConnections directly got no cleanup at all.
+        // Snapshot first: NearbyConnection.DisposeAsync removes itself from _activeConnections.
+        var connections = _activeConnections.Values.ToArray();
+        _activeConnections.Clear();
+
+        foreach (var connection in connections)
+        {
+            try
+            {
+                await connection.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                // A single failing disconnect must not abort teardown of the rest.
+                LogDisposeConnectionError(connection.RemoteDevice.Id, ex);
+            }
+        }
+
         PlatformDispose();
         Devices.Clear();
-        _isDisposed = true;
-
-        return ValueTask.CompletedTask;
     }
 }

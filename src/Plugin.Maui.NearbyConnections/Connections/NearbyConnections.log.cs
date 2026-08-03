@@ -253,6 +253,21 @@ sealed partial class NearbyConnectionsImplementation
     [LoggerMessage(Level = LogLevel.Error, Message = "WritePayload: unexpected error writing payload for peer {PeerId}.")]
     partial void LogWritePayloadError(string peerId, Exception ex);
 
+    [LoggerMessage(Level = LogLevel.Error, Message = "DisposeAsync: error disposing connection to peer {PeerId}; continuing teardown.")]
+    partial void LogDisposeConnectionError(string peerId, Exception ex);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to start advertising; faulting the advertise stream.")]
+    partial void LogStartAdvertisingFailed(Exception ex);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to start discovery; faulting the discover stream.")]
+    partial void LogStartDiscoveringFailed(Exception ex);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Advertise start failure could not be delivered: the advertise stream was already completed. The consumer will observe a normal end of stream instead of this error.")]
+    partial void LogStartAdvertisingFaultDropped();
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Discovery start failure could not be delivered: the discover stream was already completed. The consumer will observe a normal end of stream instead of this error.")]
+    partial void LogStartDiscoveringFaultDropped();
+
     // -------------------------------------------------------------------------
     // Lifecycle
     // -------------------------------------------------------------------------

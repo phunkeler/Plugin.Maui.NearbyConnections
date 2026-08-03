@@ -7,10 +7,14 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 sealed class OutgoingTransfer(
     IProgress<NearbyTransferProgress>? progress,
-    TimeSpan inactivityTimeout) : IDisposable
+    TimeSpan inactivityTimeout,
+    TimeProvider timeProvider) : IDisposable
 {
     readonly TaskCompletionSource _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    CancellationTokenSource _inactivityCts = new(inactivityTimeout);
+
+    // Timed through the injected TimeProvider so the inactivity timeout is testable with
+    // FakeTimeProvider rather than requiring a real wall-clock wait.
+    CancellationTokenSource _inactivityCts = new(inactivityTimeout, timeProvider);
 
     /// <summary>Awaitable task that completes when the transfer reaches a terminal state.</summary>
     public Task Completion => _tcs.Task;
@@ -25,7 +29,7 @@ sealed class OutgoingTransfer(
     /// <summary>Called by platform code to report a progress update or terminal status.</summary>
     public void OnUpdate(NearbyTransferProgress transferProgress)
     {
-        var old = Interlocked.Exchange(ref _inactivityCts, new CancellationTokenSource(inactivityTimeout));
+        var old = Interlocked.Exchange(ref _inactivityCts, new CancellationTokenSource(inactivityTimeout, timeProvider));
         old.Dispose();
 
         progress?.Report(transferProgress);

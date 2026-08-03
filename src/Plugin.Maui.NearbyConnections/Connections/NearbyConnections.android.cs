@@ -7,12 +7,6 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyConnectionsImplementation
 {
-    // Thread-safety of these fields depends entirely on the tier-2 guarantee, enforced by
-    // NearbyAdvertiser/NearbyDiscoverer, that at most one AdvertiseAsync/DiscoverAsync
-    // invocation is ever in flight at a time. A future change to tier-1 or tier-2 that
-    // reintroduces overlapping invocations would reintroduce a native use-after-dispose race
-    // here (see the fix for the fire-and-forget RunLoopAsync race). Do not add concurrent
-    // callers of these fields without re-establishing that guarantee.
     IConnectionsClient? _advertiseClient;
     IConnectionsClient? _discoverClient;
 
@@ -21,14 +15,14 @@ sealed partial class NearbyConnectionsImplementation
 
     #region Advertising
 
-    Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
+    async Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         _advertiseClient ??= NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
         try
         {
-            return _advertiseClient.StartAdvertisingAsync(
+            await _advertiseClient.StartAdvertisingAsync(
                 Options.DisplayName,
                 Options.ServiceId,
                 new AdvertiseCallback(
@@ -39,16 +33,17 @@ sealed partial class NearbyConnectionsImplementation
                 new AdvertisingOptions.Builder()
                     .SetStrategy(Options.Strategy)
                     .SetLowPower(Options.UseLowPower)
+                    .SetConnectionType(Options.ConnectionType)
                     .Build());
         }
-        catch (OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _advertiseChannel.Writer.TryComplete(new NearbyAdvertisingException("Failed to start advertising.", ex));
-            return Task.CompletedTask;
+            LogStartAdvertisingFailed(ex);
+
+            if (!_advertiseChannel.Writer.TryComplete(new NearbyAdvertisingException("Failed to start advertising.", ex)))
+            {
+                LogStartAdvertisingFaultDropped();
+            }
         }
     }
 
@@ -83,7 +78,21 @@ sealed partial class NearbyConnectionsImplementation
                     acceptFactory: async ct =>
                     {
                         await PlatformRespondToConnectionAsync(device, accept: true);
-                        return await tcs.Task.WaitAsync(ct);
+
+                        try
+                        {
+                            return await tcs.Task.WaitAsync(ct);
+                        }
+                        catch
+                        {
+                            // Remove the pending entry on cancellation/failure. Without this the
+                            // stale entry survived, so a later OnConnectionResult for this endpoint
+                            // resolved a TCS nobody awaited — leaking the resulting NearbyConnection
+                            // — and DisposeAsync cancelled it with CancellationToken.None rather
+                            // than the caller's token. Mirrors the iOS accept path.
+                            _connectionTcs.TryRemove(endpointId, out _);
+                            throw;
+                        }
                     },
                     rejectFactory: ct =>
                     {
@@ -201,13 +210,14 @@ sealed partial class NearbyConnectionsImplementation
                     .SetLowPower(Options.UseLowPower)
                     .Build());
         }
-        catch (OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _discoverChannel.Writer.TryComplete(new NearbyDiscoveryException("Failed to start discovery.", ex));
+            LogStartDiscoveringFailed(ex);
+
+            if (!_discoverChannel.Writer.TryComplete(new NearbyDiscoveryException("Failed to start discovery.", ex)))
+            {
+                LogStartDiscoveringFaultDropped();
+            }
         }
     }
 
@@ -353,7 +363,7 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         var fileName = ResolveResourceName(sourceUri);
-        var destinationPath = Path.Combine(destinationDirectory, fileName);
+        var destinationPath = ResolveUniqueDestinationPath(destinationDirectory, fileName);
 
         try
         {
@@ -364,7 +374,11 @@ sealed partial class NearbyConnectionsImplementation
                 return null;
             }
 
-            using var outputStream = File.OpenWrite(destinationPath);
+            // FileMode.Create, not File.OpenWrite: OpenWrite uses OpenOrCreate and does NOT
+            // truncate, so receiving a smaller file over an existing same-named one left the
+            // previous file's trailing bytes in place — a silently corrupted file delivered to
+            // the app with no error. iOS uses File.Copy(overwrite: true), which does truncate.
+            using var outputStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
             await inputStream.CopyToAsync(outputStream, cancellationToken);
         }
         catch (Exception ex)
@@ -413,11 +427,7 @@ sealed partial class NearbyConnectionsImplementation
                         OnDisconnected,
                         LogOnConnectionInitiatedError));
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             // RequestConnectionAsync can fail (e.g. Google Play Services'
             // ApiException STATUS_ALREADY_CONNECTED_TO_ENDPOINT). Left
@@ -482,7 +492,7 @@ sealed partial class NearbyConnectionsImplementation
         Devices.Remove(endpointId);
     }
 
-    Task PlatformSendBytesAsync(
+    async Task PlatformSendBytesAsync(
         string endpointId,
         byte[] data,
         CancellationToken cancellationToken)
@@ -498,7 +508,7 @@ sealed partial class NearbyConnectionsImplementation
         using var payload = Payload.FromBytes(data);
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
-        return client.SendPayloadAsync(endpointId, payload);
+        await client.SendPayloadAsync(endpointId, payload);
     }
 
     async Task PlatformSendFileAsync(
@@ -525,7 +535,7 @@ sealed partial class NearbyConnectionsImplementation
 
         var filePayload = BuildFilePayload(androidUri) ?? throw new InvalidOperationException($"Cannot send file: failed to open the file descriptor for the given URI.");
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
-        var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
+        var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout, TimeProvider);
 
         _outgoingTransfers.TryAdd(filePayload.Id, transfer);
 

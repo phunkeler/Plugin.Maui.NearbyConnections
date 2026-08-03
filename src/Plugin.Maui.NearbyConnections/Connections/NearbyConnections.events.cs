@@ -102,4 +102,43 @@ sealed partial class NearbyConnectionsImplementation
             LogWritePayloadError(peerId, ex);
         }
     }
+
+    /// <summary>
+    /// Resolves a non-colliding destination path for an inbound file, appending " (n)" before the
+    /// extension when the name is already taken.
+    /// </summary>
+    /// <remarks>
+    /// Both platforms previously combined <see cref="NearbyConnectionsOptions.ReceivedFilesDirectory"/>
+    /// with the sender-supplied name and overwrote unconditionally, so two peers sending
+    /// <c>photo.jpg</c> silently clobbered one another and the app saw only the last one. This is
+    /// best-effort, not atomic: a concurrent transfer could claim the same name between the check
+    /// and the write. That race is far narrower than the unconditional overwrite it replaces, and
+    /// closing it fully needs file-creation-based reservation, which is a larger change than this
+    /// fix pass warrants.
+    /// </remarks>
+    internal static string ResolveUniqueDestinationPath(string directory, string fileName)
+    {
+        var candidate = Path.Combine(directory, fileName);
+
+        if (!File.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        var stem = Path.GetFileNameWithoutExtension(fileName);
+        var extension = Path.GetExtension(fileName);
+
+        for (var i = 1; i < int.MaxValue; i++)
+        {
+            candidate = Path.Combine(directory, $"{stem} ({i}){extension}");
+
+            if (!File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        // Unreachable in practice; keeps the compiler happy about definite return.
+        return Path.Combine(directory, $"{stem} ({Guid.NewGuid():N}){extension}");
+    }
 }

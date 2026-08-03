@@ -44,13 +44,21 @@ sealed partial class NearbyConnectionsImplementation
     internal void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
     {
         LogDidNotStartAdvertising(error.LocalizedDescription);
-        _advertiseChannel.Writer.TryComplete(new NearbyAdvertisingException(error.LocalizedDescription));
+
+        if (!_advertiseChannel.Writer.TryComplete(new NearbyAdvertisingException(error.LocalizedDescription)))
+        {
+            LogStartAdvertisingFaultDropped();
+        }
     }
 
     internal void DidNotStartBrowsingForPeers(MCNearbyServiceBrowser browser, NSError error)
     {
         LogDidNotStartBrowsing(error.LocalizedDescription);
-        _discoverChannel.Writer.TryComplete(new NearbyDiscoveryException(error.LocalizedDescription));
+
+        if (!_discoverChannel.Writer.TryComplete(new NearbyDiscoveryException(error.LocalizedDescription)))
+        {
+            LogStartDiscoveringFaultDropped();
+        }
     }
 
     internal void DidReceiveInvitationFromPeer(
@@ -284,7 +292,7 @@ sealed partial class NearbyConnectionsImplementation
         }
 
         using var nsUrl = NSUrl.FromFilename(uri);
-        using var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout);
+        using var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout, TimeProvider);
         var resourceName = nsUrl.LastPathComponent ?? Path.GetFileName(uri);
         var sendTask = session.SendResourceAsync(nsUrl, resourceName, peerID, out var nsProgress);
         var payloadId = Interlocked.Increment(ref s_nextPayloadId);
@@ -312,7 +320,14 @@ sealed partial class NearbyConnectionsImplementation
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken, transfer.InactivityToken);
             using var ctr = linkedCts.Token.Register(() => nsProgress?.Cancel());
-            await sendTask;
+
+            // WaitAsync(linkedCts.Token), not a bare await: MPC's SendResourceAsync completes only
+            // when the transfer finishes, so awaiting it directly meant neither the caller's token
+            // nor the inactivity token could ever interrupt it. The inactivity catch below was
+            // therefore unreachable and a stalled transfer hung forever — contradicting
+            // NearbyConnection.SendAsync's documented NearbyTransferTimeoutException. Android
+            // already enforces this via transfer.Completion.WaitAsync(linkedCts.Token).
+            await sendTask.WaitAsync(linkedCts.Token);
 
             transfer.OnUpdate(new NearbyTransferProgress(
                 payloadId: payloadId,
@@ -459,8 +474,16 @@ sealed partial class NearbyConnectionsImplementation
                     MCSession? sessionToDisposePeer;
                     lock (_sessionLock)
                     {
+                        // Length > 0 guard: Enumerable.All returns true for an empty sequence, so
+                        // without it a NotConnected for a peer that never reached Connected (a
+                        // failed or rejected handshake — the very path that reaches this code via
+                        // the FaultConnectionTcs call above) disposed the session out from under
+                        // other still-connected peers. The comment below holds only for peers that
+                        // were actually in ConnectedPeers to begin with.
+                        var connectedPeers = _session?.ConnectedPeers ?? [];
                         var isLastPeer = _session is not null
-                            && _session.ConnectedPeers.All(p => PeerKeyProvider.PeerKey(p) == id);
+                            && connectedPeers.Length > 0
+                            && connectedPeers.All(p => PeerKeyProvider.PeerKey(p) == id);
                         sessionToDisposePeer = isLastPeer ? _session : null;
                         if (isLastPeer)
                         {
@@ -556,8 +579,14 @@ sealed partial class NearbyConnectionsImplementation
                 }
             });
 
-        _progressObservers[resourceName] = observer;
+        // Key by peer + resource name. Keying by resourceName alone meant two peers sending the
+        // same filename concurrently overwrote each other's entry: the first observer was orphaned
+        // (a leaked KVO registration on a native NSProgress, never disposed) and the first
+        // OnResourceFinished disposed the second transfer's observer, silently ending its progress.
+        _progressObservers[ObserverKey(id, resourceName)] = observer;
     }
+
+    static string ObserverKey(string peerId, string resourceName) => $"{peerId}{resourceName}";
 
     void OnResourceFinished(
         string resourceName,
@@ -572,7 +601,7 @@ sealed partial class NearbyConnectionsImplementation
 
             LogResourceReceiveFinished(id, fromPeer.DisplayName, resourceName, loc, error?.LocalizedDescription);
 
-            if (_progressObservers.TryRemove(resourceName, out var observer))
+            if (_progressObservers.TryRemove(ObserverKey(id, resourceName), out var observer))
             {
                 observer.Dispose();
             }
@@ -589,11 +618,11 @@ sealed partial class NearbyConnectionsImplementation
                 return;
             }
 
-            var destinationPath = Path.Combine(Options.ReceivedFilesDirectory, resourceName);
+            var destinationPath = ResolveUniqueDestinationPath(Options.ReceivedFilesDirectory, resourceName);
 
             try
             {
-                File.Copy(sourcePath, destinationPath, overwrite: true);
+                File.Copy(sourcePath, destinationPath, overwrite: false);
             }
             catch (Exception ex)
             {
