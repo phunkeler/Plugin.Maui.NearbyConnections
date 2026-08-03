@@ -182,6 +182,21 @@ end_of_line = lf
 [*.{cmd,bat}]
 end_of_line = crlf
 
+# Public API surface tracking (Microsoft.CodeAnalysis.PublicApiAnalyzers)
+[src/Plugin.Maui.NearbyConnections/**.cs]
+# RS0026: multiple overloads with optional parameters is a binary-compatibility hazard —
+# `SendAsync(x)` binds at compile time, so later adding or reordering an optional parameter
+# silently rebinds callers and breaks binary compat without a source change.
+#
+# Currently violated by NearbyConnection's four SendAsync overloads, which all take optional
+# `progress` and/or `cancellationToken` parameters. Deliberately deferred, not dismissed: the
+# API restructure reshapes this surface, and the fix (collapse to one payload-taking overload
+# with required parameters plus thin non-optional convenience overloads) belongs there rather
+# than as an unrelated breaking change now.
+#
+# Re-enable — do not delete — once the restructure lands.
+dotnet_diagnostic.RS0026.severity = none
+
 # Markdown files
 [*.md]
 indent_size = 2

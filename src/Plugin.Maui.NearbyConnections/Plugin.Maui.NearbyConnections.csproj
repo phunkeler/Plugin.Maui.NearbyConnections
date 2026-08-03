@@ -6,7 +6,7 @@
     <!-- Explicit and load-bearing: the NuGet identity is Plugin.Maui.NearbyConnections
          (full published history 0.0.0-alpha → present). It must NEVER drift implicitly
          with a project/folder rename. Any future rename is a deliberate, coordinated
-         code + NuGet + repo change — see docs/BACKLOG.md #3. -->
+         code + NuGet + repo change. -->
     <PackageId>Plugin.Maui.NearbyConnections</PackageId>
   </PropertyGroup>
 
@@ -21,6 +21,18 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
 
+    <!-- Tracks the public API surface in PublicAPI.{Shipped,Unshipped}.txt. Any addition,
+         removal, or signature change to a public type or member fails the build until the
+         corresponding entry is updated, so every API change arrives as a reviewable diff.
+         Never suppress these diagnostics to get a build green — update the API files instead. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+
     <InternalsVisibleTo Include="Plugin.Maui.NearbyConnections.UnitTests" />
   </ItemGroup>
+
+  <!-- Public API baseline wiring (per-TFM files, mode selection). See src/PublicAPI.targets. -->
+  <Import Project="..\PublicAPI.targets" />
 </Project>

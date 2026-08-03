@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    Public API baselines, tracked per target framework in PublicAPI/{tfm}/PublicAPI.*.txt.
+    The split is per-TFM on purpose: the surface genuinely differs by platform (Android exposes
+    Strategy/ConnectionType, iOS exposes EncryptionPreference/InvitationTimeout).
+
+    Adding anything public fails the build until it is recorded. Build, read the RS0016 errors,
+    add the listed lines. Use -p:PublicApiType=Skip to bypass locally while iterating.
+  -->
+  <ItemGroup Condition="'$(PublicApiType)' == 'Skip'">
+    <PackageReference Remove="Microsoft.CodeAnalysis.PublicApiAnalyzers" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != '' and '$(PublicApiType)' != 'Skip'">
+    <AdditionalFiles Include="PublicAPI\$(TargetFramework)\PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI\$(TargetFramework)\PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+</Project>

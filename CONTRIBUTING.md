@@ -62,7 +62,7 @@ builder.UseNearbyConnections(opts =>
     .AddDiscoverer();  // opt-in: INearbyDiscoverer (Tier 2)
 ```
 
-**Testing seam** — `AddNearbyConnections()` also exists directly on `IServiceCollection`, and `INearbyConnections` is public, because consumers mock or implement the interface to test their own app code against the plugin (decision recorded 2026-07-27, `docs/BACKLOG.md` #1). The public test-double constructors on `NearbyConnection` (`Connections/NearbyConnection.cs`) and `NearbyConnectionRequest` (`Connections/NearbyConnectionRequest.cs`) exist for exactly this: they let a fake `INearbyConnections` yield real connection/request objects into the code under test.
+**Testing seam** — `AddNearbyConnections()` also exists directly on `IServiceCollection`, and `INearbyConnections` is public, because consumers mock or implement the interface to test their own app code against the plugin. The public test-double constructors on `NearbyConnection` (`Connections/NearbyConnection.cs`) and `NearbyConnectionRequest` (`Connections/NearbyConnectionRequest.cs`) exist for exactly this: they let a fake `INearbyConnections` yield real connection/request objects into the code under test.
 
 ```csharp
 services.AddNearbyConnections()
@@ -215,3 +215,24 @@ dotnet build -f net10.0-ios
 # Pack
 dotnet pack src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release
 ```
+
+### Machine-local build overrides
+
+`Directory.Build.props` holds project facts only — things true for every clone. Settings that are
+true of *your machine* go in `Directory.Build.local.props` at the repo root. It is gitignored and
+imported last, so its values win.
+
+The usual reason to need one is a toolchain pin the workload manifest rejects. For example, an
+Intel Mac cannot install Xcode 26.6, and the iOS workload manifest strictly rejects the 26.5 it is
+stuck on:
+
+```xml
+<Project>
+  <PropertyGroup>
+    <ValidateXcodeVersion>false</ValidateXcodeVersion>
+  </PropertyGroup>
+</Project>
+```
+
+Never commit this kind of override to `Directory.Build.props` — it would silently disable the check
+for every contributor and in CI.

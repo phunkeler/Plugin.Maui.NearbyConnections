@@ -23,11 +23,9 @@ Neither platform gives you direct control over which radio carries your data —
 
 # Dependencies
 
-| Dependency | Android | iOS |
-| --- | :---: | :---: |
-| [Microsoft.Extensions.DependencyInjection.Abstractions](https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection.Abstractions) | ✅ | ✅ |
-| [Microsoft.Maui.Core](https://www.nuget.org/packages/Microsoft.Maui.Core) | ✅  | ✅ |
-| [Xamarin.GooglePlayServices.Nearby](https://www.nuget.org/packages/Xamarin.GooglePlayServices.Nearby/) | ✅ | |
+Package versions are managed centrally in
+[`Directory.Packages.props`](Directory.Packages.props); the plugin's own references are declared in
+[`Plugin.Maui.NearbyConnections.csproj`](src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj).
 
 # Installation
 `Plugin.Maui.NearbyConnections` is available on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)

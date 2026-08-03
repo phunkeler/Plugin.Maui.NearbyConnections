@@ -17,10 +17,6 @@
     <SupportedOSPlatformVersion Condition="'$(TargetFramework)' == '$(AndroidTargetFramework)'">24</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="'$(TargetFramework)' == '$(IosTargetFramework)'">13.0</SupportedOSPlatformVersion>
 
-    <!-- Xcode 26.6 does not run on Intel Macs; this dev machine is pinned to 26.5, which the
-         26.5.10301 iOS workload manifest strictly rejects (see aka.ms/xcode-requirement). -->
-    <ValidateXcodeVersion>false</ValidateXcodeVersion>
-
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
@@ -30,4 +26,9 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <!-- Machine-local build settings. Untracked; imported last so local values win.
+       See CONTRIBUTING.md for when you might need one. -->
+  <Import Project="$(MSBuildThisFileDirectory)Directory.Build.local.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)Directory.Build.local.props')" />
 </Project>

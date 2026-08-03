@@ -177,24 +177,30 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// The enumerable completes when the peer disconnects or <see cref="DisposeAsync"/> is called.
     /// </summary>
     /// <remarks>
-    /// May only be called once per connection. The receive stream is a single-consumer data pipe —
-    /// calling this method a second time (including after cancellation) throws <see cref="InvalidOperationException"/>
-    /// because items already consumed by the first enumeration are permanently removed from the channel.
-    /// If multiple parts of your app need to react to incoming payloads, use
-    /// <see cref="INearbyAdvertiser"/> or <see cref="INearbyDiscoverer"/> whose <c>EventsAsync</c>
-    /// fans out <c>PayloadReceived</c> events to any number of subscribers.
+    /// <para>
+    /// <strong>Internal.</strong> The receive channel is a single-consumer data pipe, and the
+    /// plugin's own payload forwarding claims that single enumeration for every established
+    /// connection — so this method throws for any other caller, 100% of the time. It is not part
+    /// of the public API for that reason. Consumers observe payloads through the multi-subscriber
+    /// event surface instead. See <c>docs/PAYLOAD-DELIVERY.md</c>.
+    /// </para>
+    /// <para>
+    /// May only be called once per connection. Calling it a second time (including after
+    /// cancellation) throws <see cref="InvalidOperationException"/>, because items already consumed
+    /// by the first enumeration are permanently removed from the channel.
+    /// </para>
     /// </remarks>
     /// <param name="cancellationToken">A token to cancel enumeration.</param>
     /// <returns>An <see cref="IAsyncEnumerable{T}"/> of <see cref="NearbyPayload"/> items.</returns>
     /// <exception cref="InvalidOperationException">Thrown if called more than once.</exception>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
-    public IAsyncEnumerable<NearbyPayload> ReceiveAsync(CancellationToken cancellationToken = default)
+    internal IAsyncEnumerable<NearbyPayload> ReceiveAsync(CancellationToken cancellationToken = default)
     {
         if (Interlocked.Exchange(ref _receiveGuard, 1) != 0)
         {
             throw new InvalidOperationException(
                 $"{nameof(ReceiveAsync)} may only be called once per connection. " +
-                $"Use {nameof(INearbyAdvertiser)} or {nameof(INearbyDiscoverer)} if multiple consumers are needed.");
+                "Subscribe to the payload-received event if multiple consumers are needed.");
         }
 
         return _receiveChannel.Reader.ReadAllAsync(cancellationToken);
