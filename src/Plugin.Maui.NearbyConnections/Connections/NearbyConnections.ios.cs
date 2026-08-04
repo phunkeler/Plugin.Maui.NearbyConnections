@@ -462,6 +462,8 @@ sealed partial class NearbyConnectionsImplementation
                             {
                                 removed.CompleteReceive();
                             }
+
+                            _unobservedWarned.TryRemove(id, out _);
                         });
 
                     ResolveConnectionTcs(id, connection);
@@ -474,6 +476,8 @@ sealed partial class NearbyConnectionsImplementation
                     {
                         disconnectedConnection.CompleteReceive();
                     }
+
+                    _unobservedWarned.TryRemove(id, out _);
 
                     // A pending _connectionTcs entry means this peer never reached Connected -
                     // the handshake itself failed or was rejected by the native layer. Without

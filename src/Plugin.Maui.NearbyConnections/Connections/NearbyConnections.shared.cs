@@ -13,6 +13,13 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     internal readonly ConcurrentDictionary<string, NearbyConnection> _activeConnections;
 
     /// <summary>
+    /// Peers already warned about payloads arriving with no <c>ReceiveAsync</c> consumer, so the
+    /// warning is emitted once per connection rather than once per payload. Used as a set; the value
+    /// is ignored. Entries are removed when the connection ends, so a later reconnect warns again.
+    /// </summary>
+    readonly ConcurrentDictionary<string, byte> _unobservedWarned = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Tracks discovered/connected remote devices on Android, where the endpoint ID is already
     /// its own native handle so this registry uses <see cref="string"/> as the handle type.
     /// iOS uses a separate <c>RemotePeers</c> registry (see <c>NearbyConnections.shared.cs</c>'s
@@ -221,6 +228,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
         // Snapshot first: NearbyConnection.DisposeAsync removes itself from _activeConnections.
         var connections = _activeConnections.Values.ToArray();
         _activeConnections.Clear();
+        _unobservedWarned.Clear();
 
         foreach (var connection in connections)
         {

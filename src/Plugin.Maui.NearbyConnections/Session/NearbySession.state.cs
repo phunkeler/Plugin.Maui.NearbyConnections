@@ -135,6 +135,10 @@ sealed partial class NearbySession
     /// </summary>
     async Task OnConnectedAsync(NearbyDevice device, NearbyConnection connection, ConnectionRole role)
     {
+        // Captured before raising: a handler could subscribe as a side effect, which would mask the
+        // very condition being detected.
+        var hasSubscribers = ConnectionEstablished is not null;
+
         await DispatchAsync(() =>
         {
             if (!_devices.Contains(device))
@@ -148,6 +152,11 @@ sealed partial class NearbySession
 
             RaiseConnectionEstablished(device, connection);
         }).ConfigureAwait(false);
+
+        if (!hasSubscribers)
+        {
+            LogNoConnectionEstablishedSubscribers(device.Id);
+        }
 
         // One watcher per connection, regardless of which side disconnects, so ConnectionDropped is
         // raised exactly once from a single place. Fire-and-forget by design: the continuation is

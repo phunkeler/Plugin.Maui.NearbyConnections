@@ -351,6 +351,64 @@ public sealed class NearbyConnectionTests
             // Assert — payload silently dropped; channel writer is completed so nothing was queued
             Assert.IsFalse(receiveChannel.Reader.TryRead(out _));
         }
+
+        // IsBeingConsumed is what lets the platform layer detect the silent-loss case: payloads
+        // arriving on a connection whose ReceiveAsync was never called.
+        [TestMethod]
+        public void IsBeingConsumed_BeforeReceiveAsync_IsFalse()
+        {
+            // Arrange
+            var connection = CreateConnection();
+
+            // Act
+            var consumed = connection.IsBeingConsumed;
+
+            // Assert
+            Assert.IsFalse(consumed);
+        }
+
+        // Pins the retention guarantee the whole late-consumer story rests on: the receive channel is
+        // unbounded and TryWritePayload writes unconditionally, so payloads that arrive long before
+        // anything calls ReceiveAsync are buffered, not dropped. A consumer that starts late drains
+        // the entire backlog from connection-open, which is why the plugin needs no separate
+        // payload-replay feature — only a reliable way to hand out the connection.
+        [TestMethod]
+        public async Task ReceiveAsync_StartedLate_DrainsPayloadsWrittenBeforeItBegan()
+        {
+            // Arrange
+            var connection = CreateConnection();
+            connection.TryWritePayload(new BytesPayload([1]));
+            connection.TryWritePayload(new BytesPayload([2]));
+            connection.TryWritePayload(new BytesPayload([3]));
+
+            // Act — first call to ReceiveAsync happens only now, after all writes
+            var received = new List<byte>();
+            connection.CompleteReceive();
+
+            await foreach (var payload in connection.ReceiveAsync())
+            {
+                received.Add(((BytesPayload)payload).Data[0]);
+            }
+
+            // Assert — every pre-subscription payload is delivered, in arrival order
+            Assert.HasCount(3, received);
+            Assert.AreEqual(1, received[0]);
+            Assert.AreEqual(2, received[1]);
+            Assert.AreEqual(3, received[2]);
+        }
+
+        [TestMethod]
+        public void IsBeingConsumed_AfterReceiveAsync_IsTrue()
+        {
+            // Arrange
+            var connection = CreateConnection();
+
+            // Act
+            _ = connection.ReceiveAsync();
+
+            // Assert — set by calling ReceiveAsync, without needing to enumerate it
+            Assert.IsTrue(connection.IsBeingConsumed);
+        }
     }
 
     // ===========================================================================

@@ -289,6 +289,17 @@ public sealed class NearbyConnection : IAsyncDisposable
     }
 
     /// <summary>
+    /// Whether anything has started consuming this connection's payloads via
+    /// <see cref="ReceiveAsync"/>.
+    /// </summary>
+    /// <remarks>
+    /// Used to detect the silent-loss case: payloads arriving on a connection nobody reads are
+    /// buffered forever in an unbounded channel and never observed. See
+    /// <c>NearbySession.WarnIfPayloadUnobserved</c>.
+    /// </remarks>
+    internal bool IsBeingConsumed => Volatile.Read(ref _receiveGuard) != 0;
+
+    /// <summary>
     /// Writes an incoming payload to the receive channel.
     /// A <see langword="false"/> return (channel already completed) is silently dropped.
     /// </summary>

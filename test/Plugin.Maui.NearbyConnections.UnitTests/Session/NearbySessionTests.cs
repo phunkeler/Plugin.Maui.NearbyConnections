@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
@@ -23,6 +24,40 @@ public class NearbySessionTests
 {
     static NearbySession CreateSut(FakeNearbyConnections connections)
         => new(connections, dispatcher: null, NullLogger.Instance);
+
+    static NearbySession CreateSut(FakeNearbyConnections connections, ILogger logger)
+        => new(connections, dispatcher: null, logger);
+
+    /// <summary>
+    /// Captures log records so tests can assert on diagnostics that are the only observable
+    /// evidence of a misuse — there is no state change or exception to assert against.
+    /// </summary>
+    sealed class CapturingLogger : ILogger
+    {
+        readonly List<(LogLevel Level, string Message)> _records = [];
+
+        public IReadOnlyList<(LogLevel Level, string Message)> Records
+        {
+            get { lock (_records) { return [.. _records]; } }
+        }
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            lock (_records)
+            {
+                _records.Add((logLevel, formatter(state, exception)));
+            }
+        }
+    }
 
     static NearbyConnection CreateConnection(NearbyDevice device, Channel<NearbyPayload>? channel = null)
         => new(
@@ -413,6 +448,47 @@ public class NearbySessionTests
             var sut = CreateSut(new FakeNearbyConnections());
 
             await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => sut.ConnectAsync(null!));
+        }
+
+        // The regression this guards: a consumer constructed after the connection opens never
+        // subscribes, never starts a receive loop, and loses every inbound payload with no error
+        // anywhere. The warning is the only signal, so its absence is itself the bug.
+        [TestMethod]
+        public async Task ConnectAsync_WithNoConnectionEstablishedSubscribers_LogsWarning()
+        {
+            var logger = new CapturingLogger();
+            var connections = new FakeNearbyConnections();
+            var sut = CreateSut(connections, logger);
+            var device = new NearbyDevice("peer-1", "Alice");
+            connections.ConnectResult = CreateConnection(device);
+
+            await sut.ConnectAsync(device);
+
+            var warning = logger.Records.SingleOrDefault(r =>
+                r.Level == LogLevel.Warning && r.Message.Contains("ConnectionEstablished", StringComparison.Ordinal));
+
+            Assert.IsNotNull(
+                warning.Message,
+                "A connection with no ConnectionEstablished subscriber silently discards every inbound payload; it must warn.");
+            Assert.Contains("peer-1", warning.Message, StringComparison.Ordinal);
+        }
+
+        [TestMethod]
+        public async Task ConnectAsync_WithSubscriber_DoesNotLogWarning()
+        {
+            var logger = new CapturingLogger();
+            var connections = new FakeNearbyConnections();
+            var sut = CreateSut(connections, logger);
+            var device = new NearbyDevice("peer-1", "Alice");
+            connections.ConnectResult = CreateConnection(device);
+
+            sut.ConnectionEstablished += (_, _) => { };
+
+            await sut.ConnectAsync(device);
+
+            Assert.IsFalse(
+                logger.Records.Any(r => r.Level == LogLevel.Warning),
+                "A correctly wired consumer must not be warned — a guardrail that cries wolf gets filtered out.");
         }
     }
 

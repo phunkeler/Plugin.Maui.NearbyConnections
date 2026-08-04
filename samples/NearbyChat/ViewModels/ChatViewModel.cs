@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using NearbyChat.Data;
 using NearbyChat.Messages;
 using NearbyChat.Models;
 using NearbyChat.Services;
@@ -19,7 +19,6 @@ public partial class ChatViewModel(
     IMediaPicker mediaPicker,
     IThumbnailService thumbnailService,
     INavigationService navigationService,
-    IChatMessageRepository chatMessageRepository,
     IChatMessageService chatMessageService) : ObservableRecipient(messenger),
     INavigationAware,
     IRecipient<ChatMessageReceived>,
@@ -164,7 +163,10 @@ public partial class ChatViewModel(
             && device is NearbyDevice nearbyDevice)
         {
             Device = nearbyDevice;
-            LoadHistory(nearbyDevice);
+
+            // Fire-and-forget: INavigationAware is synchronous, and history load is now a real
+            // async read. Failures are surfaced rather than swallowed.
+            _ = LoadHistoryAsync(nearbyDevice);
         }
     }
 
@@ -180,13 +182,32 @@ public partial class ChatViewModel(
         return localPath;
     }
 
-    void LoadHistory(NearbyDevice device)
+    async Task LoadHistoryAsync(NearbyDevice device)
     {
-        Messages.Clear();
-
-        foreach (var message in chatMessageRepository.GetAll(device))
+        try
         {
-            Messages.Add(ChatMessageViewModel.Create(message, launcher));
+            var history = await chatMessageService.GetHistoryAsync(device);
+
+            dispatcher.Dispatch(() =>
+            {
+                // Guard against a fast re-navigation to a different device having already
+                // replaced Device while this read was in flight.
+                if (Device?.Id != device.Id)
+                {
+                    return;
+                }
+
+                Messages.Clear();
+
+                foreach (var message in history)
+                {
+                    Messages.Add(ChatMessageViewModel.Create(message, launcher));
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to load chat history for {device.Id}: {ex}");
         }
     }
 

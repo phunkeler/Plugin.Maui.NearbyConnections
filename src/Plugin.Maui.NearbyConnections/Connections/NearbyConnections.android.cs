@@ -183,6 +183,8 @@ sealed partial class NearbyConnectionsImplementation
                 connection.CompleteReceive();
             }
 
+            _unobservedWarned.TryRemove(endpointId, out _);
+
             Devices.Remove(endpointId);
         }
         catch (Exception ex)
@@ -514,6 +516,8 @@ sealed partial class NearbyConnectionsImplementation
         {
             conn.CompleteReceive();
         }
+
+        _unobservedWarned.TryRemove(endpointId, out _);
 
         Devices.Remove(endpointId);
     }

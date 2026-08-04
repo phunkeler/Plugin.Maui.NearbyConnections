@@ -92,10 +92,22 @@ sealed partial class NearbyConnectionsImplementation
     {
         try
         {
-            if (_activeConnections.TryGetValue(peerId, out var connection))
+            if (!_activeConnections.TryGetValue(peerId, out var connection))
             {
-                connection.TryWritePayload(payload);
+                LogWritePayloadNoConnection(peerId);
+                return;
             }
+
+            // Nothing ever called ReceiveAsync, so this payload — and every one after it — goes
+            // into an unbounded channel with no reader and is never seen. The write still happens
+            // (a consumer that starts late drains the backlog), but the condition is a bug in the
+            // consuming app and is otherwise completely silent. Warn once per connection.
+            if (!connection.IsBeingConsumed && _unobservedWarned.TryAdd(peerId, 0)) // value unused
+            {
+                LogPayloadArrivedUnobserved(peerId);
+            }
+
+            connection.TryWritePayload(payload);
         }
         catch (Exception ex)
         {

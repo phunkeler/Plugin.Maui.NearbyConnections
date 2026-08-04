@@ -256,6 +256,19 @@ sealed partial class NearbyConnectionsImplementation
     [LoggerMessage(Level = LogLevel.Error, Message = "WritePayload: unexpected error writing payload for peer {PeerId}.")]
     partial void LogWritePayloadError(string peerId, Exception ex);
 
+    // Logged once per connection, not once per payload: this fires on a hot path, and a consumer
+    // that never called ReceiveAsync would otherwise produce one warning for every message received.
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "A payload arrived from peer {PeerId} but ReceiveAsync was never called for this connection, so it " +
+            "cannot be observed. Payloads are buffered and lost. Start consuming the connection when " +
+            "ConnectionEstablished is raised, and register that consumer so it exists before the first connection. " +
+            "See docs/PAYLOAD-DELIVERY.md.")]
+    partial void LogPayloadArrivedUnobserved(string peerId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WritePayload: no active connection for peer {PeerId}; payload dropped.")]
+    partial void LogWritePayloadNoConnection(string peerId);
+
     [LoggerMessage(Level = LogLevel.Error, Message = "DisposeAsync: error disposing connection to peer {PeerId}; continuing teardown.")]
     partial void LogDisposeConnectionError(string peerId, Exception ex);
 

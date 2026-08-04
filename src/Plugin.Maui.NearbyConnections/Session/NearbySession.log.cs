@@ -27,6 +27,25 @@ sealed partial class NearbySession
     partial void LogEventHandlerFailed(string eventName, Exception exception);
 
     // -------------------------------------------------------------------------
+    // Misuse guardrails
+    //
+    // ConnectionEstablished does not replay, so a consumer constructed after a
+    // connection opens never starts a receive loop for it. Payloads are then
+    // written to an unbounded channel nobody reads and are lost with no error
+    // anywhere — a failure mode that is invisible by construction and has
+    // already cost one debugging session. These two warnings are the only
+    // signal that it is happening.
+    // -------------------------------------------------------------------------
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Connection to device {DeviceId} was established, but nothing is subscribed to ConnectionEstablished. " +
+            "Inbound payloads will be buffered and never observed. This event does not replay: register the consumer that " +
+            "calls NearbyConnection.ReceiveAsync as an IMauiInitializeService so it exists before the first connection. " +
+            "See docs/PAYLOAD-DELIVERY.md.")]
+    partial void LogNoConnectionEstablishedSubscribers(string deviceId);
+
+    // -------------------------------------------------------------------------
     // Teardown
     // -------------------------------------------------------------------------
 

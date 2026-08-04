@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Maui;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.DevFlow.Agent;
 using NearbyChat.Controls;
@@ -45,17 +46,34 @@ public static class MauiProgram
         builder.Services.AddSingleton(MediaPicker.Default);
         builder.Services.AddSingleton(Launcher.Default);
         builder.Services.AddSingleton<AppShell>();
-        builder.Services.AddSingleton(_ =>
-        {
-            return Application.Current?.Dispatcher ?? throw new InvalidOperationException("Dispatcher is not available.");
-        });
+
+        // IDispatcher is deliberately NOT registered here. MAUI already registers it, and the
+        // previous `Application.Current?.Dispatcher ?? throw` factory made resolution depend on
+        // *when* it ran: Application.Current is still null during MauiAppBuilder.Build(), so
+        // anything resolved at startup — such as an IMauiInitializeService — crashed the app with
+        // "Dispatcher is not available." rather than getting the perfectly good dispatcher MAUI
+        // provides.
         builder.Services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
         builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<IThumbnailService, ThumbnailService>();
         builder.Services.AddSingleton<INearbyPermissions, NearbyPermissions>();
-        builder.Services.AddSingleton<IChatMessageRepository, ChatMessageRepository>();
+        // Persistence. The store is the singleton that outlives any unit of work (a database, in a
+        // real app); the repository is Scoped and reached only through the factory, so no long-lived
+        // service can capture one. See IChatMessageRepositoryFactory.
+        builder.Services.AddSingleton<ChatMessageStore>();
+        builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
+        builder.Services.AddSingleton<IChatMessageRepositoryFactory, ChatMessageRepositoryFactory>();
+
         builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
         builder.Services.AddSingleton<IConnectionTracker, ConnectionTracker>();
+
+        // Inbound payload ingestion must be running before the first connection is established,
+        // because ConnectionEstablished does not replay. IMauiInitializeService is MAUI's hook for
+        // that: it runs during Build(), so startup is a property of the type rather than a side
+        // effect of who resolves it. TryAddEnumerable because MAUI invokes these via GetServices<T>()
+        // and a duplicate registration would double every inbound message.
+        builder.Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IMauiInitializeService, NearbyIngestionService>());
 
         builder.Services.AddTransientWithShellRoute<AdvertisingPage, AdvertisingPageViewModel>();
         builder.Services.AddTransientWithShellRoute<ConnectionsPage, ConnectionsPageViewModel>();

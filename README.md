@@ -173,6 +173,8 @@ session.ConnectionDropped     += (sender, e) => Cleanup(e.Device);
 
 > **Unsubscribe what you subscribe.** The session is a singleton that outlives your pages. A page that does `+=` without a matching `-=` stays alive for the life of the app, and revisiting it attaches a second handler — after five visits every event fires five times. See `BasePageViewModel.RegisterSessionSubscription` in [`samples/NearbyChat`](samples/NearbyChat) for the pattern. Payload loops need no such care: they end by themselves when the connection drops.
 
+> **Subscribe before the first connection exists.** These events do not replay. Whatever subscribes to `ConnectionEstablished` to start consuming payloads must already be constructed by the time a connection opens, or it never starts a loop for that connection and the peer's messages silently never arrive. Registering it as a DI singleton is *not* sufficient — singletons are constructed on first resolution, so a consumer resolved only by a page opened after connecting is built too late. Register it as an `IMauiInitializeService`, which MAUI constructs during `Build()`. See [`docs/PAYLOAD-DELIVERY.md`](docs/PAYLOAD-DELIVERY.md#your-consumer-must-be-constructed-before-the-first-connection).
+
 ## 4. Send and receive data
 
 `NearbyConnection` is obtained from `AcceptAsync`, from `ConnectAsync`, or from `NearbyDevice.Connection` while the device is connected.
