@@ -6,10 +6,10 @@ using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
-public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHandler
+public partial class AdvertisingPageViewModel : BasePageViewModel
 {
     readonly INavigationService _navigationService;
-    readonly INearbyAdvertiser _advertiser;
+    readonly INearbySession _session;
     readonly INearbyPermissions _permissions;
     readonly RelativeTimeTicker _relativeTimeTicker;
 
@@ -22,29 +22,30 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
 
     public IConnectionTracker Connections { get; }
 
+    /// <summary>
+    /// Devices awaiting a response to their inbound connection request.
+    /// </summary>
     public ObservableCollection<AdvertisedDeviceViewModel> AdvertisedDevices { get; } = [];
-
-    IDispatcher? IAdvertiserHandler.Dispatcher => Dispatcher;
 
     public AdvertisingPageViewModel(
         IDispatcher dispatcher,
         INavigationService navigationService,
-        INearbyAdvertiser advertiser,
+        INearbySession session,
         IConnectionTracker connectionTracker,
         INearbyPermissions permissions)
         : base(dispatcher)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
-        ArgumentNullException.ThrowIfNull(advertiser);
+        ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(connectionTracker);
         ArgumentNullException.ThrowIfNull(permissions);
 
         _navigationService = navigationService;
-        _advertiser = advertiser;
+        _session = session;
         Connections = connectionTracker;
         _permissions = permissions;
         _relativeTimeTicker = new RelativeTimeTicker(dispatcher, TimeSpan.FromSeconds(30), OnRelativeTimeRefreshTimerTick);
-        IsAdvertising = advertiser.IsAdvertising;
+        IsAdvertising = session.IsAdvertising;
     }
 
     [RelayCommand]
@@ -67,16 +68,18 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
 
         try
         {
+            // Advertising and discovery are independent: this toggles only advertising and leaves
+            // discovery exactly as the user left it on the other page.
             if (IsAdvertising)
             {
-                await _advertiser.StopAsync();
+                await _session.StopAdvertisingAsync(cancellationToken);
             }
             else
             {
-                await _advertiser.StartAsync();
+                await _session.StartAdvertisingAsync(cancellationToken);
             }
 
-            IsAdvertising = _advertiser.IsAdvertising;
+            IsAdvertising = _session.IsAdvertising;
         }
         finally
         {
@@ -89,8 +92,27 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
         base.NavigatedTo();
 
         AdvertisedDevices.Clear();
-        IsAdvertising = _advertiser.IsAdvertising;
-        _ = _advertiser.EventsAsync(NavigationToken).RunAsync(this);
+        IsAdvertising = _session.IsAdvertising;
+
+        // Never `+=` directly: the session is a singleton, so an un-detached handler would leak this
+        // ViewModel and fire twice after the second visit.
+        RegisterSessionSubscription(
+            () => _session.ConnectionRequested += OnConnectionRequested,
+            () => _session.ConnectionRequested -= OnConnectionRequested);
+
+        RegisterSessionSubscription(
+            () => _session.ConnectionEstablished += OnConnectionChanged,
+            () => _session.ConnectionEstablished -= OnConnectionChanged);
+
+        RegisterSessionSubscription(
+            () => _session.ConnectionDropped += OnConnectionChanged,
+            () => _session.ConnectionDropped -= OnConnectionChanged);
+
+        // Requests that arrived while the page was away are already in Devices.
+        foreach (var device in _session.Devices.Where(d => d.Status is NearbyDeviceStatus.RequestReceived))
+        {
+            AddDevice(device);
+        }
     }
 
     protected override void NavigatedFrom()
@@ -100,50 +122,36 @@ public partial class AdvertisingPageViewModel : BasePageViewModel, IAdvertiserHa
         _relativeTimeTicker.SetActive(false);
     }
 
-    Task IAdvertiserHandler.OnConnectionRequested(AdvertiserEvent.ConnectionRequested ev)
+    void OnConnectionRequested(object? sender, NearbyConnectionRequestedEventArgs e)
+        => AddDevice(e.Device);
+
+    /// <summary>
+    /// A pending request leaves this list once it becomes a connection or the device goes away —
+    /// established and dropped are the same removal from this page's point of view.
+    /// </summary>
+    void OnConnectionChanged(object? sender, NearbyConnectionChangedEventArgs e)
+        => RemoveDevice(e.Device.Id);
+
+    void AddDevice(NearbyDevice device)
     {
-        if (AdvertisedDevices.Any(d => d.Id == ev.Request.RemoteDevice.Id))
+        if (AdvertisedDevices.Any(d => d.Id == device.Id))
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        var vm = new AdvertisedDeviceViewModel(ev.Request, _advertiser);
-        AdvertisedDevices.Add(vm);
+        AdvertisedDevices.Add(new AdvertisedDeviceViewModel(device, _session));
         UpdateRelativeTimeRefreshTimer();
-        return Task.CompletedTask;
     }
 
-    Task IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
+    void RemoveDevice(string deviceId)
     {
-        var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
-        if (vm is not null)
+        if (AdvertisedDevices.FirstOrDefault(d => d.Id == deviceId) is not { } vm)
         {
-            AdvertisedDevices.Remove(vm);
-            UpdateRelativeTimeRefreshTimer();
+            return;
         }
-        return Task.CompletedTask;
-    }
 
-    Task IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
-    {
-        var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
-        if (vm is not null)
-        {
-            AdvertisedDevices.Remove(vm);
-            UpdateRelativeTimeRefreshTimer();
-        }
-        return Task.CompletedTask;
-    }
-
-    Task IAdvertiserHandler.OnConnectionRequestExpired(AdvertiserEvent.ConnectionRequestExpired ev)
-    {
-        var vm = AdvertisedDevices.FirstOrDefault(d => d.Id == ev.Request.RemoteDevice.Id);
-        if (vm is not null)
-        {
-            AdvertisedDevices.Remove(vm);
-            UpdateRelativeTimeRefreshTimer();
-        }
-        return Task.CompletedTask;
+        AdvertisedDevices.Remove(vm);
+        UpdateRelativeTimeRefreshTimer();
     }
 
     bool CanToggleAdvertising() => !IsBusy;

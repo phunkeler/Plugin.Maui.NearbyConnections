@@ -3,15 +3,18 @@ using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
+/// <summary>
+/// A device awaiting a response to its inbound connection request.
+/// </summary>
 public partial class AdvertisedDeviceViewModel(
-    NearbyConnectionRequest request,
-    INearbyAdvertiser advertiser) : NearbyDeviceViewModel(request.RemoteDevice)
+    NearbyDevice device,
+    INearbySession session) : NearbyDeviceViewModel(device)
 {
     [RelayCommand]
     Task<NearbyConnection> Accept()
-        => advertiser.AcceptAsync(request);
+        => session.AcceptAsync(Device);
 
     [RelayCommand]
     Task Decline()
-        => advertiser.RejectAsync(request);
+        => session.RejectAsync(Device);
 }

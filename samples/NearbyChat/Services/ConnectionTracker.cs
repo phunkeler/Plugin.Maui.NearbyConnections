@@ -1,67 +1,68 @@
+using System.Collections.Specialized;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.Services;
 
-public sealed partial class ConnectionTracker : ObservableObject, IConnectionTracker, IAdvertiserHandler, IDiscovererHandler
+/// <summary>
+/// Exposes how many devices are currently connected, for the header chip.
+/// </summary>
+/// <remarks>
+/// A singleton that lives as long as the session, so it subscribes without unsubscribing on
+/// purpose — unlike a page ViewModel, which must use
+/// <c>BasePageViewModel.RegisterSessionSubscription</c>.
+/// </remarks>
+public sealed partial class ConnectionTracker : ObservableObject, IConnectionTracker
 {
-    readonly IDispatcher _dispatcher;
-
-    // All mutations run on the dispatcher (see the Dispatcher properties below), so no locking is needed.
-    readonly HashSet<string> _connectedDeviceIds = [];
+    readonly INearbySession _session;
 
     [ObservableProperty]
     public partial int Count { get; private set; }
 
-    IDispatcher? IAdvertiserHandler.Dispatcher => _dispatcher;
-    IDispatcher? IDiscovererHandler.Dispatcher => _dispatcher;
-
-    public ConnectionTracker(
-        INearbyAdvertiser advertiser,
-        INearbyDiscoverer discoverer,
-        IDispatcher dispatcher)
+    public ConnectionTracker(INearbySession session)
     {
-        ArgumentNullException.ThrowIfNull(advertiser);
-        ArgumentNullException.ThrowIfNull(discoverer);
-        ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(session);
 
-        _dispatcher = dispatcher;
+        _session = session;
 
-        // Singleton-lifetime subscriptions: both streams replay current-state events to new
-        // subscribers, so the tracker is correct even if it is resolved after connections exist.
-        _ = advertiser.EventsAsync().RunAsync(this);
-        _ = discoverer.EventsAsync().RunAsync(this);
-    }
+        // Devices is the state, so the count is derived rather than tracked. This used to be a
+        // HashSet maintained by implementing both handler interfaces; the session already knows.
+        ((INotifyCollectionChanged)_session.Devices).CollectionChanged += OnDevicesChanged;
 
-    Task IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
-        => Add(ev.Connection.RemoteDevice.Id);
-
-    Task IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
-        => Remove(ev.Connection.RemoteDevice.Id);
-
-    Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
-        => Add(ev.Connection.RemoteDevice.Id);
-
-    Task IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
-        => Remove(ev.Connection.RemoteDevice.Id);
-
-    Task Add(string deviceId)
-    {
-        if (_connectedDeviceIds.Add(deviceId))
+        foreach (var device in _session.Devices)
         {
-            Count = _connectedDeviceIds.Count;
+            device.PropertyChanged += OnDevicePropertyChanged;
         }
 
-        return Task.CompletedTask;
+        Recount();
     }
 
-    Task Remove(string deviceId)
+    void OnDevicesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (_connectedDeviceIds.Remove(deviceId))
+        // A device's Status changes in place, so the count depends on per-device notifications too,
+        // not just on membership.
+        foreach (var device in e.OldItems?.OfType<NearbyDevice>() ?? [])
         {
-            Count = _connectedDeviceIds.Count;
+            device.PropertyChanged -= OnDevicePropertyChanged;
         }
 
-        return Task.CompletedTask;
+        foreach (var device in e.NewItems?.OfType<NearbyDevice>() ?? [])
+        {
+            device.PropertyChanged += OnDevicePropertyChanged;
+        }
+
+        Recount();
     }
+
+    void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(NearbyDevice.Status) or null)
+        {
+            Recount();
+        }
+    }
+
+    void Recount()
+        => Count = _session.Devices.Count(d => d.Status is NearbyDeviceStatus.Connected);
 }

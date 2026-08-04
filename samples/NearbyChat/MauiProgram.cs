@@ -30,14 +30,12 @@ public static class MauiProgram
             .UseBottomSheet();
 
         builder.UseNearbyConnections(opts =>
-            {
+        {
 #if IOS
-                opts.ServiceId = "nearbychat";
-                opts.InvitationTimeout = TimeSpan.FromSeconds(10);
+            opts.ServiceId = "nearbychat";
+            opts.InvitationTimeout = TimeSpan.FromSeconds(10);
 #endif
-            })
-            .AddAdvertiser()
-            .AddDiscoverer();
+        });
 
 #if DEBUG
         builder.Logging.AddDebug();

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NearbyChat.Services;
@@ -6,10 +7,10 @@ using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
-public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHandler
+public partial class DiscoveryPageViewModel : BasePageViewModel
 {
     readonly INavigationService _navigationService;
-    readonly INearbyDiscoverer _discoverer;
+    readonly INearbySession _session;
     readonly INearbyPermissions _permissions;
     readonly RelativeTimeTicker _relativeTimeTicker;
 
@@ -22,29 +23,30 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
 
     public IConnectionTracker Connections { get; }
 
+    /// <summary>
+    /// Devices in range that are not yet connected — the connectable list.
+    /// </summary>
     public ObservableCollection<DiscoveredDeviceViewModel> DiscoveredDevices { get; } = [];
-
-    IDispatcher? IDiscovererHandler.Dispatcher => Dispatcher;
 
     public DiscoveryPageViewModel(
         IDispatcher dispatcher,
         INavigationService navigationService,
-        INearbyDiscoverer discoverer,
+        INearbySession session,
         IConnectionTracker connectionTracker,
         INearbyPermissions permissions)
         : base(dispatcher)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
-        ArgumentNullException.ThrowIfNull(discoverer);
+        ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(connectionTracker);
         ArgumentNullException.ThrowIfNull(permissions);
 
         _navigationService = navigationService;
-        _discoverer = discoverer;
+        _session = session;
         Connections = connectionTracker;
         _permissions = permissions;
         _relativeTimeTicker = new RelativeTimeTicker(dispatcher, TimeSpan.FromSeconds(30), OnRelativeTimeRefreshTimerTick);
-        IsDiscovering = discoverer.IsDiscovering;
+        IsDiscovering = session.IsDiscovering;
     }
 
     [RelayCommand]
@@ -67,16 +69,17 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
 
         try
         {
+            // Toggles only discovery; advertising is left exactly as the user left it.
             if (IsDiscovering)
             {
-                await _discoverer.StopAsync();
+                await _session.StopDiscoveringAsync(cancellationToken);
             }
             else
             {
-                await _discoverer.StartAsync();
+                await _session.StartDiscoveringAsync(cancellationToken);
             }
 
-            IsDiscovering = _discoverer.IsDiscovering;
+            IsDiscovering = _session.IsDiscovering;
         }
         finally
         {
@@ -89,8 +92,23 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
         base.NavigatedTo();
 
         DiscoveredDevices.Clear();
-        IsDiscovering = _discoverer.IsDiscovering;
-        _ = _discoverer.EventsAsync(NavigationToken).RunAsync(this);
+        IsDiscovering = _session.IsDiscovering;
+
+        // Devices is the state, so this page projects it rather than accumulating its own events.
+        // Devices found while the page was away are therefore already present.
+        RegisterSessionSubscription(
+            () => ((INotifyCollectionChanged)_session.Devices).CollectionChanged += OnDevicesChanged,
+            () => ((INotifyCollectionChanged)_session.Devices).CollectionChanged -= OnDevicesChanged);
+
+        RegisterSessionSubscription(
+            () => _session.ConnectionEstablished += OnConnectionChanged,
+            () => _session.ConnectionEstablished -= OnConnectionChanged);
+
+        RegisterSessionSubscription(
+            () => _session.ConnectionDropped += OnConnectionChanged,
+            () => _session.ConnectionDropped -= OnConnectionChanged);
+
+        Rebuild();
     }
 
     protected override void NavigatedFrom()
@@ -100,50 +118,42 @@ public partial class DiscoveryPageViewModel : BasePageViewModel, IDiscovererHand
         _relativeTimeTicker.SetActive(false);
     }
 
-    Task IDiscovererHandler.OnDeviceFound(DiscovererEvent.DeviceFound ev)
+    void OnDevicesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        => Rebuild();
+
+    /// <summary>
+    /// A device that connects leaves the connectable list; one that drops rejoins it.
+    /// </summary>
+    void OnConnectionChanged(object? sender, NearbyConnectionChangedEventArgs e)
+        => Rebuild();
+
+    /// <summary>
+    /// Reconciles the list against the session, preserving existing row instances so bindings and
+    /// per-row state survive.
+    /// </summary>
+    void Rebuild()
     {
-        if (DiscoveredDevices.Any(d => d.Id == ev.Device.Id))
+        var connectable = _session.Devices
+            .Where(d => d.Status is NearbyDeviceStatus.Visible or NearbyDeviceStatus.Connecting)
+            .ToList();
+
+        for (var i = DiscoveredDevices.Count - 1; i >= 0; i--)
         {
-            return Task.CompletedTask;
+            if (!connectable.Any(d => d.Id == DiscoveredDevices[i].Id))
+            {
+                DiscoveredDevices.RemoveAt(i);
+            }
         }
 
-        var vm = new DiscoveredDeviceViewModel(ev.Device, _discoverer);
-        DiscoveredDevices.Add(vm);
+        foreach (var device in connectable)
+        {
+            if (!DiscoveredDevices.Any(d => d.Id == device.Id))
+            {
+                DiscoveredDevices.Add(new DiscoveredDeviceViewModel(device, _session));
+            }
+        }
+
         UpdateRelativeTimeRefreshTimer();
-        return Task.CompletedTask;
-    }
-
-    Task IDiscovererHandler.OnDeviceLost(DiscovererEvent.DeviceLost ev)
-    {
-        var vm = DiscoveredDevices.FirstOrDefault(d => d.Id == ev.Device.Id);
-        if (vm is not null)
-        {
-            DiscoveredDevices.Remove(vm);
-            UpdateRelativeTimeRefreshTimer();
-        }
-        return Task.CompletedTask;
-    }
-
-    Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
-    {
-        var vm = DiscoveredDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
-        if (vm is not null)
-        {
-            DiscoveredDevices.Remove(vm);
-            UpdateRelativeTimeRefreshTimer();
-        }
-        return Task.CompletedTask;
-    }
-
-    Task IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
-    {
-        var vm = DiscoveredDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
-        if (vm is not null)
-        {
-            DiscoveredDevices.Remove(vm);
-            UpdateRelativeTimeRefreshTimer();
-        }
-        return Task.CompletedTask;
     }
 
     bool CanToggleDiscovery() => !IsBusy;

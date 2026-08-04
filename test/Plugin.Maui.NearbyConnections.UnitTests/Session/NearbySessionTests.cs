@@ -627,6 +627,36 @@ public class NearbySessionTests
         }
 
         [TestMethod]
+        public async Task SubscribeUnsubscribeCycles_LeaveHandlerFiringExactlyOnce()
+        {
+            // R-6, the one way this restructure could make a consumer worse. The old
+            // EventsAsync(NavigationToken) streams cleaned up by ending their enumeration; C# events
+            // against a singleton do not. Simulates five enter/leave page visits: a handler attached
+            // without a matching detach would fire five times per event.
+            var connections = new FakeNearbyConnections();
+            var sut = CreateSut(connections);
+            await sut.StartDiscoveringAsync();
+
+            var calls = 0;
+            void Handler(object? sender, NearbyConnectionChangedEventArgs e) => calls++;
+
+            for (var visit = 0; visit < 5; visit++)
+            {
+                sut.ConnectionEstablished += Handler;
+                sut.ConnectionEstablished -= Handler;
+            }
+
+            // Sixth visit: still on the page when the event fires.
+            sut.ConnectionEstablished += Handler;
+
+            var device = new NearbyDevice("peer-1", "Alice");
+            connections.ConnectResult = CreateConnection(device);
+            await sut.ConnectAsync(device);
+
+            Assert.AreEqual(1, calls, "Handlers must fire once per event, not once per page visit.");
+        }
+
+        [TestMethod]
         public async Task StopAsync_RejectsOutstandingRequests()
         {
             // Otherwise the remote device waits on a request nobody will ever answer.

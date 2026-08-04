@@ -8,8 +8,7 @@ namespace NearbyChat.ViewModels;
 public partial class MainPageViewModel(
     IDispatcher dispatcher,
     INavigationService navigationService,
-    INearbyAdvertiser advertiser,
-    INearbyDiscoverer discoverer,
+    INearbySession session,
     IConnectionTracker connectionTracker)
     : BasePageViewModel(dispatcher)
 {
@@ -25,8 +24,10 @@ public partial class MainPageViewModel(
     {
         base.NavigatedTo();
 
-        IsAdvertising = advertiser.IsAdvertising;
-        IsDiscovering = discoverer.IsDiscovering;
+        // Separate indicators, deliberately: the two are independent, so the header must be able to
+        // show "advertising, not discovering".
+        IsAdvertising = session.IsAdvertising;
+        IsDiscovering = session.IsDiscovering;
     }
 
     [RelayCommand]

@@ -9,66 +9,57 @@ namespace NearbyChat.ViewModels;
 public partial class ConnectionsPageViewModel(
     IDispatcher dispatcher,
     INavigationService navigationService,
-    INearbyAdvertiser advertiser,
-    INearbyDiscoverer discoverer,
+    INearbySession session,
     IBottomSheetNavigationService bottomSheetNavigationService)
-    : BasePageViewModel(dispatcher), IAdvertiserHandler, IDiscovererHandler
+    : BasePageViewModel(dispatcher)
 {
     public ObservableCollection<ConnectedDeviceViewModel> ConnectedDevices { get; } = [];
-
-    IDispatcher? IAdvertiserHandler.Dispatcher => Dispatcher;
-    IDispatcher? IDiscovererHandler.Dispatcher => Dispatcher;
 
     protected override void NavigatedTo()
     {
         base.NavigatedTo();
 
-        _ = advertiser.EventsAsync(NavigationToken).RunAsync(this);
-        _ = discoverer.EventsAsync(NavigationToken).RunAsync(this);
-    }
+        // Two handlers where there were four: established/dropped are now one pair of events rather
+        // than one pair per role.
+        RegisterSessionSubscription(
+            () => session.ConnectionEstablished += OnConnectionEstablished,
+            () => session.ConnectionEstablished -= OnConnectionEstablished);
 
-    Task IAdvertiserHandler.OnConnectionAccepted(AdvertiserEvent.ConnectionAccepted ev)
-    {
-        if (ConnectedDevices.Any(vm => vm.Id == ev.Connection.RemoteDevice.Id))
+        RegisterSessionSubscription(
+            () => session.ConnectionDropped += OnConnectionDropped,
+            () => session.ConnectionDropped -= OnConnectionDropped);
+
+        // Connections made while this page was away are already in Devices.
+        ConnectedDevices.Clear();
+
+        foreach (var device in session.Devices.Where(d => d.Status is NearbyDeviceStatus.Connected))
         {
-            return Task.CompletedTask;
+            if (device.Connection is { } connection)
+            {
+                Add(device.Id, connection);
+            }
         }
-
-        var vm = new ConnectedDeviceViewModel(ev.Connection, bottomSheetNavigationService);
-        ConnectedDevices.Add(vm);
-        return Task.CompletedTask;
     }
 
-    Task IAdvertiserHandler.OnConnectionDropped(AdvertiserEvent.ConnectionDropped ev)
-    {
-        var vm = ConnectedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
-        if (vm is not null)
-        {
-            ConnectedDevices.Remove(vm);
-        }
-        return Task.CompletedTask;
-    }
+    void OnConnectionEstablished(object? sender, NearbyConnectionChangedEventArgs e)
+        => Add(e.Device.Id, e.Connection);
 
-    Task IDiscovererHandler.OnDeviceConnected(DiscovererEvent.DeviceConnected ev)
+    void OnConnectionDropped(object? sender, NearbyConnectionChangedEventArgs e)
     {
-        if (ConnectedDevices.Any(vm => vm.Id == ev.Connection.RemoteDevice.Id))
-        {
-            return Task.CompletedTask;
-        }
-
-        var vm = new ConnectedDeviceViewModel(ev.Connection, bottomSheetNavigationService);
-        ConnectedDevices.Add(vm);
-        return Task.CompletedTask;
-    }
-
-    Task IDiscovererHandler.OnDeviceDisconnected(DiscovererEvent.DeviceDisconnected ev)
-    {
-        var vm = ConnectedDevices.FirstOrDefault(d => d.Id == ev.Connection.RemoteDevice.Id);
-        if (vm is not null)
+        if (ConnectedDevices.FirstOrDefault(d => d.Id == e.Device.Id) is { } vm)
         {
             ConnectedDevices.Remove(vm);
         }
-        return Task.CompletedTask;
+    }
+
+    void Add(string deviceId, NearbyConnection connection)
+    {
+        if (ConnectedDevices.Any(vm => vm.Id == deviceId))
+        {
+            return;
+        }
+
+        ConnectedDevices.Add(new ConnectedDeviceViewModel(connection, bottomSheetNavigationService));
     }
 
     [RelayCommand]
