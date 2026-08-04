@@ -401,4 +401,134 @@ public sealed class NearbyConnectionTests
             Assert.IsTrue(connection.Disconnected.IsCompleted);
         }
     }
+
+    // ===========================================================================
+    // DisconnectedToken
+    // ===========================================================================
+    [TestClass]
+    public sealed class DisconnectedToken
+    {
+        [TestMethod]
+        public void DisconnectedToken_IsNotCanceled_WhileConnected()
+        {
+            // Arrange
+            var connection = CreateConnection();
+
+            // Assert
+            Assert.IsFalse(connection.DisconnectedToken.IsCancellationRequested);
+        }
+
+        [TestMethod]
+        public void DisconnectedToken_IsCanceled_AfterCompleteReceive()
+        {
+            // Arrange
+            var connection = CreateConnection();
+
+            // Act
+            connection.CompleteReceive();
+
+            // Assert
+            Assert.IsTrue(connection.DisconnectedToken.IsCancellationRequested);
+        }
+
+        [TestMethod]
+        public async Task DisconnectedToken_IsCanceled_AfterDisposeAsync()
+        {
+            // Arrange
+            var connection = CreateConnection(disposeFactory: () => ValueTask.CompletedTask);
+
+            // Act
+            await connection.DisposeAsync();
+
+            // Assert
+            Assert.IsTrue(connection.DisconnectedToken.IsCancellationRequested);
+        }
+
+        // DisconnectedToken is public and consumers hold connection references past teardown, so the
+        // backing CancellationTokenSource must NOT be disposed — reading the token after
+        // DisposeAsync has to keep working rather than throw ObjectDisposedException.
+        [TestMethod]
+        public async Task DisconnectedToken_RemainsReadable_AfterDisposeAsync()
+        {
+            // Arrange
+            var connection = CreateConnection(disposeFactory: () => ValueTask.CompletedTask);
+
+            // Act
+            await connection.DisposeAsync();
+
+            // Assert — reading the token and registering on it must not throw
+            var token = connection.DisconnectedToken;
+            Assert.IsTrue(token.IsCancellationRequested);
+            using var registration = token.Register(static () => { });
+        }
+
+        // The core guarantee: completing the writer — not cancelling a token — is what ends the
+        // receive loop, so payloads buffered immediately before the disconnect are still delivered.
+        // This is PayloadWrittenBeforeDisconnect_IsNotLost expressed at the NearbyConnection level.
+        [TestMethod]
+        public async Task ReceiveAsync_DeliversBufferedPayloads_ThenCompletes_AfterDisconnect()
+        {
+            // Arrange
+            var channel = Channel.CreateUnbounded<NearbyPayload>();
+            var connection = CreateConnection(receiveChannel: channel);
+
+            channel.Writer.TryWrite(new BytesPayload([1]));
+            channel.Writer.TryWrite(new BytesPayload([2]));
+
+            // Act — disconnect with payloads still buffered, then consume with no token
+            connection.CompleteReceive();
+
+            var received = new List<NearbyPayload>();
+            await foreach (var payload in connection.ReceiveAsync())
+            {
+                received.Add(payload);
+            }
+
+            // Assert — both payloads survive the disconnect and the loop ends on its own
+            Assert.HasCount(2, received);
+            Assert.IsTrue(connection.DisconnectedToken.IsCancellationRequested);
+        }
+
+        [TestMethod]
+        public async Task ReceiveAsync_ExitsLoop_WhenPeerDisconnectsMidEnumeration()
+        {
+            // Arrange
+            var channel = Channel.CreateUnbounded<NearbyPayload>();
+            var connection = CreateConnection(receiveChannel: channel);
+            channel.Writer.TryWrite(new BytesPayload([1]));
+
+            // Act — disconnect from inside the loop after the first payload
+            var received = new List<NearbyPayload>();
+            await foreach (var payload in connection.ReceiveAsync())
+            {
+                received.Add(payload);
+                connection.CompleteReceive();
+            }
+
+            // Assert — the loop terminated without the consumer owning a token at all
+            Assert.HasCount(1, received);
+        }
+
+        // Pins the documented misuse. Passing DisconnectedToken to ReceiveAsync looks natural and is
+        // wrong: ReadAllAsync observes cancellation on every iteration, so an already-cancelled token
+        // throws and discards buffered payloads — the exact data loss the design must prevent. If
+        // this ever stops throwing, the remarks on DisconnectedToken need revisiting.
+        [TestMethod]
+        public async Task ReceiveAsync_WithDisconnectedToken_ThrowsAndDiscardsBufferedPayloads()
+        {
+            // Arrange
+            var channel = Channel.CreateUnbounded<NearbyPayload>();
+            var connection = CreateConnection(receiveChannel: channel);
+            channel.Writer.TryWrite(new BytesPayload([1]));
+            connection.CompleteReceive();
+
+            // Act + Assert
+            await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () =>
+            {
+                await foreach (var _ in connection.ReceiveAsync(connection.DisconnectedToken))
+                {
+                }
+            });
+        }
+    }
 }

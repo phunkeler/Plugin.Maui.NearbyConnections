@@ -15,6 +15,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     readonly Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> _sendFileFactory;
     readonly Func<ValueTask> _disposeFactory;
     readonly TaskCompletionSource _disconnectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    readonly CancellationTokenSource _disconnectedCts = new();
 
     int _disposeGuard;
     int _receiveGuard;
@@ -36,6 +37,35 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// Safe to await concurrently alongside <see cref="ReceiveAsync"/>. Does not consume the receive stream.
     /// </summary>
     public Task Disconnected => _disconnectedTcs.Task;
+
+    /// <summary>
+    /// A token that is canceled when this connection terminates, from either side, for any reason.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The token form of <see cref="Disconnected"/>, for cancelling your own per-connection work
+    /// when the peer goes away — a retry loop, a periodic ping, an upload you started on its behalf.
+    /// </para>
+    /// <para>
+    /// <strong>Do not pass this to <see cref="ReceiveAsync"/>.</strong> It is unnecessary: the
+    /// receive stream already ends by itself on disconnect. It is also harmful — cancellation is
+    /// observed on every iteration, so a canceled token throws
+    /// <see cref="OperationCanceledException"/> and discards payloads still buffered from just
+    /// before the disconnect, which is precisely the data most worth keeping. Enumerate with no
+    /// token (or one of your own) and let completion end the loop:
+    /// <code>
+    /// await foreach (var payload in connection.ReceiveAsync())
+    /// {
+    ///     await HandleAsync(payload);   // loop exits on its own when the peer disconnects
+    /// }
+    /// </code>
+    /// </para>
+    /// <para>
+    /// Remains valid after <see cref="DisposeAsync"/> — reading it never throws
+    /// <see cref="ObjectDisposedException"/>.
+    /// </para>
+    /// </remarks>
+    public CancellationToken DisconnectedToken => _disconnectedCts.Token;
 
     /// <summary>
     /// Initializes a new <see cref="NearbyConnection"/> for use in test doubles of <see cref="INearbyConnections"/>.
@@ -173,34 +203,46 @@ public sealed class NearbyConnection : IAsyncDisposable
     public IProgress<NearbyTransferProgress>? InboundProgress { get; set; }
 
     /// <summary>
-    /// Returns an async stream of payloads received from the remote device.
+    /// Returns an async stream of payloads received from the remote device, in arrival order.
     /// The enumerable completes when the peer disconnects or <see cref="DisposeAsync"/> is called.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>Internal.</strong> The receive channel is a single-consumer data pipe, and the
-    /// plugin's own payload forwarding claims that single enumeration for every established
-    /// connection — so this method throws for any other caller, 100% of the time. It is not part
-    /// of the public API for that reason. Consumers observe payloads through the multi-subscriber
-    /// event surface instead. See <c>docs/PAYLOAD-DELIVERY.md</c>.
+    /// <strong>The loop body is the backpressure seam.</strong> The next payload is not dequeued
+    /// until the body of your <c>await foreach</c> completes, so a handler may <c>await</c> freely
+    /// (decode a file, generate a thumbnail, hit a database) without losing payloads or reordering
+    /// them. This is the reason payloads are a stream rather than an event: an
+    /// <see cref="EventHandler{TEventArgs}"/> returns <see langword="void"/> and cannot express
+    /// "finish handling this one before delivering the next."
     /// </para>
     /// <para>
-    /// May only be called once per connection. Calling it a second time (including after
-    /// cancellation) throws <see cref="InvalidOperationException"/>, because items already consumed
-    /// by the first enumeration are permanently removed from the channel.
+    /// <strong>Single consumer per connection.</strong> The receive channel is a data pipe, not a
+    /// broadcast: items read by one enumerator are permanently removed. Calling this a second time
+    /// (including after cancellation) throws <see cref="InvalidOperationException"/>. If several
+    /// components need inbound data, consume once here and fan out a domain-level message of your
+    /// own — see <c>docs/PAYLOAD-DELIVERY.md</c>.
+    /// </para>
+    /// <para>
+    /// Payloads arrive on a platform background thread. Marshal to the UI thread inside the loop if
+    /// you update UI from it.
     /// </para>
     /// </remarks>
-    /// <param name="cancellationToken">A token to cancel enumeration.</param>
+    /// <param name="cancellationToken">
+    /// A token to cancel enumeration. Defaults to <see cref="CancellationToken.None"/>; pass
+    /// <see cref="DisconnectedToken"/> to end the loop automatically when the peer disconnects.
+    /// </param>
     /// <returns>An <see cref="IAsyncEnumerable{T}"/> of <see cref="NearbyPayload"/> items.</returns>
     /// <exception cref="InvalidOperationException">Thrown if called more than once.</exception>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
-    internal IAsyncEnumerable<NearbyPayload> ReceiveAsync(CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<NearbyPayload> ReceiveAsync(CancellationToken cancellationToken = default)
     {
         if (Interlocked.Exchange(ref _receiveGuard, 1) != 0)
         {
             throw new InvalidOperationException(
-                $"{nameof(ReceiveAsync)} may only be called once per connection. " +
-                "Subscribe to the payload-received event if multiple consumers are needed.");
+                $"{nameof(ReceiveAsync)} may only be called once per connection, because payloads " +
+                "read by one enumerator are permanently removed from the channel. If multiple " +
+                "components need inbound data, consume the stream once and fan out your own " +
+                "application-level message from inside the loop.");
         }
 
         return _receiveChannel.Reader.ReadAllAsync(cancellationToken);
@@ -220,6 +262,12 @@ public sealed class NearbyConnection : IAsyncDisposable
 
         await _disposeFactory();
         CompleteReceive();
+
+        // _disconnectedCts is deliberately NOT disposed. DisconnectedToken is public and consumers
+        // hold connection references past teardown (a page ViewModel checking why its loop ended);
+        // disposing the source makes every subsequent read throw ObjectDisposedException. A
+        // CancellationTokenSource with no timer and no registrations left holds nothing that needs
+        // releasing once it has been cancelled.
     }
 
     /// <summary>
@@ -229,7 +277,15 @@ public sealed class NearbyConnection : IAsyncDisposable
     internal void CompleteReceive()
     {
         _disconnectedTcs.TrySetResult();
+
+        // Completing the writer is what ends ReceiveAsync: ReadAllAsync drains whatever is still
+        // buffered and then finishes the loop normally. Payloads that arrived immediately before the
+        // disconnect are therefore delivered, not dropped — the guarantee
+        // PayloadWrittenBeforeDisconnect_IsNotLost exists to protect. DisconnectedToken must never
+        // be used to drive that loop, for exactly this reason; see its remarks.
         _receiveChannel.Writer.TryComplete();
+
+        _disconnectedCts.Cancel();
     }
 
     /// <summary>

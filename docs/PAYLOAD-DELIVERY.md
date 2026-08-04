@@ -1,7 +1,7 @@
 # Payload delivery
 
-How inbound payloads reach the consumer, and why the plugin delivers them as **events** rather than
-as an `IAsyncEnumerable` stream.
+How inbound payloads reach the consumer, and why the plugin delivers them as an **async stream**
+rather than as an event.
 
 This concerns only *post-connection* data flow. Connection establishment — the
 `TaskCompletionSource` handshake in `_connectionTcs`, its cancellation plumbing, and the
@@ -10,136 +10,125 @@ resolve/fault contract — is a separate mechanism and is unaffected by anything
 
 ---
 
-## The contract
+## The rule
 
-An established `NearbyConnection` receives payloads from its remote peer. Delivery is
-**multi-consumer**: any number of subscribers observe every payload, and no subscriber can consume
-items out from under another.
+> **Lifecycle notifications are C# events. Payloads are an async stream, consumed one connection at
+> a time with `await foreach`.**
+
+Two kinds of thing with two different shapes, because they have genuinely different requirements.
+
+| | Shape | Why |
+| --- | --- | --- |
+| Device found/lost, connection requested/established/dropped | `event EventHandler<T>` | Multi-consumer, handlers are fast and synchronous, no I/O |
+| Inbound payloads | `IAsyncEnumerable<NearbyPayload>` | Single consumer, handlers do real async work, order matters |
 
 ```csharp
-session.PayloadReceived += (sender, e) =>
+await foreach (var payload in connection.ReceiveAsync())
 {
-    // e.Connection — the connection the payload arrived on
-    // e.Payload    — NearbyBytesPayload or NearbyFilePayload
-};
+    await ProcessAsync(payload);   // may await freely; loop ends on disconnect
+}
 ```
-
-Payloads are raised in arrival order per connection. Handlers run on the plugin's dispatcher; a slow
-handler delays subsequent payloads on that connection but does not block the platform SDK's callback
-thread.
 
 ---
 
-## Why not `IAsyncEnumerable`
+## Why payloads are a stream
 
-An async stream is the more idiomatic modern-.NET shape for a sequence of arriving data, and the
-plugin originally exposed one (`NearbyConnection.ReceiveAsync`). It was replaced deliberately.
+### The loop body is the backpressure seam
 
-### 1. The stream is single-consumer by construction
+The next payload is not dequeued until the body of your `await foreach` completes. A handler may
+`await` — decode a file, generate a video thumbnail, write to a database — without losing payloads
+or reordering them.
+
+An `EventHandler<T>` returns `void` and cannot express "finish handling this one before delivering
+the next." Every workaround is worse:
+
+| Workaround | Failure |
+| --- | --- |
+| `async void` handler | Exceptions become unhandled crashes; ordering is lost |
+| `_ = ProcessAsync(...)` fire-and-forget | Two payloads arriving back-to-back interleave; order breaks |
+| Block synchronously inside the handler | Deadlock risk on the dispatcher |
+
+This is not hypothetical. The sample's `ChatMessageService` awaits video-thumbnail generation while
+handling a payload; with an event it would either crash on failure or render thumbnails against the
+wrong messages.
+
+Note that this is *sequential async consumption*, *not* throttling of the sender: the receive channel
+is unbounded, so a slow consumer grows memory rather than slowing the remote peer. Backpressure in
+the "make the producer wait" sense is not something this plugin provides on either shape.
+
+### Single consumer is the honest contract
 
 `ReceiveAsync` reads a `Channel<NearbyPayload>`. A channel reader is a *data pipe*, not a broadcast:
-items read by one enumerator are permanently removed. Two consumers would each see an arbitrary
-half of the payloads, so the implementation had to hard-enforce single consumption:
+items read by one enumerator are permanently removed. Calling it twice throws:
 
 ```csharp
 if (Interlocked.Exchange(ref _receiveGuard, 1) != 0)
 {
-    throw new InvalidOperationException("ReceiveAsync may only be called once per connection.");
+    throw new InvalidOperationException("ReceiveAsync may only be called once per connection…");
 }
 ```
 
-That produced a contract with no good phrasing: *"call this once — unless something else already
-claimed it, in which case it throws, and you cannot find out except by calling it."*
+That restriction used to be a genuine problem, because the plugin's own Tier-2 forwarding loop
+claimed the single enumeration for every established connection — making a public `ReceiveAsync`
+throw for any other caller, 100% of the time. **That loop no longer exists.** With
+`ConnectionLifecycle.ForwardPayloadsAsync` deleted, nothing competes for the enumeration, and the
+one-consumer rule is simply the documented contract.
 
-### 2. Session-level forwarding claims the only enumeration
+### Fan-out belongs above the plugin, not inside it
 
-Once the session forwards payloads to subscribers, it *is* that single consumer. A public
-`ReceiveAsync` on any real connection then throws 100% of the time — usable only against a
-hand-constructed test double. A public method that cannot work for its most natural caller is worse
-than no method.
-
-The two are mutually exclusive. Either payloads fan out to subscribers, or a single consumer owns
-the stream. Not both.
-
-### 3. The backpressure argument did not survive review
-
-The strongest case for a stream is backpressure: a slow consumer throttles the producer by awaiting
-between items. **The plugin never delivered that.** Tier 2's forwarding loop was:
+When several components need inbound data, consume the stream once and publish an
+application-level message from inside the loop. The sample does exactly this and is the model:
 
 ```csharp
-await foreach (var payload in conn.ReceiveAsync(ct))
+await foreach (var payload in connection.ReceiveAsync())
 {
-    _broadcaster.Publish(onPayload(conn, payload));   // TryWrite to unbounded channels
+    var message = await BuildChatMessageAsync(payload);   // async work, in order
+    _repository.Save(device, message);
+    _messenger.Send(new ChatMessageReceived(device, message));   // fan-out happens here
 }
 ```
 
-`Publish` is a non-blocking `TryWrite` onto **unbounded** channels, so the loop drained the receive
-channel as fast as payloads arrived. A slow consumer caused unbounded memory growth, not
-throttling — the same failure mode an event handler has.
-
-The API advertised a property the implementation did not provide.
-
-### 4. No consumer used the stream shape
-
-Across the sample app and the plugin itself, the only non-test caller of `ReceiveAsync` was the
-Tier-2 forwarding loop that converted it straight back into callbacks. Nothing consumed it as a
-stream. Meanwhile the sample has **two independent payload consumers** (a message service and page
-view models) — precisely the case a single-consumer stream cannot serve.
+`ChatViewModel` is an `IRecipient<ChatMessageReceived>` — it consumes *chat messages*, not raw
+payloads. This is the right layering: the plugin delivers bytes and files; the application decides
+what they mean and who cares. A multi-consumer payload API would push that decision down into the
+plugin, where it has no domain knowledge to make it with.
 
 ---
 
-## What is genuinely lost
+## Ending the loop
+
+The receive stream completes on its own when the peer disconnects or `DisposeAsync` is called —
+`CompleteReceive` completes the channel writer, `ReadAllAsync` drains whatever is still buffered, and
+the loop exits normally. Payloads that arrived immediately before the disconnect are therefore
+**delivered, not dropped**.
+
+> ⚠️ **Do not pass `DisconnectedToken` to `ReceiveAsync`.** It is unnecessary — the loop already ends
+> on disconnect — and actively harmful: `ReadAllAsync` observes cancellation on *every* iteration, so
+> a cancelled token throws `OperationCanceledException` and discards the buffered payloads from just
+> before the disconnect, which are usually the ones worth keeping.
+>
+> `DisconnectedToken` exists to cancel *your own* per-connection work — a retry loop, a periodic
+> ping, an upload started on the peer's behalf. Pass your own token to `ReceiveAsync` only when the
+> loop must stop for a reason of your own.
+
+`NearbyConnectionTests.DisconnectedToken` pins both behaviours, including a test asserting the misuse
+above still throws, so the guidance cannot silently drift from the implementation.
+
+---
+
+## What this costs
 
 Stated plainly, because these are real:
 
-| Capability | Impact |
+| Cost | Impact |
 | --- | --- |
-| **Composability** | No `await foreach`, no LINQ-over-async, no `WithCancellation`. Consumers that want stream semantics must adapt the event themselves. |
-| **Automatic cleanup** | A stream ends when the loop exits. An event requires `-=`; a subscriber that forgets leaks for the lifetime of the session singleton. |
-| **Token-scoped consumption** | Cancellation no longer detaches a consumer implicitly. |
-| **Sequential backpressure** | Not lost in practice — see §3 — but the shape that *could* have provided it is gone. |
+| **One consumer per connection** | Multiple interested components require an application-level fan-out (a messenger, an event, a subject). ~3 lines, as in the sample. |
+| **Manual loop management** | Someone must start the `await foreach` per connection and keep it running. Typically a single service subscribing to `ConnectionEstablished`. |
+| **No LINQ-over-events ergonomics** | Not an issue in practice — the loop body is where processing goes. |
 
-The cleanup risk is the material one. Subscribers to a singleton must unsubscribe on teardown.
+## Where events are still the right answer
 
-## If stream semantics are needed
-
-An event adapts to a stream in a few lines, so nothing is permanently foreclosed:
-
-```csharp
-static async IAsyncEnumerable<NearbyPayload> AsStream(
-    INearbySession session,
-    [EnumeratorCancellation] CancellationToken ct = default)
-{
-    var channel = Channel.CreateUnbounded<NearbyPayload>();
-    void Handler(object? s, NearbyPayloadReceivedEventArgs e) => channel.Writer.TryWrite(e.Payload);
-
-    session.PayloadReceived += Handler;
-    try
-    {
-        await foreach (var payload in channel.Reader.ReadAllAsync(ct))
-        {
-            yield return payload;
-        }
-    }
-    finally
-    {
-        session.PayloadReceived -= Handler;
-    }
-}
-```
-
-The reverse — turning a single-consumer stream into a multi-consumer broadcast — requires the
-broadcaster infrastructure this change removes. The event is the more primitive, more adaptable
-shape.
-
----
-
-## Where streams are still the right answer
-
-This decision is specific to payload delivery. `IAsyncEnumerable` remains appropriate for:
-
-- **Finite or terminating sequences** with a single natural consumer.
-- **Genuinely backpressured pipelines**, where the consumer's rate must throttle the producer and
-  the implementation actually honours it.
-
-Neither describes inbound payload delivery to a shared session object.
+Everything that is a *notification of state* rather than a *sequence of data*: devices appearing and
+disappearing, connection requests arriving, connections establishing and dropping. Those have many
+interested consumers, need no ordering guarantee beyond "eventually", and their handlers do no I/O.
+They are plain C# events on `INearbySession`, raised on the dispatcher.

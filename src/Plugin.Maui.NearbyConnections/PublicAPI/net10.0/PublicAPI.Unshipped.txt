@@ -141,10 +141,12 @@ Plugin.Maui.NearbyConnections.NearbyAdvertisingException.NearbyAdvertisingExcept
 Plugin.Maui.NearbyConnections.NearbyAdvertisingException.NearbyAdvertisingException(string! message, System.Exception! innerException) -> void
 Plugin.Maui.NearbyConnections.NearbyConnection
 Plugin.Maui.NearbyConnections.NearbyConnection.Disconnected.get -> System.Threading.Tasks.Task!
+Plugin.Maui.NearbyConnections.NearbyConnection.DisconnectedToken.get -> System.Threading.CancellationToken
 Plugin.Maui.NearbyConnections.NearbyConnection.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Plugin.Maui.NearbyConnections.NearbyConnection.InboundProgress.get -> System.IProgress<Plugin.Maui.NearbyConnections.NearbyTransferProgress!>?
 Plugin.Maui.NearbyConnections.NearbyConnection.InboundProgress.set -> void
 Plugin.Maui.NearbyConnections.NearbyConnection.NearbyConnection(Plugin.Maui.NearbyConnections.NearbyDevice! remoteDevice, System.Threading.Channels.Channel<Plugin.Maui.NearbyConnections.NearbyPayload!>! receiveChannel, System.Func<byte[]!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>! sendBytesFactory, System.Func<string!, System.IProgress<Plugin.Maui.NearbyConnections.NearbyTransferProgress!>?, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! sendFileFactory, System.Func<System.Threading.Tasks.ValueTask>! disposeFactory) -> void
+Plugin.Maui.NearbyConnections.NearbyConnection.ReceiveAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Plugin.Maui.NearbyConnections.NearbyPayload!>!
 Plugin.Maui.NearbyConnections.NearbyConnection.RemoteDevice.get -> Plugin.Maui.NearbyConnections.NearbyDevice!
 Plugin.Maui.NearbyConnections.NearbyConnection.Role.get -> Plugin.Maui.NearbyConnections.ConnectionRole
 Plugin.Maui.NearbyConnections.NearbyConnection.SendAsync(Microsoft.Maui.Storage.FileResult! fileResult, System.IProgress<Plugin.Maui.NearbyConnections.NearbyTransferProgress!>? progress = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -176,14 +178,13 @@ Plugin.Maui.NearbyConnections.NearbyConnectionsOptions.ServiceId.set -> void
 Plugin.Maui.NearbyConnections.NearbyConnectionsOptions.TransferInactivityTimeout.get -> System.TimeSpan
 Plugin.Maui.NearbyConnections.NearbyConnectionsOptions.TransferInactivityTimeout.set -> void
 Plugin.Maui.NearbyConnections.NearbyDevice
-Plugin.Maui.NearbyConnections.NearbyDevice.<Clone>$() -> Plugin.Maui.NearbyConnections.NearbyDevice!
-Plugin.Maui.NearbyConnections.NearbyDevice.Deconstruct(out string! Id, out string? DisplayName) -> void
+Plugin.Maui.NearbyConnections.NearbyDevice.Connection.get -> Plugin.Maui.NearbyConnections.NearbyConnection?
 Plugin.Maui.NearbyConnections.NearbyDevice.DisplayName.get -> string?
-Plugin.Maui.NearbyConnections.NearbyDevice.DisplayName.init -> void
-Plugin.Maui.NearbyConnections.NearbyDevice.Equals(Plugin.Maui.NearbyConnections.NearbyDevice? other) -> bool
 Plugin.Maui.NearbyConnections.NearbyDevice.Id.get -> string!
-Plugin.Maui.NearbyConnections.NearbyDevice.Id.init -> void
-Plugin.Maui.NearbyConnections.NearbyDevice.NearbyDevice(string! Id, string? DisplayName) -> void
+Plugin.Maui.NearbyConnections.NearbyDevice.NearbyDevice(string! id, string? displayName) -> void
+Plugin.Maui.NearbyConnections.NearbyDevice.PropertyChanged -> System.ComponentModel.PropertyChangedEventHandler?
+Plugin.Maui.NearbyConnections.NearbyDevice.Role.get -> Plugin.Maui.NearbyConnections.ConnectionRole?
+Plugin.Maui.NearbyConnections.NearbyDevice.Status.get -> Plugin.Maui.NearbyConnections.NearbyDeviceStatus
 Plugin.Maui.NearbyConnections.NearbyDeviceEvent
 Plugin.Maui.NearbyConnections.NearbyDeviceEvent.Device.get -> Plugin.Maui.NearbyConnections.NearbyDevice!
 Plugin.Maui.NearbyConnections.NearbyDeviceEvent.NearbyDeviceEvent(Plugin.Maui.NearbyConnections.NearbyDevice! device, Plugin.Maui.NearbyConnections.NearbyDeviceEventType type) -> void
@@ -191,6 +192,11 @@ Plugin.Maui.NearbyConnections.NearbyDeviceEvent.Type.get -> Plugin.Maui.NearbyCo
 Plugin.Maui.NearbyConnections.NearbyDeviceEventType
 Plugin.Maui.NearbyConnections.NearbyDeviceEventType.Found = 0 -> Plugin.Maui.NearbyConnections.NearbyDeviceEventType
 Plugin.Maui.NearbyConnections.NearbyDeviceEventType.Lost = 1 -> Plugin.Maui.NearbyConnections.NearbyDeviceEventType
+Plugin.Maui.NearbyConnections.NearbyDeviceStatus
+Plugin.Maui.NearbyConnections.NearbyDeviceStatus.Connected = 3 -> Plugin.Maui.NearbyConnections.NearbyDeviceStatus
+Plugin.Maui.NearbyConnections.NearbyDeviceStatus.Connecting = 2 -> Plugin.Maui.NearbyConnections.NearbyDeviceStatus
+Plugin.Maui.NearbyConnections.NearbyDeviceStatus.RequestReceived = 1 -> Plugin.Maui.NearbyConnections.NearbyDeviceStatus
+Plugin.Maui.NearbyConnections.NearbyDeviceStatus.Visible = 0 -> Plugin.Maui.NearbyConnections.NearbyDeviceStatus
 Plugin.Maui.NearbyConnections.NearbyDiscoverer
 Plugin.Maui.NearbyConnections.NearbyDiscoverer.ConnectAsync(Plugin.Maui.NearbyConnections.NearbyDevice! device, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Plugin.Maui.NearbyConnections.NearbyConnection!>!
 Plugin.Maui.NearbyConnections.NearbyDiscoverer.Dispose() -> void
@@ -225,6 +231,15 @@ Plugin.Maui.NearbyConnections.ServiceCollectionExtensions
 abstract Plugin.Maui.NearbyConnections.AdvertiserEvent.<Clone>$() -> Plugin.Maui.NearbyConnections.AdvertiserEvent!
 abstract Plugin.Maui.NearbyConnections.DiscovererEvent.<Clone>$() -> Plugin.Maui.NearbyConnections.DiscovererEvent!
 abstract Plugin.Maui.NearbyConnections.NearbyPayload.<Clone>$() -> Plugin.Maui.NearbyConnections.NearbyPayload!
+virtual Plugin.Maui.NearbyConnections.AdvertiserEvent.EqualityContract.get -> System.Type!
+virtual Plugin.Maui.NearbyConnections.AdvertiserEvent.Equals(Plugin.Maui.NearbyConnections.AdvertiserEvent? other) -> bool
+virtual Plugin.Maui.NearbyConnections.AdvertiserEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual Plugin.Maui.NearbyConnections.DiscovererEvent.EqualityContract.get -> System.Type!
+virtual Plugin.Maui.NearbyConnections.DiscovererEvent.Equals(Plugin.Maui.NearbyConnections.DiscovererEvent? other) -> bool
+virtual Plugin.Maui.NearbyConnections.DiscovererEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual Plugin.Maui.NearbyConnections.NearbyPayload.EqualityContract.get -> System.Type!
+virtual Plugin.Maui.NearbyConnections.NearbyPayload.Equals(Plugin.Maui.NearbyConnections.NearbyPayload? other) -> bool
+virtual Plugin.Maui.NearbyConnections.NearbyPayload.PrintMembers(System.Text.StringBuilder! builder) -> bool
 override Plugin.Maui.NearbyConnections.AdvertiserEvent.ConnectionAccepted.<Clone>$() -> Plugin.Maui.NearbyConnections.AdvertiserEvent.ConnectionAccepted!
 override Plugin.Maui.NearbyConnections.AdvertiserEvent.ConnectionAccepted.Equals(object? obj) -> bool
 override Plugin.Maui.NearbyConnections.AdvertiserEvent.ConnectionAccepted.GetHashCode() -> int
@@ -349,12 +364,3 @@ static Plugin.Maui.NearbyConnections.NearbyPayload.operator ==(Plugin.Maui.Nearb
 static Plugin.Maui.NearbyConnections.ServiceCollectionExtensions.AddAdvertiser(this Plugin.Maui.NearbyConnections.NearbyConnectionsBuilder! builder) -> Plugin.Maui.NearbyConnections.NearbyConnectionsBuilder!
 static Plugin.Maui.NearbyConnections.ServiceCollectionExtensions.AddDiscoverer(this Plugin.Maui.NearbyConnections.NearbyConnectionsBuilder! builder) -> Plugin.Maui.NearbyConnections.NearbyConnectionsBuilder!
 static Plugin.Maui.NearbyConnections.ServiceCollectionExtensions.AddNearbyConnections(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Plugin.Maui.NearbyConnections.NearbyConnectionsOptions!>? configure = null) -> Plugin.Maui.NearbyConnections.NearbyConnectionsBuilder!
-virtual Plugin.Maui.NearbyConnections.AdvertiserEvent.EqualityContract.get -> System.Type!
-virtual Plugin.Maui.NearbyConnections.AdvertiserEvent.Equals(Plugin.Maui.NearbyConnections.AdvertiserEvent? other) -> bool
-virtual Plugin.Maui.NearbyConnections.AdvertiserEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
-virtual Plugin.Maui.NearbyConnections.DiscovererEvent.EqualityContract.get -> System.Type!
-virtual Plugin.Maui.NearbyConnections.DiscovererEvent.Equals(Plugin.Maui.NearbyConnections.DiscovererEvent? other) -> bool
-virtual Plugin.Maui.NearbyConnections.DiscovererEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
-virtual Plugin.Maui.NearbyConnections.NearbyPayload.EqualityContract.get -> System.Type!
-virtual Plugin.Maui.NearbyConnections.NearbyPayload.Equals(Plugin.Maui.NearbyConnections.NearbyPayload? other) -> bool
-virtual Plugin.Maui.NearbyConnections.NearbyPayload.PrintMembers(System.Text.StringBuilder! builder) -> bool
