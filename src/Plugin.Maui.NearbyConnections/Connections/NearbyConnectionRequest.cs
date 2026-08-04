@@ -1,10 +1,15 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Represents an inbound connection request from a remote device received while advertising.
-/// The consumer either accepts (obtaining a <see cref="NearbyConnection"/>) or rejects the request.
+/// An inbound connection request from a remote device, received while advertising.
 /// </summary>
-public sealed class NearbyConnectionRequest
+/// <remarks>
+/// Internal: the session projects each request into
+/// <see cref="INearbySession.ConnectionRequested"/> and holds the request itself so
+/// <see cref="INearbySession.AcceptAsync"/> and <see cref="INearbySession.RejectAsync"/> can answer
+/// it. Consumers work with the <see cref="NearbyDevice"/>, never with this type.
+/// </remarks>
+sealed class NearbyConnectionRequest
 {
     readonly Func<CancellationToken, Task<NearbyConnection>> _acceptFactory;
     readonly Func<CancellationToken, Task> _rejectFactory;

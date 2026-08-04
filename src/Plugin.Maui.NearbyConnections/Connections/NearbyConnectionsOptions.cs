@@ -40,23 +40,6 @@ public sealed partial class NearbyConnectionsOptions
     public string ServiceId { get; set; } = GetDefaultServiceId();
 
     /// <summary>
-    /// Gets a value indicating that incoming connection requests, from nearby discoverers, should automatically be accepted.
-    /// Defaults to <see langword="false"/>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// When <see langword="false"/> (the default), each <see cref="NearbyConnectionRequest"/> yielded by
-    /// <c>AdvertiseAsync</c> must be explicitly accepted or rejected by the caller.
-    /// </para>
-    /// <para>
-    /// When <see langword="true"/>, the platform automatically accepts every inbound request without
-    /// any consumer code running. Only set this if you control all advertising and discovering devices
-    /// and trust every peer that may discover you.
-    /// </para>
-    /// </remarks>
-    public bool AutoAcceptConnections { get; set; }
-
-    /// <summary>
     /// Gets the directory where received files are saved after transfer.
     /// The default differs per platform: on Android, <see cref="FileSystem.CacheDirectory"/>
     /// (which the OS may purge to reclaim space); on iOS, <see cref="FileSystem.AppDataDirectory"/>

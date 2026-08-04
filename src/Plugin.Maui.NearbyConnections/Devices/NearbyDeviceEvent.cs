@@ -1,9 +1,13 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Represents a single device-discovery event yielded by the discovery stream.
+/// A single device-discovery event yielded by the internal discovery stream.
 /// </summary>
-public sealed class NearbyDeviceEvent
+/// <remarks>
+/// Internal: the session applies these to <see cref="INearbySession.Devices"/>, which is what
+/// consumers observe.
+/// </remarks>
+sealed class NearbyDeviceEvent
 {
     /// <summary>
     /// Gets the device that was found or lost.

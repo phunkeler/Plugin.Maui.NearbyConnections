@@ -10,18 +10,30 @@ namespace Plugin.Maui.NearbyConnections;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers <see cref="INearbyConnections"/> (Tier 1) as a singleton and configures
+    /// Registers <see cref="INearbySession"/> as a singleton and configures
     /// <see cref="NearbyConnectionsOptions"/> via the <see cref="IOptions{TOptions}"/> pipeline.
-    /// Call <see cref="AddAdvertiser"/> and/or <see cref="AddDiscoverer"/> on the returned
-    /// builder to opt in to Tier 2 services.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> to register with.</param>
     /// <param name="configure">
     /// Optional delegate to configure <see cref="NearbyConnectionsOptions"/>.
     /// When <see langword="null"/>, platform defaults are used.
     /// </param>
-    /// <returns>A <see cref="NearbyConnectionsBuilder"/> for registering optional Tier 2 services.</returns>
-    public static NearbyConnectionsBuilder AddNearbyConnections(
+    /// <returns>The same <see cref="IServiceCollection"/> for chaining.</returns>
+    /// <remarks>
+    /// <para>
+    /// A singleton because the resources underneath are singular: one radio, one native session.
+    /// Nothing starts automatically — call <see cref="INearbySession.StartAdvertisingAsync"/> or
+    /// <see cref="INearbySession.StartDiscoveringAsync"/> when the app is ready and permissions
+    /// have been granted.
+    /// </para>
+    /// <para>
+    /// The session resolves <see cref="IDispatcher"/> when one is registered (always, in a MAUI
+    /// app) and uses it to marshal device-collection mutations and events to the UI thread. Without
+    /// one — unit tests, or the plain <c>net10.0</c> target — callbacks run on the thread the
+    /// platform raised them on.
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddNearbyConnections(
         this IServiceCollection services,
         Action<NearbyConnectionsOptions>? configure = null)
     {
@@ -35,7 +47,7 @@ public static class ServiceCollectionExtensions
         services.AddOptions<NearbyConnectionsOptions>().ValidateOnStart();
         services.AddSingleton<IValidateOptions<NearbyConnectionsOptions>, NearbyConnectionsOptionsValidator>();
 
-        services.AddSingleton<INearbyConnections>(sp =>
+        services.TryAddSingleton<INearbySession>(sp =>
         {
             var resolvedOptions = sp.GetRequiredService<IOptions<NearbyConnectionsOptions>>().Value;
             var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
@@ -48,7 +60,7 @@ public static class ServiceCollectionExtensions
             var localPeerIdentityStore = new LocalPeerIdentityStore(
                 sp.GetService<ILogger<LocalPeerIdentityStore>>() ?? NullLogger<LocalPeerIdentityStore>.Instance);
 #endif
-            return new NearbyConnectionsImplementation(
+            var connections = new NearbyConnectionsImplementation(
                 timeProvider,
                 resolvedOptions,
                 logger
@@ -58,38 +70,13 @@ public static class ServiceCollectionExtensions
                 , localPeerIdentityStore
 #endif
             );
+
+            return new NearbySession(
+                connections,
+                sp.GetService<IDispatcher>(),
+                sp.GetService<ILogger<NearbySession>>() ?? NullLogger<NearbySession>.Instance);
         });
 
-        return new NearbyConnectionsBuilder(services);
-    }
-
-    /// <summary>
-    /// Registers <see cref="INearbyAdvertiser"/> as a singleton.
-    /// </summary>
-    /// <param name="builder">The <see cref="NearbyConnectionsBuilder"/> to register with.</param>
-    /// <returns>The same <see cref="NearbyConnectionsBuilder"/> for chaining.</returns>
-    public static NearbyConnectionsBuilder AddAdvertiser(this NearbyConnectionsBuilder builder)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        builder.Services.AddSingleton<INearbyAdvertiser>(sp =>
-            new NearbyAdvertiser(
-                sp.GetRequiredService<INearbyConnections>(),
-                sp.GetService<ILogger<NearbyAdvertiser>>() ?? NullLogger<NearbyAdvertiser>.Instance));
-        return builder;
-    }
-
-    /// <summary>
-    /// Registers <see cref="INearbyDiscoverer"/> as a singleton.
-    /// </summary>
-    /// <param name="builder">The <see cref="NearbyConnectionsBuilder"/> to register with.</param>
-    /// <returns>The same <see cref="NearbyConnectionsBuilder"/> for chaining.</returns>
-    public static NearbyConnectionsBuilder AddDiscoverer(this NearbyConnectionsBuilder builder)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        builder.Services.AddSingleton<INearbyDiscoverer>(sp =>
-            new NearbyDiscoverer(
-                sp.GetRequiredService<INearbyConnections>(),
-                sp.GetService<ILogger<NearbyDiscoverer>>() ?? NullLogger<NearbyDiscoverer>.Instance));
-        return builder;
+        return services;
     }
 }
