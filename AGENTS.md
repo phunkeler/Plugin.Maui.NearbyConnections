@@ -35,14 +35,22 @@ dotnet run --project test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.Ne
 
 ## Architecture
 
-Two tiers, both registered as DI singletons sharing one Tier-1 instance (one radio, one native
-session):
+One public interface, registered as a DI singleton (one radio, one native session):
 
-- **Tier 1** — `INearbyConnections`, implemented by a single `sealed partial class` split across
-  `Connections/NearbyConnections.{shared,android,ios,net}.cs`. The `net10.0` target throws
-  `PlatformNotSupportedException`.
-- **Tier 2** — `INearbyAdvertiser` / `INearbyDiscoverer`, an opt-in wrapper adding multi-subscriber
-  event streams.
+- **`INearbySession`** — the only public entry point, implemented by `NearbySession`
+  (`Session/NearbySession.{cs,state.cs,log.cs}`). Owns device state, dispatcher marshalling, and the
+  three lifecycle events.
+- **`INearbyConnections`** — internal. The raw platform streams, implemented by a single
+  `sealed partial class` split across `Connections/NearbyConnections.{shared,android,ios,net}.cs`.
+  The `net10.0` target throws `PlatformNotSupportedException`, which is why `NearbySession` depends
+  on the interface rather than the concrete type — otherwise it is untestable off-device.
+
+State vs. streams: device presence and connection lifecycle are **state** (`Devices` +
+events); payloads are a **stream** (`NearbyConnection.ReceiveAsync`, one consumer per connection).
+
+**All device-state mutation goes through `NearbySession.state.cs` and is dispatcher-marshalled.**
+Platform callbacks arrive on background threads; mutating an `ObservableCollection` or raising
+`PropertyChanged` off the UI thread crashes XAML binding.
 
 A pending handshake is a `TaskCompletionSource` in `_connectionTcs`. **Every failure path must
 resolve or fault that TCS** or `AcceptAsync`/`ConnectAsync` hang forever.

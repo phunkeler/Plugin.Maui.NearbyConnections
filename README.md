@@ -46,19 +46,19 @@ public static MauiApp CreateMauiApp()
     builder.UseMauiApp<App>();
 
     builder.UseNearbyConnections(opts =>
-        {
+    {
 #if IOS
-            opts.ServiceId = "yourserviceid";
+        opts.ServiceId = "yourserviceid";
 #endif
-        })
-        .AddAdvertiser()   // optional — registers INearbyAdvertiser (see "Higher-level services")
-        .AddDiscoverer();  // optional — registers INearbyDiscoverer (see "Higher-level services")
+    });
 
     return builder.Build();
 }
 ```
 
-`UseNearbyConnections()` registers the core `INearbyConnections` API. The chained `.AddAdvertiser()` / `.AddDiscoverer()` calls are opt-in and register the higher-level `INearbyAdvertiser` / `INearbyDiscoverer` services — see [Higher-level services](#higher-level-services) below. Omit them if you only use the core API.
+`UseNearbyConnections()` registers `INearbySession` as a singleton — one radio, one native session. Inject it wherever you need nearby connectivity.
+
+Nothing starts on its own: advertising and discovery begin only when you call them, so permission prompts happen when your app decides.
 
 ## 2. Platform configuration
 
@@ -121,58 +121,61 @@ Add to `Info.plist`:
 
 ## 3. Advertise and discover
 
-One device advertises while the other discovers, or both do both simultaneously.
-
-**Phase 1 — Finding peers.** One device advertises its presence; another scans for advertisers. This is a continuous `IAsyncEnumerable` stream of "device appeared" / "device disappeared" events.
-
-**Phase 2 — Talking to them.** Once you pick a peer and connect (or accept their inbound request), a `NearbyConnection` is established. That object is itself an async stream of incoming payloads.
-
-There are two ways to consume the plugin:
-
-- **The core `INearbyConnections` API** exposes the two phases directly as `AdvertiseAsync` / `DiscoverAsync` streams — the minimal complete path, shown in the walkthrough below. It is also the seam to mock or implement when testing your own app code against the plugin.
-- **The opt-in `INearbyAdvertiser` / `INearbyDiscoverer` services** wrap the core API with lifecycle management (`StartAsync` / `StopAsync`), a multi-subscriber event stream, and a handler-dispatch pattern — see [Higher-level services](#higher-level-services) below. The `samples/NearbyChat` app uses this path.
-
-### Advertiser side — accept inbound connection requests
+One device advertises while the other discovers, or both do both simultaneously. The two are independent — starting or stopping one never affects the other.
 
 ```csharp
-using var cts = new CancellationTokenSource();
-
-await foreach (var request in nearbyConnections.AdvertiseAsync(cts.Token))
-{
-    Console.WriteLine($"Connection request from: {request.RemoteDevice.DisplayName}");
-
-    // Accept to get an established NearbyConnection
-    NearbyConnection connection = await request.AcceptAsync(cts.Token);
-    Console.WriteLine($"Connected to {connection.RemoteDevice.DisplayName}");
-
-    // Send and receive on this connection (see section 4)
-}
+await session.StartAdvertisingAsync();   // let others find me
+await session.StartDiscoveringAsync();   // find others
 ```
 
-To reject a request call `request.RejectAsync()` instead of `AcceptAsync()`.
-
-### Discoverer side — find devices and initiate a connection
+**Device state.** Every device the session knows about lives in `session.Devices`, from first discovery until it goes out of range. Devices do not move between collections as they connect: `NearbyDevice.Status` changes instead, and the device raises `PropertyChanged`, so a bound row updates in place.
 
 ```csharp
-using var cts = new CancellationTokenSource();
-
-await foreach (var evt in nearbyConnections.DiscoverAsync(cts.Token))
-{
-    if (evt.Type == NearbyDeviceEventType.Found)
-    {
-        Console.WriteLine($"Found: {evt.Device.DisplayName}");
-
-        NearbyConnection connection = await nearbyConnections.ConnectAsync(evt.Device, cts.Token);
-        Console.WriteLine($"Connected to {connection.RemoteDevice.DisplayName}");
-
-        // Send and receive on this connection (see section 4)
-    }
-}
+Visible → RequestReceived → Connecting → Connected
 ```
+
+`Devices` implements `INotifyCollectionChanged`, so you can bind it straight to a `CollectionView`. To show only connected devices, filter on `Status`:
+
+```csharp
+var connected = session.Devices.Where(d => d.Status is NearbyDeviceStatus.Connected);
+```
+
+### Accept inbound connection requests
+
+```csharp
+session.ConnectionRequested += async (sender, e) =>
+{
+    Console.WriteLine($"Connection request from: {e.Device.DisplayName}");
+
+    // Accept to establish the connection, or RejectAsync to decline.
+    NearbyConnection connection = await session.AcceptAsync(e.Device);
+};
+```
+
+### Find devices and initiate a connection
+
+Discovered devices appear in `session.Devices` with `Status == Visible`:
+
+```csharp
+NearbyConnection connection = await session.ConnectAsync(device);
+```
+
+`ConnectAsync` completes when the remote device accepts. If it rejects, or the device goes away, the call throws and the device returns to `Visible` — it never gets stuck mid-handshake.
+
+### Know when a connection opens or closes
+
+```csharp
+session.ConnectionEstablished += (sender, e) => StartConsuming(e.Connection);
+session.ConnectionDropped     += (sender, e) => Cleanup(e.Device);
+```
+
+> **Handlers run on the UI thread and run synchronously.** The session marshals every collection change, property change, and event to the dispatcher for you, so bindings are safe without extra work — but keep handlers fast and do no I/O in them. Inbound payloads are a stream precisely so that consuming them can be asynchronous (see section 4).
+
+> **Unsubscribe what you subscribe.** The session is a singleton that outlives your pages. A page that does `+=` without a matching `-=` stays alive for the life of the app, and revisiting it attaches a second handler — after five visits every event fires five times. See `BasePageViewModel.RegisterSessionSubscription` in [`samples/NearbyChat`](samples/NearbyChat) for the pattern. Payload loops need no such care: they end by themselves when the connection drops.
 
 ## 4. Send and receive data
 
-`NearbyConnection` is obtained from `AcceptAsync` (advertiser) or `ConnectAsync` (discoverer).
+`NearbyConnection` is obtained from `AcceptAsync`, from `ConnectAsync`, or from `NearbyDevice.Connection` while the device is connected.
 
 ### Send bytes
 
@@ -199,8 +202,10 @@ await connection.SendAsync("file:///path/to/file.bin", progress, cancellationTok
 
 ### Receive data
 
+Payloads are a stream, not an event: the loop body is the seam where your own async work goes, and it is awaited before the next payload is taken.
+
 ```csharp
-await foreach (var payload in connection.ReceiveAsync(cancellationToken))
+await foreach (var payload in connection.ReceiveAsync())
 {
     if (payload is BytesPayload bytes)
     {
@@ -210,9 +215,14 @@ await foreach (var payload in connection.ReceiveAsync(cancellationToken))
     else if (payload is FilePayload file)
     {
         Console.WriteLine($"Received file: {file.FileResult.FullPath}");
+        await GenerateThumbnailAsync(file.FileResult.FullPath);   // awaited in-loop
     }
 }
 ```
+
+**One consumer per connection.** The stream can only be enumerated once. If several parts of your app need inbound data, consume it in one place and fan out from there (the sample publishes a domain message via `IMessenger`).
+
+**Do not pass `DisconnectedToken` to `ReceiveAsync`.** It is unnecessary — the loop already ends by itself on disconnect — and harmful: cancellation is observed on every iteration, so an already-cancelled token discards payloads that arrived just before the peer went away.
 
 Received files are saved to `NearbyConnectionsOptions.ReceivedFilesDirectory`. The default differs per platform: on Android it is `FileSystem.CacheDirectory` (the OS may purge it to reclaim space); on iOS it is `FileSystem.AppDataDirectory` (persistent). If received files must persist on Android, set the option explicitly or move the files somewhere durable after receipt — see the [Configuration](#configuration) table.
 
@@ -220,77 +230,25 @@ Received files are saved to `NearbyConnectionsOptions.ReceivedFilesDirectory`. T
 
 All plugin-specific failures derive from `NearbyConnectionsException`:
 
-- `NearbyAdvertisingException` / `NearbyDiscoveryException` — thrown when the platform fails to start advertising or discovery. On both platforms the exception is observed while enumerating the stream returned by `AdvertiseAsync` / `DiscoverAsync` (at the first `await` of the loop), so wrap the `await foreach` in a `try/catch`.
+- `NearbyAdvertisingException` / `NearbyDiscoveryException` — the platform failed to start advertising or discovery, most often because permissions were denied or the radio is off.
 - `NearbyTransferTimeoutException` — thrown from a file-transfer `SendAsync` call when no transfer progress is observed for `NearbyConnectionsOptions.TransferInactivityTimeout` (default 10 seconds — see the [Configuration](#configuration) table).
-- `NearbyConnectionsException` — the non-sealed base type. Catch it to handle all of the above; deriving from it in your own code is a supported extension contract (useful when faking `INearbyConnections` in tests).
+- `NearbyConnectionsException` — the non-sealed base type. Catch it to handle all of the above; deriving from it in your own code is a supported extension contract (useful when faking `INearbySession` in tests).
 
 ## 5. Disconnect and clean up
 
 ```csharp
-// Disconnect from a specific peer
-await connection.DisposeAsync();
+// Disconnect from one peer, leaving every other connection intact
+await session.DisconnectAsync(device);
 
-// Stop advertising or discovering by canceling the token passed to AdvertiseAsync/DiscoverAsync
-cts.Cancel();
+// Stop one activity without affecting the other
+await session.StopAdvertisingAsync();
+await session.StopDiscoveringAsync();
+
+// Stop everything and disconnect every peer
+await session.StopAsync();
 ```
 
-The plugin itself is a DI singleton that lives for the app's lifetime — apps normally never dispose it. `DisposeAsync` on `INearbyConnections` is one-way: it permanently shuts the instance down, so only call it if your app is done with nearby connectivity for good (there is no way to restart a disposed instance).
-
-# Higher-level services
-
-The opt-in `INearbyAdvertiser` / `INearbyDiscoverer` services wrap the core `INearbyConnections` API for app code that wants managed lifecycle and multi-subscriber events instead of driving the raw streams directly. This is the path the [`samples/NearbyChat`](samples/NearbyChat) reference app uses. They add:
-
-- **Lifecycle management** — `StartAsync()` / `StopAsync()` own the advertise/discover loop; `IsAdvertising` / `IsDiscovering` report its state.
-- **Multi-subscriber events** — `EventsAsync(CancellationToken)` is a fan-out stream: every subscriber gets its own copy of every event, and each new subscription starts by replaying current state (pending requests, visible devices, active connections) as synthetic events before going live.
-- **Handler dispatch** — implement `IAdvertiserHandler` / `IDiscovererHandler` (all methods have default no-op implementations) and pump the stream into it with `RunAsync`.
-
-Register them at startup (see [step 1](#1-register-the-plugin)), then:
-
-```csharp
-public class ChatViewModel : IAdvertiserHandler
-{
-    readonly INearbyAdvertiser _advertiser;
-
-    public ChatViewModel(INearbyAdvertiser advertiser)
-        => _advertiser = advertiser;
-
-    // e.g. when your page appears
-    public async Task OnAppearingAsync(CancellationToken token)
-    {
-        await _advertiser.StartAsync();
-
-        // Dispatch events to the On* methods below until the token is canceled
-        _ = _advertiser.EventsAsync(token).RunAsync(this);
-    }
-
-    // e.g. when your page disappears
-    public Task OnDisappearingAsync()
-        => _advertiser.StopAsync();
-
-    async Task IAdvertiserHandler.OnConnectionRequested(AdvertiserEvent.ConnectionRequested ev)
-        => await _advertiser.AcceptAsync(ev.Request);
-
-    Task IAdvertiserHandler.OnPayloadReceived(AdvertiserEvent.PayloadReceived ev)
-    {
-        if (ev.Payload is BytesPayload bytes)
-        {
-            Console.WriteLine($"From {ev.Connection.RemoteDevice.DisplayName}: {Encoding.UTF8.GetString(bytes.Data)}");
-        }
-
-        return Task.CompletedTask;
-    }
-}
-```
-
-The discoverer side is mirrored: implement `IDiscovererHandler`, consume `INearbyDiscoverer.EventsAsync`, and call `INearbyDiscoverer.ConnectAsync` from `OnDeviceFound`.
-
-Handler methods are invoked on a background thread by default; implement the handler's `Dispatcher` property to marshal them to the UI thread (the sample's ViewModels do exactly that).
-
-Lifecycle notes:
-
-- Canceling the token passed to `EventsAsync` detaches that subscriber only — advertising/discovery keeps running until `StopAsync`.
-- A subscription survives `StartAsync`/`StopAsync` cycles on the same service instance, so a page can subscribe once and toggle advertising freely.
-- Like the core API, the services are app-lifetime DI singletons — `DisposeAsync` permanently completes all subscriber streams and is normally never called by app code.
+`StopAsync()` is the consumer-facing teardown: it stops advertising and discovery and disconnects everything, but leaves the session usable — start again whenever you like. The session itself is a DI singleton owned by the container; app code never disposes it, so no single page can shut down connectivity for the whole app.
 
 # Configuration
 
@@ -300,7 +258,6 @@ All `NearbyConnectionsOptions` values are read once at startup — set them in t
 | --- | --- | --- | --- |
 | `DisplayName` | Both | `DeviceInfo.Name` | The name shown to other devices when advertising/discovering. |
 | `ServiceId` | Both | Android: `AppInfo.Name`; iOS: none — **must be set** | Identifier that advertisers and discoverers match on. On iOS it is the `serviceType` (bare string, 1–15 chars — see [step 2](#2-platform-configuration)); startup validation throws if unset or invalid. |
-| `AutoAcceptConnections` | Both | `false` | When `true`, the platform accepts every inbound connection request automatically — the accept/reject flow in [step 3](#3-advertise-and-discover) never runs. Only enable this if you trust every peer that may discover you. |
 | `ReceivedFilesDirectory` | Both | Android: `FileSystem.CacheDirectory` (OS-purgeable); iOS: `FileSystem.AppDataDirectory` (persistent) | Directory where received files are saved (see [step 4](#4-send-and-receive-data)). |
 | `TransferInactivityTimeout` | Both | 10 seconds | Maximum time without a transfer progress update before an outgoing file send is aborted with `NearbyTransferTimeoutException`. Set to `Timeout.InfiniteTimeSpan` to disable. |
 | `AllowSynchronousContinuations` | Both | `false` | Advanced: lets stream continuations run synchronously on the SDK's callback thread instead of hopping to the thread pool. Only enable if your consumer loop bodies are trivially fast. |
@@ -310,7 +267,7 @@ All `NearbyConnectionsOptions` values are read once at startup — set them in t
 | `EncryptionPreference` | iOS | `MCEncryptionPreference.Required` | Encryption preference for the underlying `MCSession`. |
 | `InvitationTimeout` | iOS | 30 seconds | How long `ConnectAsync` waits for the nearby advertiser to respond to the connection invitation. |
 
-Two members change the walkthrough's behavior directly: `AutoAcceptConnections` short-circuits the accept flow in step 3, and `TransferInactivityTimeout` aborts the file sends in step 4 after a 10-second stall by default.
+One member changes the walkthrough's behavior directly: `TransferInactivityTimeout` aborts the file sends in step 4 after a 10-second stall by default.
 
 # Acknowledgements
 

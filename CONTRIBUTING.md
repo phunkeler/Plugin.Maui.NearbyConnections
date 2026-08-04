@@ -2,75 +2,66 @@
 
 ## Architecture
 
-### Two phases, two tiers
+### One public interface, state and streams
 
-Every session goes through two phases: **discovery/advertising** (learning who is nearby) and **connection** (exchanging data with a specific peer). These phases map directly to the two stream types the plugin exposes.
+Every session goes through two phases: **discovery/advertising** (learning who is nearby) and **connection** (exchanging data with a specific peer). Both live behind a single public interface, `INearbySession`.
 
-The codebase has two layers:
+The split that matters is not between phases but between *state* and *streams*:
 
-| Tier | Type | Responsibility |
-|------|------|----------------|
-| 1 | `INearbyConnections` | Raw platform streams. `AdvertiseAsync` yields inbound connection requests; `DiscoverAsync` yields device visibility events; `ConnectAsync` establishes a connection. No state ownership, no threading concern. |
-| 2 | `INearbyAdvertiser` / `INearbyDiscoverer` | MAUI-friendly services. Absorb loop hosting, lifecycle state, and unified event delivery. `EventsAsync` merges connection lifecycle and payload events into one stream with atomic current-state replay on subscribe. |
+| Shape | Used for | Why |
+|---|---|---|
+| Observable state — `Devices` + three C# events | Device presence and connection lifecycle | Presence *is* state, not a sequence of occurrences. A collection can be bound directly and read at any time; an event stream forces every consumer to rebuild the same collection from deltas. `NearbyDevice.Status` changes in place, so a bound row updates rather than moving between collections. |
+| Stream — `NearbyConnection.ReceiveAsync` | Inbound payloads | Payloads are ordered, unbounded, and consumed once. The loop body is the seam where consumer async work goes, and it is awaited before the next payload is taken — a `void`-returning `EventHandler` cannot express that. See `docs/PAYLOAD-DELIVERY.md`. |
+
+Internally `INearbySession` is implemented by `NearbySession`, which drives the internal `INearbyConnections` (the raw platform streams) and projects its callbacks into device state. `INearbyConnections` and its `AdvertiseAsync`/`DiscoverAsync` streams are implementation detail, not public API.
 
 ### Stream primitive — `System.Threading.Channels`
 
 All async delivery is backed by `System.Threading.Channels`. Platform callbacks (Bluetooth/WiFi hardware events, arriving bytes) write into an unbounded channel; consumer `await foreach` reads from it. When there is nothing to read the read suspends cheaply until a write occurs. This is why the API is a stream and not polling.
 
-`NearbyConnection` wraps its own per-connection `Channel<NearbyPayload>`. The `INearbyAdvertiser` / `INearbyDiscoverer` services forward each active connection's payloads as `PayloadReceived` events through the same per-subscriber `ChannelBroadcaster` fan-out that carries their lifecycle events (`ConnectionLifecycle.cs`, `ForwardPayloadsAsync`).
+`NearbyConnection` wraps its own per-connection `Channel<NearbyPayload>`, which the consumer enumerates directly.
 
-### Three messaging patterns
-
-The library uses three distinct primitives, each matched to the semantics of its use case:
+### Two messaging patterns
 
 | Pattern | Used for | Why |
 |---|---|---|
-| `ChannelBroadcaster<T>` | Advertiser / discoverer events (`EventsAsync`) | Fan-out: each subscriber gets its own copy of every event. Multiple observers (e.g. a ViewModel and a background service) can all watch the same lifecycle stream independently. |
-| `Channel<NearbyPayload>` (single, `SingleReader = true`) | Per-connection payload stream (`NearbyConnection.ReceiveAsync`) | Single-consumer data pipe: each payload is consumed exactly once. Two concurrent `ReceiveAsync` enumerators on the same connection would race and steal items from each other — unbounded channels accept writes unconditionally so there is no back-pressure to expose the bug. The design enforces single-consumer by construction. |
-| `TaskCompletionSource` | Disconnect signal (`NearbyConnection.Disconnected`) | One-time completion event: `Task` natively multicasts to any number of awaiters at zero cost. No channel or broadcaster needed. |
+| `Channel<NearbyPayload>` (single, `SingleReader = true`) | Per-connection payload stream (`NearbyConnection.ReceiveAsync`) | Single-consumer data pipe: each payload is consumed exactly once. Two concurrent `ReceiveAsync` enumerators on the same connection would race and steal items from each other — unbounded channels accept writes unconditionally so there is no back-pressure to expose the bug. The design enforces single-consumer by construction; fan out above the plugin. |
+| `TaskCompletionSource` | Disconnect signal (`NearbyConnection.Disconnected`) | One-time completion event: `Task` natively multicasts to any number of awaiters at zero cost. |
 
-### EventsAsync snapshot replay
+### Threading — the session owns dispatcher marshalling
 
-`EventsAsync` on the tier-2 services yields current state as synthetic events — under a lock — before handing off to the live channel. This eliminates the read-snapshot / subscribe-INCC race that affects any design built on separate snapshot + event-notification primitives. A `Synchronized` sentinel event marks the boundary between replayed history and live events.
+Platform callbacks arrive on SDK-owned background threads on both platforms. `NearbySession` funnels **every** `Devices` mutation, `NearbyDevice` property write, and event raise through `DispatchAsync`, so consumers observe all of them on the UI thread and bindings are safe without extra work. Nothing outside `NearbySession.state.cs` may touch device state.
 
-### Channel lifetime
+This is why event handlers must be fast and must not do I/O: they run synchronously on the dispatcher. A throwing handler is caught and logged so it cannot take down the callback path, but it still starves the handlers after it.
 
-The tier-2 services use a **fan-out per-subscriber channel** model. Each call to `EventsAsync()` creates a private `Channel<T>` that is registered atomically (under the same lock that captures the current-state snapshot), so the subscriber receives a consistent snapshot followed by live events with no race window.
+### Subscription lifetime — the consumer's responsibility
 
-Subscriber channels are completed only when:
-- The caller's `CancellationToken` fires, or
-- `Dispose()` / `DisposeAsync()` is called on the service
+The session is a singleton, so an event subscription without a matching `-=` keeps the subscriber alive for the life of the app, and re-subscribing (e.g. re-navigating to a page) fires handlers N times after N visits. A cancellation-scoped stream used to clean this up by ending its enumeration; C# events have no such affordance, so the discipline moved to the consumer.
 
-`StartAsync()` and `StopAsync()` do **not** complete channels — they control the internal run loop and emit cleanup events (`ConnectionRequestExpired`, `DeviceLost`) so subscribers update their UI. A consumer that subscribes with `EventsAsync(navigationToken)` survives multiple `StartAsync`/`StopAsync` cycles on the same service instance.
-
-Do not rely on `StopAsync()` to terminate a stream — use the caller's cancellation token or `Dispose()` instead.
+`samples/NearbyChat` shows the required pattern: `BasePageViewModel.RegisterSessionSubscription(subscribe, unsubscribe)` detaches on navigate-away, and no page ViewModel subscribes directly. Payload loops need no equivalent — they self-terminate when the connection drops.
 
 ### DI registration
 
-The plugin follows a builder pattern with two entry points:
+One call registers everything; there are no opt-in tiers.
 
 **MAUI apps** — use `UseNearbyConnections()` on `MauiAppBuilder` (the MAUI-idiomatic style):
 
 ```csharp
 builder.UseNearbyConnections(opts =>
-    {
+{
 #if IOS
-        opts.InvitationTimeout = TimeSpan.FromSeconds(10);
+    opts.InvitationTimeout = TimeSpan.FromSeconds(10);
 #endif
-    })
-    .AddAdvertiser()   // opt-in: INearbyAdvertiser (Tier 2)
-    .AddDiscoverer();  // opt-in: INearbyDiscoverer (Tier 2)
+});
 ```
 
-**Testing seam** — `AddNearbyConnections()` also exists directly on `IServiceCollection`, and `INearbyConnections` is public, because consumers mock or implement the interface to test their own app code against the plugin. The public test-double constructors on `NearbyConnection` (`Connections/NearbyConnection.cs`) and `NearbyConnectionRequest` (`Connections/NearbyConnectionRequest.cs`) exist for exactly this: they let a fake `INearbyConnections` yield real connection/request objects into the code under test.
+**Testing seam** — `AddNearbyConnections()` also exists directly on `IServiceCollection`, and `INearbySession` is public, because consumers mock or implement the interface to test their own app code against the plugin. The public test-double constructor on `NearbyConnection` (`Connections/NearbyConnection.cs`) exists for exactly this: it lets a fake `INearbySession` hand real connection objects to the code under test.
 
 ```csharp
-services.AddNearbyConnections()
-    .AddAdvertiser()
-    .AddDiscoverer();
+services.AddNearbyConnections();
 ```
 
-`AddAdvertiser()` / `AddDiscoverer()` are explicit opt-in calls because they register the optional `INearbyAdvertiser` / `INearbyDiscoverer` services as singletons. Apps that only need the core `INearbyConnections` API can omit them.
+Registered with `TryAddSingleton` — one radio, one native session, so the lifetime is platform-forced rather than a preference. Nothing auto-starts.
 
 ### Lifecycle wiring — app responsibility
 
@@ -86,25 +77,23 @@ builder.ConfigureLifecycleEvents(lifecycle =>
     lifecycle.AddAndroid(android => android.OnStop(activity =>
     {
         var sp = IPlatformApplication.Current?.Services;
-        _ = sp?.GetService<INearbyAdvertiser>()?.StopAsync();
-        _ = sp?.GetService<INearbyDiscoverer>()?.StopAsync();
+        _ = sp?.GetService<INearbySession>()?.StopAsync();
     }));
 #elif IOS
     lifecycle.AddiOS(ios => ios.DidEnterBackground(app =>
     {
         var sp = IPlatformApplication.Current?.Services;
-        _ = sp?.GetService<INearbyAdvertiser>()?.StopAsync();
-        _ = sp?.GetService<INearbyDiscoverer>()?.StopAsync();
+        _ = sp?.GetService<INearbySession>()?.StopAsync();
     }));
 #endif
 });
 ```
 
-Use `OnStop` on Android and `DidEnterBackground` on iOS — these fire only on true backgrounding, not for transient interruptions such as notifications, dialogs, or incoming calls. The DI singletons remain alive across background/foreground cycles; pages that call `StartAsync()` on `NavigatedTo` will resume naturally when the user returns.
+Use `OnStop` on Android and `DidEnterBackground` on iOS — these fire only on true backgrounding, not for transient interruptions such as notifications, dialogs, or incoming calls. `StopAsync()` leaves the session usable, so pages that start advertising or discovering on `NavigatedTo` resume naturally when the user returns.
 
 ### Platform implementations
 
-Each platform implements `INearbyConnections` as a partial class sealed against `NearbyConnectionsImplementation`. Platform-specific files are excluded from non-matching build targets via `src/Directory.Build.targets`. Global usings per platform are also injected there.
+Each platform implements the internal `INearbyConnections` as a partial class sealed against `NearbyConnectionsImplementation`. Platform-specific files are excluded from non-matching build targets via `src/Directory.Build.targets`. Global usings per platform are also injected there.
 
 ## Day-to-day development
 
