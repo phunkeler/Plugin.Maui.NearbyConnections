@@ -23,7 +23,9 @@ namespace Plugin.Maui.NearbyConnections;
 /// </remarks>
 sealed partial class NearbySession : INearbySession, IAsyncDisposable
 {
-    readonly NearbyConnectionsImplementation _connections;
+    // The interface, not the concrete implementation: on net10.0 every Platform* start throws, so a
+    // concrete dependency would make the session untestable off-device. Tests substitute a fake.
+    readonly INearbyConnections _connections;
     readonly IDispatcher? _dispatcher;
     readonly ILogger _logger;
 
@@ -46,7 +48,7 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
     int _disposeGuard;
 
     internal NearbySession(
-        NearbyConnectionsImplementation connections,
+        INearbyConnections connections,
         IDispatcher? dispatcher,
         ILogger logger)
     {
@@ -97,13 +99,14 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
             var cts = new CancellationTokenSource();
             var stream = _connections.AdvertiseAsync(cts.Token);
 
-            // The platform start is inside the enumerable, so failures surface at the first MoveNext
-            // rather than here. Pump on a background task and let the first move happen there; the
-            // stream faulting is reported through the pump's catch, not from this method.
+            // Set the flag BEFORE starting the pump. The platform start lives inside the enumerable,
+            // so an immediate failure faults the pump right away; if the flag were set afterwards it
+            // would overwrite the pump's clear and leave the session claiming to advertise when it
+            // is not.
             _advertiseCts = cts;
-            _advertisePump = PumpAdvertiseAsync(stream, cts.Token);
-
             await SetIsAdvertisingAsync(true).ConfigureAwait(false);
+
+            _advertisePump = PumpAdvertiseAsync(stream, cts.Token);
         }
         finally
         {
@@ -146,10 +149,11 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
             var cts = new CancellationTokenSource();
             var stream = _connections.DiscoverAsync(cts.Token);
 
+            // Flag before pump — see StartAdvertisingAsync for why the order matters.
             _discoverCts = cts;
-            _discoverPump = PumpDiscoverAsync(stream, cts.Token);
-
             await SetIsDiscoveringAsync(true).ConfigureAwait(false);
+
+            _discoverPump = PumpDiscoverAsync(stream, cts.Token);
         }
         finally
         {

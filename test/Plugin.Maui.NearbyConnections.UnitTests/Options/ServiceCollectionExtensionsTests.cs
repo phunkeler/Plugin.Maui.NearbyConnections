@@ -18,10 +18,25 @@ public class ServiceCollectionExtensionsTests
 
             // Act
             await using var provider = services.BuildServiceProvider();
-            var nearbyConnections = provider.GetRequiredService<INearbyConnections>();
+            var session = provider.GetRequiredService<INearbySession>();
 
             // Assert
-            Assert.IsNotNull(nearbyConnections);
+            Assert.IsNotNull(session);
+        }
+
+        [TestMethod]
+        public async Task ResolvedTwice_ReturnsTheSameInstance()
+        {
+            // One radio, one native session — the singleton lifetime is platform-forced, not a
+            // preference. Two instances would mean two MCSession/Nearby clients fighting over it.
+            var services = new ServiceCollection();
+            services.AddNearbyConnections(options => options.ServiceId = "test-service");
+
+            await using var provider = services.BuildServiceProvider();
+
+            Assert.AreSame(
+                provider.GetRequiredService<INearbySession>(),
+                provider.GetRequiredService<INearbySession>());
         }
 
         [TestMethod]
