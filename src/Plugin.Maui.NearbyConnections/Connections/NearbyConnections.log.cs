@@ -84,6 +84,9 @@ sealed partial class NearbyConnectionsImplementation
     [LoggerMessage(Level = LogLevel.Debug, Message = "Disconnecting from device: Id={DeviceId}, DisplayName={DisplayName}")]
     partial void LogDisconnecting(string deviceId, string? displayName);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to clear platform state for the timed-out connection attempt to device {DeviceId}. A retry may fail until the platform releases the endpoint.")]
+    partial void LogAbandonConnectError(string deviceId, Exception exception);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to send disconnect message to device: Id={DeviceId}, DisplayName={DisplayName}, Error={Error}")]
     partial void LogFailedToSendDisconnect(string deviceId, string? displayName, string error);
 

@@ -137,14 +137,53 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     {
         ArgumentNullException.ThrowIfNull(device);
 
+        // Before anything else, including registering the TCS: an already-cancelled token must
+        // surface as OperationCanceledException, not as whatever the platform happens to throw
+        // first. Each platform checks internally too, but honouring it here keeps the contract
+        // uniform across all three targets.
+        cancellationToken.ThrowIfCancellationRequested();
+
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
         _connectionTcs[device.Id] = (tcs, cancellationToken);
 
-        await PlatformInitiateConnectAsync(device, cancellationToken);
+        // A plugin-owned deadline, not a platform one. iOS has a native invitation timeout, but
+        // Google's Nearby Connections has none at all: requestConnection's Task completes when the
+        // request is *sent*, and nothing guarantees a callback ever follows. Without this, a peer
+        // that walks out of range mid-handshake leaves ConnectAsync awaiting forever and strands
+        // its _connectionTcs entry. Applied on both platforms so the observable behaviour matches.
+        var hasTimeout = Options.InvitationTimeout != Timeout.InfiniteTimeSpan;
+
+        // Timed through the injected TimeProvider so this is testable with FakeTimeProvider rather
+        // than requiring a real 30-second wait — the same pattern as OutgoingTransfer.
+        using var deadlineCts = hasTimeout
+            ? new CancellationTokenSource(Options.InvitationTimeout, TimeProvider)
+            : new CancellationTokenSource();
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, deadlineCts.Token);
 
         try
         {
-            return await tcs.Task.WaitAsync(cancellationToken);
+            await PlatformInitiateConnectAsync(device, timeoutCts.Token);
+
+            return await tcs.Task.WaitAsync(timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (hasTimeout && !cancellationToken.IsCancellationRequested)
+        {
+            // The linked token fired but the caller's did not, so this is the deadline elapsing
+            // rather than the caller cancelling. Report it as a timeout rather than as a
+            // cancellation the caller never asked for.
+            _connectionTcs.TryRemove(device.Id, out _);
+
+            // Clear the platform's own view of the half-open attempt. On Android, Google Play
+            // Services keeps the endpoint marked connected from an attempt that was never torn
+            // down, and the next ConnectAsync then fails with
+            // STATUS_ALREADY_CONNECTED_TO_ENDPOINT — so a timeout that skipped this would poison
+            // every retry.
+            await PlatformAbandonConnectAsync(device);
+
+            throw new NearbyConnectionTimeoutException(
+                $"The connection request to '{device.DisplayName ?? device.Id}' was not answered within {Options.InvitationTimeout.TotalSeconds:0.#}s.");
         }
         catch
         {

@@ -31,9 +31,9 @@ sealed partial class NearbyConnectionsImplementation
                     OnDisconnected,
                     LogOnConnectionInitiatedError),
                 new AdvertisingOptions.Builder()
-                    .SetStrategy(Options.Strategy)
+                    .SetStrategy(Options.ToPlatformStrategy())
                     .SetLowPower(Options.UseLowPower)
-                    .SetConnectionType(Options.ConnectionType)
+                    .SetConnectionType(Options.ToPlatformConnectionType())
                     .Build());
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
@@ -206,7 +206,7 @@ sealed partial class NearbyConnectionsImplementation
                 Options.ServiceId,
                 new DiscoveryCallback(OnEndpointFound, OnEndpointLost),
                 new DiscoveryOptions.Builder()
-                    .SetStrategy(Options.Strategy)
+                    .SetStrategy(Options.ToPlatformStrategy())
                     .SetLowPower(Options.UseLowPower)
                     .Build());
         }
@@ -475,6 +475,32 @@ sealed partial class NearbyConnectionsImplementation
         return accept
             ? client.AcceptConnectionAsync(device.Id, new ConnectionCallback(OnPayloadReceived, OnPayloadTransferUpdate, LogOnPayloadTransferUpdateError))
             : client.RejectConnectionAsync(device.Id);
+    }
+
+    /// <summary>
+    /// Clears Google Play Services' view of a connection attempt that timed out, so the endpoint is
+    /// not left marked connected from an attempt this app has already given up on.
+    /// </summary>
+    /// <remarks>
+    /// Without this, GMS — a system process, independent of this app's object graph — still
+    /// considers the endpoint connected, and the next <c>ConnectAsync</c> fails with
+    /// <c>STATUS_ALREADY_CONNECTED_TO_ENDPOINT</c>. One un-cleaned timeout would poison every
+    /// subsequent retry to that device.
+    /// </remarks>
+    Task PlatformAbandonConnectAsync(NearbyDevice device)
+    {
+        try
+        {
+            PlatformDisconnectEndpointAsync(device.Id);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort cleanup on a path that is already failing: the caller is about to get a
+            // timeout exception, and masking it with a teardown failure would hide the real cause.
+            LogAbandonConnectError(device.Id, ex);
+        }
+
+        return Task.CompletedTask;
     }
 
     void PlatformDisconnectEndpointAsync(string endpointId)

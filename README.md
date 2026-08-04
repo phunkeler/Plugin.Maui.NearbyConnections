@@ -18,8 +18,8 @@ Peer-to-peer communication happens in two phases: **finding peers** (advertise/d
 
 Neither platform gives you direct control over which radio carries your data — both automatically negotiate between Bluetooth and Wi-Fi per connection, so you don't manage radios directly.
 
-- **Android** ([Nearby Connections](https://developers.google.com/nearby/connections/overview)) picks between Bluetooth Classic, BLE, and Wi-Fi based on the [`Strategy`](https://developers.google.com/nearby/connections/strategies) you configure in `NearbyConnectionsOptions`: `P2pCluster` (default) allows many-to-many mesh connections at the cost of lower bandwidth, `P2pStar` allows one-to-many with higher bandwidth, and `P2pPointToPoint` is one-to-one at the highest throughput. Choose based on your topology and data size — `P2pCluster` for small messages across a cluster of devices, `P2pPointToPoint` for large file transfers between two devices.
-- **iOS** (Multipeer Connectivity) auto-selects Bluetooth vs. peer-to-peer Wi-Fi vs. infrastructure Wi-Fi per link with no app-level topology control — there is no iOS equivalent to `Strategy`.
+- **Android** ([Nearby Connections](https://developers.google.com/nearby/connections/overview)) picks between Bluetooth Classic, BLE, and Wi-Fi based on the [topology](https://developers.google.com/nearby/connections/strategies) you configure via `NearbyConnectionsOptions.Topology`: `Cluster` (default) allows many-to-many mesh connections at the cost of lower bandwidth, `Star` allows one-to-many with higher bandwidth, and `PointToPoint` is one-to-one at the highest throughput. Choose based on your topology and data size — `Cluster` for small messages across a cluster of devices, `PointToPoint` for large file transfers between two devices.
+- **iOS** (Multipeer Connectivity) auto-selects Bluetooth vs. peer-to-peer Wi-Fi vs. infrastructure Wi-Fi per link with no app-level topology control — there is no iOS equivalent to `Topology`.
 
 # Dependencies
 
@@ -231,6 +231,7 @@ Received files are saved to `NearbyConnectionsOptions.ReceivedFilesDirectory`. T
 All plugin-specific failures derive from `NearbyConnectionsException`:
 
 - `NearbyAdvertisingException` / `NearbyDiscoveryException` — the platform failed to start advertising or discovery, most often because permissions were denied or the radio is off.
+- `NearbyConnectionTimeoutException` — thrown from `ConnectAsync` when the remote device does not answer within `NearbyConnectionsOptions.InvitationTimeout` (default 30 seconds), typically because it moved out of range mid-handshake or nobody answered the prompt. The device returns to `Visible`, so retrying is reasonable.
 - `NearbyTransferTimeoutException` — thrown from a file-transfer `SendAsync` call when no transfer progress is observed for `NearbyConnectionsOptions.TransferInactivityTimeout` (default 10 seconds — see the [Configuration](#configuration) table).
 - `NearbyConnectionsException` — the non-sealed base type. Catch it to handle all of the above; deriving from it in your own code is a supported extension contract (useful when faking `INearbySession` in tests).
 
@@ -261,11 +262,11 @@ All `NearbyConnectionsOptions` values are read once at startup — set them in t
 | `ReceivedFilesDirectory` | Both | Android: `FileSystem.CacheDirectory` (OS-purgeable); iOS: `FileSystem.AppDataDirectory` (persistent) | Directory where received files are saved (see [step 4](#4-send-and-receive-data)). |
 | `TransferInactivityTimeout` | Both | 10 seconds | Maximum time without a transfer progress update before an outgoing file send is aborted with `NearbyTransferTimeoutException`. Set to `Timeout.InfiniteTimeSpan` to disable. |
 | `AllowSynchronousContinuations` | Both | `false` | Advanced: lets stream continuations run synchronously on the SDK's callback thread instead of hopping to the thread pool. Only enable if your consumer loop bodies are trivially fast. |
-| `Strategy` | Android | `Strategy.P2pCluster` | Connection topology/bandwidth strategy (see [How connections work](#how-connections-work)). Must match between the advertising and discovering devices. |
+| `Topology` | Android | `NearbyTopology.Cluster` | How devices may connect — `Cluster` (many-to-many), `Star` (one-to-many), or `PointToPoint` (one-to-one, highest bandwidth). See [How connections work](#how-connections-work). Must match between the advertising and discovering devices. |
 | `UseLowPower` | Android | `false` | When `true`, only low-power mediums (like BLE) are used for advertising and discovery. |
-| `ConnectionType` | Android | `ConnectionType.Balanced` | Google Nearby Connections connection type (trade-off between bandwidth and disruption to other connections). |
-| `EncryptionPreference` | iOS | `MCEncryptionPreference.Required` | Encryption preference for the underlying `MCSession`. |
-| `InvitationTimeout` | iOS | 30 seconds | How long `ConnectAsync` waits for the nearby advertiser to respond to the connection invitation. |
+| `ConnectionType` | Android | `NearbyConnectionType.Balanced` | How aggressively a connection may use the radio — `Balanced`, `HighBandwidth`, or `NonDisruptive` (trade-off between throughput and disruption to other connections). |
+| `EncryptionPreference` | iOS | `NearbyEncryptionPreference.Required` | Whether the link must be encrypted. Android always encrypts and ignores this. |
+| `InvitationTimeout` | **Both** | 30 seconds | How long `ConnectAsync` waits for the remote device to answer before throwing `NearbyConnectionTimeoutException`. Set to `Timeout.InfiniteTimeSpan` to wait indefinitely. |
 
 One member changes the walkthrough's behavior directly: `TransferInactivityTimeout` aborts the file sends in step 4 after a 10-second stall by default.
 

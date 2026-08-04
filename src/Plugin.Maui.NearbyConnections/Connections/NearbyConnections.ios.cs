@@ -84,7 +84,7 @@ sealed partial class NearbyConnectionsImplementation
                         _session ??= new MCSession(
                             LocalPeerIdentityStore.GetLocalPeerId(Options.DisplayName),
                             identity: null!,
-                            Options.EncryptionPreference)
+                            Options.ToPlatformEncryptionPreference())
                         {
                             Delegate = new SessionDelegate(this)
                         };
@@ -220,7 +220,7 @@ sealed partial class NearbyConnectionsImplementation
             _session ??= new MCSession(
                 LocalPeerIdentityStore.GetLocalPeerId(Options.DisplayName),
                 identity: null!,
-                Options.EncryptionPreference)
+                Options.ToPlatformEncryptionPreference())
             {
                 Delegate = new SessionDelegate(this)
             };
@@ -231,6 +231,21 @@ sealed partial class NearbyConnectionsImplementation
 
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Nothing to clean up on iOS: <c>InvitePeer</c> is given the same
+    /// <see cref="NearbyConnectionsOptions.InvitationTimeout"/>, so MultipeerConnectivity expires
+    /// the invitation itself and reports the peer as <c>NotConnected</c>.
+    /// </summary>
+    /// <remarks>
+    /// The shared timeout still applies here rather than being Android-only, because MPC's
+    /// <c>Connecting</c> state can hang indefinitely with neither terminal callback arriving
+    /// (documented on Wi-Fi-enabled-but-unassociated devices). The plugin-owned deadline is the
+    /// only thing that rescues that case.
+    /// </remarks>
+#pragma warning disable CA1822, S2325
+    Task PlatformAbandonConnectAsync(NearbyDevice device) => Task.CompletedTask;
+#pragma warning restore CA1822, S2325
 
     Task SendBytesAsync(
         string peerId,

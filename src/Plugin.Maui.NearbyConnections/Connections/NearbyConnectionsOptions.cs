@@ -53,6 +53,24 @@ public sealed partial class NearbyConnectionsOptions
     private static partial string GetDefaultReceivedFilesDirectory();
 
     /// <summary>
+    /// Gets or sets how long to wait for a remote device to answer a connection request before the
+    /// attempt is abandoned. Defaults to 30 seconds. Set to <see cref="Timeout.InfiniteTimeSpan"/>
+    /// to wait indefinitely.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Applies to both platforms, but is enforced differently: iOS has a native invitation timeout,
+    /// while on Android the plugin owns a timer because Google's Nearby Connections imposes no
+    /// timeout of its own. Without it, connecting to a device that never answers — or that walks
+    /// out of range mid-handshake — would wait forever.
+    /// </para>
+    /// <para>
+    /// On expiry <c>ConnectAsync</c> throws <see cref="NearbyConnectionTimeoutException"/>.
+    /// </para>
+    /// </remarks>
+    public TimeSpan InvitationTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// Gets the maximum time to wait without receiving a transfer progress update
     /// before considering a data transfer stalled and aborting it.
     /// Defaults to 10 seconds. Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.

@@ -3,16 +3,30 @@ namespace Plugin.Maui.NearbyConnections;
 public sealed partial class NearbyConnectionsOptions
 {
     /// <summary>
-    /// Gets or sets the encryption preference for the underlying <see cref="MCSession"/>.
-    /// The default value is <see cref="MCEncryptionPreference.Required"/>.
+    /// Gets or sets whether the link between two devices must be encrypted.
+    /// The default value is <see cref="NearbyEncryptionPreference.Required"/>.
     /// </summary>
-    public MCEncryptionPreference EncryptionPreference { get; set; } = MCEncryptionPreference.Required;
+    /// <remarks>
+    /// iOS only — Android encrypts every connection unconditionally and always behaves as
+    /// <see cref="NearbyEncryptionPreference.Required"/>.
+    /// </remarks>
+    public NearbyEncryptionPreference EncryptionPreference { get; set; } = NearbyEncryptionPreference.Required;
 
     /// <summary>
-    /// Gets or sets the amount of time to wait for the nearby advertiser
-    /// to respond to the invitation. The default value is 30 seconds.
+    /// Maps <see cref="EncryptionPreference"/> onto the MultipeerConnectivity value it names.
     /// </summary>
-    public TimeSpan InvitationTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    /// <remarks>
+    /// The mapping is the whole point of the neutral enum: it keeps
+    /// <c>MCEncryptionPreference</c> out of the public surface, so consumers never have to
+    /// reference a vendor SDK type to configure the plugin.
+    /// </remarks>
+    internal MCEncryptionPreference ToPlatformEncryptionPreference()
+        => EncryptionPreference switch
+        {
+            NearbyEncryptionPreference.Optional => MCEncryptionPreference.Optional,
+            NearbyEncryptionPreference.None => MCEncryptionPreference.None,
+            _ => MCEncryptionPreference.Required,
+        };
 
     private static partial string GetDefaultDisplayName() => DeviceInfo.Name;
 

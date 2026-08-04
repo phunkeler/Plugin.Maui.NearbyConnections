@@ -21,5 +21,9 @@ sealed partial class NearbyConnectionsImplementation
 
     Task PlatformInitiateConnectAsync(NearbyDevice device, CancellationToken cancellationToken)
         => throw new PlatformNotSupportedException(PlatformNotSupportedMessage);
+
+    // No-op for the same reason as the stop/dispose members above: it runs on a cleanup path where
+    // throwing would replace the caller's real failure with a platform-support error.
+    Task PlatformAbandonConnectAsync(NearbyDevice device) => Task.CompletedTask;
 #pragma warning restore CA1822, S2325, S1144, S1172
 }

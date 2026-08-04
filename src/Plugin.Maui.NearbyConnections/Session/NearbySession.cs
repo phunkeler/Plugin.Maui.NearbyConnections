@@ -99,11 +99,8 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
             var cts = new CancellationTokenSource();
             var stream = _connections.AdvertiseAsync(cts.Token);
 
-            // Set the flag BEFORE starting the pump. The platform start lives inside the enumerable,
-            // so an immediate failure faults the pump right away; if the flag were set afterwards it
-            // would overwrite the pump's clear and leave the session claiming to advertise when it
-            // is not.
             _advertiseCts = cts;
+
             await SetIsAdvertisingAsync(true).ConfigureAwait(false);
 
             _advertisePump = PumpAdvertiseAsync(stream, cts.Token);
