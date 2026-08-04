@@ -7,6 +7,12 @@ which parts are native on both platforms, native on one, or a plugin extension.
 This is a design reference for contributors. It documents what each platform SDK actually
 guarantees, where they diverge, and which behaviour the plugin supplies itself.
 
+> **Status — partly implemented.** The lifecycle model, `NearbyDeviceStatus`, and the single
+> `Devices` collection shipped as described. Read "Proposed shape" below as history, not as the
+> current API: the verbs live on `INearbySession` (`session.ConnectAsync(device)`), not on
+> `NearbyDevice`, and there is no `LastEndReason`. Gaps 2 and 3 are closed; gaps 1 and 4 remain
+> open. `INearbySession` is the source of truth.
+
 ---
 
 ## Naming constraint — vendor-neutral public vocabulary
@@ -340,18 +346,32 @@ The receiving side reads `Reject` immediately before `NotConnected` and reports
 
 **Residual:** if the peer is killed mid-reject the message never arrives → `Lost`. Honest and rare.
 
-### Gap 2 — invitation timeout: **fully closeable**
+### Gap 2 — invitation timeout: ✅ **CLOSED**
 
-iOS has `InvitePeer(timeout:)`; Android has nothing. The plugin runs its own timer on Android
-against the same `InvitationTimeout` option. `OutgoingTransfer` already establishes this pattern
-(inactivity timeout via `CancellationTokenSource`), and routing it through the injected
-`TimeProvider` (review finding P3-1) makes it testable with `FakeTimeProvider`.
+iOS has `InvitePeer(timeout:)`; Android has nothing — confirmed against Google's docs:
+`requestConnection`'s Task completes when the request is *sent*, and nothing bounds how long a peer
+may take to answer.
 
-**Bonus:** this also fixes verified-behaviour finding 4 — the documented iOS case where `Connecting`
-hangs forever with neither terminal callback arriving. A plugin-owned timer is the *only* thing that
-rescues that state on either platform.
+**Implemented** in `NearbyConnections.shared.cs` (`ConnectAsync`): `InvitationTimeout` moved from
+iOS-only to shared, enforced by a plugin-owned `CancellationTokenSource` timed through the injected
+`TimeProvider` so it is testable with `FakeTimeProvider`. Expiry throws
+`NearbyConnectionTimeoutException`, distinguishable from caller cancellation. On Android the
+timeout also calls `DisconnectFromEndpoint` (`PlatformAbandonConnectAsync`), without which Google
+Play Services keeps the endpoint marked connected and every retry fails with
+`STATUS_ALREADY_CONNECTED_TO_ENDPOINT`.
 
-### Gap 3 — per-peer disconnect: **fully closeable** (already half-built)
+**Bonus, as predicted:** this also covers verified-behaviour finding 4 — the documented iOS case
+where `Connecting` hangs forever with neither terminal callback arriving.
+
+### Gap 3 — per-peer disconnect: ✅ **CLOSED**
+
+`ControlMessage.Disconnect` is sent to the departing peer, and `MCSession` is torn down only when
+the last peer leaves (`NearbyConnections.ios.cs`, the `NotConnected` case — note the
+`connectedPeers.Length > 0` guard, which exists because `Enumerable.All` returns `true` for an empty
+sequence and without it a failed handshake disposed the session out from under still-connected
+peers). `INearbySession.DisconnectAsync(device)` is the public verb on both platforms.
+
+Original analysis, retained for context:
 
 `ControlMessage.Disconnect` already exists and is already sent on iOS before teardown. Completing it:
 the receiver treats `Disconnect` as "this specific peer left," removes only that peer, and keeps the
@@ -366,13 +386,13 @@ uniform for free: one timer, one `EndReason.Expired`, identical on both platform
 
 ### Resulting capability matrix
 
-| Capability | Before | After | Mechanism |
-|---|---|---|---|
-| Failure reason | ⚠ Android only | ✅ uniform (~90%) | `ControlMessage.Reject` + owned timers |
-| Invitation timeout | ⚠ iOS only | ✅ uniform | Plugin timer on Android |
-| Per-peer disconnect | ⚠ Android only | ✅ uniform | `ControlMessage.Disconnect` (extend existing) |
-| Request expiry | ❌ neither | ✅ uniform | Plugin timer, both |
-| `Connecting` reliability | ⚠ iOS may skip | ✅ advisory + timeout-backed | Terminal-callback-driven |
+| Capability | Before | After | Mechanism | Status |
+|---|---|---|---|---|
+| Failure reason | ⚠ Android only | uniform (~90%) | `ControlMessage.Reject` + owned timers | ⏳ **open** (gap 1) |
+| Invitation timeout | ⚠ iOS only | ✅ uniform | Plugin-owned deadline, both platforms | ✅ **done** |
+| Per-peer disconnect | ⚠ Android only | ✅ uniform | `ControlMessage.Disconnect` | ✅ **done** |
+| Request expiry | ❌ neither | uniform | Plugin timer, both | ⏳ **open** (gap 4) |
+| `Connecting` reliability | ⚠ iOS may skip | ✅ advisory + timeout-backed | Terminal-callback-driven | ✅ **done** |
 
 ### What this costs, honestly
 
@@ -510,20 +530,21 @@ what disappears is the plumbing the sample wrote to compensate for the plugin's 
 1. ~~`Peers`/`NearbyPeer` vs `Devices`/`NearbyDevice`~~ — **Settled:** `NearbyDevice`/`Devices`.
    Vendor-neutral (both `Peer` and `Endpoint` are SDK terms), MAUI-idiomatic, and keeps published
    API. See *Naming constraint* above.
-2. **Does `NearbyConnection` stay a separate type**, or do its members fold onto `NearbyDevice`?
-   Keeping it separate preserves the published type and keeps transfer concerns off the peer;
-   folding it in means one type for the whole lifecycle.
-3. **Synthesize invitation timeout on Android** for parity, or expose iOS-only and document?
-4. **Per-peer disconnect on iOS** — document the divergence, or emulate via `ControlMessage`?
-5. **Does `Connections` survive** as a convenience filtered view, or is
-   `Devices.Where(d => d.Status is NearbyDeviceStatus.Connected)` enough?
-6. **Vendor-neutrality sweep of the rest of the surface.** The naming constraint applies to *every*
-   public member, not just the device type. Known candidates to review before implementation:
-   - `NearbyConnectionsOptions.Strategy` → already slated to become `Topology : NearbyTopology`
-     (`Strategy`/`P2pCluster` is Google's vocabulary).
-   - `NearbyConnectionsOptions.EncryptionPreference` → typed `MCEncryptionPreference` today, a
-     **direct Apple type leak in public API**; slated to become `NearbyEncryptionPreference`.
+2. ~~**Does `NearbyConnection` stay a separate type**~~ — **Settled: separate.** Preserves the
+   published type and keeps transfer concerns off the device.
+3. ~~**Synthesize invitation timeout on Android**~~ — **Settled: synthesized.** See gap 2 above.
+4. ~~**Per-peer disconnect on iOS**~~ — **Settled: emulated via `ControlMessage`.** See gap 3.
+5. ~~**Does `Connections` survive**~~ — **Settled: no.** One `Devices` collection; consumers filter
+   on `Status`. Two collections could disagree.
+6. **Vendor-neutrality sweep** — **mostly done.** Zero `Android.Gms` / `MultipeerConnectivity`
+   types remain in any PublicAPI baseline (verifiable by grepping them).
+   - ~~`Strategy`~~ → **done:** `Topology : NearbyTopology`.
+   - ~~`EncryptionPreference`~~ → **done:** `NearbyEncryptionPreference`.
+   - ~~`ConnectionType`~~ → **done:** `NearbyConnectionType`. Was a raw `int` holding a Google
+     constant — untyped *and* vendor-specific.
    - `NearbyConnectionsOptions.ServiceId` → neutral enough, but its iOS semantics are Bonjour's
      `serviceType`; keep the name, keep documenting the platform difference.
-   - `InvitationTimeout` → "invitation" is MPC-flavoured; consider `ConnectionRequestTimeout` for
-     symmetry with `RequestReceived`/`NearbyConnectionRequest`.
+   - **`InvitationTimeout` → still open.** "Invitation" is MPC vocabulary, and the option is now
+     cross-platform, which makes the leak more visible rather than less. `ConnectionRequestTimeout`
+     reads neutrally on both. Deliberately *not* renamed alongside the type work: it belongs with
+     BACKLOG #2 (terminology) so the whole vocabulary is settled in one pass rather than piecemeal.
