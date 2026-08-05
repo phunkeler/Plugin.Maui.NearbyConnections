@@ -754,6 +754,170 @@ public class NearbySessionTests
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Backgrounding teardown (docs/TESTING-AND-LIFECYCLE-PLAN.md §3.6/§3.7).
+    //
+    // On iOS, AppLifecycleObserver calls StopAsync when the app enters the
+    // background, because MultipeerConnectivity does not survive suspension and
+    // the plugin would otherwise report a session iOS has already killed.
+    //
+    // The observer itself is iOS-only and needs UIKit, so it cannot be
+    // instantiated on net10.0. What these pin instead is the contract it depends
+    // on: that StopAsync alone produces every consumer-visible transition
+    // backgrounding requires. If one of these regresses, the iOS fix silently
+    // stops delivering the state the consumer needs, with no compile error.
+    // -------------------------------------------------------------------------
+
+    [TestClass]
+    public sealed class BackgroundTeardown : NearbySessionTests
+    {
+        [TestMethod]
+        public async Task StopAsync_RaisesConnectionDropped_ForEveryLiveConnection()
+        {
+            // The zombie-Connected bug: without this, a consumer backgrounded mid-conversation
+            // is never told the connection ended, because iOS tears MPC down silently and with
+            // no NSError. ConnectionDropped is the only signal it will ever get.
+            var connections = new FakeNearbyConnections();
+            var sut = CreateSut(connections);
+            await sut.StartDiscoveringAsync();
+
+            var device = new NearbyDevice("peer-1", "Alice");
+            connections.ConnectResult = CreateConnection(device);
+
+            var dropped = new List<string>();
+            sut.ConnectionDropped += (_, e) => dropped.Add(e.Device.Id);
+
+            await sut.ConnectAsync(device);
+            Assert.AreEqual(NearbyDeviceStatus.Connected, device.Status);
+
+            await sut.StopAsync();
+            await WaitForAsync(() => dropped.Count > 0);
+
+            Assert.HasCount(1, dropped);
+            Assert.AreEqual("peer-1", dropped[0]);
+        }
+
+        [TestMethod]
+        public async Task StopAsync_ClearsConnectedState_SoNoDeviceIsLeftReportingConnected()
+        {
+            // Devices is the state consumers bind to. A row still reading Connected after the OS
+            // ended the session is precisely the state this fix exists to eliminate.
+            var connections = new FakeNearbyConnections();
+            var sut = CreateSut(connections);
+            await sut.StartDiscoveringAsync();
+
+            var device = new NearbyDevice("peer-1", "Alice");
+            connections.ConnectResult = CreateConnection(device);
+            await sut.ConnectAsync(device);
+
+            await sut.StopAsync();
+
+            Assert.IsEmpty(sut.Devices);
+
+            // Awaited, not asserted outright: the per-device clear happens in WatchDisconnectAsync,
+            // which observes the connection's Disconnected task and therefore lands after StopAsync
+            // returns. See StopAsync_ClearingDeviceState_IsNotSynchronous for why that ordering is
+            // load-bearing on iOS rather than an incidental detail.
+            await WaitForAsync(() => device.Connection is null);
+
+            Assert.IsNull(device.Connection, "A cleared device must not still hold a dead connection.");
+            Assert.AreNotEqual(NearbyDeviceStatus.Connected, device.Status);
+        }
+
+        [TestMethod]
+        public async Task StopAsync_ClearingDeviceState_IsNotSynchronous()
+        {
+            // Documents a real hazard rather than asserting desired behaviour. StopAsync clears the
+            // Devices collection synchronously, but per-device state (Connection, Status) is cleared
+            // by WatchDisconnectAsync, which runs as a continuation on the connection's Disconnected
+            // task. So immediately after StopAsync returns, a device the caller still holds a
+            // reference to can briefly report Connected with a live Connection.
+            //
+            // Consumers binding to Devices never see this — the row is already gone. It matters on
+            // iOS: AppLifecycleObserver cannot await teardown (UIKit gives seconds before
+            // suspension), so the process may suspend before this continuation runs. That is
+            // acceptable because iOS has already destroyed the transport and the state is rebuilt
+            // from scratch on foreground — but if this ever needs to be synchronous, this test is
+            // the one that will fail and say why.
+            var connections = new FakeNearbyConnections();
+            var sut = CreateSut(connections);
+            await sut.StartDiscoveringAsync();
+
+            var device = new NearbyDevice("peer-1", "Alice");
+            connections.ConnectResult = CreateConnection(device);
+            await sut.ConnectAsync(device);
+
+            await sut.StopAsync();
+
+            Assert.IsEmpty(sut.Devices, "The collection consumers bind to is cleared synchronously.");
+
+            await WaitForAsync(() => device.Connection is null);
+            Assert.IsNull(device.Connection, "Per-device state is cleared, just asynchronously.");
+        }
+
+        [TestMethod]
+        public async Task StopAsync_ClearsBothToggles_SoNeitherReportsScanningWhileSuspended()
+        {
+            // The second zombie state. While suspended nothing is advertising or scanning, so
+            // leaving these true would misreport the radio just as Connected misreported the session.
+            var connections = new FakeNearbyConnections();
+            var sut = CreateSut(connections);
+            await sut.StartAdvertisingAsync();
+            await sut.StartDiscoveringAsync();
+
+            await sut.StopAsync();
+
+            Assert.IsFalse(sut.IsAdvertising);
+            Assert.IsFalse(sut.IsDiscovering);
+        }
+
+        [TestMethod]
+        public async Task StopAsync_LeavesSessionReusable_SoTheAppCanStartAgainOnForeground()
+        {
+            // Nothing restarts automatically: the app calls Start* again on foreground. That is
+            // only viable if StopAsync leaves the session usable rather than terminally torn down.
+            var connections = new FakeNearbyConnections();
+            var sut = CreateSut(connections);
+            await sut.StartDiscoveringAsync();
+
+            await sut.StopAsync();
+            Assert.IsFalse(sut.IsDiscovering);
+
+            await sut.StartDiscoveringAsync();
+
+            Assert.IsTrue(sut.IsDiscovering);
+            Assert.AreEqual(2, connections.DiscoverCallCount, "Restart must reach the platform, not be swallowed as a no-op.");
+        }
+
+        [TestMethod]
+        public async Task StopAsync_IsIdempotent_SoARepeatedBackgroundNotificationIsHarmless()
+        {
+            // DidEnterBackground can arrive more than once across a suspend/resume cycle, and the
+            // observer does not deduplicate — it relies on StopAsync being safe to call again.
+            var connections = new FakeNearbyConnections();
+            var sut = CreateSut(connections);
+            await sut.StartAdvertisingAsync();
+            await sut.StartDiscoveringAsync();
+
+            var device = new NearbyDevice("peer-1", "Alice");
+            connections.ConnectResult = CreateConnection(device);
+            await sut.ConnectAsync(device);
+
+            var dropped = 0;
+            sut.ConnectionDropped += (_, _) => dropped++;
+
+            await sut.StopAsync();
+            await sut.StopAsync();
+            await sut.StopAsync();
+
+            await WaitForAsync(() => dropped > 0);
+
+            Assert.AreEqual(1, dropped, "ConnectionDropped must be raised once per connection, not once per StopAsync call.");
+            Assert.IsFalse(sut.IsAdvertising);
+            Assert.IsFalse(sut.IsDiscovering);
+        }
+    }
+
     static async Task WaitForAsync(Func<bool> condition)
     {
         for (var i = 0; i < 100 && !condition(); i++)

@@ -47,6 +47,15 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
 
     int _disposeGuard;
 
+#if IOS
+    /// <summary>
+    /// Tears the session down when iOS backgrounds the app. Owned by the session so it is
+    /// unsubscribed on disposal — see <see cref="AppLifecycleObserver"/> for why this is required
+    /// on iOS and has no Android counterpart.
+    /// </summary>
+    readonly AppLifecycleObserver _lifecycleObserver;
+#endif
+
     internal NearbySession(
         INearbyConnections connections,
         IDispatcher? dispatcher,
@@ -60,6 +69,10 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
         _logger = logger;
 
         Devices = new ReadOnlyObservableCollection<NearbyDevice>(_devices);
+
+#if IOS
+        _lifecycleObserver = new AppLifecycleObserver(this, logger);
+#endif
     }
 
     /// <inheritdoc/>
@@ -335,6 +348,12 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
         {
             return;
         }
+
+#if IOS
+        // Before StopAsync: unsubscribing first means a backgrounding notification arriving during
+        // teardown cannot start a second, concurrent StopAsync against a session already going away.
+        _lifecycleObserver.Dispose();
+#endif
 
         try
         {

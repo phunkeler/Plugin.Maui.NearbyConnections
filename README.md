@@ -7,6 +7,23 @@ A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices — d
 
 Peer-to-peer communication happens in two phases: **finding peers** (advertise/discover nearby devices) and **talking to them** (send/receive payloads over an established connection).
 
+# What this is for
+
+This plugin targets **foreground, both-devices-present interactions** — the two people are looking at their phones doing the thing together. It is built for:
+
+- **File and media transfer** — send photos, documents, or data to the device next to you
+- **Pairing and handoff** — device setup, account linking, transferring a session between devices
+- **Bounded local exchange** — sharing between crew devices in the field, point-of-sale handoff, local data sync with no internet
+
+**It is not built for connections that survive backgrounding.** When an app is backgrounded on iOS, the connection ends — and the plugin reports that honestly rather than pretending otherwise. This is a platform constraint, not a plugin limitation:
+
+- **iOS.** Multipeer Connectivity has no background mode. Apple's Developer Technical Support is explicit that operating in the background is unsupported ([forum 11964](https://developer.apple.com/forums/thread/11964)); a normal app is suspended within seconds of backgrounding and the session dies silently. The plugin therefore tears the session down on `DidEnterBackground` and raises `ConnectionDropped`, so your app is told rather than left holding a dead connection.
+- **Android.** No framework prohibition, but the connection dies with the process, and Doze independently suspends networking. Surviving backgrounding requires a foreground service, which is app-level work the plugin does not impose on you.
+
+**There is no auto-reconnect, by design.** Neither platform offers a reconnect primitive — recovery means advertising and inviting again — and retry policy (how often, how long, whether to prompt) is app-specific. The plugin gives you `ConnectionDropped` and the device state to re-initiate from; your app decides whether and when.
+
+If you need a long-lived connection that survives backgrounding, this is not the right library, and on iOS no library can give you that with Multipeer Connectivity.
+
 # Supported Platforms
 
 | Platform | Minimum Version |
