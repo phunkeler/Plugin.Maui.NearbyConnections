@@ -148,12 +148,24 @@ public interface INearbySession
     /// {
     ///     if (availability.HasFlag(NearbyAvailability.MissingPermissions))
     ///     {
+    ///         // Android needs more than Bluetooth alone: NEARBY_WIFI_DEVICES from API 33, and
+    ///         // location below API 31, where Permissions.Bluetooth requests nothing at all.
     ///         await Permissions.RequestAsync&lt;Permissions.Bluetooth&gt;();
+    ///
+    ///         if (OperatingSystem.IsAndroidVersionAtLeast(33))
+    ///         {
+    ///             await Permissions.RequestAsync&lt;Permissions.NearbyWifiDevices&gt;();
+    ///         }
+    ///         else if (!OperatingSystem.IsAndroidVersionAtLeast(31))
+    ///         {
+    ///             await Permissions.RequestAsync&lt;Permissions.LocationWhenInUse&gt;();
+    ///         }
     ///     }
     ///
     ///     if (availability.HasFlag(NearbyAvailability.BluetoothDisabled))
     ///     {
-    ///         await DisplayAlertAsync("Turn on Bluetooth to find nearby devices.");
+    ///         await Shell.Current.DisplayAlertAsync(
+    ///             "Bluetooth is off", "Turn on Bluetooth to find nearby devices.", "OK");
     ///     }
     ///
     ///     return;

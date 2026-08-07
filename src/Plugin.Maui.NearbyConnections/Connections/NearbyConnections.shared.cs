@@ -68,30 +68,35 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
         LocalPeerIdentityStore = localPeerIdentityStore;
 #endif
 
-        var channelOptions = new UnboundedChannelOptions
-        {
-            SingleReader = false,
-            SingleWriter = false,
-            AllowSynchronousContinuations = options.AllowSynchronousContinuations,
-        };
-
-        _advertiseChannel = Channel.CreateUnbounded<NearbyConnectionRequest>(channelOptions);
-        _discoverChannel = Channel.CreateUnbounded<NearbyDeviceEvent>(channelOptions);
+        _advertiseChannel = NewChannel<NearbyConnectionRequest>();
+        _discoverChannel = NewChannel<NearbyDeviceEvent>();
         _connectionTcs = new ConcurrentDictionary<string, (TaskCompletionSource<NearbyConnection> Tcs, CancellationToken Ct)>(StringComparer.Ordinal);
         _activeConnections = new ConcurrentDictionary<string, NearbyConnection>(StringComparer.Ordinal);
     }
+
+    /// <summary>
+    /// Creates an unbounded channel configured from <see cref="Options"/>. Every channel in the
+    /// implementation — the advertise and discover streams, and each connection's receive stream —
+    /// shares these settings, so they are defined once here.
+    /// </summary>
+    /// <param name="singleReader">
+    /// <see langword="true"/> for a per-connection receive channel, which
+    /// <see cref="NearbyConnection.ReceiveAsync"/> guarantees has at most one consumer. The
+    /// advertise and discover streams can be re-enumerated, so they pass <see langword="false"/>.
+    /// </param>
+    internal Channel<T> NewChannel<T>(bool singleReader = false)
+        => Channel.CreateUnbounded<T>(new UnboundedChannelOptions
+        {
+            SingleReader = singleReader,
+            SingleWriter = false,
+            AllowSynchronousContinuations = Options.AllowSynchronousContinuations,
+        });
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var newAdvertiseChannel = Channel.CreateUnbounded<NearbyConnectionRequest>(
-            new UnboundedChannelOptions
-            {
-                SingleReader = false,
-                SingleWriter = false,
-                AllowSynchronousContinuations = Options.AllowSynchronousContinuations,
-            });
+        var newAdvertiseChannel = NewChannel<NearbyConnectionRequest>();
         Interlocked.Exchange(ref _advertiseChannel, newAdvertiseChannel);
         await PlatformStartAdvertisingAsync(cancellationToken);
 
@@ -113,13 +118,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     public async IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var newDiscoverChannel = Channel.CreateUnbounded<NearbyDeviceEvent>(
-            new UnboundedChannelOptions
-            {
-                SingleReader = false,
-                SingleWriter = false,
-                AllowSynchronousContinuations = Options.AllowSynchronousContinuations,
-            });
+        var newDiscoverChannel = NewChannel<NearbyDeviceEvent>();
         Interlocked.Exchange(ref _discoverChannel, newDiscoverChannel);
         await PlatformStartDiscoveringAsync(cancellationToken);
 
@@ -162,9 +161,9 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
 
         // Timed through the injected TimeProvider so this is testable with FakeTimeProvider rather
         // than requiring a real 30-second wait — the same pattern as OutgoingTransfer.
-        using var deadlineCts = hasTimeout
-            ? new CancellationTokenSource(Options.InvitationTimeout, TimeProvider)
-            : new CancellationTokenSource();
+        // Timeout.InfiniteTimeSpan is a valid never-firing delay, so the infinite case needs no
+        // separate construction.
+        using var deadlineCts = new CancellationTokenSource(Options.InvitationTimeout, TimeProvider);
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken, deadlineCts.Token);
@@ -177,16 +176,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
         }
         catch (OperationCanceledException) when (hasTimeout && !cancellationToken.IsCancellationRequested)
         {
-            // The linked token fired but the caller's did not, so this is the deadline elapsing
-            // rather than the caller cancelling. Report it as a timeout rather than as a
-            // cancellation the caller never asked for.
             _connectionTcs.TryRemove(device.Id, out _);
-
-            // Clear the platform's own view of the half-open attempt. On Android, Google Play
-            // Services keeps the endpoint marked connected from an attempt that was never torn
-            // down, and the next ConnectAsync then fails with
-            // STATUS_ALREADY_CONNECTED_TO_ENDPOINT — so a timeout that skipped this would poison
-            // every retry.
             await PlatformAbandonConnectAsync(device);
 
             throw new NearbyConnectionTimeoutException(

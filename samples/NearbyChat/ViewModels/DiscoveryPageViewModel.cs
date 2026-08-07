@@ -60,7 +60,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
     [RelayCommand(CanExecute = nameof(CanToggleDiscovery))]
     async Task ToggleDiscovery(CancellationToken cancellationToken)
     {
-        if (!IsDiscovering && !await _permissions.EnsureGrantedAsync())
+        if (!IsDiscovering && await _permissions.EnsureGrantedAsync() is not PermissionStatus.Granted)
         {
             return;
         }

@@ -59,7 +59,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     [RelayCommand(CanExecute = nameof(CanToggleAdvertising))]
     async Task ToggleAdvertising(CancellationToken cancellationToken)
     {
-        if (!IsAdvertising && !await _permissions.EnsureGrantedAsync())
+        if (!IsAdvertising && await _permissions.EnsureGrantedAsync() is not PermissionStatus.Granted)
         {
             return;
         }

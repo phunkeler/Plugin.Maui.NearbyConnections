@@ -330,6 +330,21 @@ sealed partial class NearbyConnectionsImplementation
                 });
         }
 
+        // Every terminal path reports the bytes transferred so far against the same total; only the
+        // status differs. Success reports the full count, because the transfer completed.
+        void Report(NearbyTransferStatus status)
+        {
+            var total = nsProgress?.TotalUnitCount ?? 0;
+
+            transfer.OnUpdate(new NearbyTransferProgress(
+                payloadId: payloadId,
+                bytesTransferred: status is NearbyTransferStatus.Success
+                    ? total
+                    : (long)((nsProgress?.FractionCompleted ?? 0) * total),
+                totalBytes: total,
+                status));
+        }
+
         try
         {
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
@@ -344,28 +359,16 @@ sealed partial class NearbyConnectionsImplementation
             // already enforces this via transfer.Completion.WaitAsync(linkedCts.Token).
             await sendTask.WaitAsync(linkedCts.Token);
 
-            transfer.OnUpdate(new NearbyTransferProgress(
-                payloadId: payloadId,
-                bytesTransferred: nsProgress?.TotalUnitCount ?? 0,
-                totalBytes: nsProgress?.TotalUnitCount ?? 0,
-                NearbyTransferStatus.Success));
+            Report(NearbyTransferStatus.Success);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            transfer.OnUpdate(new NearbyTransferProgress(
-                payloadId: payloadId,
-                bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
-                totalBytes: nsProgress?.TotalUnitCount ?? 0,
-                NearbyTransferStatus.Canceled));
+            Report(NearbyTransferStatus.Canceled);
             throw;
         }
         catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
         {
-            transfer.OnUpdate(new NearbyTransferProgress(
-                payloadId: payloadId,
-                bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
-                totalBytes: nsProgress?.TotalUnitCount ?? 0,
-                NearbyTransferStatus.Failure));
+            Report(NearbyTransferStatus.Failure);
 
             LogSendFileTimeout(peerId, null, Options.TransferInactivityTimeout.TotalSeconds);
 
@@ -374,11 +377,7 @@ sealed partial class NearbyConnectionsImplementation
         }
         catch (Exception ex)
         {
-            transfer.OnUpdate(new NearbyTransferProgress(
-                payloadId: payloadId,
-                bytesTransferred: (long)((nsProgress?.FractionCompleted ?? 0) * (nsProgress?.TotalUnitCount ?? 0)),
-                totalBytes: nsProgress?.TotalUnitCount ?? 0,
-                NearbyTransferStatus.Failure));
+            Report(NearbyTransferStatus.Failure);
 
             LogSendFileFailed(peerId, null, ex.Message);
             throw;
@@ -467,12 +466,7 @@ sealed partial class NearbyConnectionsImplementation
                 case MCSessionState.Connected:
                     var connectedDevice = RemotePeers.TrackRemotePeer(PeerKeyProvider, peerID, _logger);
 
-                    var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(new UnboundedChannelOptions
-                    {
-                        SingleReader = true,
-                        SingleWriter = false,
-                        AllowSynchronousContinuations = Options.AllowSynchronousContinuations,
-                    });
+                    var receiveChannel = NewChannel<NearbyPayload>(singleReader: true);
 
                     var connection = new NearbyConnection(
                         connectedDevice,

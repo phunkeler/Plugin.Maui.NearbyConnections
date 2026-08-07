@@ -38,17 +38,6 @@ public sealed class NearbyConnection : IAsyncDisposable
     public NearbyDevice RemoteDevice { get; }
 
     /// <summary>
-    /// Gets the role that the local device plays in this connection.
-    /// </summary>
-    /// <value>
-    /// <see cref="ConnectionRole.Initiator"/> if the local device called
-    /// <see cref="INearbySession.ConnectAsync(NearbyDevice, CancellationToken)"/>;
-    /// <see cref="ConnectionRole.Acceptor"/> if it called
-    /// <see cref="INearbySession.AcceptAsync(NearbyDevice, CancellationToken)"/>.
-    /// </value>
-    public ConnectionRole Role { get; internal set; }
-
-    /// <summary>
     /// Gets a task that completes when this connection terminates.
     /// </summary>
     /// <value>

@@ -2,17 +2,46 @@ namespace NearbyChat.Services;
 
 public class NearbyPermissions : INearbyPermissions
 {
-    public async Task<bool> EnsureGrantedAsync()
+    public async Task<PermissionStatus> EnsureGrantedAsync()
     {
-        if (OperatingSystem.IsAndroidVersionAtLeast(33))
+        var bluetooth = await EnsureAsync<Permissions.Bluetooth>();
+        if (bluetooth is not PermissionStatus.Granted)
         {
-            var bluetooth = await Permissions.RequestAsync<Permissions.Bluetooth>();
-            var nearbyWifiDevices = await Permissions.RequestAsync<Permissions.NearbyWifiDevices>();
-            return bluetooth is PermissionStatus.Granted && nearbyWifiDevices is PermissionStatus.Granted;
+            return bluetooth;
         }
 
-        var bluetoothStatus = await Permissions.RequestAsync<Permissions.Bluetooth>();
-        var locationStatus = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
-        return bluetoothStatus is PermissionStatus.Granted && locationStatus is PermissionStatus.Granted;
+        // Below API 31 Permissions.Bluetooth resolves to an empty permission set and returns Granted
+        // without prompting for anything, so location is what actually gates discovery there. From 31
+        // BLUETOOTH_SCAN covers it, and NEARBY_WIFI_DEVICES only exists from 33.
+        if (!OperatingSystem.IsAndroidVersionAtLeast(31))
+        {
+            return await EnsureAsync<Permissions.LocationWhenInUse>();
+        }
+
+        return OperatingSystem.IsAndroidVersionAtLeast(33)
+            ? await EnsureAsync<Permissions.NearbyWifiDevices>()
+            : PermissionStatus.Granted;
+    }
+
+    // Check before requesting: RequestAsync on an already-granted permission is wasted work, and on
+    // Android the rationale has to be shown BEFORE the prompt or it never gets seen.
+    static async Task<PermissionStatus> EnsureAsync<T>()
+        where T : Permissions.BasePermission, new()
+    {
+        var status = await Permissions.CheckStatusAsync<T>();
+        if (status is PermissionStatus.Granted)
+        {
+            return status;
+        }
+
+        if (Permissions.ShouldShowRationale<T>())
+        {
+            await Shell.Current.DisplayAlertAsync(
+                "Permission needed",
+                "Nearby needs Bluetooth and Wi-Fi access to find devices around you.",
+                "OK");
+        }
+
+        return await Permissions.RequestAsync<T>();
     }
 }

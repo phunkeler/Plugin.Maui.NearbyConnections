@@ -6,5 +6,5 @@ public class NearbyPermissions : INearbyPermissions
     // local-network access prompt (NSLocalNetworkUsageDescription) is shown
     // by the OS itself the first time the app actually starts advertising/
     // browsing, not via Microsoft.Maui.ApplicationModel.Permissions.
-    public Task<bool> EnsureGrantedAsync() => Task.FromResult(true);
+    public Task<PermissionStatus> EnsureGrantedAsync() => Task.FromResult(PermissionStatus.Granted);
 }

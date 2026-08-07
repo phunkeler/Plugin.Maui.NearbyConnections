@@ -40,10 +40,13 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
     readonly ConcurrentDictionary<string, NearbyConnectionRequest> _pendingRequests
         = new(StringComparer.Ordinal);
 
-    CancellationTokenSource? _advertiseCts;
-    CancellationTokenSource? _discoverCts;
-    Task? _advertisePump;
-    Task? _discoverPump;
+    /// <summary>
+    /// The advertise and discover pumps, which differ only in the stream they drain and the flag
+    /// they publish. Holding each one's cancellation source and task together keeps start and stop
+    /// to a single implementation rather than two that must be kept in step.
+    /// </summary>
+    readonly PumpState _advertise;
+    readonly PumpState _discover;
 
     int _disposeGuard;
 
@@ -69,6 +72,14 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
         _logger = logger;
 
         Devices = new ReadOnlyObservableCollection<NearbyDevice>(_devices);
+
+        _advertise = new PumpState(
+            start: ct => PumpAdvertiseAsync(_connections.AdvertiseAsync(ct), ct),
+            setFlag: value => DispatchAsync(() => IsAdvertising = value));
+
+        _discover = new PumpState(
+            start: ct => PumpDiscoverAsync(_connections.DiscoverAsync(ct), ct),
+            setFlag: value => DispatchAsync(() => IsDiscovering = value));
 
 #if IOS
         _lifecycleObserver = new AppLifecycleObserver(this, logger);
@@ -108,19 +119,10 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
 
         try
         {
-            if (IsAdvertising)
+            if (!IsAdvertising)
             {
-                return;
+                await StartPumpAsync(_advertise).ConfigureAwait(false);
             }
-
-            var cts = new CancellationTokenSource();
-            var stream = _connections.AdvertiseAsync(cts.Token);
-
-            _advertiseCts = cts;
-
-            await SetIsAdvertisingAsync(true).ConfigureAwait(false);
-
-            _advertisePump = PumpAdvertiseAsync(stream, cts.Token);
         }
         finally
         {
@@ -135,12 +137,10 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
 
         try
         {
-            if (!IsAdvertising)
+            if (IsAdvertising)
             {
-                return;
+                await StopPumpAsync(_advertise).ConfigureAwait(false);
             }
-
-            await StopAdvertisingCoreAsync().ConfigureAwait(false);
         }
         finally
         {
@@ -155,19 +155,10 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
 
         try
         {
-            if (IsDiscovering)
+            if (!IsDiscovering)
             {
-                return;
+                await StartPumpAsync(_discover).ConfigureAwait(false);
             }
-
-            var cts = new CancellationTokenSource();
-            var stream = _connections.DiscoverAsync(cts.Token);
-
-            // Flag before pump — see StartAdvertisingAsync for why the order matters.
-            _discoverCts = cts;
-            await SetIsDiscoveringAsync(true).ConfigureAwait(false);
-
-            _discoverPump = PumpDiscoverAsync(stream, cts.Token);
         }
         finally
         {
@@ -182,12 +173,14 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
 
         try
         {
-            if (!IsDiscovering)
+            if (IsDiscovering)
             {
-                return;
-            }
+                await StopPumpAsync(_discover).ConfigureAwait(false);
 
-            await StopDiscoveringCoreAsync().ConfigureAwait(false);
+                // Devices that were only ever visible are no longer meaningful once discovery
+                // stops. Connected devices stay: stopping discovery does not end a conversation.
+                await RemoveVisibleDevicesAsync().ConfigureAwait(false);
+            }
         }
         finally
         {
@@ -204,12 +197,12 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
         {
             if (IsAdvertising)
             {
-                await StopAdvertisingCoreAsync().ConfigureAwait(false);
+                await StopPumpAsync(_advertise).ConfigureAwait(false);
             }
 
             if (IsDiscovering)
             {
-                await StopDiscoveringCoreAsync().ConfigureAwait(false);
+                await StopPumpAsync(_discover).ConfigureAwait(false);
             }
 
             // Snapshot: disconnecting mutates the collection from the dispatcher.

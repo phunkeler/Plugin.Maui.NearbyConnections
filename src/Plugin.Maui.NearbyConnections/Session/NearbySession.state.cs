@@ -208,68 +208,59 @@ sealed partial class NearbySession
             device.Status = NearbyDeviceStatus.Visible;
         });
 
-    Task SetIsAdvertisingAsync(bool value)
-        => DispatchAsync(() => IsAdvertising = value);
-
-    Task SetIsDiscoveringAsync(bool value)
-        => DispatchAsync(() => IsDiscovering = value);
-
     /// <summary>
-    /// Stops advertising and waits for the pump to drain. Caller must hold <c>_stateGate</c>.
+    /// Starts <paramref name="pump"/> and publishes its flag. Caller must hold <c>_stateGate</c>.
     /// </summary>
-    async Task StopAdvertisingCoreAsync()
+    /// <remarks>
+    /// The flag is set before the pump task is created: a start failure surfaces inside the pump
+    /// (the platform start lives in the enumerable), which clears the flag again, and that must not
+    /// race ahead of the write that sets it.
+    /// </remarks>
+    static async Task StartPumpAsync(PumpState pump)
     {
-        var cts = _advertiseCts;
-        var pump = _advertisePump;
+        var cts = new CancellationTokenSource();
 
-        _advertiseCts = null;
-        _advertisePump = null;
+        pump.Cts = cts;
 
-        if (cts is not null)
-        {
-            await cts.CancelAsync().ConfigureAwait(false);
-        }
+        await pump.SetFlag(true).ConfigureAwait(false);
 
-        if (pump is not null)
-        {
-            // The pump swallows cancellation, so this completes rather than throwing. Awaiting it
-            // means advertising has actually stopped by the time this returns.
-            await pump.ConfigureAwait(false);
-        }
-
-        cts?.Dispose();
-
-        await SetIsAdvertisingAsync(false).ConfigureAwait(false);
+        pump.Task = pump.Start(cts.Token);
     }
 
     /// <summary>
-    /// Stops discovery and waits for the pump to drain. Caller must hold <c>_stateGate</c>.
+    /// Cancels <paramref name="pump"/>, waits for it to drain, and clears its flag. Caller must
+    /// hold <c>_stateGate</c>.
     /// </summary>
-    async Task StopDiscoveringCoreAsync()
+    static async Task StopPumpAsync(PumpState pump)
     {
-        var cts = _discoverCts;
-        var pump = _discoverPump;
+        var cts = pump.Cts;
+        var task = pump.Task;
 
-        _discoverCts = null;
-        _discoverPump = null;
+        pump.Cts = null;
+        pump.Task = null;
 
         if (cts is not null)
         {
             await cts.CancelAsync().ConfigureAwait(false);
         }
 
-        if (pump is not null)
+        if (task is not null)
         {
-            await pump.ConfigureAwait(false);
+            // The pump swallows cancellation, so this completes rather than throwing. Awaiting it
+            // means the platform has actually stopped by the time this returns.
+            await task.ConfigureAwait(false);
         }
 
         cts?.Dispose();
 
-        await SetIsDiscoveringAsync(false).ConfigureAwait(false);
+        await pump.SetFlag(false).ConfigureAwait(false);
+    }
 
-        // Devices that were only ever visible are no longer meaningful once discovery stops.
-        // Connected devices stay: stopping discovery does not end a conversation.
-        await DispatchAsync(() =>
+    /// <summary>
+    /// Removes devices that are merely visible, leaving connected ones in place.
+    /// </summary>
+    Task RemoveVisibleDevicesAsync()
+        => DispatchAsync(() =>
         {
             for (var i = _devices.Count - 1; i >= 0; i--)
             {
@@ -278,46 +269,54 @@ sealed partial class NearbySession
                     _devices.RemoveAt(i);
                 }
             }
-        }).ConfigureAwait(false);
+        });
+
+    /// <summary>
+    /// One of the session's two background pumps: the stream-draining task, the source that stops
+    /// it, and the flag it publishes.
+    /// </summary>
+    /// <param name="start">Starts the pump task for the supplied cancellation token.</param>
+    /// <param name="setFlag">
+    /// Publishes <see cref="INearbySession.IsAdvertising"/> or
+    /// <see cref="INearbySession.IsDiscovering"/> on the dispatcher.
+    /// </param>
+    sealed class PumpState(Func<CancellationToken, Task> start, Func<bool, Task> setFlag)
+    {
+        public Func<CancellationToken, Task> Start { get; } = start;
+
+        public Func<bool, Task> SetFlag { get; } = setFlag;
+
+        public CancellationTokenSource? Cts { get; set; }
+
+        public Task? Task { get; set; }
     }
 
     /// <summary>
-    /// Raises <see cref="INearbySession.ConnectionRequested"/>. A throwing handler must not take
-    /// down the platform callback thread or starve the handlers after it.
+    /// Raises a lifecycle event. A throwing handler must not take down the platform callback thread
+    /// or starve the handlers after it, so every raise goes through here.
     /// </summary>
-    void RaiseConnectionRequested(NearbyDevice device)
+    /// <param name="handler">The event to raise, or <see langword="null"/> if nobody subscribed.</param>
+    /// <param name="args">The arguments to raise it with.</param>
+    /// <param name="eventName">The event's name, used only to attribute a handler failure in the log.</param>
+    void Raise<TArgs>(EventHandler<TArgs>? handler, TArgs args, string eventName)
+        where TArgs : EventArgs
     {
         try
         {
-            ConnectionRequested?.Invoke(this, new NearbyConnectionRequestedEventArgs(device));
+            handler?.Invoke(this, args);
         }
         catch (Exception ex)
         {
-            LogEventHandlerFailed(nameof(ConnectionRequested), ex);
+            LogEventHandlerFailed(eventName, ex);
         }
     }
+
+    void RaiseConnectionRequested(NearbyDevice device)
+        => Raise(ConnectionRequested, new NearbyConnectionRequestedEventArgs(device), nameof(ConnectionRequested));
 
     void RaiseConnectionEstablished(NearbyDevice device, NearbyConnection connection)
-    {
-        try
-        {
-            ConnectionEstablished?.Invoke(this, new NearbyConnectionChangedEventArgs(device, connection));
-        }
-        catch (Exception ex)
-        {
-            LogEventHandlerFailed(nameof(ConnectionEstablished), ex);
-        }
-    }
+        => Raise(ConnectionEstablished, new NearbyConnectionChangedEventArgs(device, connection), nameof(ConnectionEstablished));
 
     void RaiseConnectionDropped(NearbyDevice device, NearbyConnection connection)
-    {
-        try
-        {
-            ConnectionDropped?.Invoke(this, new NearbyConnectionChangedEventArgs(device, connection));
-        }
-        catch (Exception ex)
-        {
-            LogEventHandlerFailed(nameof(ConnectionDropped), ex);
-        }
-    }
+        => Raise(ConnectionDropped, new NearbyConnectionChangedEventArgs(device, connection), nameof(ConnectionDropped));
 }

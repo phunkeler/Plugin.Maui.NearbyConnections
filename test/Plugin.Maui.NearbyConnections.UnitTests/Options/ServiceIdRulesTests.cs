@@ -30,7 +30,6 @@ public class ServiceIdRulesTests
             ServiceIdRules.Validate(serviceId, failures);
 
             Assert.IsEmpty(failures, $"'{serviceId}' is legal per RFC 6335 but was rejected.");
-            Assert.IsTrue(ServiceIdRules.IsValid(serviceId));
         }
     }
 
@@ -55,7 +54,6 @@ public class ServiceIdRulesTests
             ServiceIdRules.Validate(serviceId, failures);
 
             Assert.IsNotEmpty(failures, $"'{serviceId}' violates RFC 6335 but was accepted — this would crash on iOS.");
-            Assert.IsFalse(ServiceIdRules.IsValid(serviceId));
         }
 
         [TestMethod]

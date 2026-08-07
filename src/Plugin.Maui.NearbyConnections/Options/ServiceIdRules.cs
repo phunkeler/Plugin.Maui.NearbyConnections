@@ -108,16 +108,6 @@ static class ServiceIdRules
         }
     }
 
-    /// <summary>
-    /// Whether <paramref name="serviceId"/> satisfies every rule.
-    /// </summary>
-    internal static bool IsValid(string serviceId)
-    {
-        var failures = new List<string>();
-        Validate(serviceId, failures);
-        return failures.Count == 0;
-    }
-
     static bool IsAllowedCharacter(char c)
         => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-';
 }

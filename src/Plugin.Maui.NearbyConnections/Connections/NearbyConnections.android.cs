@@ -1,4 +1,3 @@
-using System.Threading.Channels;
 using Android.Content;
 using AndroidUri = Android.Net.Uri;
 using Path = System.IO.Path;
@@ -135,12 +134,7 @@ sealed partial class NearbyConnectionsImplementation
                     return;
                 }
 
-                var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(new UnboundedChannelOptions
-                {
-                    SingleReader = true,
-                    SingleWriter = false,
-                    AllowSynchronousContinuations = Options.AllowSynchronousContinuations,
-                });
+                var receiveChannel = NewChannel<NearbyPayload>(singleReader: true);
 
                 var connection = new NearbyConnection(
                     device,
@@ -867,19 +861,27 @@ sealed partial class NearbyConnectionsImplementation
     static async Task<bool> ArePermissionsGrantedAsync()
     {
         // API 31+ replaced the location requirement with the granular BLUETOOTH_* permissions;
-        // API 33+ added NEARBY_WIFI_DEVICES. Checking the wrong set for the running OS reports a
-        // permission the user can never grant, so the split follows the OS, not the target SDK.
+        // API 33+ added NEARBY_WIFI_DEVICES. The boundaries below follow the running OS, because
+        // that is what determines which permissions the device can actually grant.
         if (await Permissions.CheckStatusAsync<Permissions.Bluetooth>().ConfigureAwait(false) != PermissionStatus.Granted)
         {
             return false;
         }
 
-        if (OperatingSystem.IsAndroidVersionAtLeast(33))
+        // Below API 31, Permissions.Bluetooth resolves to an EMPTY permission set and so returns
+        // Granted having checked nothing: its ACCESS_FINE_LOCATION branch is gated on the app's
+        // target SDK being <= 30, which no current MAUI app satisfies. Location is the real gate on
+        // those devices, so it must be checked explicitly or the preflight reports a vacuous Ready.
+        if (!OperatingSystem.IsAndroidVersionAtLeast(31))
         {
-            return await Permissions.CheckStatusAsync<Permissions.NearbyWifiDevices>().ConfigureAwait(false) == PermissionStatus.Granted;
+            return await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>().ConfigureAwait(false) == PermissionStatus.Granted;
         }
 
-        return await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>().ConfigureAwait(false) == PermissionStatus.Granted;
+        // On 31+ BLUETOOTH_SCAN covers discovery, so location is deliberately NOT required — asking
+        // for it here would report a permission the app has no reason to hold. NEARBY_WIFI_DEVICES
+        // does not exist before 33, so it is only checked from there up.
+        return !OperatingSystem.IsAndroidVersionAtLeast(33)
+            || await Permissions.CheckStatusAsync<Permissions.NearbyWifiDevices>().ConfigureAwait(false) == PermissionStatus.Granted;
     }
 
     void PlatformDispose()
