@@ -98,6 +98,10 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
     public event EventHandler<NearbyConnectionChangedEventArgs>? ConnectionDropped;
 
     /// <inheritdoc/>
+    public Task<NearbyAvailability> CheckAvailabilityAsync(CancellationToken cancellationToken = default)
+        => _connections.CheckAvailabilityAsync(cancellationToken);
+
+    /// <inheritdoc/>
     public async Task StartAdvertisingAsync(CancellationToken cancellationToken = default)
     {
         await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);

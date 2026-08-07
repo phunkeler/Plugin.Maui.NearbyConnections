@@ -200,6 +200,10 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     }
 
     /// <inheritdoc/>
+    public Task<NearbyAvailability> CheckAvailabilityAsync(CancellationToken cancellationToken = default)
+        => PlatformCheckAvailabilityAsync(cancellationToken);
+
+    /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposeGuard, 1) != 0)

@@ -38,6 +38,19 @@ sealed class FakeNearbyConnections : INearbyConnections
     /// <summary>Set to make <see cref="ConnectAsync"/> throw, simulating a rejected connection.</summary>
     public Exception? ConnectFault { get; init; }
 
+    /// <summary>What <see cref="CheckAvailabilityAsync"/> reports.</summary>
+    public NearbyAvailability Availability { get; set; } = NearbyAvailability.Ready;
+
+    /// <summary>Gets how many times availability was checked.</summary>
+    public int CheckAvailabilityCallCount { get; private set; }
+
+    public Task<NearbyAvailability> CheckAvailabilityAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        CheckAvailabilityCallCount++;
+        return Task.FromResult(Availability);
+    }
+
     public async IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

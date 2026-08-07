@@ -110,6 +110,61 @@ public interface INearbySession
     event EventHandler<NearbyConnectionChangedEventArgs> ConnectionDropped;
 
     /// <summary>
+    /// Determines whether nearby connectivity can be started, and what is preventing it if not.
+    /// </summary>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to observe while checking.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task{TResult}"/> that represents the asynchronous operation. The value of its
+    /// <see cref="Task{TResult}.Result"/> property is <see cref="NearbyAvailability.Ready"/> when
+    /// advertising and discovery can be started, or a combination of flags describing what is
+    /// missing.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// Call this before <see cref="StartAdvertisingAsync(CancellationToken)"/> or
+    /// <see cref="StartDiscoveringAsync(CancellationToken)"/> to tell the user what to fix. Without
+    /// it, a missing permission or a disabled radio causes advertising and discovery to fail
+    /// silently on Android, and to succeed but discover nothing on iOS.
+    /// </para>
+    /// <para>
+    /// This method reports state; it does not change it. It never prompts for permissions and never
+    /// enables a radio. Request permissions with the .NET MAUI <c>Permissions</c> API, and direct
+    /// the user to system settings to enable a radio.
+    /// </para>
+    /// <para>
+    /// The result is a snapshot. The user can disable a radio or revoke a permission immediately
+    /// afterwards, so a <see cref="NearbyAvailability.Ready"/> result is not a guarantee that
+    /// starting will succeed.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// The following example checks availability before starting discovery.
+    /// <code language="csharp">
+    /// var availability = await session.CheckAvailabilityAsync();
+    ///
+    /// if (availability is not NearbyAvailability.Ready)
+    /// {
+    ///     if (availability.HasFlag(NearbyAvailability.MissingPermissions))
+    ///     {
+    ///         await Permissions.RequestAsync&lt;Permissions.Bluetooth&gt;();
+    ///     }
+    ///
+    ///     if (availability.HasFlag(NearbyAvailability.BluetoothDisabled))
+    ///     {
+    ///         await DisplayAlertAsync("Turn on Bluetooth to find nearby devices.");
+    ///     }
+    ///
+    ///     return;
+    /// }
+    ///
+    /// await session.StartDiscoveringAsync();
+    /// </code>
+    /// </example>
+    Task<NearbyAvailability> CheckAvailabilityAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Starts advertising this device so that nearby devices can discover and connect to it.
     /// </summary>
     /// <param name="cancellationToken">
@@ -122,7 +177,7 @@ public interface INearbySession
     /// <remarks>
     /// Inbound connection requests are reported through the <see cref="ConnectionRequested"/>
     /// event. Advertising and discovery are independent; starting one does not affect the other.
-    /// Calling this method while the device is already advertising performs no operation.
+    /// Calling this method while the device is already advertising is a no-op.
     /// </remarks>
     /// <exception cref="NearbyAdvertisingException">
     /// The platform failed to start advertising.

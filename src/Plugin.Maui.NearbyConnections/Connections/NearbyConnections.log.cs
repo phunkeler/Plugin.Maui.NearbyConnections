@@ -293,4 +293,10 @@ sealed partial class NearbyConnectionsImplementation
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to acquire {Semaphore} semaphore during dispose.")]
     partial void LogSemaphoreWaitFailed(string semaphore, Exception ex);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not determine {Condition} while checking availability; it is reported as satisfied.")]
+    partial void LogAvailabilityCheckPartiallyFailed(string condition, Exception ex);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "ServiceId '{ServiceId}' is not valid for MultipeerConnectivity and would crash the process if used to start. {Failures}")]
+    partial void LogAvailabilityInvalidServiceId(string serviceId, string failures);
 }

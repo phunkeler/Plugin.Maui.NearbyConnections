@@ -30,32 +30,25 @@
 
   <!-- This goes against convention but keeps our project clean -->
   <Target Name="BeforeGenerateGlobalUsings" BeforeTargets="GenerateGlobalUsings">
-
-    <ItemGroup Condition="'$(IsTargetPlatformAndroid)' == 'true'">
-      <Using Include="Android.Gms.Common" />
-      <Using Include="Android.Gms.Nearby" />
-      <Using Include="Android.Gms.Nearby.Connection" />
-    </ItemGroup>
-
-    <ItemGroup Condition="'$(IsTargetPlatformIos)' == 'true'">
-      <Using Include="Foundation" />
-      <Using Include="MultipeerConnectivity" />
-    </ItemGroup>
-
     <ItemGroup>
+      <Using Include="Android.Gms.Common" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
+      <Using Include="Android.Gms.Nearby" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
+      <Using Include="Android.Gms.Nearby.Connection" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
+      <Using Include="Foundation" Condition="'$(IsTargetPlatformIos)' == 'true'" />
       <Using Include="Microsoft.Extensions.DependencyInjection" />
       <Using Include="Microsoft.Extensions.DependencyInjection.Extensions" />
       <Using Include="Microsoft.Extensions.Logging" />
       <Using Include="Microsoft.Maui.ApplicationModel" />
-      <Using Include="Microsoft.Maui.Dispatching" />
       <Using Include="Microsoft.Maui.Devices" />
+      <Using Include="Microsoft.Maui.Dispatching" />
       <Using Include="Microsoft.Maui.Media" />
       <Using Include="Microsoft.Maui.Storage" />
+      <Using Include="MultipeerConnectivity" Condition="'$(IsTargetPlatformIos)' == 'true'" />
       <Using Include="Plugin.Maui.NearbyConnections" />
       <Using Include="System.Buffers.Binary" />
-      <Using Include="System.ComponentModel" />
       <Using Include="System.Collections.Concurrent" />
       <Using Include="System.Collections.ObjectModel" />
+      <Using Include="System.ComponentModel" />
       <Using Include="System.Diagnostics" />
       <Using Include="System.Diagnostics.CodeAnalysis" />
       <Using Include="System.Text" />

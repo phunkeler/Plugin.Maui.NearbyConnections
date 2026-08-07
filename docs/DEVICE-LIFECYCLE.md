@@ -168,6 +168,7 @@ sequenceDiagram
         P->>A: Status = Connecting
     else outbound (we invited them)
         A->>P: ConnectAsync(device)
+        P->>P: register TCS, start InvitationTimeout
         P->>G: RequestConnection()
         P->>A: Status = Connecting
         G->>P: OnConnectionInitiated(IsIncomingConnection = false)
@@ -179,7 +180,13 @@ sequenceDiagram
         P->>A: Status = Connected
     else failure
         G->>P: OnConnectionResult(StatusCode, StatusMessage)
-        P->>A: Status = Visible + EndReason (from StatusCode)
+        P->>A: Status = Visible
+        Note over P,A: NearbyConnectionsException carries<br/>StatusCode and StatusMessage
+    else InvitationTimeout elapsed
+        Note over P,G: No callback ever arrives. The plugin-owned<br/>deadline is the only thing that ends the wait.
+        P->>G: DisconnectFromEndpoint() (clear GMS state)
+        P->>A: Status = Visible
+        Note over P,A: NearbyConnectionTimeoutException
     end
 
     G->>P: OnDisconnected(endpointId)
@@ -209,8 +216,10 @@ sequenceDiagram
         P->>M: InvitePeer(peerID, session, timeout: InvitationTimeout)
     end
 
-    M->>P: DidChangeState(Connecting)
-    P->>A: Status = Connecting
+    opt not guaranteed
+        M->>P: DidChangeState(Connecting)
+        P->>A: Status = Connecting
+    end
 
     alt success
         M->>P: DidChangeState(Connected)
@@ -218,7 +227,12 @@ sequenceDiagram
     else failure
         M->>P: DidChangeState(NotConnected)
         Note over M,P: NO REASON PROVIDED — rejection,<br/>timeout, and range-loss are indistinguishable
-        P->>A: Status = Visible + EndReason.Unknown
+        P->>A: Status = Visible
+        Note over P,A: NearbyConnectionsException
+    else InvitationTimeout elapsed
+        Note over M,P: MPC can hang in Connecting with neither<br/>terminal callback arriving
+        P->>A: Status = Visible
+        Note over P,A: NearbyConnectionTimeoutException
     end
 
     M->>P: LostPeer(peerID)

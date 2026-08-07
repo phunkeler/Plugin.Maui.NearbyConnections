@@ -33,6 +33,7 @@ Plugin.Maui.NearbyConnections.FilePayload.FileResult.get -> Microsoft.Maui.Stora
 Plugin.Maui.NearbyConnections.FilePayload.FileResult.init -> void
 Plugin.Maui.NearbyConnections.INearbySession
 Plugin.Maui.NearbyConnections.INearbySession.AcceptAsync(Plugin.Maui.NearbyConnections.NearbyDevice! device, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Plugin.Maui.NearbyConnections.NearbyConnection!>!
+Plugin.Maui.NearbyConnections.INearbySession.CheckAvailabilityAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Plugin.Maui.NearbyConnections.NearbyAvailability>!
 Plugin.Maui.NearbyConnections.INearbySession.ConnectAsync(Plugin.Maui.NearbyConnections.NearbyDevice! device, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Plugin.Maui.NearbyConnections.NearbyConnection!>!
 Plugin.Maui.NearbyConnections.INearbySession.ConnectionDropped -> System.EventHandler<Plugin.Maui.NearbyConnections.NearbyConnectionChangedEventArgs!>!
 Plugin.Maui.NearbyConnections.INearbySession.ConnectionEstablished -> System.EventHandler<Plugin.Maui.NearbyConnections.NearbyConnectionChangedEventArgs!>!
@@ -51,6 +52,14 @@ Plugin.Maui.NearbyConnections.MauiAppBuilderExtensions
 Plugin.Maui.NearbyConnections.NearbyAdvertisingException
 Plugin.Maui.NearbyConnections.NearbyAdvertisingException.NearbyAdvertisingException(string! message, System.Exception! innerException) -> void
 Plugin.Maui.NearbyConnections.NearbyAdvertisingException.NearbyAdvertisingException(string! message) -> void
+Plugin.Maui.NearbyConnections.NearbyAvailability
+Plugin.Maui.NearbyConnections.NearbyAvailability.BluetoothDisabled = 2 -> Plugin.Maui.NearbyConnections.NearbyAvailability
+Plugin.Maui.NearbyConnections.NearbyAvailability.InvalidConfiguration = 32 -> Plugin.Maui.NearbyConnections.NearbyAvailability
+Plugin.Maui.NearbyConnections.NearbyAvailability.MissingPermissions = 1 -> Plugin.Maui.NearbyConnections.NearbyAvailability
+Plugin.Maui.NearbyConnections.NearbyAvailability.PlayServicesUnavailable = 8 -> Plugin.Maui.NearbyConnections.NearbyAvailability
+Plugin.Maui.NearbyConnections.NearbyAvailability.Ready = 0 -> Plugin.Maui.NearbyConnections.NearbyAvailability
+Plugin.Maui.NearbyConnections.NearbyAvailability.UnsupportedPlatform = 16 -> Plugin.Maui.NearbyConnections.NearbyAvailability
+Plugin.Maui.NearbyConnections.NearbyAvailability.WifiDisabled = 4 -> Plugin.Maui.NearbyConnections.NearbyAvailability
 Plugin.Maui.NearbyConnections.NearbyConnection
 Plugin.Maui.NearbyConnections.NearbyConnection.Disconnected.get -> System.Threading.Tasks.Task!
 Plugin.Maui.NearbyConnections.NearbyConnection.DisconnectedToken.get -> System.Threading.CancellationToken

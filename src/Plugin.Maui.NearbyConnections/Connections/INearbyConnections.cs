@@ -103,4 +103,12 @@ interface INearbyConnections : IAsyncDisposable
     /// </exception>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before the connection is established.</exception>
     Task<NearbyConnection> ConnectAsync(NearbyDevice device, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reports whether the platform can start advertising or discovery right now, and what is
+    /// missing if it cannot. Never prompts and never mutates state.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the check.</param>
+    /// <returns>A task resolving to the current availability.</returns>
+    Task<NearbyAvailability> CheckAvailabilityAsync(CancellationToken cancellationToken = default);
 }

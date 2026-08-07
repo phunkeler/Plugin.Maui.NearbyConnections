@@ -81,20 +81,43 @@ Nothing starts on its own: advertising and discovery begin only when you call th
 
 ### Android
 
-Add to `AndroidManifest.xml`:
+**No manifest changes are required.** The package declares every permission Nearby Connections
+needs, and they merge into your app's manifest automatically.
+
+**Recommended:** if your app does not derive the user's physical location from Bluetooth or Wi-Fi
+scan results, add this to `Platforms/Android/AndroidManifest.xml`. The package cannot declare the
+`neverForLocation` flag itself, and without it Android treats these two permissions as implying
+location access:
 
 ```xml
-<uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
-<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>
-<uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
-<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-<uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
-<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-<uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="32"/>
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="32"/>
-<uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />
+<uses-permission
+  android:name="android.permission.BLUETOOTH_SCAN"
+  android:usesPermissionFlags="neverForLocation" />
+<uses-permission
+  android:name="android.permission.NEARBY_WIFI_DEVICES"
+  android:usesPermissionFlags="neverForLocation" />
 ```
+
+#### Permissions the package declares
+
+| Permission | Notes |
+| --- | --- |
+| `INTERNET`, `ACCESS_NETWORK_STATE` | Install-time |
+| `ACCESS_WIFI_STATE`, `CHANGE_WIFI_STATE` | Install-time |
+| `BLUETOOTH`, `BLUETOOTH_ADMIN` | Capped at `maxSdkVersion="30"` |
+| `ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION` | Capped at `maxSdkVersion="32"` |
+| `BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` | Runtime, API 31+ |
+| `NEARBY_WIFI_DEVICES` | Runtime, API 33+ |
+
+Media permissions are **not** declared — reading a file you choose to send is your app's concern.
+
+To override any of them, redeclare the permission in your own `AndroidManifest.xml`; your version
+wins. Two caveats:
+
+- **Restate `maxSdkVersion` when you redeclare.** Redeclaring `BLUETOOTH` without the cap widens it
+  from `maxSdkVersion="30"` to every API level.
+- **`tools:node="remove"` does not work** against these. The directive is copied into the final
+  manifest verbatim and the permission is still requested.
 
 #### Android runtime permissions
 

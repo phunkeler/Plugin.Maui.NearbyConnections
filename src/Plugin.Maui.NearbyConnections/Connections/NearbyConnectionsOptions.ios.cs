@@ -47,7 +47,7 @@ public sealed partial class NearbyConnectionsOptions
     /// budget is not needed here since any un-overridden value should fail loudly) so that
     /// validation at startup throws immediately with a descriptive message instead.
     /// </remarks>
-    private static partial string GetDefaultServiceId() => "_UNSET";
+    private static partial string GetDefaultServiceId() => ServiceIdRules.Unset;
 
     private static partial string GetDefaultReceivedFilesDirectory() => FileSystem.AppDataDirectory;
 }

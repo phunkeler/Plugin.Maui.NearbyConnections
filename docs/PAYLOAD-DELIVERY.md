@@ -31,6 +31,51 @@ await foreach (var payload in connection.ReceiveAsync())
 
 ---
 
+## The delivery path
+
+```mermaid
+flowchart LR
+    subgraph platform["Platform SDK thread"]
+        CB["Native callback<br/><i>OnPayloadReceived / DidReceiveData</i>"]
+    end
+
+    subgraph plugin["Plugin"]
+        WP["WritePayload(peerId, payload)"]
+        CH[("Receive channel<br/><b>unbounded</b>, single-reader")]
+    end
+
+    subgraph app["Your code"]
+        RA["await foreach<br/>connection.ReceiveAsync()"]
+        BODY["Loop body<br/><i>persist, decode, fan out</i>"]
+    end
+
+    CB --> WP
+    WP -->|TryWrite| CH
+    CH -->|one payload at a time| RA
+    RA --> BODY
+    BODY -.->|next payload only<br/>after body completes| CH
+
+    WP -.->|no consumer:<br/>logged once per connection| WARN{{"Payloads buffer<br/>and are never seen"}}
+
+    style CH fill:#e8f0fe,stroke:#4285f4
+    style WARN fill:#fce8e6,stroke:#d93025
+```
+
+Three properties follow from this shape, and each is load-bearing:
+
+| Property | Consequence |
+| --- | --- |
+| The channel is **unbounded** | A slow consumer grows memory. It never slows the remote sender. |
+| The channel is **single-reader** | `ReceiveAsync` throws on a second call. Fan out above the plugin. |
+| The loop body **gates the dequeue** | Handlers may `await` freely without losing or reordering payloads. |
+
+The dashed red path is the failure mode worth knowing: nothing forces a connection to be consumed.
+If no one calls `ReceiveAsync`, payloads accumulate in the channel silently — the plugin logs a
+warning once per connection (`LogPayloadArrivedUnobserved`), but there is no exception and no
+back-pressure signal to the sender.
+
+---
+
 ## Why payloads are a stream
 
 ### The loop body is the backpressure seam

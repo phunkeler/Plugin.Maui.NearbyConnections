@@ -19,7 +19,7 @@ public enum NearbyTransferStatus
 }
 
 /// <summary>
-/// Represents the progress of an ongoing or completed data transfer.
+/// Represents the progress of an ongoing or completed payload transfer.
 /// </summary>
 /// <param name="payloadId">The platform-assigned identifier for the payload.</param>
 /// <param name="bytesTransferred">The number of bytes transferred so far.</param>

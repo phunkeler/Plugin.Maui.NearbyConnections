@@ -1,7 +1,7 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// The exception that is thrown when the platform fails to start or continue advertising.
+/// The exception to throw when the platform fails to start or continue advertising.
 /// </summary>
 /// <remarks>
 /// This exception surfaces from

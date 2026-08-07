@@ -68,6 +68,89 @@ public class NearbySessionTests
             disposeFactory: () => ValueTask.CompletedTask);
 
     // -------------------------------------------------------------------------
+    // Preflight availability
+    // -------------------------------------------------------------------------
+
+    [TestClass]
+    public sealed class CheckAvailability : NearbySessionTests
+    {
+        [TestMethod]
+        public async Task Always_DelegatesToThePlatform()
+        {
+            var connections = new FakeNearbyConnections { Availability = NearbyAvailability.Ready };
+            var sut = CreateSut(connections);
+
+            var result = await sut.CheckAvailabilityAsync();
+
+            Assert.AreEqual(NearbyAvailability.Ready, result);
+            Assert.AreEqual(1, connections.CheckAvailabilityCallCount);
+        }
+
+        [TestMethod]
+        public async Task MultipleProblems_AreReportedTogether()
+        {
+            // The whole reason this is a [Flags] enum: a user with Bluetooth off AND permissions
+            // denied should be told both at once, not made to fix one and retry to discover the
+            // other.
+            var connections = new FakeNearbyConnections
+            {
+                Availability = NearbyAvailability.BluetoothDisabled | NearbyAvailability.MissingPermissions,
+            };
+            var sut = CreateSut(connections);
+
+            var result = await sut.CheckAvailabilityAsync();
+
+            Assert.IsTrue(result.HasFlag(NearbyAvailability.BluetoothDisabled));
+            Assert.IsTrue(result.HasFlag(NearbyAvailability.MissingPermissions));
+            Assert.IsFalse(result.HasFlag(NearbyAvailability.PlayServicesUnavailable));
+        }
+
+        [TestMethod]
+        public async Task ProblemFlags_DoNotCompareEqualToReady()
+        {
+            // Ready = 0 is what makes `result is NearbyAvailability.Ready` a valid readiness test.
+            // If Ready ever gained a non-zero value, or a problem flag were assigned 0, that idiom
+            // would silently start reporting a broken device as usable.
+            var connections = new FakeNearbyConnections
+            {
+                Availability = NearbyAvailability.MissingPermissions,
+            };
+            var sut = CreateSut(connections);
+
+            var result = await sut.CheckAvailabilityAsync();
+
+            Assert.AreNotEqual(NearbyAvailability.Ready, result);
+        }
+
+        [TestMethod]
+        public async Task DoesNotStartAdvertisingOrDiscovery()
+        {
+            // A preflight check must not have side effects: it reports state, it does not mutate it.
+            var connections = new FakeNearbyConnections();
+            var sut = CreateSut(connections);
+
+            await sut.CheckAvailabilityAsync();
+
+            Assert.IsFalse(sut.IsAdvertising);
+            Assert.IsFalse(sut.IsDiscovering);
+            Assert.AreEqual(0, connections.AdvertiseCallCount);
+            Assert.AreEqual(0, connections.DiscoverCallCount);
+        }
+
+        [TestMethod]
+        public async Task CanceledToken_Throws()
+        {
+            var connections = new FakeNearbyConnections();
+            var sut = CreateSut(connections);
+            using var cts = new CancellationTokenSource();
+            await cts.CancelAsync();
+
+            await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+                () => sut.CheckAvailabilityAsync(cts.Token));
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // Advertising / discovery toggles — decision 8: they are independent.
     // -------------------------------------------------------------------------
 

@@ -797,6 +797,91 @@ sealed partial class NearbyConnectionsImplementation
         return Guid.NewGuid().ToString("N");
     }
 
+    /// <summary>
+    /// Reports what would stop advertising or discovery from working right now.
+    /// </summary>
+    /// <remarks>
+    /// Every condition is evaluated, rather than returning at the first problem, so the caller can
+    /// tell the user everything that needs fixing in one prompt instead of one per attempt.
+    /// Permission checks use the .NET MAUI <c>Permissions</c> API's <c>CheckStatusAsync</c>, which
+    /// reports status without prompting — this method must never surface a system dialog.
+    /// </remarks>
+    async Task<NearbyAvailability> PlatformCheckAvailabilityAsync(CancellationToken cancellationToken)
+    {
+        var result = NearbyAvailability.Ready;
+        var context = Platform.CurrentActivity ?? Platform.AppContext;
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (GoogleApiAvailability.Instance.IsGooglePlayServicesAvailable(context) != ConnectionResult.Success)
+        {
+            result |= NearbyAvailability.PlayServicesUnavailable;
+        }
+
+        if (!await ArePermissionsGrantedAsync().ConfigureAwait(false))
+        {
+            result |= NearbyAvailability.MissingPermissions;
+        }
+
+        // A radio the device does not have is not a fixable problem, so only a present-but-off
+        // radio is reported. GetSystemService returning null means no such radio exists.
+        try
+        {
+            using var bluetoothManager = (Android.Bluetooth.BluetoothManager?)context.GetSystemService(Context.BluetoothService);
+
+            if (bluetoothManager?.Adapter is { } adapter && !adapter.IsEnabled)
+            {
+                result |= NearbyAvailability.BluetoothDisabled;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Querying radio state must never throw out of a preflight check: a caller that cannot
+            // check availability would be worse off than one that assumes it is fine and fails at
+            // start, which is the pre-existing behaviour.
+            LogAvailabilityCheckPartiallyFailed(nameof(NearbyAvailability.BluetoothDisabled), ex);
+        }
+
+        try
+        {
+            using var wifiManager = (Android.Net.Wifi.WifiManager?)context.GetSystemService(Context.WifiService);
+
+            if (wifiManager is not null && !wifiManager.IsWifiEnabled)
+            {
+                result |= NearbyAvailability.WifiDisabled;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogAvailabilityCheckPartiallyFailed(nameof(NearbyAvailability.WifiDisabled), ex);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Checks the runtime permissions Nearby Connections needs on this API level, without
+    /// prompting. Install-time permissions are not checked: they are granted by virtue of being
+    /// declared, which the package does on the consumer's behalf.
+    /// </summary>
+    static async Task<bool> ArePermissionsGrantedAsync()
+    {
+        // API 31+ replaced the location requirement with the granular BLUETOOTH_* permissions;
+        // API 33+ added NEARBY_WIFI_DEVICES. Checking the wrong set for the running OS reports a
+        // permission the user can never grant, so the split follows the OS, not the target SDK.
+        if (await Permissions.CheckStatusAsync<Permissions.Bluetooth>().ConfigureAwait(false) != PermissionStatus.Granted)
+        {
+            return false;
+        }
+
+        if (OperatingSystem.IsAndroidVersionAtLeast(33))
+        {
+            return await Permissions.CheckStatusAsync<Permissions.NearbyWifiDevices>().ConfigureAwait(false) == PermissionStatus.Granted;
+        }
+
+        return await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>().ConfigureAwait(false) == PermissionStatus.Granted;
+    }
+
     void PlatformDispose()
     {
         foreach (var (_, entry) in _incomingPayloads)

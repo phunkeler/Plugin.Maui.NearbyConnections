@@ -25,5 +25,13 @@ sealed partial class NearbyConnectionsImplementation
     // No-op for the same reason as the stop/dispose members above: it runs on a cleanup path where
     // throwing would replace the caller's real failure with a platform-support error.
     Task PlatformAbandonConnectAsync(NearbyDevice device) => Task.CompletedTask;
+
+    // Reports rather than throws: the whole point of a preflight check is to answer "can I start?"
+    // without the caller having to catch anything.
+    static Task<NearbyAvailability> PlatformCheckAvailabilityAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(NearbyAvailability.UnsupportedPlatform);
+    }
 #pragma warning restore CA1822, S2325, S1144, S1172
 }

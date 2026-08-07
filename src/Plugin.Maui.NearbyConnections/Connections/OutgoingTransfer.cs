@@ -12,11 +12,11 @@ sealed class OutgoingTransfer(
 {
     readonly TaskCompletionSource _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    // Timed through the injected TimeProvider so the inactivity timeout is testable with
-    // FakeTimeProvider rather than requiring a real wall-clock wait.
     CancellationTokenSource _inactivityCts = new(inactivityTimeout, timeProvider);
 
-    /// <summary>Awaitable task that completes when the transfer reaches a terminal state.</summary>
+    /// <summary>
+    /// Awaitable task that completes when the transfer reaches a terminal state.
+    /// </summary>
     public Task Completion => _tcs.Task;
 
     /// <summary>

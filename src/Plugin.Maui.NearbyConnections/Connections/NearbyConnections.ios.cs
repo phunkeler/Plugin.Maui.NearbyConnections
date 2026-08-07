@@ -389,6 +389,42 @@ sealed partial class NearbyConnectionsImplementation
         }
     }
 
+    /// <summary>
+    /// Reports what would stop advertising or discovery from working right now.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The condition worth catching on iOS is an invalid <see cref="NearbyConnectionsOptions.ServiceId"/>,
+    /// because <c>MCNearbyServiceAdvertiser</c>'s native initializer raises an
+    /// <c>NSInvalidArgumentException</c> for one — a fatal native crash that no <c>try</c>/<c>catch</c>
+    /// can intercept. Options validation already rejects this at startup; repeating the check here
+    /// means a consumer who bypasses the options pipeline still gets a value they can branch on
+    /// rather than a crash.
+    /// </para>
+    /// <para>
+    /// Two conditions are deliberately not reported. Multipeer Connectivity needs no Play-services
+    /// equivalent, so <see cref="NearbyAvailability.PlayServicesUnavailable"/> never applies. And
+    /// Bluetooth power state cannot be read without instantiating a <c>CBCentralManager</c>, which
+    /// triggers the system Bluetooth permission prompt — a preflight check that prompts defeats its
+    /// own purpose, so <see cref="NearbyAvailability.BluetoothDisabled"/> is never reported here.
+    /// </para>
+    /// </remarks>
+    Task<NearbyAvailability> PlatformCheckAvailabilityAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var failures = new List<string>();
+        ServiceIdRules.Validate(Options.ServiceId, failures);
+
+        if (failures.Count > 0)
+        {
+            LogAvailabilityInvalidServiceId(Options.ServiceId, string.Join(" ", failures));
+            return Task.FromResult(NearbyAvailability.InvalidConfiguration);
+        }
+
+        return Task.FromResult(NearbyAvailability.Ready);
+    }
+
     void PlatformDispose()
     {
         PlatformStopAdvertising();
