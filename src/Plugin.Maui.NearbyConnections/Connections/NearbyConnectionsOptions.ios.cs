@@ -4,11 +4,14 @@ public sealed partial class NearbyConnectionsOptions
 {
     /// <summary>
     /// Gets or sets whether the link between two devices must be encrypted.
-    /// The default value is <see cref="NearbyEncryptionPreference.Required"/>.
     /// </summary>
-    /// <remarks>
-    /// iOS only — Android encrypts every connection unconditionally and always behaves as
+    /// <value>
+    /// One of the <see cref="NearbyEncryptionPreference"/> values. The default is
     /// <see cref="NearbyEncryptionPreference.Required"/>.
+    /// </value>
+    /// <remarks>
+    /// <b>This setting applies to iOS only.</b> Android encrypts every connection unconditionally
+    /// and always behaves as <see cref="NearbyEncryptionPreference.Required"/>.
     /// </remarks>
     public NearbyEncryptionPreference EncryptionPreference { get; set; } = NearbyEncryptionPreference.Required;
 

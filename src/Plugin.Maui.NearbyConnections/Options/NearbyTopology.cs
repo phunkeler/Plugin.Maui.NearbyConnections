@@ -1,37 +1,37 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// How devices may connect to one another — how many peers each side can hold at once, and the
-/// bandwidth that follows from that.
+/// Specifies how devices may connect to one another: how many peers each device can hold at once,
+/// and the bandwidth that results.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Must match on both sides.</strong> An advertiser and a discoverer configured with
-/// different topologies will not find each other.
+/// <b>This value must match on both devices.</b> An advertising device and a discovering device
+/// configured with different topologies do not find each other.
 /// </para>
 /// <para>
-/// <strong>Android only.</strong> MultipeerConnectivity has no equivalent knob — iOS is always
-/// effectively a mesh — so this is ignored on iOS. It is named for the shape it describes rather
-/// than after either platform's vocabulary.
+/// <b>This setting applies to Android only.</b> Multipeer Connectivity on iOS has no equivalent
+/// setting and always behaves as a mesh, so this value is ignored there.
 /// </para>
 /// </remarks>
 public enum NearbyTopology
 {
     /// <summary>
-    /// Many-to-many: every device may connect to several others at once. The most flexible option
-    /// and the right default for group scenarios like chat, at lower per-connection bandwidth.
+    /// Many-to-many. Every device may connect to several others at once. This is the most flexible
+    /// option and the recommended default for group scenarios, at the cost of lower per-connection
+    /// bandwidth.
     /// </summary>
     Cluster,
 
     /// <summary>
-    /// One-to-many, high bandwidth: one device accepts connections from several others, but those
-    /// others connect only to it. Suits one device distributing data to a group.
+    /// One-to-many, at high bandwidth. One device accepts connections from several others, and
+    /// those devices connect only to it. Use this when one device distributes data to a group.
     /// </summary>
     Star,
 
     /// <summary>
-    /// One-to-one, highest bandwidth: each device connects to exactly one peer. Choose this when
-    /// transferring large files between two devices and nothing else needs to join.
+    /// One-to-one, at the highest bandwidth. Each device connects to exactly one peer. Use this
+    /// when transferring large files between two devices.
     /// </summary>
     PointToPoint,
 }

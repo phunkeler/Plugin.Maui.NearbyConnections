@@ -1,30 +1,30 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// How aggressively a connection may use the radio, trading throughput against disruption to other
-/// connections on the device.
+/// Specifies how aggressively a connection may use the radio, trading throughput against
+/// disruption to other connections on the device.
 /// </summary>
 /// <remarks>
-/// <strong>Android only.</strong> MultipeerConnectivity exposes no equivalent, so this is ignored
-/// on iOS.
+/// <b>This setting applies to Android only.</b> Multipeer Connectivity on iOS exposes no
+/// equivalent setting, so this value is ignored there.
 /// </remarks>
 public enum NearbyConnectionType
 {
     /// <summary>
-    /// Balances throughput against disruption to other connections. The default, and the right
-    /// choice for mixed workloads like chat with occasional attachments.
+    /// Balances throughput against disruption to other connections. This is the default, and is
+    /// the recommended choice for mixed workloads such as messaging with occasional attachments.
     /// </summary>
     Balanced,
 
     /// <summary>
-    /// Prioritises throughput, at the cost of disrupting other connections on the device. Suits
-    /// large file transfers where speed matters more than coexistence.
+    /// Prioritizes throughput, at the cost of disrupting other connections on the device. Use this
+    /// for large file transfers where speed matters more than coexistence.
     /// </summary>
     HighBandwidth,
 
     /// <summary>
-    /// Prioritises not disrupting other connections, at the cost of throughput. Suits small,
-    /// infrequent messages alongside other network activity.
+    /// Prioritizes leaving other connections undisturbed, at the cost of throughput. Use this for
+    /// small, infrequent messages alongside other network activity.
     /// </summary>
     NonDisruptive,
 }

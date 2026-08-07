@@ -1,43 +1,43 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Where a <see cref="NearbyDevice"/> sits in its lifecycle, from first discovery through to an
-/// established connection.
+/// Specifies the position of a <see cref="NearbyDevice"/> in its lifecycle, from first discovery
+/// through to an established connection.
 /// </summary>
 /// <remarks>
-/// A device stays in the session's device collection across every one of these states; the status
-/// changes rather than the device moving between collections. See <c>docs/DEVICE-LIFECYCLE.md</c>.
+/// A device remains in <see cref="INearbySession.Devices"/> in every one of these states. The
+/// status changes rather than the device moving between collections.
 /// </remarks>
 public enum NearbyDeviceStatus
 {
     /// <summary>
-    /// Discovered and in range, with no negotiation in flight. The starting state for a device
-    /// found while discovering, and the state a device returns to after a connection ends or a
-    /// request is rejected.
+    /// The device has been discovered and is in range, with no connection negotiation in progress.
+    /// This is the initial state for a discovered device, and the state a device returns to after a
+    /// connection ends or a request is rejected.
     /// </summary>
     Visible,
 
     /// <summary>
-    /// The remote device has asked to connect and is awaiting a response — accept or reject the
-    /// pending request to leave this state.
+    /// The device has requested a connection and is awaiting a response. Accept or reject the
+    /// request to leave this state.
     /// </summary>
     RequestReceived,
 
     /// <summary>
-    /// A handshake is in flight, in either direction — outbound after a connect call, inbound after
-    /// accepting a request. Check <see cref="NearbyDevice.Role"/> for the direction.
+    /// A connection handshake is in progress, in either direction. Check
+    /// <see cref="NearbyDevice.Role"/> to determine which side initiated it.
     /// </summary>
     /// <remarks>
-    /// <strong>Advisory — not a guaranteed waypoint.</strong> On iOS a peer can go directly from an
-    /// invitation to disconnected without ever being observed in this state, both on the common
-    /// declined-invitation path and (rarely) on error. Never treat reaching <see cref="Connecting"/>
-    /// as a precondition for clearing pending state, or the connection attempt can hang forever.
+    /// This state is advisory and is not a guaranteed step in the lifecycle. On iOS, a device can
+    /// move from an invitation directly to a disconnected state without ever being observed in
+    /// this state, both when an invitation is declined and, less commonly, on error. Do not treat
+    /// this state as a precondition for clearing pending connection state.
     /// </remarks>
     Connecting,
 
     /// <summary>
-    /// A connection is established. <see cref="NearbyDevice.Connection"/> is non-<see langword="null"/>
-    /// in this state and only in this state.
+    /// A connection is established. <see cref="NearbyDevice.Connection"/> is not
+    /// <see langword="null"/> in this state, and only in this state.
     /// </summary>
     Connected,
 }

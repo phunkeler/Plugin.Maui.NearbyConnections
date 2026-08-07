@@ -1,16 +1,19 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Carries the device and connection for a connection that has just been established or dropped.
+/// Provides data for the <see cref="INearbySession.ConnectionEstablished"/> and
+/// <see cref="INearbySession.ConnectionDropped"/> events.
 /// </summary>
 public sealed class NearbyConnectionChangedEventArgs : EventArgs
 {
     /// <summary>
-    /// Initializes a new <see cref="NearbyConnectionChangedEventArgs"/>.
+    /// Initializes a new instance of the <see cref="NearbyConnectionChangedEventArgs"/> class.
     /// </summary>
-    /// <param name="device">The remote device.</param>
+    /// <param name="device">The remote device on the other end of the connection.</param>
     /// <param name="connection">The connection that was established or dropped.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="device"/> or <paramref name="connection"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="device"/> or <paramref name="connection"/> is <see langword="null"/>.
+    /// </exception>
     public NearbyConnectionChangedEventArgs(NearbyDevice device, NearbyConnection connection)
     {
         ArgumentNullException.ThrowIfNull(device);
@@ -23,15 +26,19 @@ public sealed class NearbyConnectionChangedEventArgs : EventArgs
     /// <summary>
     /// Gets the remote device on the other end of the connection.
     /// </summary>
+    /// <value>The remote device associated with the connection.</value>
     public NearbyDevice Device { get; }
 
     /// <summary>
     /// Gets the connection that was established or dropped.
     /// </summary>
+    /// <value>The connection associated with the event.</value>
     /// <remarks>
-    /// On <see cref="INearbySession.ConnectionDropped"/> the connection is already torn down: it is
-    /// supplied so handlers can correlate with the instance they were using, not to send on. A
-    /// dropped device's <see cref="NearbyDevice.Connection"/> is <see langword="null"/>.
+    /// For the <see cref="INearbySession.ConnectionDropped"/> event, the connection is already torn
+    /// down and cannot be used to send data. It is supplied so that handlers can correlate the
+    /// event with the connection instance they were using. The
+    /// <see cref="NearbyDevice.Connection"/> property of a dropped device is
+    /// <see langword="null"/>.
     /// </remarks>
     public NearbyConnection Connection { get; }
 }

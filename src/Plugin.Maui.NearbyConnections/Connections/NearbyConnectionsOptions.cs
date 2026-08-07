@@ -1,51 +1,70 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// One-time startup configuration for Nearby Connections. Set values in the
-/// <c>UseNearbyConnections</c>/<c>AddNearbyConnections</c> configure delegate; the plugin reads
-/// the resolved instance once at construction, so mutating properties after startup is
-/// unsupported and has no defined effect.
+/// Provides configuration options for nearby connectivity.
 /// </summary>
+/// <remarks>
+/// Set these options in the delegate passed to
+/// <see cref="MauiAppBuilderExtensions"/>.<c>UseNearbyConnections</c> or
+/// <see cref="ServiceCollectionExtensions"/>.<c>AddNearbyConnections</c>. The library reads the
+/// resolved instance once, when the session is created; changing a property after application
+/// startup has no defined effect.
+/// </remarks>
 public sealed partial class NearbyConnectionsOptions
 {
     /// <summary>
-    /// Gets the name to display when advertising/discovering.
-    /// Defaults to <see cref="DeviceInfo.Name"/>.
+    /// Gets or sets the name shown to nearby devices when advertising or discovering.
     /// </summary>
+    /// <value>
+    /// The display name for this device. The default is <see cref="DeviceInfo.Name"/>.
+    /// </value>
     public string DisplayName { get; set; } = GetDefaultDisplayName();
 
     /// <summary>
-    /// Gets the service identifier used to discover and connect with nearby devices.
-    /// On Android, defaults to <see cref="AppInfo.Name"/>. On iOS, this property has no default
-    /// and <b>must</b> be set explicitly before calling <c>AdvertiseAsync</c> or <c>DiscoverAsync</c>.
+    /// Gets or sets the service identifier that devices use to find one another.
     /// </summary>
+    /// <value>
+    /// The service identifier. On Android, the default is <see cref="AppInfo.Name"/>. On iOS, this
+    /// property has no usable default and must be set explicitly.
+    /// </value>
     /// <remarks>
     /// <para>
-    /// On Android, this is used as the <c>serviceId</c> when advertising/discovery Google Play Service's Nearby Connections API
-    /// (<see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/package-summary">developers.google.com</see>).
+    /// Only devices configured with the same service identifier discover one another.
     /// </para>
     /// <para>
-    /// On iOS, this is passed directly as <c>MCNearbyServiceAdvertiser</c>/
-    /// <c>MCNearbyServiceBrowser</c>'s <c>serviceType</c>, which Apple requires to be a bare
-    /// string 1-15 characters long identifying the network protocol (for example
-    /// <c>"xamarin-txtchat"</c>) — this is <b>not</b> the same as the Bonjour <c>_name._tcp</c>
-    /// service type format used in the application's <c>Info.plist</c> under
-    /// <c>NSBonjourServices</c>
-    /// (<see href="https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSBonjourServices">developer.apple.com</see>);
-    /// that longer form must still be declared in <c>Info.plist</c>, but this property's value
-    /// itself must be the short <c>serviceType</c> form. There is no meaningful default on iOS;
-    /// app startup will fail if this property is not set.
+    /// On Android, this value is passed as the service identifier to the Nearby Connections API.
+    /// See <see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/package-summary">Nearby Connections API</see>.
+    /// </para>
+    /// <para>
+    /// On iOS, this value is passed as the service type to Multipeer Connectivity, which requires a
+    /// string of 1 to 15 characters identifying the network protocol — for example,
+    /// <c>"nearbychat"</c>. This is <b>not</b> the same as the Bonjour <c>_name._tcp</c> service
+    /// type declared in the application's <c>Info.plist</c> file under <c>NSBonjourServices</c>.
+    /// Both are required, but they take different forms: declare the longer form in
+    /// <c>Info.plist</c>, and assign the short form here. See
+    /// <see href="https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSBonjourServices">NSBonjourServices</see>.
+    /// </para>
+    /// <para>
+    /// On iOS, application startup fails with a descriptive error if this property is not set, or
+    /// if its length is outside the supported range, because an invalid service type causes an
+    /// unrecoverable native failure.
     /// </para>
     /// </remarks>
     public string ServiceId { get; set; } = GetDefaultServiceId();
 
     /// <summary>
-    /// Gets the directory where received files are saved after transfer.
-    /// The default differs per platform: on Android, <see cref="FileSystem.CacheDirectory"/>
-    /// (which the OS may purge to reclaim space); on iOS, <see cref="FileSystem.AppDataDirectory"/>
-    /// (persistent). Set this explicitly (or move files after receipt) if received files must
-    /// persist on Android.
+    /// Gets or sets the directory in which received files are saved.
     /// </summary>
+    /// <value>
+    /// The full path to the destination directory. On Android, the default is
+    /// <see cref="FileSystem.CacheDirectory"/>; on iOS, it is
+    /// <see cref="FileSystem.AppDataDirectory"/>.
+    /// </value>
+    /// <remarks>
+    /// The Android default is a cache directory, which the operating system may purge to reclaim
+    /// space. Set this property to a persistent location, or move received files after they
+    /// arrive, if they must survive.
+    /// </remarks>
     public string ReceivedFilesDirectory { get; set; } = GetDefaultReceivedFilesDirectory();
 
     private static partial string GetDefaultDisplayName();
@@ -54,41 +73,55 @@ public sealed partial class NearbyConnectionsOptions
 
     /// <summary>
     /// Gets or sets how long to wait for a remote device to answer a connection request before the
-    /// attempt is abandoned. Defaults to 30 seconds. Set to <see cref="Timeout.InfiniteTimeSpan"/>
-    /// to wait indefinitely.
+    /// attempt is abandoned.
     /// </summary>
+    /// <value>
+    /// The interval to wait for a response. The default is 30 seconds. Set this to
+    /// <see cref="Timeout.InfiniteTimeSpan"/> to wait indefinitely.
+    /// </value>
     /// <remarks>
     /// <para>
-    /// Applies to both platforms, but is enforced differently: iOS has a native invitation timeout,
-    /// while on Android the plugin owns a timer because Google's Nearby Connections imposes no
-    /// timeout of its own. Without it, connecting to a device that never answers — or that walks
-    /// out of range mid-handshake — would wait forever.
+    /// This timeout applies on both platforms, but is enforced differently. iOS has a native
+    /// invitation timeout, whereas on Android the library maintains its own timer, because the
+    /// Nearby Connections API imposes no timeout. Without it, connecting to a device that never
+    /// answers, or that moves out of range during the handshake, would wait indefinitely.
     /// </para>
     /// <para>
-    /// On expiry <c>ConnectAsync</c> throws <see cref="NearbyConnectionTimeoutException"/>.
+    /// When this interval elapses,
+    /// <see cref="INearbySession.ConnectAsync(NearbyDevice, CancellationToken)"/> throws
+    /// <see cref="NearbyConnectionTimeoutException"/>.
     /// </para>
     /// </remarks>
     public TimeSpan InvitationTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// Gets the maximum time to wait without receiving a transfer progress update
-    /// before considering a data transfer stalled and aborting it.
-    /// Defaults to 10 seconds. Set to <see cref="Timeout.InfiniteTimeSpan"/> to disable.
+    /// Gets or sets how long a file transfer may report no progress before it is considered stalled
+    /// and is abandoned.
     /// </summary>
+    /// <value>
+    /// The interval to wait between progress updates. The default is 10 seconds. Set this to
+    /// <see cref="Timeout.InfiniteTimeSpan"/> to disable the check.
+    /// </value>
+    /// <remarks>
+    /// When this interval elapses, the pending <c>SendAsync</c> call throws
+    /// <see cref="NearbyTransferTimeoutException"/>.
+    /// </remarks>
     public TimeSpan TransferInactivityTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
-    /// Gets a value indicating whether reader continuations on internal event/payload channels
-    /// may run synchronously on the writer's thread instead of being scheduled to the thread pool.
-    /// Defaults to <see langword="false"/>.
+    /// Gets or sets a value indicating whether payload and event delivery may continue synchronously
+    /// on the platform callback thread instead of being scheduled to the thread pool.
     /// </summary>
+    /// <value>
+    /// <see langword="true"/> to allow synchronous continuations; otherwise,
+    /// <see langword="false"/>. The default is <see langword="false"/>.
+    /// </value>
     /// <remarks>
-    /// Channel writes originate from SDK-owned native callback threads (see the platform callback
-    /// remarks on <see cref="INearbyConnections"/>). Setting this to <see langword="true"/> means your
-    /// <c>await foreach</c> body may execute directly on that native thread, avoiding a thread-pool
-    /// hop — but a slow consumer body will stall the platform SDK's own callback dispatch. Only
-    /// enable this if your <c>AdvertiseAsync</c>/<c>DiscoverAsync</c>/<c>ReceiveAsync</c> consumer
-    /// bodies are trivially fast (e.g. forwarding to another channel).
+    /// Payloads and device events are written from background threads owned by the platform SDK.
+    /// Setting this property to <see langword="true"/> allows the body of a consuming
+    /// <c>await foreach</c> loop to run directly on that thread, avoiding a thread-pool transition.
+    /// A slow loop body then stalls the platform SDK's own callback dispatch, so enable this only
+    /// when consuming loops complete very quickly.
     /// </remarks>
     public bool AllowSynchronousContinuations { get; set; }
 }

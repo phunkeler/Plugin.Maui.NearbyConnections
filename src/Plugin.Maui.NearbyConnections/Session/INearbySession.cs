@@ -3,208 +3,315 @@ using System.Collections.Specialized;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// The single entry point to nearby connectivity: advertise this device, discover others, connect,
-/// and observe every device's lifecycle through one collection.
+/// Provides the entry point to nearby connectivity: advertises this device, discovers others,
+/// establishes connections, and exposes every device's lifecycle through a single collection.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Lifetime.</strong> Registered as a singleton — there is one radio, one native session.
-/// The container owns it and tears it down; consumers use <see cref="StopAsync"/> rather than
-/// disposing it, so a single page cannot end the session app-wide.
+/// <b>Lifetime.</b> This service is registered as a singleton, because there is one radio and one
+/// native session per device. The dependency injection container owns the instance and tears it
+/// down. Call <see cref="StopAsync(CancellationToken)"/> to return the session to its initial
+/// state rather than disposing it, so that a single page cannot end the session for the whole
+/// application.
 /// </para>
 /// <para>
-/// <strong>State versus streams.</strong> Device presence and connection state are *state*, exposed
-/// as the observable <see cref="Devices"/> collection plus three lifecycle events. Inbound payloads
-/// are a *stream*, consumed per-connection via
-/// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/> — one consumer per connection, fan
-/// out above the plugin. See <c>docs/PAYLOAD-DELIVERY.md</c>.
+/// <b>State compared with streams.</b> Device presence and connection state are exposed as state:
+/// the observable <see cref="Devices"/> collection and the three lifecycle events. Inbound payloads
+/// are instead exposed as a stream, consumed for each connection through
+/// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/>. A connection supports a single
+/// payload consumer; distribute payloads to multiple components in your own code.
 /// </para>
 /// <para>
-/// <strong>Threading.</strong> Platform callbacks arrive on SDK-owned background threads. The session
-/// marshals every <see cref="Devices"/> mutation, <see cref="INotifyPropertyChanged"/> raise, and
-/// lifecycle event onto the UI dispatcher, so handlers and bindings are safe without further
-/// marshalling. Handlers run synchronously on the dispatcher: keep them fast and do no I/O in them.
+/// <b>Thread safety.</b> Platform callbacks arrive on background threads owned by the underlying
+/// platform SDK. The session marshals every <see cref="Devices"/> mutation, every
+/// <see cref="INotifyPropertyChanged.PropertyChanged"/> notification, and every lifecycle event
+/// onto the UI dispatcher, so event handlers and data bindings require no further marshalling.
+/// Handlers run synchronously on the dispatcher; keep them short and perform no I/O in them.
 /// </para>
 /// <para>
-/// <strong>Subscription lifetime.</strong> These events live as long as the singleton. A page
-/// ViewModel that subscribes without unsubscribing leaks for the life of the app, and re-navigating
-/// adds a second subscription. Always pair <c>+=</c> with <c>-=</c>; the sample's
-/// <c>BasePageViewModel.RegisterSessionSubscription</c> shows the pattern.
+/// <b>Subscription lifetime.</b> The events on this interface live as long as the singleton. A
+/// view model that subscribes without unsubscribing remains alive for the lifetime of the
+/// application, and navigating to the page a second time adds a second subscription. Always pair
+/// an <c>+=</c> subscription with a matching <c>-=</c> when the subscriber has a shorter lifetime
+/// than the session.
 /// </para>
 /// </remarks>
+/// <seealso cref="NearbyDevice"/>
+/// <seealso cref="NearbyConnection"/>
 public interface INearbySession
 {
     /// <summary>
-    /// Gets every device known to this session, from first discovery until it is no longer visible.
+    /// Gets the devices known to this session, from first discovery until they are no longer
+    /// visible.
     /// </summary>
+    /// <value>
+    /// A read-only collection of the devices currently known to the session. The collection
+    /// implements <see cref="INotifyCollectionChanged"/>.
+    /// </value>
     /// <remarks>
-    /// One collection spans the whole lifecycle — devices do not move between collections as they
-    /// connect. <see cref="NearbyDevice.Status"/> carries the state, and each device raises
-    /// <see cref="INotifyPropertyChanged.PropertyChanged"/> as it changes, so a bound row updates in
-    /// place. The collection implements <see cref="INotifyCollectionChanged"/>; cast to it, or bind
-    /// directly, to observe additions and removals. To show only connected devices, filter on
-    /// <see cref="NearbyDeviceStatus.Connected"/>.
+    /// A single collection spans the whole device lifecycle; devices do not move between
+    /// collections as they connect. <see cref="NearbyDevice.Status"/> indicates the current state,
+    /// and each device raises <see cref="INotifyPropertyChanged.PropertyChanged"/> when its state
+    /// changes, so a bound item updates in place. Bind directly to this collection, or cast it to
+    /// <see cref="INotifyCollectionChanged"/> to observe additions and removals in code. To display
+    /// only connected devices, filter on <see cref="NearbyDeviceStatus.Connected"/>.
     /// </remarks>
     IReadOnlyList<NearbyDevice> Devices { get; }
 
     /// <summary>
     /// Gets a value indicating whether this device is currently advertising its presence.
     /// </summary>
+    /// <value>
+    /// <see langword="true"/> if the device is advertising; otherwise, <see langword="false"/>.
+    /// </value>
     bool IsAdvertising { get; }
 
     /// <summary>
     /// Gets a value indicating whether this device is currently discovering nearby devices.
     /// </summary>
+    /// <value>
+    /// <see langword="true"/> if the device is discovering; otherwise, <see langword="false"/>.
+    /// </value>
     bool IsDiscovering { get; }
 
     /// <summary>
-    /// Raised when a remote device asks to connect. Respond with
-    /// <see cref="AcceptAsync"/> or <see cref="RejectAsync"/>.
+    /// Occurs when a remote device requests a connection.
     /// </summary>
     /// <remarks>
-    /// The device is in <see cref="NearbyDeviceStatus.RequestReceived"/> while the request is
-    /// outstanding. Leaving a request unanswered holds the remote device in its own pending state
-    /// until the platform times it out.
+    /// Respond by calling <see cref="AcceptAsync(NearbyDevice, CancellationToken)"/> or
+    /// <see cref="RejectAsync(NearbyDevice, CancellationToken)"/>. The device remains in the
+    /// <see cref="NearbyDeviceStatus.RequestReceived"/> state while the request is outstanding.
+    /// Leaving a request unanswered holds the remote device in its own pending state until the
+    /// platform times the request out.
     /// </remarks>
     event EventHandler<NearbyConnectionRequestedEventArgs> ConnectionRequested;
 
     /// <summary>
-    /// Raised when a connection to a remote device is established, in either direction.
+    /// Occurs when a connection to a remote device is established, in either direction.
     /// </summary>
     /// <remarks>
-    /// By the time this is raised, the device's <see cref="NearbyDevice.Status"/> is
-    /// <see cref="NearbyDeviceStatus.Connected"/> and <see cref="NearbyDevice.Connection"/> is
-    /// non-<see langword="null"/>. This is the point at which to start consuming payloads with
+    /// When this event is raised, the device's <see cref="NearbyDevice.Status"/> is
+    /// <see cref="NearbyDeviceStatus.Connected"/> and its <see cref="NearbyDevice.Connection"/> is
+    /// not <see langword="null"/>. Start consuming payloads at this point by calling
     /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/>.
     /// </remarks>
     event EventHandler<NearbyConnectionChangedEventArgs> ConnectionEstablished;
 
     /// <summary>
-    /// Raised when an established connection ends, whether by local disconnect, remote disconnect,
-    /// or loss of the link.
+    /// Occurs when an established connection ends, whether by a local disconnect, a remote
+    /// disconnect, or loss of the link.
     /// </summary>
     /// <remarks>
-    /// The device returns to <see cref="NearbyDeviceStatus.Visible"/> if still in range, and its
-    /// <see cref="NearbyDevice.Connection"/> is cleared. Any in-flight
-    /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/> loop completes on its own — no
-    /// cleanup is required for payload consumption.
+    /// The device returns to <see cref="NearbyDeviceStatus.Visible"/> if it is still in range, and
+    /// its <see cref="NearbyDevice.Connection"/> is set to <see langword="null"/>. Any in-flight
+    /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/> enumeration completes on its
+    /// own; no cleanup is required for payload consumption.
     /// </remarks>
     event EventHandler<NearbyConnectionChangedEventArgs> ConnectionDropped;
 
     /// <summary>
-    /// Starts advertising this device so nearby discoverers can find and connect to it.
-    /// Inbound requests arrive as <see cref="ConnectionRequested"/>.
+    /// Starts advertising this device so that nearby devices can discover and connect to it.
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel starting advertising.</param>
-    /// <returns>A task that completes once the platform has started advertising.</returns>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to observe while starting advertising.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes when
+    /// the platform has started advertising.
+    /// </returns>
     /// <remarks>
-    /// Advertising and discovery are independent — starting one does not affect the other. Calling
-    /// this while already advertising is a no-op.
+    /// Inbound connection requests are reported through the <see cref="ConnectionRequested"/>
+    /// event. Advertising and discovery are independent; starting one does not affect the other.
+    /// Calling this method while the device is already advertising performs no operation.
     /// </remarks>
-    /// <exception cref="NearbyAdvertisingException">Thrown if the platform fails to start advertising.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
+    /// <exception cref="NearbyAdvertisingException">
+    /// The platform failed to start advertising.
+    /// </exception>
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was canceled.
+    /// </exception>
     Task StartAdvertisingAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Stops advertising this device. Established connections are unaffected, and discovery
-    /// continues if it was running.
+    /// Stops advertising this device.
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel stopping advertising.</param>
-    /// <returns>A task that completes once the platform has stopped advertising.</returns>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to observe while stopping advertising.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes when
+    /// the platform has stopped advertising.
+    /// </returns>
+    /// <remarks>
+    /// Established connections are unaffected, and discovery continues if it was already running.
+    /// </remarks>
     Task StopAdvertisingAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Starts discovering nearby advertising devices. Discovered devices appear in
-    /// <see cref="Devices"/> with <see cref="NearbyDeviceStatus.Visible"/>.
+    /// Starts discovering nearby devices that are advertising.
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel starting discovery.</param>
-    /// <returns>A task that completes once the platform has started discovering.</returns>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to observe while starting discovery.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes when
+    /// the platform has started discovery.
+    /// </returns>
     /// <remarks>
-    /// Advertising and discovery are independent — starting one does not affect the other. Calling
-    /// this while already discovering is a no-op.
+    /// Discovered devices are added to <see cref="Devices"/> with a
+    /// <see cref="NearbyDevice.Status"/> of <see cref="NearbyDeviceStatus.Visible"/>. Advertising
+    /// and discovery are independent; starting one does not affect the other. Calling this method
+    /// while the device is already discovering performs no operation.
     /// </remarks>
-    /// <exception cref="NearbyDiscoveryException">Thrown if the platform fails to start discovery.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
+    /// <exception cref="NearbyDiscoveryException">
+    /// The platform failed to start discovery.
+    /// </exception>
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was canceled.
+    /// </exception>
     Task StartDiscoveringAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Stops discovering nearby devices. Established connections are unaffected, and advertising
-    /// continues if it was running.
+    /// Stops discovering nearby devices.
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel stopping discovery.</param>
-    /// <returns>A task that completes once the platform has stopped discovering.</returns>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to observe while stopping discovery.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes when
+    /// the platform has stopped discovery.
+    /// </returns>
     /// <remarks>
-    /// Devices that were merely visible are removed from <see cref="Devices"/>; connected devices
-    /// remain.
+    /// Established connections are unaffected, and advertising continues if it was already
+    /// running. Devices that were only visible are removed from <see cref="Devices"/>; connected
+    /// devices remain.
     /// </remarks>
     Task StopDiscoveringAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops advertising and discovery and disconnects every established connection, returning the
-    /// session to its initial state. The session remains usable — start again at any time.
+    /// session to its initial state.
     /// </summary>
-    /// <param name="cancellationToken">A token to cancel the teardown.</param>
-    /// <returns>A task that completes once the session is fully stopped.</returns>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to observe while stopping the session.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes when
+    /// the session is fully stopped.
+    /// </returns>
+    /// <remarks>
+    /// The session remains usable after this method returns; advertising or discovery can be
+    /// started again at any time.
+    /// </remarks>
     Task StopAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Requests a connection to a discovered <paramref name="device"/>, completing when the remote
-    /// device accepts.
+    /// Requests a connection to a discovered device.
     /// </summary>
     /// <param name="device">The device to connect to.</param>
     /// <param name="cancellationToken">
-    /// A token to stop waiting for the remote device to accept. Cancellation abandons the pending
-    /// attempt locally but does not guarantee the remote device was notified.
+    /// A <see cref="CancellationToken"/> to observe while waiting for the remote device to accept
+    /// the request. Canceling abandons the pending attempt locally, but does not guarantee that
+    /// the remote device is notified.
     /// </param>
-    /// <returns>A task that resolves to the established <see cref="NearbyConnection"/>.</returns>
+    /// <returns>
+    /// A <see cref="Task{TResult}"/> that represents the asynchronous operation. The value of its
+    /// <see cref="Task{TResult}.Result"/> property is the established
+    /// <see cref="NearbyConnection"/>.
+    /// </returns>
     /// <remarks>
-    /// The device moves to <see cref="NearbyDeviceStatus.Connecting"/> with
-    /// <see cref="ConnectionRole.Initiator"/> while the handshake is in flight, then to
+    /// While the handshake is in progress, the device's <see cref="NearbyDevice.Status"/> is
+    /// <see cref="NearbyDeviceStatus.Connecting"/> and its <see cref="NearbyDevice.Role"/> is
+    /// <see cref="ConnectionRole.Initiator"/>; on success the status becomes
     /// <see cref="NearbyDeviceStatus.Connected"/>. The returned connection is the same instance as
     /// <see cref="NearbyDevice.Connection"/>.
     /// </remarks>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="device"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when the connection cannot be established — the remote device rejected it, the device
-    /// is no longer visible, or the platform returned an error.
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="device"/> is <see langword="null"/>.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before the connection is established.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The connection could not be established because the remote device rejected the request, the
+    /// device is no longer visible, or the platform returned an error.
+    /// </exception>
+    /// <exception cref="NearbyConnectionTimeoutException">
+    /// The remote device did not answer within
+    /// <see cref="NearbyConnectionsOptions.InvitationTimeout"/>.
+    /// </exception>
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was canceled before the connection was established.
+    /// </exception>
     Task<NearbyConnection> ConnectAsync(NearbyDevice device, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Accepts an outstanding connection request from <paramref name="device"/>, reported by
-    /// <see cref="ConnectionRequested"/>.
+    /// Accepts an outstanding connection request from the specified device.
     /// </summary>
-    /// <param name="device">The device whose request to accept.</param>
-    /// <param name="cancellationToken">A token to cancel waiting for the connection to be established.</param>
-    /// <returns>A task that resolves to the established <see cref="NearbyConnection"/>.</returns>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="device"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">Thrown if the device has no outstanding request, or the platform fails to complete the connection.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before the connection is established.</exception>
+    /// <param name="device">The device whose connection request to accept.</param>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to observe while waiting for the connection to be
+    /// established.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task{TResult}"/> that represents the asynchronous operation. The value of its
+    /// <see cref="Task{TResult}.Result"/> property is the established
+    /// <see cref="NearbyConnection"/>.
+    /// </returns>
+    /// <remarks>
+    /// Connection requests are reported through the <see cref="ConnectionRequested"/> event. A
+    /// request can be accepted only once, and only before it expires.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="device"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The device has no outstanding connection request, or the platform failed to complete the
+    /// connection.
+    /// </exception>
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was canceled before the connection was established.
+    /// </exception>
     Task<NearbyConnection> AcceptAsync(NearbyDevice device, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Rejects an outstanding connection request from <paramref name="device"/>. The device returns
-    /// to <see cref="NearbyDeviceStatus.Visible"/>.
+    /// Rejects an outstanding connection request from the specified device.
     /// </summary>
-    /// <param name="device">The device whose request to reject.</param>
-    /// <param name="cancellationToken">A token to cancel signalling the rejection.</param>
-    /// <returns>A task that completes once the rejection has been signalled to the platform.</returns>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="device"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">Thrown if the device has no outstanding request.</exception>
+    /// <param name="device">The device whose connection request to reject.</param>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to observe while signaling the rejection.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes when
+    /// the rejection has been signaled to the platform.
+    /// </returns>
+    /// <remarks>
+    /// The device returns to the <see cref="NearbyDeviceStatus.Visible"/> state. A request can be
+    /// rejected only once, and only before it expires.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="device"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The device has no outstanding connection request.
+    /// </exception>
     Task RejectAsync(NearbyDevice device, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Disconnects an established connection to <paramref name="device"/>, leaving every other
+    /// Disconnects an established connection to the specified device, leaving every other
     /// connection intact.
     /// </summary>
     /// <param name="device">The device to disconnect from.</param>
-    /// <param name="cancellationToken">A token to cancel the disconnect.</param>
-    /// <returns>A task that completes once the connection has been torn down.</returns>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to observe while disconnecting.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes when
+    /// the connection has been torn down.
+    /// </returns>
     /// <remarks>
-    /// Disconnecting a device that is not connected is a no-op. <see cref="ConnectionDropped"/> is
-    /// raised as the connection ends.
+    /// Disconnecting a device that is not connected performs no operation. The
+    /// <see cref="ConnectionDropped"/> event is raised as the connection ends.
     /// </remarks>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="device"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="device"/> is <see langword="null"/>.
+    /// </exception>
     Task DisconnectAsync(NearbyDevice device, CancellationToken cancellationToken = default);
 }

@@ -3,25 +3,45 @@ using Microsoft.Maui.Hosting;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Extension methods for registering Plugin.Maui.NearbyConnections services
-/// with a <see cref="MauiAppBuilder"/>.
+/// Provides extension methods for adding nearby connectivity to a <see cref="MauiAppBuilder"/>.
 /// </summary>
 public static class MauiAppBuilderExtensions
 {
     /// <summary>
-    /// Registers <see cref="INearbySession"/> as a singleton and configures
-    /// <see cref="NearbyConnectionsOptions"/>.
+    /// Registers <see cref="INearbySession"/> and its configuration with the application builder.
     /// </summary>
-    /// <param name="builder">The <see cref="MauiAppBuilder"/> to register with.</param>
+    /// <param name="builder">The <see cref="MauiAppBuilder"/> to add the services to.</param>
     /// <param name="configure">
-    /// Optional delegate to configure <see cref="NearbyConnectionsOptions"/>.
-    /// When <see langword="null"/>, platform defaults are used.
+    /// An optional delegate that configures <see cref="NearbyConnectionsOptions"/>. If
+    /// <see langword="null"/>, platform defaults are used.
     /// </param>
-    /// <returns>The same <see cref="MauiAppBuilder"/> for chaining.</returns>
+    /// <returns>
+    /// The same <see cref="MauiAppBuilder"/> instance, so that multiple calls can be chained.
+    /// </returns>
     /// <remarks>
-    /// Nothing starts advertising or discovering on its own — both are explicit calls on the
-    /// resolved <see cref="INearbySession"/>, so permission prompts happen when the app decides.
+    /// <para>
+    /// This method registers <see cref="INearbySession"/> as a singleton. Resolve it through
+    /// constructor injection wherever nearby connectivity is needed.
+    /// </para>
+    /// <para>
+    /// Neither advertising nor discovery starts automatically. Call
+    /// <see cref="INearbySession.StartAdvertisingAsync(CancellationToken)"/> or
+    /// <see cref="INearbySession.StartDiscoveringAsync(CancellationToken)"/> once the application
+    /// is ready and the required permissions have been granted.
+    /// </para>
     /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="builder"/> is <see langword="null"/>.
+    /// </exception>
+    /// <example>
+    /// The following example registers the plugin and sets the service identifier.
+    /// <code language="csharp">
+    /// builder.UseNearbyConnections(options =>
+    /// {
+    ///     options.ServiceId = "nearbychat";
+    /// });
+    /// </code>
+    /// </example>
     public static MauiAppBuilder UseNearbyConnections(
         this MauiAppBuilder builder,
         Action<NearbyConnectionsOptions>? configure = null)

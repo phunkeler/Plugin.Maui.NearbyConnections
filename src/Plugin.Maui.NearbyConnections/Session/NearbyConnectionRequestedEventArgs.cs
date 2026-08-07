@@ -1,20 +1,24 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Carries the remote device that has asked to connect.
+/// Provides data for the <see cref="INearbySession.ConnectionRequested"/> event.
 /// </summary>
 /// <remarks>
-/// Respond with <see cref="INearbySession.AcceptAsync"/> or
-/// <see cref="INearbySession.RejectAsync"/>. To accept every request automatically, call
-/// <c>AcceptAsync</c> from the handler — but consider showing the user who is connecting first.
+/// Respond to the request by calling
+/// <see cref="INearbySession.AcceptAsync(NearbyDevice, CancellationToken)"/> or
+/// <see cref="INearbySession.RejectAsync(NearbyDevice, CancellationToken)"/>. To accept every
+/// request automatically, call <see cref="INearbySession.AcceptAsync(NearbyDevice, CancellationToken)"/>
+/// from the event handler; consider prompting the user before doing so.
 /// </remarks>
 public sealed class NearbyConnectionRequestedEventArgs : EventArgs
 {
     /// <summary>
-    /// Initializes a new <see cref="NearbyConnectionRequestedEventArgs"/>.
+    /// Initializes a new instance of the <see cref="NearbyConnectionRequestedEventArgs"/> class.
     /// </summary>
     /// <param name="device">The device requesting the connection.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="device"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="device"/> is <see langword="null"/>.
+    /// </exception>
     public NearbyConnectionRequestedEventArgs(NearbyDevice device)
     {
         ArgumentNullException.ThrowIfNull(device);
@@ -23,9 +27,12 @@ public sealed class NearbyConnectionRequestedEventArgs : EventArgs
     }
 
     /// <summary>
-    /// Gets the device requesting the connection. Its
-    /// <see cref="NearbyDevice.Status"/> is <see cref="NearbyDeviceStatus.RequestReceived"/> until
-    /// the request is answered.
+    /// Gets the device requesting the connection.
     /// </summary>
+    /// <value>The device that sent the connection request.</value>
+    /// <remarks>
+    /// The device's <see cref="NearbyDevice.Status"/> is
+    /// <see cref="NearbyDeviceStatus.RequestReceived"/> until the request is answered.
+    /// </remarks>
     public NearbyDevice Device { get; }
 }

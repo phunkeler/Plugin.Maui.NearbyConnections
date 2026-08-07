@@ -1,8 +1,14 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Exception thrown during advertising operations.
+/// The exception that is thrown when the platform fails to start or continue advertising.
 /// </summary>
+/// <remarks>
+/// This exception surfaces from
+/// <see cref="INearbySession.StartAdvertisingAsync(CancellationToken)"/>. Common causes are
+/// missing permissions, a disabled radio, or an invalid
+/// <see cref="NearbyConnectionsOptions.ServiceId"/>.
+/// </remarks>
 public sealed class NearbyAdvertisingException : NearbyConnectionsException
 {
     /// <summary>

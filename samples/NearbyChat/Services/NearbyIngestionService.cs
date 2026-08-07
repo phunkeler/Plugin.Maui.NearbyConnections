@@ -15,13 +15,11 @@ namespace NearbyChat.Services;
 /// <remarks>
 /// <para>
 /// <strong>Why this implements <see cref="IMauiInitializeService"/>.</strong>
-/// <see cref="INearbySession.ConnectionEstablished"/> is a plain event with no replay: a subscriber
-/// that attaches after a connection is already open never starts a receive loop for it, and the
-/// peer's payloads are written to a channel nobody reads — no exception, no log, messages simply
-/// never arrive. Registering as a singleton does not prevent that, because the container constructs
-/// singletons lazily, on first resolution. MAUI calls <see cref="Initialize"/> during
-/// <c>MauiAppBuilder.Build()</c>, so being alive before the first connection is a property of this
-/// type rather than an accident of which page happens to inject it first.
+/// <see cref="INearbySession.ConnectionEstablished"/> is a plain event with no replay, so this
+/// subscriber must be attached before the first connection is established. MAUI calls
+/// <see cref="Initialize"/> during <c>MauiAppBuilder.Build()</c>, which guarantees that.
+/// (<c>AddNearbyConnections</c> uses the same hook to construct the session itself, so the session
+/// exists by the time this runs.)
 /// </para>
 /// <para>
 /// <strong>Separation of concerns.</strong> Ingestion (this class) is deliberately split from the
@@ -58,13 +56,11 @@ public sealed partial class NearbyIngestionService(
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>This runs inside <c>MauiAppBuilder.Build()</c>, before <c>Application.Current</c>
-    /// exists.</strong> Everything it touches must therefore be resolvable that early. In
-    /// particular, do not register <c>IDispatcher</c> with a factory that reads
-    /// <c>Application.Current</c> — MAUI registers a perfectly good one, and an override like
-    /// <c>Application.Current?.Dispatcher ?? throw</c> turns startup resolution into a crash.
-    /// <c>NearbySession</c> captures the dispatcher once at construction, so it must be a real one
-    /// by the time this runs or UI marshalling is silently lost for the life of the app.
+    /// This runs inside <c>MauiAppBuilder.Build()</c>, before <c>Application.Current</c> exists, so
+    /// everything it touches must be resolvable that early. In particular, do not register
+    /// <c>IDispatcher</c> with a factory that reads <c>Application.Current</c> — MAUI registers a
+    /// perfectly good one, and an override like <c>Application.Current?.Dispatcher ?? throw</c>
+    /// turns startup resolution into a crash.
     /// </para>
     /// <para>
     /// The <paramref name="services"/> parameter is part of the framework contract and is

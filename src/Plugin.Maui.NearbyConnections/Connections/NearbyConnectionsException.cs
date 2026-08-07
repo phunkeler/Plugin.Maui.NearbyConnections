@@ -1,14 +1,17 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Base exception for nearby connections operations.
+/// The exception that is thrown when a nearby connections operation fails.
 /// </summary>
 /// <remarks>
-/// This class is intentionally non-sealed to support the sealed subclasses
-/// <see cref="NearbyAdvertisingException"/>, <see cref="NearbyDiscoveryException"/>, and
-/// <see cref="NearbyTransferTimeoutException"/> shipped with this library. Direct consumer
-/// subclassing is a supported extension contract.
+/// This is the base class for every exception raised by this library. It is deliberately not
+/// sealed, both to support the derived types shipped with the library and to allow consumers to
+/// derive their own. Catch this type to handle any failure originating from the plugin.
 /// </remarks>
+/// <seealso cref="NearbyAdvertisingException"/>
+/// <seealso cref="NearbyDiscoveryException"/>
+/// <seealso cref="NearbyConnectionTimeoutException"/>
+/// <seealso cref="NearbyTransferTimeoutException"/>
 public class NearbyConnectionsException : Exception
 {
     /// <summary>
@@ -31,8 +34,8 @@ public class NearbyConnectionsException : Exception
 }
 
 /// <summary>
-/// Exception thrown when a file transfer stalls and no progress is received within the configured
-/// inactivity timeout.
+/// The exception that is thrown when a file transfer stalls and no progress is reported within
+/// <see cref="NearbyConnectionsOptions.TransferInactivityTimeout"/>.
 /// </summary>
 public sealed class NearbyTransferTimeoutException : NearbyConnectionsException
 {

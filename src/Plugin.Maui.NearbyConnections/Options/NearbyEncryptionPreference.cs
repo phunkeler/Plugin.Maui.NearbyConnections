@@ -1,30 +1,30 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Whether the link between two devices must be encrypted.
+/// Specifies whether the link between two devices must be encrypted.
 /// </summary>
 /// <remarks>
-/// <strong>iOS only.</strong> Android's Nearby Connections encrypts every connection
-/// unconditionally and exposes no equivalent setting, so this is ignored there — Android always
-/// behaves as <see cref="Required"/>.
+/// <b>This setting applies to iOS only.</b> Nearby Connections on Android encrypts every
+/// connection unconditionally and exposes no equivalent setting, so this value is ignored there;
+/// Android always behaves as <see cref="Required"/>.
 /// </remarks>
 public enum NearbyEncryptionPreference
 {
     /// <summary>
-    /// Encryption is required; an unencrypted connection is refused. The default, and the right
-    /// choice unless you have a specific reason otherwise.
+    /// Encryption is required, and an unencrypted connection is refused. This is the default, and
+    /// is the recommended choice.
     /// </summary>
     Required,
 
     /// <summary>
-    /// Encryption is preferred but not required: the connection falls back to unencrypted if the
-    /// peer does not support it.
+    /// Encryption is preferred but not required. The connection falls back to an unencrypted link
+    /// if the remote device does not support encryption.
     /// </summary>
     Optional,
 
     /// <summary>
-    /// No encryption. Only appropriate for non-sensitive data on a trusted network — anything on
-    /// the link can be read by other devices in range.
+    /// Encryption is not used. Choose this only for data that is not sensitive, because any device
+    /// in range can read traffic on the link.
     /// </summary>
     None,
 }

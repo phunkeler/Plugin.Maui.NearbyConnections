@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Hosting;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
@@ -50,6 +51,43 @@ public class ServiceCollectionExtensionsTests
 
             // Assert
             Assert.IsFalse(services.Any(d => d.ServiceType == typeof(ILoggerFactory)));
+        }
+
+        [TestMethod]
+        public async Task Initializer_ConstructsTheSessionBeforeAnyoneResolvesIt()
+        {
+            // ConnectionEstablished does not replay, and the container builds singletons lazily. If
+            // the initializer stops forcing construction, a connection established before the first
+            // resolution raises an event with no subscriber and its payloads are silently lost.
+            var services = new ServiceCollection();
+            services.AddNearbyConnections(options => options.ServiceId = "test-service");
+
+            await using var provider = services.BuildServiceProvider();
+
+            var initializer = provider.GetServices<IMauiInitializeService>()
+                .Single(s => s.GetType().Name == "NearbySessionInitializer");
+
+            initializer.Initialize(provider);
+
+            // Same instance the initializer already built, not a second one made on demand.
+            Assert.AreSame(
+                provider.GetRequiredService<INearbySession>(),
+                provider.GetRequiredService<INearbySession>());
+        }
+
+        [TestMethod]
+        public void CalledTwice_RegistersOnlyOneInitializer()
+        {
+            // MAUI runs these via GetServices<T>(), so a duplicate would construct the session twice
+            // and — in a consuming app — double every startup subscription hung off it.
+            var services = new ServiceCollection();
+
+            services.AddNearbyConnections();
+            services.AddNearbyConnections();
+
+            Assert.HasCount(
+                1,
+                services.Where(d => d.ServiceType == typeof(IMauiInitializeService)).ToList());
         }
     }
 }

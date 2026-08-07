@@ -4,26 +4,42 @@ public sealed partial class NearbyConnectionsOptions
 {
     /// <summary>
     /// Gets or sets how devices may connect to one another.
-    /// Default is <see cref="NearbyTopology.Cluster"/>.
     /// </summary>
+    /// <value>
+    /// One of the <see cref="NearbyTopology"/> values. The default is
+    /// <see cref="NearbyTopology.Cluster"/>.
+    /// </value>
     /// <remarks>
-    /// Must match between the advertising and discovering devices, or they will not find each
-    /// other. Android only — iOS has no equivalent and ignores this.
+    /// This value must match on the advertising and discovering devices, or they do not find each
+    /// other. <b>This setting applies to Android only</b> and is ignored on iOS.
     /// </remarks>
     public NearbyTopology Topology { get; set; } = NearbyTopology.Cluster;
 
     /// <summary>
-    /// Gets or sets whether low power mode should be used.
-    /// If <see langword="true" />, only low power mediums (like BLE) will be used for advertising and discovery.
-    /// Default is <see langword="false"/>.
+    /// Gets or sets a value indicating whether only low-power radios are used for advertising and
+    /// discovery.
     /// </summary>
+    /// <value>
+    /// <see langword="true"/> to restrict advertising and discovery to low-power radios such as
+    /// Bluetooth Low Energy; otherwise, <see langword="false"/>. The default is
+    /// <see langword="false"/>.
+    /// </value>
+    /// <remarks>
+    /// Enabling this option reduces battery consumption at the cost of range and throughput.
+    /// <b>This setting applies to Android only</b> and is ignored on iOS.
+    /// </remarks>
     public bool UseLowPower { get; set; }
 
     /// <summary>
     /// Gets or sets how aggressively a connection may use the radio.
-    /// Default is <see cref="NearbyConnectionType.Balanced"/>.
     /// </summary>
-    /// <remarks>Android only — iOS has no equivalent and ignores this.</remarks>
+    /// <value>
+    /// One of the <see cref="NearbyConnectionType"/> values. The default is
+    /// <see cref="NearbyConnectionType.Balanced"/>.
+    /// </value>
+    /// <remarks>
+    /// <b>This setting applies to Android only</b> and is ignored on iOS.
+    /// </remarks>
     public NearbyConnectionType ConnectionType { get; set; } = NearbyConnectionType.Balanced;
 
     /// <summary>

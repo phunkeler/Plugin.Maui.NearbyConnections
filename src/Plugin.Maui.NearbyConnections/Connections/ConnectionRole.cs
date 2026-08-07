@@ -1,18 +1,19 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Indicates whether the local device initiated the connection (Initiator)
-/// or accepted an inbound request (Acceptor).
+/// Specifies which side of a connection the local device represents.
 /// </summary>
 public enum ConnectionRole
 {
     /// <summary>
-    /// The local device initiated the connection by calling ConnectAsync.
+    /// The local device initiated the connection by calling
+    /// <see cref="INearbySession.ConnectAsync(NearbyDevice, CancellationToken)"/>.
     /// </summary>
     Initiator,
 
     /// <summary>
-    /// The local device accepted an inbound connection request by calling AcceptAsync.
+    /// The local device accepted an inbound connection request by calling
+    /// <see cref="INearbySession.AcceptAsync(NearbyDevice, CancellationToken)"/>.
     /// </summary>
     Acceptor,
 }

@@ -68,10 +68,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<IConnectionTracker, ConnectionTracker>();
 
         // Inbound payload ingestion must be running before the first connection is established,
-        // because ConnectionEstablished does not replay. IMauiInitializeService is MAUI's hook for
-        // that: it runs during Build(), so startup is a property of the type rather than a side
-        // effect of who resolves it. TryAddEnumerable because MAUI invokes these via GetServices<T>()
-        // and a duplicate registration would double every inbound message.
+        // because ConnectionEstablished does not replay. IMauiInitializeService runs during
+        // Build(), so being attached in time is a property of the type rather than a side effect of
+        // who resolves it. TryAddEnumerable because MAUI invokes these via GetServices<T>() and a
+        // duplicate registration would double every inbound message.
         builder.Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IMauiInitializeService, NearbyIngestionService>());
 

@@ -1,7 +1,7 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Represents the current status of a data transfer.
+/// Specifies the status of a data transfer.
 /// </summary>
 public enum NearbyTransferStatus
 {
@@ -11,23 +11,27 @@ public enum NearbyTransferStatus
     /// <summary>The transfer completed successfully.</summary>
     Success,
 
-    /// <summary>The transfer failed due to an error.</summary>
+    /// <summary>The transfer failed because of an error.</summary>
     Failure,
 
-    /// <summary>The transfer was cancelled.</summary>
+    /// <summary>The transfer was canceled.</summary>
     Canceled,
 }
 
 /// <summary>
-/// Reports the progress of an ongoing or completed data transfer.
+/// Represents the progress of an ongoing or completed data transfer.
 /// </summary>
-/// <param name="payloadId">Platform-assigned identifier for the payload.</param>
-/// <param name="bytesTransferred">Number of bytes transferred so far.</param>
+/// <param name="payloadId">The platform-assigned identifier for the payload.</param>
+/// <param name="bytesTransferred">The number of bytes transferred so far.</param>
 /// <param name="totalBytes">
-/// Total size of the payload in bytes, or <c>-1</c> if the size is not known in advance
-/// (e.g. live streams).
+/// The total size of the payload in bytes, or <c>-1</c> if the size is not known in advance.
 /// </param>
-/// <param name="status">The current transfer status.</param>
+/// <param name="status">The status of the transfer.</param>
+/// <remarks>
+/// Instances are reported through the <see cref="IProgress{T}"/> provider supplied to a
+/// <c>SendAsync</c> overload, or through
+/// <see cref="NearbyConnection.InboundProgress"/> for incoming transfers.
+/// </remarks>
 public sealed class NearbyTransferProgress(
     long payloadId,
     long bytesTransferred,
@@ -37,27 +41,36 @@ public sealed class NearbyTransferProgress(
     /// <summary>
     /// Gets the platform-assigned identifier for the payload.
     /// </summary>
+    /// <value>An identifier that distinguishes this transfer from others on the same connection.</value>
     public long PayloadId { get; } = payloadId;
 
     /// <summary>
     /// Gets the number of bytes transferred so far.
     /// </summary>
+    /// <value>The count of bytes transferred at the time this update was reported.</value>
     public long BytesTransferred { get; } = bytesTransferred;
 
     /// <summary>
-    /// Gets the total size of the payload in bytes, or <c>-1</c> if unknown.
+    /// Gets the total size of the payload.
     /// </summary>
+    /// <value>
+    /// The total size of the payload in bytes, or <c>-1</c> if the size is not known in advance.
+    /// </value>
     public long TotalBytes { get; } = totalBytes;
 
     /// <summary>
-    /// Gets the current transfer status.
+    /// Gets the status of the transfer.
     /// </summary>
+    /// <value>One of the <see cref="NearbyTransferStatus"/> values.</value>
     public NearbyTransferStatus Status { get; } = status;
 
     /// <summary>
-    /// Gets the transfer progress as a value between 0.0 and 1.0,
-    /// or <see langword="null"/> if the total size is not known.
+    /// Gets the proportion of the transfer that has completed.
     /// </summary>
+    /// <value>
+    /// A value between 0.0 and 1.0, or <see langword="null"/> if <see cref="TotalBytes"/> is not
+    /// known. Bind to this value to drive a progress indicator.
+    /// </value>
     public double? Fraction => TotalBytes > 0
         ? (double)BytesTransferred / TotalBytes
         : null;
