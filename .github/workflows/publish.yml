@@ -11,7 +11,10 @@ permissions:
 
 jobs:
   publish:
-    runs-on: macos-latest
+    # Pinned to the same image as ci.yml. A release built on an image CI never validated is a
+    # release nothing has actually tested — macos-latest silently moves between runner versions,
+    # so this must be changed in lockstep with ci.yml, never independently.
+    runs-on: macos-26-intel
     environment: nuget
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -33,6 +36,32 @@ jobs:
 
       - name: Test
         run: dotnet exec test/Plugin.Maui.NearbyConnections.UnitTests/bin/Release/net10.0/Plugin.Maui.NearbyConnections.UnitTests.dll
+
+      # Runs before Pack so a known-vulnerable dependency stops the release rather than being
+      # discovered after it is on nuget.org, where a package version can never be replaced.
+      # Dependabot reports vulnerabilities eventually; it does not block a tag push.
+      - name: Check for vulnerable dependencies
+        run: |
+          set -euo pipefail
+
+          # `dotnet list package --vulnerable` exits 0 whether or not it finds anything, so the
+          # output has to be parsed. Verified: exit code is 0 on a clean project.
+          report=$(dotnet list src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj \
+            package --vulnerable --include-transitive 2>&1)
+
+          echo "$report"
+
+          if echo "$report" | grep -q "has the following vulnerable packages"; then
+            echo "::error::Vulnerable dependencies found. Release blocked."
+            exit 1
+          fi
+
+          # A restore failure also produces no "vulnerable packages" line, which would let a
+          # release through unchecked. Require positive confirmation that the scan actually ran.
+          if ! echo "$report" | grep -q "no vulnerable packages"; then
+            echo "::error::Vulnerability scan did not complete — treating as a failure rather than assuming clean."
+            exit 1
+          fi
 
       - name: Pack
         run: dotnet pack src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj -c Release --output nupkgs /p:ContinuousIntegrationBuild=true

@@ -52,6 +52,32 @@ jobs:
       - name: Restore Workloads
         run: dotnet workload restore src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj
 
+      # Mirrors the gate in publish.yml so a vulnerable dependency is caught on the pull request
+      # that introduces it, not at release time. Kept identical to that step on purpose — if one
+      # changes, change both.
+      - name: Check for vulnerable dependencies
+        run: |
+          set -euo pipefail
+
+          # `dotnet list package --vulnerable` exits 0 whether or not it finds anything, so the
+          # output has to be parsed.
+          report=$(dotnet list src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj \
+            package --vulnerable --include-transitive 2>&1)
+
+          echo "$report"
+
+          if echo "$report" | grep -q "has the following vulnerable packages"; then
+            echo "::error::Vulnerable dependencies found."
+            exit 1
+          fi
+
+          # A restore failure also produces no "vulnerable packages" line, which would pass the
+          # check unnoticed. Require positive confirmation that the scan actually ran.
+          if ! echo "$report" | grep -q "no vulnerable packages"; then
+            echo "::error::Vulnerability scan did not complete — treating as a failure rather than assuming clean."
+            exit 1
+          fi
+
       - name: Build and analyze
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

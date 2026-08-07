@@ -6,14 +6,30 @@
 // Declaring them here means the package works on install; the app only has to request the
 // dangerous ones at runtime.
 //
-// Only permissions the plugin's own code path requires are declared. Notably absent are the
-// READ_MEDIA_* permissions: reading a file the app chooses to send is the app's concern, not the
-// plugin's, and a library that silently demands media access would be over-reaching.
+// THE RULE: the plugin declares capability; the app declares policy.
 //
-// Consuming apps override any of these by redeclaring them in their own
-// Platforms/Android/AndroidManifest.xml — the app's declaration wins. Note that `tools:node="remove"`
-// does NOT work against these (verified): the directive is copied into the final manifest verbatim
-// and the permission survives.
+// A uses-permission entry states "this library's code calls an API that requires this" — a fact
+// about the implementation that only the library knows. Declaring is not requesting: a dangerous
+// permission does nothing until the app calls RequestAsync, so the app keeps full control of
+// whether and when the user is prompted. Without the declaration it is not grantable at all.
+//
+// Deliberately NOT declared here, because each expresses app policy rather than plugin capability:
+//
+//   uses-feature          Drives Play Store install filtering — a distribution decision about which
+//                         devices may install the product. A library declaring Required=true could
+//                         silently narrow an app's addressable market. (GeolocatorPlugin does this;
+//                         it was considered here and rejected.)
+//   neverForLocation      A privacy claim about how the app uses scan results. Only the app can
+//                         truthfully assert it. UsesPermissionAttribute could not express it anyway
+//                         — it exposes only Name and MaxSdkVersion.
+//   READ_MEDIA_*          Reading a file the user picks to send is the app's concern, not the
+//                         transport's.
+//
+// Consuming apps override any declaration below by redeclaring it in their own
+// Platforms/Android/AndroidManifest.xml — the app's declaration wins. Two verified caveats:
+// redeclaring drops this file's MaxSdkVersion unless the app restates it, and `tools:node="remove"`
+// does NOT work (the directive is copied into the final manifest verbatim and the permission
+// survives).
 
 // Normal permissions — granted at install time, no runtime request needed.
 [assembly: UsesPermission(Android.Manifest.Permission.AccessWifiState)]
