@@ -217,7 +217,7 @@ session.ConnectionDropped     += (sender, e) => Cleanup(e.Device);
 
 ## 4. Send and receive data
 
-`NearbyConnection` is obtained from `AcceptAsync`, from `ConnectAsync`, or from `NearbyDevice.Connection` while the device is connected.
+`NearbyConnection` is obtained from `AcceptAsync`, from `ConnectAsync`, or by matching `NearbyDevice.State` against `DeviceState.Connected` while the device is connected.
 
 ### Send bytes
 

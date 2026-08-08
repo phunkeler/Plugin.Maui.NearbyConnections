@@ -32,9 +32,9 @@ public partial class ConnectionsPageViewModel(
         // Connections made while this page was away are already in Devices.
         ConnectedDevices.Clear();
 
-        foreach (var device in session.Devices.Where(d => d.Status is NearbyDeviceStatus.Connected))
+        foreach (var device in session.Devices)
         {
-            if (device.Connection is { } connection)
+            if (device.State is DeviceState.Connected { Connection: var connection })
             {
                 Add(device.Id, connection);
             }

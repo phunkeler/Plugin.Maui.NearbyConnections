@@ -45,6 +45,11 @@ sealed partial class NearbyConnectionsImplementation
             "See docs/PAYLOAD-DELIVERY.md.")]
     partial void LogNoConnectionEstablishedSubscribers(string deviceId);
 
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "The handshake with device {DeviceId} ended before a connection was established: {Reason}.")]
+    partial void LogHandshakeEnded(string deviceId, EndReason reason);
+
     // -------------------------------------------------------------------------
     // Teardown
     // -------------------------------------------------------------------------

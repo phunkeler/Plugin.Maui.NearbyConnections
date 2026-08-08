@@ -10,7 +10,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <remarks>
 /// <para>
 /// A device is added to <see cref="INearbyConnections.Devices"/> when it is first discovered and
-/// remains there for its whole lifecycle. Its <see cref="Status"/> changes as it receives a
+/// remains there for its whole lifecycle. Its <see cref="State"/> changes as it receives a
 /// request, connects, and disconnects. This type implements
 /// <see cref="INotifyPropertyChanged"/> for every mutable property, so it can be bound directly to
 /// a user interface.
@@ -30,9 +30,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// </remarks>
 public sealed class NearbyDevice : INotifyPropertyChanged
 {
-    NearbyDeviceStatus _status;
-    ConnectionRole? _role;
-    NearbyConnection? _connection;
+    DeviceState _state = new DeviceState.Visible();
     string? _displayName;
 
     /// <summary>
@@ -80,43 +78,61 @@ public sealed class NearbyDevice : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Gets the current state of this device, including any data that is meaningful only in that
+    /// state.
+    /// </summary>
+    /// <value>
+    /// One of the <see cref="DeviceState"/> cases. The default is
+    /// <see cref="DeviceState.Visible"/>.
+    /// </value>
+    /// <remarks>
+    /// Pattern-match to read the role or connection, both of which live on the states that have
+    /// them rather than on the device.
+    /// </remarks>
+    public DeviceState State
+    {
+        get => _state;
+        internal set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+
+            if (_state == value)
+            {
+                return;
+            }
+
+            _state = value;
+
+            // Both names, always. Status is derived from State, so a consumer filtering on
+            // nameof(Status) — which is the common case for a bound row — would silently stop
+            // updating if only State were raised. There is no compile error for that mistake.
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(State)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Status)));
+        }
+    }
+
+    /// <summary>
     /// Gets the current position of this device in its lifecycle.
     /// </summary>
     /// <value>
     /// One of the <see cref="NearbyDeviceStatus"/> values. The default is
     /// <see cref="NearbyDeviceStatus.Visible"/>.
     /// </value>
-    public NearbyDeviceStatus Status
+    /// <remarks>
+    /// A projection of <see cref="State"/>, for consumers that need only the coarse position and
+    /// not the data attached to it. Both raise <see cref="PropertyChanged"/> together.
+    /// </remarks>
+    public NearbyDeviceStatus Status => _state switch
     {
-        get => _status;
-        internal set => SetField(ref _status, value);
-    }
+        DeviceState.Visible => NearbyDeviceStatus.Visible,
+        DeviceState.RequestReceived => NearbyDeviceStatus.RequestReceived,
+        DeviceState.Connecting => NearbyDeviceStatus.Connecting,
+        DeviceState.Connected => NearbyDeviceStatus.Connected,
 
-    /// <summary>
-    /// Gets the role the local device plays in the current connection or handshake.
-    /// </summary>
-    /// <value>
-    /// One of the <see cref="ConnectionRole"/> values, or <see langword="null"/> when the device is
-    /// in the <see cref="NearbyDeviceStatus.Visible"/> state.
-    /// </value>
-    public ConnectionRole? Role
-    {
-        get => _role;
-        internal set => SetField(ref _role, value);
-    }
-
-    /// <summary>
-    /// Gets the established connection to this device.
-    /// </summary>
-    /// <value>
-    /// The active <see cref="NearbyConnection"/>, or <see langword="null"/> when
-    /// <see cref="Status"/> is not <see cref="NearbyDeviceStatus.Connected"/>.
-    /// </value>
-    public NearbyConnection? Connection
-    {
-        get => _connection;
-        internal set => SetField(ref _connection, value);
-    }
+        // Loud on purpose. A new DeviceState case added without extending this projection is a
+        // bug, and a silent default would report the wrong lifecycle position forever.
+        _ => throw new NotSupportedException($"Unrecognised {nameof(DeviceState)}: {_state.GetType().Name}."),
+    };
 
     /// <summary>
     /// Determines whether the specified object is equal to the current device.

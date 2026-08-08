@@ -207,8 +207,9 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
 
             // Snapshot: disconnecting mutates the collection from the dispatcher.
             var connected = _devices
-                .Where(d => d.Connection is not null)
-                .Select(d => d.Connection!)
+                .Select(d => d.State)
+                .OfType<DeviceState.Connected>()
+                .Select(s => s.Connection)
                 .ToArray();
 
             foreach (var connection in connected)
@@ -252,11 +253,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
     {
         ArgumentNullException.ThrowIfNull(device);
 
-        await DispatchAsync(() =>
-        {
-            device.Role = ConnectionRole.Initiator;
-            device.Status = NearbyDeviceStatus.Connecting;
-        }).ConfigureAwait(false);
+        await TransitionAsync(device, new DeviceState.Connecting(ConnectionRole.Initiator)).ConfigureAwait(false);
 
         try
         {
@@ -264,10 +261,12 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
             await OnConnectedAsync(device, connection, ConnectionRole.Initiator).ConfigureAwait(false);
             return connection;
         }
-        catch
+        catch (Exception ex)
         {
             // The handshake failed or was cancelled: the device is still out there, just not
             // connected. Anything other than resetting leaves a row stuck on "Connecting" forever.
+            var reason = ReasonFor(ex);
+            LogHandshakeEnded(device.Id, reason);
             await ResetToVisibleAsync(device).ConfigureAwait(false);
             throw;
         }
@@ -284,11 +283,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
                 $"No connection request is outstanding for device '{device.Id}'. A request can only be accepted once, and only before it expires.");
         }
 
-        await DispatchAsync(() =>
-        {
-            device.Role = ConnectionRole.Acceptor;
-            device.Status = NearbyDeviceStatus.Connecting;
-        }).ConfigureAwait(false);
+        await TransitionAsync(device, new DeviceState.Connecting(ConnectionRole.Acceptor)).ConfigureAwait(false);
 
         try
         {
@@ -296,8 +291,10 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
             await OnConnectedAsync(device, connection, ConnectionRole.Acceptor).ConfigureAwait(false);
             return connection;
         }
-        catch
+        catch (Exception ex)
         {
+            var reason = ReasonFor(ex);
+            LogHandshakeEnded(device.Id, reason);
             await ResetToVisibleAsync(device).ConfigureAwait(false);
             throw;
         }
@@ -315,6 +312,9 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
         }
 
         await request.RejectAsync(cancellationToken).ConfigureAwait(false);
+
+        LogHandshakeEnded(device.Id, EndReason.LocalRejected);
+
         await ResetToVisibleAsync(device).ConfigureAwait(false);
     }
 
@@ -323,7 +323,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
     {
         ArgumentNullException.ThrowIfNull(device);
 
-        if (device.Connection is not { } connection)
+        if (device.State is not DeviceState.Connected { Connection: var connection })
         {
             return;
         }

@@ -90,9 +90,9 @@ public interface INearbyConnections
     /// Occurs when a connection to a remote device is established, in either direction.
     /// </summary>
     /// <remarks>
-    /// When this event is raised, the device's <see cref="NearbyDevice.Status"/> is
-    /// <see cref="NearbyDeviceStatus.Connected"/> and its <see cref="NearbyDevice.Connection"/> is
-    /// not <see langword="null"/>. Start consuming payloads at this point by calling
+    /// When this event is raised, the device's <see cref="NearbyDevice.State"/> is
+    /// <see cref="DeviceState.Connected"/>, which carries the connection. Start consuming payloads
+    /// at this point by calling
     /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/>.
     /// </remarks>
     event EventHandler<NearbyConnectionChangedEventArgs> ConnectionEstablished;
@@ -102,8 +102,10 @@ public interface INearbyConnections
     /// disconnect, or loss of the link.
     /// </summary>
     /// <remarks>
-    /// The device returns to <see cref="NearbyDeviceStatus.Visible"/> if it is still in range, and
-    /// its <see cref="NearbyDevice.Connection"/> is set to <see langword="null"/>. Any in-flight
+    /// The device returns to <see cref="DeviceState.Visible"/> if it is still in range, so it no
+    /// longer carries a connection. Why the connection ended is reported by
+    /// <see cref="NearbyConnectionChangedEventArgs.Reason"/> — read it here, because
+    /// <see cref="DeviceState.Visible"/> does not carry it. Any in-flight
     /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/> enumeration completes on its
     /// own; no cleanup is required for payload consumption.
     /// </remarks>
@@ -287,11 +289,11 @@ public interface INearbyConnections
     /// <see cref="NearbyConnection"/>.
     /// </returns>
     /// <remarks>
-    /// While the handshake is in progress, the device's <see cref="NearbyDevice.Status"/> is
-    /// <see cref="NearbyDeviceStatus.Connecting"/> and its <see cref="NearbyDevice.Role"/> is
-    /// <see cref="ConnectionRole.Initiator"/>; on success the status becomes
-    /// <see cref="NearbyDeviceStatus.Connected"/>. The returned connection is the same instance as
-    /// <see cref="NearbyDevice.Connection"/>.
+    /// While the handshake is in progress, the device's <see cref="NearbyDevice.State"/> is
+    /// <see cref="DeviceState.Connecting"/> with a role of
+    /// <see cref="ConnectionRole.Initiator"/>; on success the state becomes
+    /// <see cref="DeviceState.Connected"/>. The returned connection is the same instance that state
+    /// carries.
     /// </remarks>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="device"/> is <see langword="null"/>.

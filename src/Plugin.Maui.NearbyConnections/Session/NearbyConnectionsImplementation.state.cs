@@ -24,6 +24,33 @@ sealed partial class NearbyConnectionsImplementation
         await _dispatcher.DispatchAsync(action).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// The one place a device's state changes. Every transition goes through here so there is a
+    /// single site to log, break on, or extend — the compound invariant that used to span three
+    /// properties is now one write, and this is where it happens.
+    /// </summary>
+    /// <remarks>
+    /// The two transitions nested inside a larger dispatcher action
+    /// (<see cref="OnRequestReceivedAsync"/>, <see cref="OnConnectedAsync"/>) assign inline instead,
+    /// so the state change and the event raise stay in one dispatcher turn rather than splitting
+    /// across two.
+    /// </remarks>
+    Task TransitionAsync(NearbyDevice device, DeviceState state)
+        => DispatchAsync(() => device.State = state);
+
+    /// <summary>
+    /// Maps a handshake failure to the reason it is reported as. The exception type already carries
+    /// the distinction, so nothing needs to be plumbed up from the platform layer:
+    /// <see cref="NearbyConnectionTimeoutException"/> is thrown only when the plugin's own
+    /// invitation deadline fired and the caller's token was not cancelled.
+    /// </summary>
+    static EndReason ReasonFor(Exception exception) => exception switch
+    {
+        OperationCanceledException => EndReason.Cancelled,
+        NearbyConnectionTimeoutException => EndReason.TimedOut,
+        _ => EndReason.Failed,
+    };
+
     async Task PumpAdvertiseAsync(IAsyncEnumerable<NearbyConnectionRequest> stream, CancellationToken cancellationToken)
     {
         try
@@ -122,8 +149,8 @@ sealed partial class NearbyConnectionsImplementation
                 _devices.Add(device);
             }
 
-            device.Role = ConnectionRole.Acceptor;
-            device.Status = NearbyDeviceStatus.RequestReceived;
+            // No role here: the local device is not an acceptor until AcceptAsync is called.
+            device.State = new DeviceState.RequestReceived();
 
             RaiseConnectionRequested(device);
         }).ConfigureAwait(false);
@@ -146,9 +173,7 @@ sealed partial class NearbyConnectionsImplementation
                 _devices.Add(device);
             }
 
-            device.Role = role;
-            device.Connection = connection;
-            device.Status = NearbyDeviceStatus.Connected;
+            device.State = new DeviceState.Connected(role, connection);
 
             RaiseConnectionEstablished(device, connection);
         }).ConfigureAwait(false);
@@ -177,17 +202,18 @@ sealed partial class NearbyConnectionsImplementation
             await DispatchAsync(() =>
             {
                 // Guard against a reconnect having already replaced the connection: only clear
-                // state that still belongs to the connection that dropped.
-                if (!ReferenceEquals(device.Connection, connection))
+                // state that still belongs to the connection that dropped. ReferenceEquals, not
+                // record equality — two states could compare equal while holding the same
+                // connection reference, and identity is what matters here.
+                if (device.State is not DeviceState.Connected current
+                    || !ReferenceEquals(current.Connection, connection))
                 {
                     return;
                 }
 
-                device.Connection = null;
-                device.Role = null;
-                device.Status = NearbyDeviceStatus.Visible;
+                device.State = new DeviceState.Visible();
 
-                RaiseConnectionDropped(device, connection);
+                RaiseConnectionDropped(device, connection, EndReason.Disconnected);
             }).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -197,16 +223,16 @@ sealed partial class NearbyConnectionsImplementation
     }
 
     /// <summary>
-    /// Returns a device to <see cref="NearbyDeviceStatus.Visible"/> after a failed, cancelled, or
-    /// rejected handshake.
+    /// Returns a device to <see cref="DeviceState.Visible"/> after a failed, cancelled, or rejected
+    /// handshake.
     /// </summary>
+    /// <remarks>
+    /// No connection was ever established on these paths, so there is nothing to raise
+    /// <see cref="INearbyConnections.ConnectionDropped"/> about. The reason reaches the caller as
+    /// the exception that <see cref="ConnectAsync"/> or <see cref="AcceptAsync"/> rethrows.
+    /// </remarks>
     Task ResetToVisibleAsync(NearbyDevice device)
-        => DispatchAsync(() =>
-        {
-            device.Connection = null;
-            device.Role = null;
-            device.Status = NearbyDeviceStatus.Visible;
-        });
+        => TransitionAsync(device, new DeviceState.Visible());
 
     /// <summary>
     /// Starts <paramref name="pump"/> and publishes its flag. Caller must hold <c>_stateGate</c>.
@@ -317,6 +343,6 @@ sealed partial class NearbyConnectionsImplementation
     void RaiseConnectionEstablished(NearbyDevice device, NearbyConnection connection)
         => Raise(ConnectionEstablished, new NearbyConnectionChangedEventArgs(device, connection), nameof(ConnectionEstablished));
 
-    void RaiseConnectionDropped(NearbyDevice device, NearbyConnection connection)
-        => Raise(ConnectionDropped, new NearbyConnectionChangedEventArgs(device, connection), nameof(ConnectionDropped));
+    void RaiseConnectionDropped(NearbyDevice device, NearbyConnection connection, EndReason reason)
+        => Raise(ConnectionDropped, new NearbyConnectionChangedEventArgs(device, connection, reason), nameof(ConnectionDropped));
 }

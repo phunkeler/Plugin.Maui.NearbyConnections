@@ -34,9 +34,9 @@ public interface IChatMessageService
 /// <c>ConnectionEstablished</c> event had already fired and inbound messages were silently lost.
 /// </para>
 /// <para>
-/// The connection is read from <see cref="NearbyDevice.Connection"/> rather than tracked in a
-/// dictionary here: the session already owns that state and clears it on drop, so mirroring it would
-/// be a second source of truth that can go stale.
+/// The connection is read from the device's <see cref="NearbyDevice.State"/> rather than tracked in
+/// a dictionary here: the session already owns that state and clears it on drop, so mirroring it
+/// would be a second source of truth that can go stale.
 /// </para>
 /// </remarks>
 public sealed class ChatMessageService(IChatMessageRepositoryFactory repositoryFactory) : IChatMessageService
@@ -58,7 +58,7 @@ public sealed class ChatMessageService(IChatMessageRepositoryFactory repositoryF
             await handle.Repository.SaveAsync(device, message, cancellationToken).ConfigureAwait(false);
         }
 
-        if (device.Connection is not { } connection)
+        if (device.State is not DeviceState.Connected { Connection: var connection })
         {
             return;
         }

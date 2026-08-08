@@ -11,7 +11,8 @@ namespace Plugin.Maui.NearbyConnections;
 /// Obtain a connection by calling
 /// <see cref="INearbyConnections.ConnectAsync(NearbyDevice, CancellationToken)"/> or
 /// <see cref="INearbyConnections.AcceptAsync(NearbyDevice, CancellationToken)"/>, or by reading
-/// <see cref="NearbyDevice.Connection"/>. The same instance is returned by all three.
+/// <see cref="DeviceState.Connected.Connection"/> from a device's
+/// <see cref="NearbyDevice.State"/>. The same instance is returned by all three.
 /// </para>
 /// <para>
 /// Call <see cref="DisposeAsync"/> to disconnect from the remote device. Disposal is idempotent.
