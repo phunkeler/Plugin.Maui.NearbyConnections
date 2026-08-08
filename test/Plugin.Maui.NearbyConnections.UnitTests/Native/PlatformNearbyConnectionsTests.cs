@@ -6,7 +6,7 @@ using Plugin.Maui.NearbyConnections;
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
 [TestCategory("Connections")]
-public class NearbyConnectionsTests
+public class PlatformNearbyConnectionsTests
 {
     // Builds a PlatformNearbyConnections without hitting any platform APIs.
     static PlatformNearbyConnections CreateSut(
@@ -27,7 +27,7 @@ public class NearbyConnectionsTests
     // from the channel reader rather than going through AdvertiseAsync/DiscoverAsync.
 
     [TestClass]
-    public sealed class WriteConnectionRequest : NearbyConnectionsTests
+    public sealed class WriteConnectionRequest : PlatformNearbyConnectionsTests
     {
         [TestMethod]
         public async Task WriteConnectionRequest_YieldsRequestOnAdvertiseChannel()
@@ -84,7 +84,7 @@ public class NearbyConnectionsTests
     }
 
     [TestClass]
-    public sealed class ResolveConnectionTcs : NearbyConnectionsTests
+    public sealed class ResolveConnectionTcs : PlatformNearbyConnectionsTests
     {
         [TestMethod]
         public async Task AcceptAsync_ResolveConnectionTcs_CompletesWithNearbyConnection()
@@ -188,7 +188,7 @@ public class NearbyConnectionsTests
     }
 
     [TestClass]
-    public sealed class WriteDeviceFound : NearbyConnectionsTests
+    public sealed class WriteDeviceFound : PlatformNearbyConnectionsTests
     {
         [TestMethod]
         public async Task WriteDeviceFound_YieldsFoundEventOnDiscoverChannel()
@@ -249,7 +249,7 @@ public class NearbyConnectionsTests
     }
 
     [TestClass]
-    public sealed class WritePayload : NearbyConnectionsTests
+    public sealed class WritePayload : PlatformNearbyConnectionsTests
     {
         [TestMethod]
         public async Task WritePayload_RoutesPayloadToActiveConnection()
@@ -301,7 +301,7 @@ public class NearbyConnectionsTests
     }
 
     [TestClass]
-    public sealed class AllowSynchronousContinuations : NearbyConnectionsTests
+    public sealed class AllowSynchronousContinuations : PlatformNearbyConnectionsTests
     {
         [TestMethod]
         public void False_WriteReturnsBeforeAwaitingReaderContinuationRuns()
@@ -350,7 +350,7 @@ public class NearbyConnectionsTests
     }
 
     [TestClass]
-    public sealed class DisposeAsync : NearbyConnectionsTests
+    public sealed class DisposeAsync : PlatformNearbyConnectionsTests
     {
         [TestMethod]
         public async Task DisposeAsync_CompletesAdvertiseChannel()
