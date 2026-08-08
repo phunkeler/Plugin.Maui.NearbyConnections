@@ -38,10 +38,10 @@ dotnet run --project test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.Ne
 One public interface, registered as a DI singleton (one radio, one native session):
 
 - **`INearbyConnections`** — the only public entry point, implemented by `NearbyConnectionsImplementation`
-  (`Session/NearbyConnectionsImplementation.{cs,state.cs,log.cs}`). Owns device state, dispatcher marshalling, and the
-  three lifecycle events.
+  (`NearbyConnectionsImplementation.{cs,state.cs,log.cs}`, at the project root alongside the
+  interface). Owns device state, dispatcher marshalling, and the three lifecycle events.
 - **`IPlatformNearbyConnections`** — internal. The raw platform streams, implemented by a single
-  `sealed partial class` split across `Connections/NearbyConnections.{shared,android,ios,net}.cs`.
+  `sealed partial class` split across `Native/PlatformNearbyConnections.{shared,android,ios,net}.cs`.
   The `net10.0` target throws `PlatformNotSupportedException`, which is why `NearbyConnectionsImplementation` depends
   on the interface rather than the concrete type — otherwise it is untestable off-device.
 
@@ -56,6 +56,37 @@ A pending handshake is a `TaskCompletionSource` in `_connectionTcs`. **Every fai
 resolve or fault that TCS** or `AcceptAsync`/`ConnectAsync` hang forever.
 
 Platform code lives in platform partials, never `#if` in shared logic.
+
+### Folder layout
+
+The four domain folders are the platform-neutral model; `Native/` is the layer that maps Google's
+Nearby Connections and Apple's MultipeerConnectivity onto it. The tree is meant to state that
+claim — if translation logic starts appearing outside `Native/`, the abstraction is leaking.
+
+```
+src/Plugin.Maui.NearbyConnections/
+├── INearbyConnections.cs                     facade — at the root because it spans every domain
+├── NearbyConnectionsImplementation.{cs,state.cs,log.cs}
+├── MauiAppBuilderExtensions.cs               registration entry points, beside the facade
+├── ServiceCollectionExtensions.cs
+├── Connections/   NearbyConnection, request, role, ControlMessage, EventArgs, exceptions
+├── Devices/       NearbyDevice, DeviceState, status, events, EndReason
+├── Discovery/     availability + advertising/discovery failures
+├── Options/       NearbyConnectionsOptions + validators + the enums they use
+├── Transfer/      payloads, progress, outgoing transfer
+├── Native/        IPlatformNearbyConnections, PlatformNearbyConnections.*, iOS peer identity,
+│                  AppLifecycleObserver.ios
+└── Platforms/     MAUI SDK convention folder (Android permissions) — NOT the same as Native/
+```
+
+**Nothing in `Native/` is public.** That is the quarantine, and it is checkable: a `public` type
+declared there means the translation layer has leaked into the API surface.
+
+The unit test project mirrors this layout, so a type's tests live in the folder matching its own.
+
+**`Native/` vs `Platforms/`:** `Platforms/` is reserved by the MAUI SDK and carries its own
+include/exclude rules. `Native/` is this plugin's translation layer. They are different things that
+would read as the same thing if `Native/` were called `Platform/` — which is why it is not.
 
 ## Conventions
 
