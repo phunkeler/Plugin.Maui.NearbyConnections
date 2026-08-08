@@ -4,7 +4,7 @@ using System.Collections.Specialized;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// The default <see cref="INearbySession"/>: drives advertising and discovery through the platform
+/// The default <see cref="INearbyConnections"/>: drives advertising and discovery through the platform
 /// implementation, projects every platform callback into the observable <see cref="Devices"/>
 /// collection, and raises lifecycle events on the UI dispatcher.
 /// </summary>
@@ -21,11 +21,11 @@ namespace Plugin.Maui.NearbyConnections;
 /// <c>StartAdvertisingAsync</c> calls both reach the platform.
 /// </para>
 /// </remarks>
-sealed partial class NearbySession : INearbySession, IAsyncDisposable
+sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyncDisposable
 {
     // The interface, not the concrete implementation: on net10.0 every Platform* start throws, so a
     // concrete dependency would make the session untestable off-device. Tests substitute a fake.
-    readonly INearbyConnections _connections;
+    readonly IPlatformNearbyConnections _connections;
     readonly IDispatcher? _dispatcher;
     readonly ILogger _logger;
 
@@ -59,8 +59,8 @@ sealed partial class NearbySession : INearbySession, IAsyncDisposable
     readonly AppLifecycleObserver _lifecycleObserver;
 #endif
 
-    internal NearbySession(
-        INearbyConnections connections,
+    internal NearbyConnectionsImplementation(
+        IPlatformNearbyConnections connections,
         IDispatcher? dispatcher,
         ILogger logger)
     {

@@ -9,9 +9,9 @@ guarantees, where they diverge, and which behaviour the plugin supplies itself.
 
 > **Status — partly implemented.** The lifecycle model, `NearbyDeviceStatus`, and the single
 > `Devices` collection shipped as described. Read "Proposed shape" below as history, not as the
-> current API: the verbs live on `INearbySession` (`session.ConnectAsync(device)`), not on
+> current API: the verbs live on `INearbyConnections` (`session.ConnectAsync(device)`), not on
 > `NearbyDevice`, and there is no `LastEndReason`. Gaps 2 and 3 are closed; gaps 1 and 4 remain
-> open. `INearbySession` is the source of truth.
+> open. `INearbyConnections` is the source of truth.
 
 ---
 
@@ -383,7 +383,7 @@ where `Connecting` hangs forever with neither terminal callback arriving.
 the last peer leaves (`NearbyConnections.ios.cs`, the `NotConnected` case — note the
 `connectedPeers.Length > 0` guard, which exists because `Enumerable.All` returns `true` for an empty
 sequence and without it a failed handshake disposed the session out from under still-connected
-peers). `INearbySession.DisconnectAsync(device)` is the public verb on both platforms.
+peers). `INearbyConnections.DisconnectAsync(device)` is the public verb on both platforms.
 
 Original analysis, retained for context:
 
@@ -453,7 +453,7 @@ public sealed partial class NearbyDevice : ObservableObject   // INotifyProperty
 ```
 
 ```csharp
-public interface INearbySession : IAsyncDisposable
+public interface INearbyConnections : IAsyncDisposable
 {
     IReadOnlyList<NearbyDevice> Devices { get; }   // INotifyCollectionChanged — every state
 

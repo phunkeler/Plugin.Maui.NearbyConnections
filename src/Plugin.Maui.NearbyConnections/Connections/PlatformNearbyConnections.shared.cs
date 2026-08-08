@@ -3,7 +3,7 @@ using System.Threading.Channels;
 
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbyConnectionsImplementation : INearbyConnections
+sealed partial class PlatformNearbyConnections : IPlatformNearbyConnections
 {
     readonly ILogger _logger;
 
@@ -33,7 +33,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
     internal LocalPeerIdentityStore LocalPeerIdentityStore { get; init; }
 #endif
 
-    // Interlocked guard, not a plain bool: INearbyConnections is a DI singleton shared by both
+    // Interlocked guard, not a plain bool: IPlatformNearbyConnections is a DI singleton shared by both
     // NearbyAdvertiser and NearbyDiscoverer, so container teardown can dispose it from two
     // threads at once. A non-atomic check-then-set let both callers past the guard and ran
     // PlatformDispose() twice — on iOS that double-disposes the native MCSession. Mirrors the
@@ -44,7 +44,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
 
     public NearbyConnectionsOptions Options { get; }
 
-    internal NearbyConnectionsImplementation(
+    internal PlatformNearbyConnections(
         TimeProvider timeProvider,
         NearbyConnectionsOptions options,
         ILogger logger
@@ -218,7 +218,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections
         // each live NearbyConnection kept its receive channel open and its Disconnected task
         // unresolved, so any consumer awaiting Disconnected hung forever and the native endpoint
         // was never disconnected. Tier 2's ConnectionLifecycle.DisposeAsync already did this for
-        // connections it owned; consumers using INearbyConnections directly got no cleanup at all.
+        // connections it owned; consumers using IPlatformNearbyConnections directly got no cleanup at all.
         // Snapshot first: NearbyConnection.DisposeAsync removes itself from _activeConnections.
         var connections = _activeConnections.Values.ToArray();
         _activeConnections.Clear();

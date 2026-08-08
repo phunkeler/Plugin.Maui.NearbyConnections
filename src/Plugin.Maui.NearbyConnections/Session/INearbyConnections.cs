@@ -38,7 +38,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// </remarks>
 /// <seealso cref="NearbyDevice"/>
 /// <seealso cref="NearbyConnection"/>
-public interface INearbySession
+public interface INearbyConnections
 {
     /// <summary>
     /// Gets the devices known to this session, from first discovery until they are no longer

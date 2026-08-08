@@ -31,7 +31,7 @@ public class ResolveUniqueDestinationPathTests
 
             try
             {
-                var result = NearbyConnectionsImplementation.ResolveUniqueDestinationPath(dir, "photo.jpg");
+                var result = PlatformNearbyConnections.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
                 Assert.AreEqual(Path.Combine(dir, "photo.jpg"), result);
             }
@@ -56,7 +56,7 @@ public class ResolveUniqueDestinationPathTests
             {
                 Touch(Path.Combine(dir, "photo.jpg"));
 
-                var result = NearbyConnectionsImplementation.ResolveUniqueDestinationPath(dir, "photo.jpg");
+                var result = PlatformNearbyConnections.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
                 Assert.AreEqual(Path.Combine(dir, "photo (1).jpg"), result);
             }
@@ -77,7 +77,7 @@ public class ResolveUniqueDestinationPathTests
                 Touch(Path.Combine(dir, "photo (1).jpg"));
                 Touch(Path.Combine(dir, "photo (2).jpg"));
 
-                var result = NearbyConnectionsImplementation.ResolveUniqueDestinationPath(dir, "photo.jpg");
+                var result = PlatformNearbyConnections.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
                 Assert.AreEqual(Path.Combine(dir, "photo (3).jpg"), result);
             }
@@ -96,7 +96,7 @@ public class ResolveUniqueDestinationPathTests
             {
                 Touch(Path.Combine(dir, "README"));
 
-                var result = NearbyConnectionsImplementation.ResolveUniqueDestinationPath(dir, "README");
+                var result = PlatformNearbyConnections.ResolveUniqueDestinationPath(dir, "README");
 
                 Assert.AreEqual(Path.Combine(dir, "README (1)"), result);
             }
@@ -117,7 +117,7 @@ public class ResolveUniqueDestinationPathTests
             {
                 Touch(Path.Combine(dir, "archive.tar.gz"));
 
-                var result = NearbyConnectionsImplementation.ResolveUniqueDestinationPath(dir, "archive.tar.gz");
+                var result = PlatformNearbyConnections.ResolveUniqueDestinationPath(dir, "archive.tar.gz");
 
                 Assert.AreEqual(Path.Combine(dir, "archive.tar (1).gz"), result);
             }
@@ -138,7 +138,7 @@ public class ResolveUniqueDestinationPathTests
             {
                 for (var i = 0; i < 10; i++)
                 {
-                    var next = NearbyConnectionsImplementation.ResolveUniqueDestinationPath(dir, "photo.jpg");
+                    var next = PlatformNearbyConnections.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
                     Assert.IsFalse(File.Exists(next), $"Iteration {i} returned an existing path: {next}");
 

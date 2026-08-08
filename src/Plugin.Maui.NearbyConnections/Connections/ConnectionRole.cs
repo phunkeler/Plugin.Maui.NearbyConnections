@@ -7,13 +7,13 @@ public enum ConnectionRole
 {
     /// <summary>
     /// The local device initiated the connection by calling
-    /// <see cref="INearbySession.ConnectAsync(NearbyDevice, CancellationToken)"/>.
+    /// <see cref="INearbyConnections.ConnectAsync(NearbyDevice, CancellationToken)"/>.
     /// </summary>
     Initiator,
 
     /// <summary>
     /// The local device accepted an inbound connection request by calling
-    /// <see cref="INearbySession.AcceptAsync(NearbyDevice, CancellationToken)"/>.
+    /// <see cref="INearbyConnections.AcceptAsync(NearbyDevice, CancellationToken)"/>.
     /// </summary>
     Acceptor,
 }

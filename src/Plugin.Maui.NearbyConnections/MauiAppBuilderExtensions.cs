@@ -8,7 +8,7 @@ namespace Plugin.Maui.NearbyConnections;
 public static class MauiAppBuilderExtensions
 {
     /// <summary>
-    /// Registers <see cref="INearbySession"/> and its configuration with the application builder.
+    /// Registers <see cref="INearbyConnections"/> and its configuration with the application builder.
     /// </summary>
     /// <param name="builder">The <see cref="MauiAppBuilder"/> to add the services to.</param>
     /// <param name="configure">
@@ -20,13 +20,13 @@ public static class MauiAppBuilderExtensions
     /// </returns>
     /// <remarks>
     /// <para>
-    /// This method registers <see cref="INearbySession"/> as a singleton. Resolve it through
+    /// This method registers <see cref="INearbyConnections"/> as a singleton. Resolve it through
     /// constructor injection wherever nearby connectivity is needed.
     /// </para>
     /// <para>
     /// Neither advertising nor discovery starts automatically. Call
-    /// <see cref="INearbySession.StartAdvertisingAsync(CancellationToken)"/> or
-    /// <see cref="INearbySession.StartDiscoveringAsync(CancellationToken)"/> once the application
+    /// <see cref="INearbyConnections.StartAdvertisingAsync(CancellationToken)"/> or
+    /// <see cref="INearbyConnections.StartDiscoveringAsync(CancellationToken)"/> once the application
     /// is ready and the required permissions have been granted.
     /// </para>
     /// </remarks>

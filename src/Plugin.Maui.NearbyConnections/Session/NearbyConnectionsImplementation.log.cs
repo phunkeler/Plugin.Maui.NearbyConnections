@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbySession
+sealed partial class NearbyConnectionsImplementation
 {
     // -------------------------------------------------------------------------
     // Pump failures

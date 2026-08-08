@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbyConnectionsImplementation
+sealed partial class PlatformNearbyConnections
 {
     internal void WriteDeviceFound(NearbyDevice device)
     {

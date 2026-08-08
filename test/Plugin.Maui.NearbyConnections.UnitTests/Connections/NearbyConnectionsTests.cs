@@ -8,13 +8,13 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 [TestCategory("Connections")]
 public class NearbyConnectionsTests
 {
-    // Builds a NearbyConnectionsImplementation without hitting any platform APIs.
-    static NearbyConnectionsImplementation CreateSut(
+    // Builds a PlatformNearbyConnections without hitting any platform APIs.
+    static PlatformNearbyConnections CreateSut(
         FakeTimeProvider? timeProvider = null,
         NearbyConnectionsOptions? options = null)
     {
         var tp = timeProvider ?? new FakeTimeProvider();
-        return new NearbyConnectionsImplementation(
+        return new PlatformNearbyConnections(
             tp,
             options ?? new NearbyConnectionsOptions(),
             NullLogger.Instance);

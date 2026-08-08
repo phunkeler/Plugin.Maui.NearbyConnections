@@ -5,8 +5,8 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 /// <remarks>
 /// Internal: the session projects each request into
-/// <see cref="INearbySession.ConnectionRequested"/> and holds the request itself so
-/// <see cref="INearbySession.AcceptAsync"/> and <see cref="INearbySession.RejectAsync"/> can answer
+/// <see cref="INearbyConnections.ConnectionRequested"/> and holds the request itself so
+/// <see cref="INearbyConnections.AcceptAsync"/> and <see cref="INearbyConnections.RejectAsync"/> can answer
 /// it. Consumers work with the <see cref="NearbyDevice"/>, never with this type.
 /// </remarks>
 sealed class NearbyConnectionRequest
@@ -20,7 +20,7 @@ sealed class NearbyConnectionRequest
     public NearbyDevice RemoteDevice { get; }
 
     /// <summary>
-    /// Initializes a new <see cref="NearbyConnectionRequest"/> for use in test doubles of <see cref="INearbyConnections"/>.
+    /// Initializes a new <see cref="NearbyConnectionRequest"/> for use in test doubles of <see cref="IPlatformNearbyConnections"/>.
     /// </summary>
     /// <param name="remoteDevice">The device sending the connection request.</param>
     /// <param name="acceptFactory">A delegate invoked when <see cref="AcceptAsync"/> is called.</param>

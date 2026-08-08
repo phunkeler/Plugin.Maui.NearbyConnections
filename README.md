@@ -73,7 +73,7 @@ public static MauiApp CreateMauiApp()
 }
 ```
 
-`UseNearbyConnections()` registers `INearbySession` as a singleton — one radio, one native session. Inject it wherever you need nearby connectivity.
+`UseNearbyConnections()` registers `INearbyConnections` as a singleton — one radio, one native session. Inject it wherever you need nearby connectivity.
 
 Nothing starts on its own: advertising and discovery begin only when you call them, so permission prompts happen when your app decides.
 
@@ -275,7 +275,7 @@ All plugin-specific failures derive from `NearbyConnectionsException`:
 - `NearbyAdvertisingException` / `NearbyDiscoveryException` — the platform failed to start advertising or discovery, most often because permissions were denied or the radio is off.
 - `NearbyConnectionTimeoutException` — thrown from `ConnectAsync` when the remote device does not answer within `NearbyConnectionsOptions.InvitationTimeout` (default 30 seconds), typically because it moved out of range mid-handshake or nobody answered the prompt. The device returns to `Visible`, so retrying is reasonable.
 - `NearbyTransferTimeoutException` — thrown from a file-transfer `SendAsync` call when no transfer progress is observed for `NearbyConnectionsOptions.TransferInactivityTimeout` (default 10 seconds — see the [Configuration](#configuration) table).
-- `NearbyConnectionsException` — the non-sealed base type. Catch it to handle all of the above; deriving from it in your own code is a supported extension contract (useful when faking `INearbySession` in tests).
+- `NearbyConnectionsException` — the non-sealed base type. Catch it to handle all of the above; deriving from it in your own code is a supported extension contract (useful when faking `INearbyConnections` in tests).
 
 ## 5. Disconnect and clean up
 

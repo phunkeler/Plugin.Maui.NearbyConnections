@@ -15,12 +15,12 @@ namespace NearbyChat.Services;
 /// </remarks>
 public sealed partial class ConnectionTracker : ObservableObject, IConnectionTracker
 {
-    readonly INearbySession _session;
+    readonly INearbyConnections _session;
 
     [ObservableProperty]
     public partial int Count { get; private set; }
 
-    public ConnectionTracker(INearbySession session)
+    public ConnectionTracker(INearbyConnections session)
     {
         ArgumentNullException.ThrowIfNull(session);
 

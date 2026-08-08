@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// through to an established connection.
 /// </summary>
 /// <remarks>
-/// A device remains in <see cref="INearbySession.Devices"/> in every one of these states. The
+/// A device remains in <see cref="INearbyConnections.Devices"/> in every one of these states. The
 /// status changes rather than the device moving between collections.
 /// </remarks>
 public enum NearbyDeviceStatus

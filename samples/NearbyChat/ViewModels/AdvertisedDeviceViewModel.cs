@@ -8,7 +8,7 @@ namespace NearbyChat.ViewModels;
 /// </summary>
 public partial class AdvertisedDeviceViewModel(
     NearbyDevice device,
-    INearbySession session) : NearbyDeviceViewModel(device)
+    INearbyConnections session) : NearbyDeviceViewModel(device)
 {
     [RelayCommand]
     Task<NearbyConnection> Accept()

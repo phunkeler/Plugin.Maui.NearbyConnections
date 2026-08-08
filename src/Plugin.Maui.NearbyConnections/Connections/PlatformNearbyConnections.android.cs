@@ -4,7 +4,7 @@ using Path = System.IO.Path;
 
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbyConnectionsImplementation
+sealed partial class PlatformNearbyConnections
 {
     IConnectionsClient? _advertiseClient;
     IConnectionsClient? _discoverClient;

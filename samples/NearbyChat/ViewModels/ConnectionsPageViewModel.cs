@@ -9,7 +9,7 @@ namespace NearbyChat.ViewModels;
 public partial class ConnectionsPageViewModel(
     IDispatcher dispatcher,
     INavigationService navigationService,
-    INearbySession session,
+    INearbyConnections session,
     IBottomSheetNavigationService bottomSheetNavigationService)
     : BasePageViewModel(dispatcher)
 {

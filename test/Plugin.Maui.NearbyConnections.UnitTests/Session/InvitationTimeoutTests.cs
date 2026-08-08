@@ -23,7 +23,7 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 [TestCategory("Session")]
 public sealed class InvitationTimeoutTests
 {
-    static NearbyConnectionsImplementation CreateSut(
+    static PlatformNearbyConnections CreateSut(
         FakeTimeProvider timeProvider,
         TimeSpan? invitationTimeout = null)
         => new(

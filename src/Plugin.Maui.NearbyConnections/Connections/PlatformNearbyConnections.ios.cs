@@ -2,7 +2,7 @@ using System.Threading.Channels;
 
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbyConnectionsImplementation
+sealed partial class PlatformNearbyConnections
 {
     static long s_nextPayloadId;
 
@@ -701,7 +701,7 @@ sealed partial class NearbyConnectionsImplementation
 
     #endregion Session Callbacks
 
-    sealed class AdvertiserDelegate(NearbyConnectionsImplementation nearbyConnections) : NSObject, IMCNearbyServiceAdvertiserDelegate
+    sealed class AdvertiserDelegate(PlatformNearbyConnections nearbyConnections) : NSObject, IMCNearbyServiceAdvertiserDelegate
     {
 #pragma warning disable S1144, S1172
         public void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
@@ -716,7 +716,7 @@ sealed partial class NearbyConnectionsImplementation
 #pragma warning restore S1144, S1172
     }
 
-    sealed class BrowserDelegate(NearbyConnectionsImplementation nearbyConnections) : NSObject, IMCNearbyServiceBrowserDelegate
+    sealed class BrowserDelegate(PlatformNearbyConnections nearbyConnections) : NSObject, IMCNearbyServiceBrowserDelegate
     {
 #pragma warning disable S1144, S1172
         public void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
@@ -730,7 +730,7 @@ sealed partial class NearbyConnectionsImplementation
 #pragma warning restore S1144, S1172
     }
 
-    sealed class SessionDelegate(NearbyConnectionsImplementation nearbyConnections) : NSObject, IMCSessionDelegate
+    sealed class SessionDelegate(PlatformNearbyConnections nearbyConnections) : NSObject, IMCSessionDelegate
     {
 #pragma warning disable S1144, S1172
         public void DidChangeState(MCSession session, MCPeerID peerID, MCSessionState state)

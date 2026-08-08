@@ -1,13 +1,13 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Provides data for the <see cref="INearbySession.ConnectionRequested"/> event.
+/// Provides data for the <see cref="INearbyConnections.ConnectionRequested"/> event.
 /// </summary>
 /// <remarks>
 /// Respond to the request by calling
-/// <see cref="INearbySession.AcceptAsync(NearbyDevice, CancellationToken)"/> or
-/// <see cref="INearbySession.RejectAsync(NearbyDevice, CancellationToken)"/>. To accept every
-/// request automatically, call <see cref="INearbySession.AcceptAsync(NearbyDevice, CancellationToken)"/>
+/// <see cref="INearbyConnections.AcceptAsync(NearbyDevice, CancellationToken)"/> or
+/// <see cref="INearbyConnections.RejectAsync(NearbyDevice, CancellationToken)"/>. To accept every
+/// request automatically, call <see cref="INearbyConnections.AcceptAsync(NearbyDevice, CancellationToken)"/>
 /// from the event handler; consider prompting the user before doing so.
 /// </remarks>
 public sealed class NearbyConnectionRequestedEventArgs : EventArgs

@@ -15,7 +15,7 @@ namespace NearbyChat.Services;
 /// <remarks>
 /// <para>
 /// <strong>Why this implements <see cref="IMauiInitializeService"/>.</strong>
-/// <see cref="INearbySession.ConnectionEstablished"/> is a plain event with no replay, so this
+/// <see cref="INearbyConnections.ConnectionEstablished"/> is a plain event with no replay, so this
 /// subscriber must be attached before the first connection is established. MAUI calls
 /// <see cref="Initialize"/> during <c>MauiAppBuilder.Build()</c>, which guarantees that.
 /// (<c>AddNearbyConnections</c> uses the same hook to construct the session itself, so the session
@@ -37,13 +37,13 @@ namespace NearbyChat.Services;
 /// </para>
 /// </remarks>
 public sealed partial class NearbyIngestionService(
-    INearbySession session,
+    INearbyConnections session,
     IChatMessageRepositoryFactory repositoryFactory,
     IMessenger messenger,
     IThumbnailService thumbnailService,
     ILogger<NearbyIngestionService> logger) : IMauiInitializeService
 {
-    readonly INearbySession _session = session ?? throw new ArgumentNullException(nameof(session));
+    readonly INearbyConnections _session = session ?? throw new ArgumentNullException(nameof(session));
     readonly IChatMessageRepositoryFactory _repositoryFactory = repositoryFactory ?? throw new ArgumentNullException(nameof(repositoryFactory));
     readonly IMessenger _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
     readonly IThumbnailService _thumbnailService = thumbnailService ?? throw new ArgumentNullException(nameof(thumbnailService));

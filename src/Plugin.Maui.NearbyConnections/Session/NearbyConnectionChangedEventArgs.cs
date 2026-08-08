@@ -1,8 +1,8 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Provides data for the <see cref="INearbySession.ConnectionEstablished"/> and
-/// <see cref="INearbySession.ConnectionDropped"/> events.
+/// Provides data for the <see cref="INearbyConnections.ConnectionEstablished"/> and
+/// <see cref="INearbyConnections.ConnectionDropped"/> events.
 /// </summary>
 public sealed class NearbyConnectionChangedEventArgs : EventArgs
 {
@@ -34,7 +34,7 @@ public sealed class NearbyConnectionChangedEventArgs : EventArgs
     /// </summary>
     /// <value>The connection associated with the event.</value>
     /// <remarks>
-    /// For the <see cref="INearbySession.ConnectionDropped"/> event, the connection is already torn
+    /// For the <see cref="INearbyConnections.ConnectionDropped"/> event, the connection is already torn
     /// down and cannot be used to send data. It is supplied so that handlers can correlate the
     /// event with the connection instance they were using. The
     /// <see cref="NearbyDevice.Connection"/> property of a dropped device is

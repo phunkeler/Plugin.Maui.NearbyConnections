@@ -5,11 +5,11 @@ namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
 /// Represents a remote device that has been discovered by, or connected to, an
-/// <see cref="INearbySession"/>.
+/// <see cref="INearbyConnections"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A device is added to <see cref="INearbySession.Devices"/> when it is first discovered and
+/// A device is added to <see cref="INearbyConnections.Devices"/> when it is first discovered and
 /// remains there for its whole lifecycle. Its <see cref="Status"/> changes as it receives a
 /// request, connects, and disconnects. This type implements
 /// <see cref="INotifyPropertyChanged"/> for every mutable property, so it can be bound directly to
@@ -23,8 +23,8 @@ namespace Plugin.Maui.NearbyConnections;
 /// </para>
 /// <para>
 /// <see cref="PropertyChanged"/> is raised on the thread that changed the property. An
-/// <see cref="INearbySession"/> marshals its own mutations onto the UI dispatcher, so bindings to
-/// devices obtained from <see cref="INearbySession.Devices"/> are safe without further
+/// <see cref="INearbyConnections"/> marshals its own mutations onto the UI dispatcher, so bindings to
+/// devices obtained from <see cref="INearbyConnections.Devices"/> are safe without further
 /// marshalling.
 /// </para>
 /// </remarks>

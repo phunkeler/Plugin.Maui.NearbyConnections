@@ -15,7 +15,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// user would have to resolve rather than only the first problem encountered.
 /// </para>
 /// </remarks>
-/// <seealso cref="INearbySession.CheckAvailabilityAsync(CancellationToken)"/>
+/// <seealso cref="INearbyConnections.CheckAvailabilityAsync(CancellationToken)"/>
 [Flags]
 public enum NearbyAvailability
 {

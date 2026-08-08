@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
 /// <summary>
-/// Behavioural tests for <see cref="NearbySession"/>.
+/// Behavioural tests for <see cref="NearbyConnectionsImplementation"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -15,17 +15,17 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// once. See <c>.building/notes/TEST-MINING.md</c> for the per-test classification.
 /// </para>
 /// <para>
-/// The session takes <see cref="INearbyConnections"/> rather than the concrete implementation
+/// The session takes <see cref="IPlatformNearbyConnections"/> rather than the concrete implementation
 /// precisely so these can run on <c>net10.0</c>, where every <c>Platform*</c> start throws.
 /// </para>
 /// </remarks>
 [TestCategory("Session")]
 public class NearbySessionTests
 {
-    static NearbySession CreateSut(FakeNearbyConnections connections)
+    static NearbyConnectionsImplementation CreateSut(FakeNearbyConnections connections)
         => new(connections, dispatcher: null, NullLogger.Instance);
 
-    static NearbySession CreateSut(FakeNearbyConnections connections, ILogger logger)
+    static NearbyConnectionsImplementation CreateSut(FakeNearbyConnections connections, ILogger logger)
         => new(connections, dispatcher: null, logger);
 
     /// <summary>

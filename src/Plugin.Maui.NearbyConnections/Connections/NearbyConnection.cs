@@ -9,15 +9,15 @@ namespace Plugin.Maui.NearbyConnections;
 /// <remarks>
 /// <para>
 /// Obtain a connection by calling
-/// <see cref="INearbySession.ConnectAsync(NearbyDevice, CancellationToken)"/> or
-/// <see cref="INearbySession.AcceptAsync(NearbyDevice, CancellationToken)"/>, or by reading
+/// <see cref="INearbyConnections.ConnectAsync(NearbyDevice, CancellationToken)"/> or
+/// <see cref="INearbyConnections.AcceptAsync(NearbyDevice, CancellationToken)"/>, or by reading
 /// <see cref="NearbyDevice.Connection"/>. The same instance is returned by all three.
 /// </para>
 /// <para>
 /// Call <see cref="DisposeAsync"/> to disconnect from the remote device. Disposal is idempotent.
 /// </para>
 /// </remarks>
-/// <seealso cref="INearbySession"/>
+/// <seealso cref="INearbyConnections"/>
 /// <seealso cref="NearbyDevice"/>
 public sealed class NearbyConnection : IAsyncDisposable
 {
@@ -108,7 +108,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <remarks>
     /// This constructor exists so that consumers can construct a connection in unit tests without
     /// a real platform session. Application code obtains connections from an
-    /// <see cref="INearbySession"/> instead.
+    /// <see cref="INearbyConnections"/> instead.
     /// </remarks>
     public NearbyConnection(
         NearbyDevice remoteDevice,
@@ -403,7 +403,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <remarks>
     /// Used to detect the silent-loss case: payloads arriving on a connection nobody reads are
     /// buffered forever in an unbounded channel and never observed. See
-    /// <c>NearbySession.WarnIfPayloadUnobserved</c>.
+    /// <c>NearbyConnectionsImplementation.WarnIfPayloadUnobserved</c>.
     /// </remarks>
     internal bool IsBeingConsumed => Volatile.Read(ref _receiveGuard) != 0;
 

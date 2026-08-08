@@ -9,9 +9,9 @@ namespace NearbyChat.ViewModels;
 /// </summary>
 public partial class DiscoveredDeviceViewModel : NearbyDeviceViewModel
 {
-    readonly INearbySession _session;
+    readonly INearbyConnections _session;
 
-    public DiscoveredDeviceViewModel(NearbyDevice device, INearbySession session)
+    public DiscoveredDeviceViewModel(NearbyDevice device, INearbyConnections session)
         : base(device)
     {
         ArgumentNullException.ThrowIfNull(session);

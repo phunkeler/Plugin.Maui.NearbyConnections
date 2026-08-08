@@ -19,7 +19,7 @@ public class ServiceCollectionExtensionsTests
 
             // Act
             await using var provider = services.BuildServiceProvider();
-            var session = provider.GetRequiredService<INearbySession>();
+            var session = provider.GetRequiredService<INearbyConnections>();
 
             // Assert
             Assert.IsNotNull(session);
@@ -36,8 +36,8 @@ public class ServiceCollectionExtensionsTests
             await using var provider = services.BuildServiceProvider();
 
             Assert.AreSame(
-                provider.GetRequiredService<INearbySession>(),
-                provider.GetRequiredService<INearbySession>());
+                provider.GetRequiredService<INearbyConnections>(),
+                provider.GetRequiredService<INearbyConnections>());
         }
 
         [TestMethod]
@@ -65,14 +65,14 @@ public class ServiceCollectionExtensionsTests
             await using var provider = services.BuildServiceProvider();
 
             var initializer = provider.GetServices<IMauiInitializeService>()
-                .Single(s => s.GetType().Name == "NearbySessionInitializer");
+                .Single(s => s.GetType().Name == "NearbyConnectionsInitializer");
 
             initializer.Initialize(provider);
 
             // Same instance the initializer already built, not a second one made on demand.
             Assert.AreSame(
-                provider.GetRequiredService<INearbySession>(),
-                provider.GetRequiredService<INearbySession>());
+                provider.GetRequiredService<INearbyConnections>(),
+                provider.GetRequiredService<INearbyConnections>());
         }
 
         [TestMethod]

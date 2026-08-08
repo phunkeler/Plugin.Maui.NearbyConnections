@@ -88,7 +88,7 @@ public sealed partial class NearbyConnectionsOptions
     /// </para>
     /// <para>
     /// When this interval elapses,
-    /// <see cref="INearbySession.ConnectAsync(NearbyDevice, CancellationToken)"/> throws
+    /// <see cref="INearbyConnections.ConnectAsync(NearbyDevice, CancellationToken)"/> throws
     /// <see cref="NearbyConnectionTimeoutException"/>.
     /// </para>
     /// </remarks>

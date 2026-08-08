@@ -1,11 +1,11 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Device-state projection and dispatcher marshalling for <see cref="NearbySession"/>.
+/// Device-state projection and dispatcher marshalling for <see cref="NearbyConnectionsImplementation"/>.
 /// Everything that mutates <c>_devices</c>, writes a <see cref="NearbyDevice"/> property, or raises
 /// a lifecycle event lives here and runs on the dispatcher.
 /// </summary>
-sealed partial class NearbySession
+sealed partial class NearbyConnectionsImplementation
 {
     /// <summary>
     /// Runs <paramref name="action"/> on the UI dispatcher, or inline when no dispatcher is
@@ -131,7 +131,7 @@ sealed partial class NearbySession
 
     /// <summary>
     /// A connection was established, from either side. Publishes the connection onto the device,
-    /// raises <see cref="INearbySession.ConnectionEstablished"/>, and arms the drop notification.
+    /// raises <see cref="INearbyConnections.ConnectionEstablished"/>, and arms the drop notification.
     /// </summary>
     async Task OnConnectedAsync(NearbyDevice device, NearbyConnection connection, ConnectionRole role)
     {
@@ -166,7 +166,7 @@ sealed partial class NearbySession
 
     /// <summary>
     /// Awaits the connection's own disconnect signal and projects it into device state plus
-    /// <see cref="INearbySession.ConnectionDropped"/>.
+    /// <see cref="INearbyConnections.ConnectionDropped"/>.
     /// </summary>
     async Task WatchDisconnectAsync(NearbyDevice device, NearbyConnection connection)
     {
@@ -277,8 +277,8 @@ sealed partial class NearbySession
     /// </summary>
     /// <param name="start">Starts the pump task for the supplied cancellation token.</param>
     /// <param name="setFlag">
-    /// Publishes <see cref="INearbySession.IsAdvertising"/> or
-    /// <see cref="INearbySession.IsDiscovering"/> on the dispatcher.
+    /// Publishes <see cref="INearbyConnections.IsAdvertising"/> or
+    /// <see cref="INearbyConnections.IsDiscovering"/> on the dispatcher.
     /// </param>
     sealed class PumpState(Func<CancellationToken, Task> start, Func<bool, Task> setFlag)
     {

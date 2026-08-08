@@ -25,7 +25,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// a <c>try/catch</c> to handle start failures.
 /// </para>
 /// </remarks>
-interface INearbyConnections : IAsyncDisposable
+interface IPlatformNearbyConnections : IAsyncDisposable
 {
     /// <summary>
     /// Starts advertising this device to nearby discoverers and yields inbound connection requests

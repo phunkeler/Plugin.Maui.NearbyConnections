@@ -22,7 +22,7 @@ public abstract partial class BasePageViewModel(
     protected CancellationToken NavigationToken => _navigationCts?.Token ?? CancellationToken.None;
 
     /// <summary>
-    /// Subscribes to an <see cref="INearbySession"/> event for as long as this page is on screen,
+    /// Subscribes to an <see cref="INearbyConnections"/> event for as long as this page is on screen,
     /// and detaches automatically on navigate-away.
     /// </summary>
     /// <param name="subscribe">Attaches the handler.</param>
