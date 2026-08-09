@@ -3,7 +3,7 @@ using System.Threading.Channels;
 
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class PlatformNearbyConnections : IPlatformNearbyConnections
+sealed partial class PlatformNearby : IPlatformNearby
 {
     readonly ILogger _logger;
 
@@ -22,8 +22,8 @@ sealed partial class PlatformNearbyConnections : IPlatformNearbyConnections
     /// <summary>
     /// Tracks discovered/connected remote devices on Android, where the endpoint ID is already
     /// its own native handle so this registry uses <see cref="string"/> as the handle type.
-    /// iOS uses a separate <c>RemotePeers</c> registry (see <c>NearbyConnections.shared.cs</c>'s
-    /// <c>#if IOS</c> members) keyed by <c>MCPeerID</c> instead.
+    /// iOS uses a separate <c>RemotePeers</c> registry (see this file's <c>#if IOS</c> members)
+    /// keyed by <c>MCPeerID</c> instead.
     /// </summary>
     internal PeerRegistry<string> Devices { get; } = new();
 
@@ -33,20 +33,19 @@ sealed partial class PlatformNearbyConnections : IPlatformNearbyConnections
     internal LocalPeerIdentityStore LocalPeerIdentityStore { get; init; }
 #endif
 
-    // Interlocked guard, not a plain bool: IPlatformNearbyConnections is a DI singleton shared by both
-    // NearbyAdvertiser and NearbyDiscoverer, so container teardown can dispose it from two
-    // threads at once. A non-atomic check-then-set let both callers past the guard and ran
-    // PlatformDispose() twice — on iOS that double-disposes the native MCSession. Mirrors the
-    // pattern already used in NearbyConnection.DisposeAsync.
+    // Interlocked guard, not a plain bool: IPlatformNearby is a DI singleton, so nothing prevents
+    // two concurrent calls to StopAsync from racing here. A non-atomic check-then-set let both
+    // callers past the guard and ran PlatformDispose() twice — on iOS that double-disposes the
+    // native MCSession. Mirrors the pattern already used in NearbyConnection.DisposeAsync.
     int _disposeGuard;
 
     internal TimeProvider TimeProvider { get; }
 
-    public NearbyConnectionsOptions Options { get; }
+    public NearbyOptions Options { get; }
 
-    internal PlatformNearbyConnections(
+    internal PlatformNearby(
         TimeProvider timeProvider,
-        NearbyConnectionsOptions options,
+        NearbyOptions options,
         ILogger logger
 #if IOS
         , PeerRegistry<MCPeerID> remotePeers
@@ -120,7 +119,7 @@ sealed partial class PlatformNearbyConnections : IPlatformNearbyConnections
     {
         var newDiscoverChannel = NewChannel<NearbyDeviceEvent>();
         Interlocked.Exchange(ref _discoverChannel, newDiscoverChannel);
-        await PlatformStartDiscoveringAsync(cancellationToken);
+        await PlatformStartDiscoveryAsync(cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -193,6 +192,20 @@ sealed partial class PlatformNearbyConnections : IPlatformNearbyConnections
     public Task<NearbyAvailability> CheckAvailabilityAsync(CancellationToken cancellationToken = default)
         => PlatformCheckAvailabilityAsync(cancellationToken);
 
+    /// <summary>
+    /// Builds the exception both platforms throw when a file transfer's inactivity timeout fires,
+    /// and logs it first. Centralised so the message and the log call can't drift between the
+    /// Android and iOS <c>PlatformSendFileAsync</c> catch clauses — each platform still reports its
+    /// own terminal progress before calling this, since the progress mechanics genuinely differ.
+    /// </summary>
+    NearbyTransferTimeoutException TransferInactivityTimeoutException(string deviceId)
+    {
+        LogSendFileTimeout(deviceId, null, Options.TransferInactivityTimeout.TotalSeconds);
+
+        return new NearbyTransferTimeoutException(
+            $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
+    }
+
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
@@ -218,7 +231,7 @@ sealed partial class PlatformNearbyConnections : IPlatformNearbyConnections
         // each live NearbyConnection kept its receive channel open and its Disconnected task
         // unresolved, so any consumer awaiting Disconnected hung forever and the native endpoint
         // was never disconnected. Tier 2's ConnectionLifecycle.DisposeAsync already did this for
-        // connections it owned; consumers using IPlatformNearbyConnections directly got no cleanup at all.
+        // connections it owned; consumers using IPlatformNearby directly got no cleanup at all.
         // Snapshot first: NearbyConnection.DisposeAsync removes itself from _activeConnections.
         var connections = _activeConnections.Values.ToArray();
         _activeConnections.Clear();

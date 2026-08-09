@@ -42,7 +42,7 @@ public class NearbyConnectionsExceptionTests
             // Act (type relationship is structural — no runtime operation required)
 
             // Assert
-            Assert.IsInstanceOfType<NearbyConnectionsException>(ex);
+            Assert.IsInstanceOfType<NearbyException>(ex);
         }
     }
 
@@ -85,7 +85,7 @@ public class NearbyConnectionsExceptionTests
             // Act (type relationship is structural — no runtime operation required)
 
             // Assert
-            Assert.IsInstanceOfType<NearbyConnectionsException>(ex);
+            Assert.IsInstanceOfType<NearbyException>(ex);
         }
     }
 }

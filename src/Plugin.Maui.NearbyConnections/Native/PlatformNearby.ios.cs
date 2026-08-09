@@ -2,7 +2,7 @@ using System.Threading.Channels;
 
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class PlatformNearbyConnections
+sealed partial class PlatformNearby
 {
     static long s_nextPayloadId;
 
@@ -76,7 +76,7 @@ sealed partial class PlatformNearbyConnections
 
             var request = new NearbyConnectionRequest(
                 device,
-                acceptFactory: async ct =>
+                accept: async ct =>
                 {
                     MCSession session;
                     lock (_sessionLock)
@@ -110,7 +110,7 @@ sealed partial class PlatformNearbyConnections
                         throw;
                     }
                 },
-                rejectFactory: ct =>
+                reject: ct =>
                 {
                     invitationHandler(false, null);
                     RemotePeers.RemoveRemotePeer(id, _logger);
@@ -129,7 +129,7 @@ sealed partial class PlatformNearbyConnections
 
     #region Discovery
 
-    Task PlatformStartDiscoveringAsync(CancellationToken cancellationToken)
+    Task PlatformStartDiscoveryAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -234,7 +234,7 @@ sealed partial class PlatformNearbyConnections
 
     /// <summary>
     /// Nothing to clean up on iOS: <c>InvitePeer</c> is given the same
-    /// <see cref="NearbyConnectionsOptions.InvitationTimeout"/>, so MultipeerConnectivity expires
+    /// <see cref="NearbyOptions.InvitationTimeout"/>, so MultipeerConnectivity expires
     /// the invitation itself and reports the peer as <c>NotConnected</c>.
     /// </summary>
     /// <remarks>
@@ -247,7 +247,7 @@ sealed partial class PlatformNearbyConnections
     Task PlatformAbandonConnectAsync(NearbyDevice device) => Task.CompletedTask;
 #pragma warning restore CA1822, S2325
 
-    Task SendBytesAsync(
+    Task PlatformSendBytesAsync(
         string peerId,
         byte[] bytes,
         CancellationToken cancellationToken)
@@ -262,12 +262,12 @@ sealed partial class PlatformNearbyConnections
 
         if (session is null)
         {
-            throw new NearbyConnectionsException("No active session. Ensure a connection has been established before sending data.");
+            throw new NearbyException("No active session. Ensure a connection has been established before sending data.");
         }
 
         if (!RemotePeers.TryGetHandle(peerId, out var peerID))
         {
-            throw new NearbyConnectionsException($"No peer found for device: Id={peerId}");
+            throw new NearbyException($"No peer found for device: Id={peerId}");
         }
 
         using var nsData = NSData.FromArray(bytes);
@@ -276,7 +276,7 @@ sealed partial class PlatformNearbyConnections
         if (error is not null)
         {
             LogSendBytesFailed(peerID.DisplayName, error.LocalizedDescription);
-            throw new NearbyConnectionsException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}");
+            throw new NearbyException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}");
         }
 
         return Task.CompletedTask;
@@ -298,12 +298,12 @@ sealed partial class PlatformNearbyConnections
 
         if (session is null)
         {
-            throw new NearbyConnectionsException("No active session. Ensure a connection has been established before sending data.");
+            throw new NearbyException("No active session. Ensure a connection has been established before sending data.");
         }
 
         if (!RemotePeers.TryGetHandle(peerId, out var peerID))
         {
-            throw new NearbyConnectionsException($"No peer found for device: Id={peerId}");
+            throw new NearbyException($"No peer found for device: Id={peerId}");
         }
 
         using var nsUrl = NSUrl.FromFilename(uri);
@@ -370,10 +370,7 @@ sealed partial class PlatformNearbyConnections
         {
             Report(NearbyTransferStatus.Failure);
 
-            LogSendFileTimeout(peerId, null, Options.TransferInactivityTimeout.TotalSeconds);
-
-            throw new NearbyTransferTimeoutException(
-                $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
+            throw TransferInactivityTimeoutException(peerId);
         }
         catch (Exception ex)
         {
@@ -393,7 +390,7 @@ sealed partial class PlatformNearbyConnections
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The condition worth catching on iOS is an invalid <see cref="NearbyConnectionsOptions.ServiceId"/>,
+    /// The condition worth catching on iOS is an invalid <see cref="NearbyOptions.ServiceId"/>,
     /// because <c>MCNearbyServiceAdvertiser</c>'s native initializer raises an
     /// <c>NSInvalidArgumentException</c> for one — a fatal native crash that no <c>try</c>/<c>catch</c>
     /// can intercept. Options validation already rejects this at startup; repeating the check here
@@ -465,17 +462,16 @@ sealed partial class PlatformNearbyConnections
             {
                 case MCSessionState.Connected:
                     var connectedDevice = RemotePeers.TrackRemotePeer(PeerKeyProvider, peerID, _logger);
-
                     var receiveChannel = NewChannel<NearbyPayload>(singleReader: true);
-
                     var connection = new NearbyConnection(
                         connectedDevice,
                         receiveChannel,
-                        sendBytesFactory: (data, ct) => new ValueTask(SendBytesAsync(id, data, ct)),
-                        sendFileFactory: (fileUri, progress, ct) => PlatformSendFileAsync(id, fileUri, progress, ct),
-                        disposeFactory: async () =>
+                        sendBytes: (data, ct) => new ValueTask(PlatformSendBytesAsync(id, data, ct)),
+                        sendFile: (fileUri, progress, ct) => PlatformSendFileAsync(id, fileUri, progress, ct),
+                        dispose: async () =>
                         {
                             MCSession? disposeSession;
+
                             lock (_sessionLock)
                             {
                                 disposeSession = _session;
@@ -500,7 +496,7 @@ sealed partial class PlatformNearbyConnections
                     break;
 
                 case MCSessionState.NotConnected:
-                    // CompleteReceive() is also called by the disposeFactory if the consumer calls DisposeAsync() first.
+                    // CompleteReceive() is also called by the dispose if the consumer calls DisposeAsync() first.
                     // TryRemove returns false in that case, so CompleteReceive() is never called twice.
                     if (_activeConnections.TryRemove(id, out var disconnectedConnection))
                     {
@@ -514,7 +510,7 @@ sealed partial class PlatformNearbyConnections
                     // this, both AcceptAsync (advertiser) and ConnectAsync (discoverer) hang
                     // forever awaiting a TCS that nothing will ever resolve or fault, since only
                     // the Connected case above calls ResolveConnectionTcs.
-                    FaultConnectionTcs(id, new NearbyConnectionsException(
+                    FaultConnectionTcs(id, new NearbyException(
                         $"Connection to peer '{peerID.DisplayName}' failed: session state changed to NotConnected before the connection was established."));
 
                     // MPC fires NotConnected for the departing peer before removing it from
@@ -578,7 +574,7 @@ sealed partial class PlatformNearbyConnections
                 return;
             }
 
-            var payload = new BytesPayload(bytes);
+            var payload = new NearbyBytesPayload(bytes);
             WritePayload(id, payload);
         }
         catch (Exception ex)
@@ -690,7 +686,7 @@ sealed partial class PlatformNearbyConnections
                 }
             }
 
-            var payload = new FilePayload(new FileResult(destinationPath));
+            var payload = new NearbyFilePayload(new FileResult(destinationPath));
             WritePayload(id, payload);
         }
         catch (Exception ex)
@@ -701,49 +697,49 @@ sealed partial class PlatformNearbyConnections
 
     #endregion Session Callbacks
 
-    sealed class AdvertiserDelegate(PlatformNearbyConnections nearbyConnections) : NSObject, IMCNearbyServiceAdvertiserDelegate
+    sealed class AdvertiserDelegate(PlatformNearby platformNearby) : NSObject, IMCNearbyServiceAdvertiserDelegate
     {
 #pragma warning disable S1144, S1172
         public void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
-            => nearbyConnections.DidNotStartAdvertisingPeer(advertiser, error);
+            => platformNearby.DidNotStartAdvertisingPeer(advertiser, error);
 
         public void DidReceiveInvitationFromPeer(
             MCNearbyServiceAdvertiser advertiser,
             MCPeerID peerID,
             NSData? context,
             MCNearbyServiceAdvertiserInvitationHandler invitationHandler)
-            => nearbyConnections.DidReceiveInvitationFromPeer(advertiser, peerID, context, invitationHandler);
+            => platformNearby.DidReceiveInvitationFromPeer(advertiser, peerID, context, invitationHandler);
 #pragma warning restore S1144, S1172
     }
 
-    sealed class BrowserDelegate(PlatformNearbyConnections nearbyConnections) : NSObject, IMCNearbyServiceBrowserDelegate
+    sealed class BrowserDelegate(PlatformNearby platformNearby) : NSObject, IMCNearbyServiceBrowserDelegate
     {
 #pragma warning disable S1144, S1172
         public void FoundPeer(MCNearbyServiceBrowser browser, MCPeerID peerID, NSDictionary? info)
-            => nearbyConnections.FoundPeer(browser, peerID, info);
+            => platformNearby.FoundPeer(browser, peerID, info);
 
         public void LostPeer(MCNearbyServiceBrowser browser, MCPeerID peerID)
-            => nearbyConnections.LostPeer(browser, peerID);
+            => platformNearby.LostPeer(browser, peerID);
 
         public void DidNotStartBrowsingForPeers(MCNearbyServiceBrowser browser, NSError error)
-            => nearbyConnections.DidNotStartBrowsingForPeers(browser, error);
+            => platformNearby.DidNotStartBrowsingForPeers(browser, error);
 #pragma warning restore S1144, S1172
     }
 
-    sealed class SessionDelegate(PlatformNearbyConnections nearbyConnections) : NSObject, IMCSessionDelegate
+    sealed class SessionDelegate(PlatformNearby platformNearby) : NSObject, IMCSessionDelegate
     {
 #pragma warning disable S1144, S1172
         public void DidChangeState(MCSession session, MCPeerID peerID, MCSessionState state)
-            => nearbyConnections.OnPeerStateChanged(peerID, state);
+            => platformNearby.OnPeerStateChanged(peerID, state);
 
         public void DidReceiveData(MCSession session, NSData data, MCPeerID peerID)
-            => nearbyConnections.OnDataReceived(data, peerID);
+            => platformNearby.OnDataReceived(data, peerID);
 
         public void DidStartReceivingResource(MCSession session, string resourceName, MCPeerID fromPeer, NSProgress progress)
-            => nearbyConnections.OnResourceStarted(resourceName, fromPeer, progress);
+            => platformNearby.OnResourceStarted(resourceName, fromPeer, progress);
 
         public void DidFinishReceivingResource(MCSession session, string resourceName, MCPeerID fromPeer, NSUrl? localUrl, NSError? error)
-            => nearbyConnections.OnResourceFinished(resourceName, fromPeer, localUrl, error);
+            => platformNearby.OnResourceFinished(resourceName, fromPeer, localUrl, error);
 #pragma warning restore S1144, S1172
     }
 }

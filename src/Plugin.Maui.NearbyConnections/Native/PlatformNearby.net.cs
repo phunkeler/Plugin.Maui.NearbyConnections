@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class PlatformNearbyConnections
+sealed partial class PlatformNearby
 {
 #pragma warning disable CA1822, S2325, S1144, S1172
     const string PlatformNotSupportedMessage = "Nearby Connections is only supported on Android and iOS. The current platform is not supported.";
@@ -16,7 +16,7 @@ sealed partial class PlatformNearbyConnections
     Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
         => throw new PlatformNotSupportedException(PlatformNotSupportedMessage);
 
-    Task PlatformStartDiscoveringAsync(CancellationToken cancellationToken)
+    Task PlatformStartDiscoveryAsync(CancellationToken cancellationToken)
         => throw new PlatformNotSupportedException(PlatformNotSupportedMessage);
 
     Task PlatformInitiateConnectAsync(NearbyDevice device, CancellationToken cancellationToken)

@@ -15,13 +15,13 @@ namespace Plugin.Maui.NearbyConnections;
 /// <para>
 /// Deliberately free of any iOS type reference, and compiled on every target framework, so the
 /// rules can be unit tested on the plain <c>net10.0</c> target. Placing them in
-/// <c>NearbyConnectionsOptionsValidator.ios.cs</c> would have shipped the guard untested, because
+/// <c>NearbyOptionsValidator.ios.cs</c> would have shipped the guard untested, because
 /// the unit test project targets <c>net10.0</c> and never compiles the iOS partial.
 /// </para>
 /// <para>
 /// <strong>Why this is enforced at run time rather than at build time.</strong> A build-time check
 /// shipped as a <c>build/*.targets</c> hook in the NuGet package was considered and rejected:
-/// <c>ServiceId</c> is a C# expression inside the <c>AddNearbyConnections</c> configure lambda, not
+/// <c>ServiceId</c> is a C# expression inside the <c>AddNearby</c> configure lambda, not
 /// an MSBuild property, so MSBuild cannot evaluate it. Such a check would have to parse source and
 /// would silently pass any non-literal value — a configuration binding, a <c>const</c> from another
 /// assembly, anything computed. A guard that catches only the literal case while appearing

@@ -20,13 +20,13 @@ namespace Plugin.Maui.NearbyConnections;
 /// <c>MCNearbyServiceAdvertiser</c>/<c>MCNearbyServiceBrowser</c> instances are often still live
 /// objects after resume and appear to carry on scanning — but that is observed behaviour, not a
 /// documented guarantee, and it is exactly the kind of unsupported reliance the same DTS engineer
-/// warns breaks on a future OS. Stopping them keeps <see cref="INearbyConnections.IsAdvertising"/> and
-/// <see cref="INearbyConnections.IsDiscovering"/> honest: while suspended nothing is scanning, so
+/// warns breaks on a future OS. Stopping them keeps <see cref="INearby.IsAdvertising"/> and
+/// <see cref="INearby.IsDiscovering"/> honest: while suspended nothing is scanning, so
 /// reporting <see langword="true"/> would be a second zombie state alongside the first.
 /// </para>
 /// <para>
 /// <strong>Nothing restarts on foreground.</strong> Teardown is an explicit, observable transition —
-/// connections raise <see cref="INearbyConnections.ConnectionDropped"/> and the flags go
+/// connections raise <see cref="INearby.ConnectionDropped"/> and the flags go
 /// <see langword="false"/> — and restarting is the app's call, consistent with the plugin's
 /// "nothing starts on its own" contract. There is no MPC reconnect primitive in any case: recovery
 /// means re-advertising and re-inviting, and the retry policy is app-specific.
@@ -34,13 +34,13 @@ namespace Plugin.Maui.NearbyConnections;
 /// </remarks>
 sealed partial class AppLifecycleObserver : IDisposable
 {
-    readonly NearbyConnectionsImplementation _session;
+    readonly NearbyImplementation _session;
     readonly ILogger _logger;
 
     NSObject? _backgroundRegistration;
     int _disposeGuard;
 
-    internal AppLifecycleObserver(NearbyConnectionsImplementation session, ILogger logger)
+    internal AppLifecycleObserver(NearbyImplementation session, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(logger);

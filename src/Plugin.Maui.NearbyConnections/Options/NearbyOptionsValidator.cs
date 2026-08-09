@@ -2,11 +2,11 @@ using Microsoft.Extensions.Options;
 
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbyConnectionsOptionsValidator : IValidateOptions<NearbyConnectionsOptions>
+sealed partial class NearbyOptionsValidator : IValidateOptions<NearbyOptions>
 {
     [SuppressMessage("SonarAnalyzer.CSharp", "S2583:Conditions should not unconditionally evaluate to true or to false",
         Justification = "PlatformValidate is a partial method; platform-specific implementations may add failures at runtime.")]
-    public ValidateOptionsResult Validate(string? name, NearbyConnectionsOptions options)
+    public ValidateOptionsResult Validate(string? name, NearbyOptions options)
     {
         var failures = new List<string>();
 
@@ -22,5 +22,5 @@ sealed partial class NearbyConnectionsOptionsValidator : IValidateOptions<Nearby
             : ValidateOptionsResult.Success;
     }
 
-    static partial void PlatformValidate(NearbyConnectionsOptions options, List<string> failures);
+    static partial void PlatformValidate(NearbyOptions options, List<string> failures);
 }

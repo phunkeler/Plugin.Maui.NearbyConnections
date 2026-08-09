@@ -24,7 +24,7 @@ sealed partial class LocalPeerIdentityStore
     /// its first resolution. The resulting instance is cached for the lifetime of this
     /// <see cref="LocalPeerIdentityStore"/> and returned as-is by every subsequent call,
     /// regardless of the <paramref name="displayName"/> argument passed to those later calls.
-    /// This is safe because <see cref="NearbyConnectionsOptions.DisplayName"/> is one-time startup
+    /// This is safe because <see cref="NearbyOptions.DisplayName"/> is one-time startup
     /// configuration that cannot change after initialization (see that property's doc comment),
     /// so within one process every caller already passes the same value.
     /// </summary>

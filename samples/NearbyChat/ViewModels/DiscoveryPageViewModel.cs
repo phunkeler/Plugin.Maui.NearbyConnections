@@ -10,7 +10,7 @@ namespace NearbyChat.ViewModels;
 public partial class DiscoveryPageViewModel : BasePageViewModel
 {
     readonly INavigationService _navigationService;
-    readonly INearbyConnections _session;
+    readonly INearby _session;
     readonly INearbyPermissions _permissions;
     readonly RelativeTimeTicker _relativeTimeTicker;
 
@@ -31,7 +31,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
     public DiscoveryPageViewModel(
         IDispatcher dispatcher,
         INavigationService navigationService,
-        INearbyConnections session,
+        INearby session,
         IConnectionTracker connectionTracker,
         INearbyPermissions permissions)
         : base(dispatcher)
@@ -72,11 +72,11 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
             // Toggles only discovery; advertising is left exactly as the user left it.
             if (IsDiscovering)
             {
-                await _session.StopDiscoveringAsync(cancellationToken);
+                await _session.StopDiscoveryAsync(cancellationToken);
             }
             else
             {
-                await _session.StartDiscoveringAsync(cancellationToken);
+                await _session.StartDiscoveryAsync(cancellationToken);
             }
 
             IsDiscovering = _session.IsDiscovering;

@@ -23,12 +23,12 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 [TestCategory("Session")]
 public sealed class InvitationTimeoutTests
 {
-    static PlatformNearbyConnections CreateSut(
+    static PlatformNearby CreateSut(
         FakeTimeProvider timeProvider,
         TimeSpan? invitationTimeout = null)
         => new(
             timeProvider,
-            new NearbyConnectionsOptions
+            new NearbyOptions
             {
                 ServiceId = "test-service",
                 InvitationTimeout = invitationTimeout ?? TimeSpan.FromSeconds(30),
@@ -40,7 +40,7 @@ public sealed class InvitationTimeoutTests
     {
         // The default is load-bearing: it is what stops an un-configured app from hanging forever
         // on Android.
-        Assert.AreEqual(TimeSpan.FromSeconds(30), new NearbyConnectionsOptions().InvitationTimeout);
+        Assert.AreEqual(TimeSpan.FromSeconds(30), new NearbyOptions().InvitationTimeout);
     }
 
     [TestMethod]

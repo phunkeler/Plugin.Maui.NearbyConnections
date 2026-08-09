@@ -30,7 +30,7 @@ public static class MauiProgram
             .UseMauiCommunityToolkit()
             .UseBottomSheet();
 
-        builder.UseNearbyConnections(opts =>
+        builder.UseNearby(opts =>
         {
 #if IOS
             opts.ServiceId = "nearbychat";

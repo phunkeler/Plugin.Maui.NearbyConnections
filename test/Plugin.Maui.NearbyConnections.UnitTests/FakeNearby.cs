@@ -3,7 +3,7 @@ using System.Threading.Channels;
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
 /// <summary>
-/// A controllable <see cref="IPlatformNearbyConnections"/> for driving <see cref="NearbyConnectionsImplementation"/> from
+/// A controllable <see cref="IPlatformNearby"/> for driving <see cref="NearbyImplementation"/> from
 /// tests: emit discovery events and inbound requests on demand, and decide what connecting does.
 /// </summary>
 /// <remarks>
@@ -12,7 +12,7 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// <see cref="IAsyncEnumerable{T}"/> streams whose completion and fault timing are the thing under
 /// test, and that is clearer to drive through a channel than to configure on a mock.
 /// </remarks>
-sealed class FakeNearbyConnections : IPlatformNearbyConnections
+sealed class FakeNearby : IPlatformNearby
 {
     readonly Channel<NearbyConnectionRequest> _requests = Channel.CreateUnbounded<NearbyConnectionRequest>();
     readonly Channel<NearbyDeviceEvent> _deviceEvents = Channel.CreateUnbounded<NearbyDeviceEvent>();
@@ -127,7 +127,7 @@ sealed class FakeNearbyConnections : IPlatformNearbyConnections
     {
         _requests.Writer.TryWrite(new NearbyConnectionRequest(
             device,
-            acceptFactory: _ =>
+            accept: _ =>
             {
                 try
                 {
@@ -138,7 +138,7 @@ sealed class FakeNearbyConnections : IPlatformNearbyConnections
                     return Task.FromException<NearbyConnection>(ex);
                 }
             },
-            rejectFactory: _ =>
+            reject: _ =>
             {
                 onReject?.Invoke();
                 return Task.CompletedTask;

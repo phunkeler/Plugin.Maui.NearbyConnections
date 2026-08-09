@@ -3,11 +3,10 @@
     <TargetFrameworks>$(MobileTargetFrameworks);$(NetVersion)</TargetFrameworks>
     <IsAotCompatible>true</IsAotCompatible>
     <MinVerTagPrefix>v</MinVerTagPrefix>
-    <!-- Explicit and load-bearing: the NuGet identity is Plugin.Maui.NearbyConnections
-         (full published history 0.0.0-alpha → present). It must NEVER drift implicitly
-         with a project/folder rename. Any future rename is a deliberate, coordinated
-         code + NuGet + repo change. -->
+
     <PackageId>Plugin.Maui.NearbyConnections</PackageId>
+    <AssemblyName>Plugin.Maui.NearbyConnections</AssemblyName>
+    <RootNamespace>Plugin.Maui.NearbyConnections</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

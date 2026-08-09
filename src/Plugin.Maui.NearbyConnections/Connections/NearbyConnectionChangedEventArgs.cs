@@ -1,8 +1,8 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Provides data for the <see cref="INearbyConnections.ConnectionEstablished"/> and
-/// <see cref="INearbyConnections.ConnectionDropped"/> events.
+/// Provides data for the <see cref="INearby.ConnectionEstablished"/> and
+/// <see cref="INearby.ConnectionDropped"/> events.
 /// </summary>
 public sealed class NearbyConnectionChangedEventArgs : EventArgs
 {
@@ -13,7 +13,7 @@ public sealed class NearbyConnectionChangedEventArgs : EventArgs
     /// <param name="connection">The connection that was established or dropped.</param>
     /// <param name="reason">
     /// Why the connection ended. Defaults to <see cref="EndReason.Unknown"/>, which is the correct
-    /// value for <see cref="INearbyConnections.ConnectionEstablished"/>, where nothing has ended.
+    /// value for <see cref="INearby.ConnectionEstablished"/>, where nothing has ended.
     /// </param>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="device"/> or <paramref name="connection"/> is <see langword="null"/>.
@@ -42,7 +42,7 @@ public sealed class NearbyConnectionChangedEventArgs : EventArgs
     /// </summary>
     /// <value>The connection associated with the event.</value>
     /// <remarks>
-    /// For the <see cref="INearbyConnections.ConnectionDropped"/> event, the connection is already torn
+    /// For the <see cref="INearby.ConnectionDropped"/> event, the connection is already torn
     /// down and cannot be used to send data. It is supplied so that handlers can correlate the
     /// event with the connection instance they were using. The
     /// <see cref="NearbyDevice.State"/> of a dropped device is
@@ -55,7 +55,7 @@ public sealed class NearbyConnectionChangedEventArgs : EventArgs
     /// </summary>
     /// <value>
     /// One of the <see cref="EndReason"/> values. Always <see cref="EndReason.Unknown"/> for
-    /// <see cref="INearbyConnections.ConnectionEstablished"/>, where nothing has ended.
+    /// <see cref="INearby.ConnectionEstablished"/>, where nothing has ended.
     /// </value>
     /// <remarks>
     /// This is the only place the reason is reported. A device that has dropped is back in

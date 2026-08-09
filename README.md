@@ -35,7 +35,7 @@ If you need a long-lived connection that survives backgrounding, this is not the
 
 Neither platform gives you direct control over which radio carries your data — both automatically negotiate between Bluetooth and Wi-Fi per connection, so you don't manage radios directly.
 
-- **Android** ([Nearby Connections](https://developers.google.com/nearby/connections/overview)) picks between Bluetooth Classic, BLE, and Wi-Fi based on the [topology](https://developers.google.com/nearby/connections/strategies) you configure via `NearbyConnectionsOptions.Topology`: `Cluster` (default) allows many-to-many mesh connections at the cost of lower bandwidth, `Star` allows one-to-many with higher bandwidth, and `PointToPoint` is one-to-one at the highest throughput. Choose based on your topology and data size — `Cluster` for small messages across a cluster of devices, `PointToPoint` for large file transfers between two devices.
+- **Android** ([Nearby Connections](https://developers.google.com/nearby/connections/overview)) picks between Bluetooth Classic, BLE, and Wi-Fi based on the [topology](https://developers.google.com/nearby/connections/strategies) you configure via `NearbyOptions.Android.Topology`: `Cluster` (default) allows many-to-many mesh connections at the cost of lower bandwidth, `Star` allows one-to-many with higher bandwidth, and `PointToPoint` is one-to-one at the highest throughput. Choose based on your topology and data size — `Cluster` for small messages across a cluster of devices, `PointToPoint` for large file transfers between two devices.
 - **iOS** (Multipeer Connectivity) auto-selects Bluetooth vs. peer-to-peer Wi-Fi vs. infrastructure Wi-Fi per link with no app-level topology control — there is no iOS equivalent to `Topology`.
 
 # Dependencies
@@ -62,7 +62,7 @@ public static MauiApp CreateMauiApp()
     var builder = MauiApp.CreateBuilder();
     builder.UseMauiApp<App>();
 
-    builder.UseNearbyConnections(opts =>
+    builder.UseNearby(opts =>
     {
 #if IOS
         opts.ServiceId = "yourserviceid";
@@ -73,7 +73,7 @@ public static MauiApp CreateMauiApp()
 }
 ```
 
-`UseNearbyConnections()` registers `INearbyConnections` as a singleton — one radio, one native session. Inject it wherever you need nearby connectivity.
+`UseNearby()` registers `INearby` as a singleton — one radio, one native session. Inject it wherever you need nearby connectivity.
 
 Nothing starts on its own: advertising and discovery begin only when you call them, so permission prompts happen when your app decides.
 
@@ -157,7 +157,7 @@ Add to `Info.plist`:
 <string>Used to discover and connect to nearby devices.</string>
 ```
 
-`NearbyConnectionsOptions.ServiceId` is a **separate, shorter value** from the `NSBonjourServices` entries above — on iOS it's passed directly as `MCNearbyServiceAdvertiser`/`MCNearbyServiceBrowser`'s `serviceType`, which Apple requires to be a bare string 1–15 characters long (e.g. `"nearbychat"`), not the `_name._tcp` Bonjour form. There is no default; it must be set explicitly or startup validation throws.
+`NearbyOptions.ServiceId` is a **separate, shorter value** from the `NSBonjourServices` entries above — on iOS it's passed directly as `MCNearbyServiceAdvertiser`/`MCNearbyServiceBrowser`'s `serviceType`, which Apple requires to be a bare string 1–15 characters long (e.g. `"nearbychat"`), not the `_name._tcp` Bonjour form. There is no default; it must be set explicitly or startup validation throws.
 
 ## 3. Advertise and discover
 
@@ -165,7 +165,7 @@ One device advertises while the other discovers, or both do both simultaneously.
 
 ```csharp
 await session.StartAdvertisingAsync();   // let others find me
-await session.StartDiscoveringAsync();   // find others
+await session.StartDiscoveryAsync();   // find others
 ```
 
 **Device state.** Every device the session knows about lives in `session.Devices`, from first discovery until it goes out of range. Devices do not move between collections as they connect: `NearbyDevice.Status` changes instead, and the device raises `PropertyChanged`, so a bound row updates in place.
@@ -249,12 +249,12 @@ Payloads are a stream, not an event: the loop body is the seam where your own as
 ```csharp
 await foreach (var payload in connection.ReceiveAsync())
 {
-    if (payload is BytesPayload bytes)
+    if (payload is NearbyBytesPayload bytes)
     {
         string message = Encoding.UTF8.GetString(bytes.Data);
         Console.WriteLine($"From {connection.RemoteDevice.DisplayName}: {message}");
     }
-    else if (payload is FilePayload file)
+    else if (payload is NearbyFilePayload file)
     {
         Console.WriteLine($"Received file: {file.FileResult.FullPath}");
         await GenerateThumbnailAsync(file.FileResult.FullPath);   // awaited in-loop
@@ -266,16 +266,16 @@ await foreach (var payload in connection.ReceiveAsync())
 
 **Do not pass `DisconnectedToken` to `ReceiveAsync`.** It is unnecessary — the loop already ends by itself on disconnect — and harmful: cancellation is observed on every iteration, so an already-cancelled token discards payloads that arrived just before the peer went away.
 
-Received files are saved to `NearbyConnectionsOptions.ReceivedFilesDirectory`. The default differs per platform: on Android it is `FileSystem.CacheDirectory` (the OS may purge it to reclaim space); on iOS it is `FileSystem.AppDataDirectory` (persistent). If received files must persist on Android, set the option explicitly or move the files somewhere durable after receipt — see the [Configuration](#configuration) table.
+Received files are saved to `NearbyOptions.ReceivedFilesDirectory`. The default differs per platform: on Android it is `FileSystem.CacheDirectory` (the OS may purge it to reclaim space); on iOS it is `FileSystem.AppDataDirectory` (persistent). If received files must persist on Android, set the option explicitly or move the files somewhere durable after receipt — see the [Configuration](#configuration) table.
 
 ### Error handling
 
-All plugin-specific failures derive from `NearbyConnectionsException`:
+All plugin-specific failures derive from `NearbyException`:
 
 - `NearbyAdvertisingException` / `NearbyDiscoveryException` — the platform failed to start advertising or discovery, most often because permissions were denied or the radio is off.
-- `NearbyConnectionTimeoutException` — thrown from `ConnectAsync` when the remote device does not answer within `NearbyConnectionsOptions.InvitationTimeout` (default 30 seconds), typically because it moved out of range mid-handshake or nobody answered the prompt. The device returns to `Visible`, so retrying is reasonable.
-- `NearbyTransferTimeoutException` — thrown from a file-transfer `SendAsync` call when no transfer progress is observed for `NearbyConnectionsOptions.TransferInactivityTimeout` (default 10 seconds — see the [Configuration](#configuration) table).
-- `NearbyConnectionsException` — the non-sealed base type. Catch it to handle all of the above; deriving from it in your own code is a supported extension contract (useful when faking `INearbyConnections` in tests).
+- `NearbyConnectionTimeoutException` — thrown from `ConnectAsync` when the remote device does not answer within `NearbyOptions.InvitationTimeout` (default 30 seconds), typically because it moved out of range mid-handshake or nobody answered the prompt. The device returns to `Visible`, so retrying is reasonable.
+- `NearbyTransferTimeoutException` — thrown from a file-transfer `SendAsync` call when no transfer progress is observed for `NearbyOptions.TransferInactivityTimeout` (default 10 seconds — see the [Configuration](#configuration) table).
+- `NearbyException` — the non-sealed base type. Catch it to handle all of the above; deriving from it in your own code is a supported extension contract (useful when faking `INearby` in tests).
 
 ## 5. Disconnect and clean up
 
@@ -285,7 +285,7 @@ await session.DisconnectAsync(device);
 
 // Stop one activity without affecting the other
 await session.StopAdvertisingAsync();
-await session.StopDiscoveringAsync();
+await session.StopDiscoveryAsync();
 
 // Stop everything and disconnect every peer
 await session.StopAsync();
@@ -295,7 +295,7 @@ await session.StopAsync();
 
 # Configuration
 
-All `NearbyConnectionsOptions` values are read once at startup — set them in the `UseNearbyConnections(...)` (or `AddNearbyConnections(...)`) configure delegate shown in [step 1](#1-register-the-plugin). Changing them after startup has no effect.
+All `NearbyOptions` values are read once at startup — set them in the `UseNearby(...)` (or `AddNearby(...)`) configure delegate shown in [step 1](#1-register-the-plugin). Changing them after startup has no effect.
 
 | Member | Platform | Default | Description |
 | --- | --- | --- | --- |

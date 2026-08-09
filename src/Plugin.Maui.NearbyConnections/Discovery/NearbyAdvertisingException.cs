@@ -5,11 +5,11 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 /// <remarks>
 /// This exception surfaces from
-/// <see cref="INearbyConnections.StartAdvertisingAsync(CancellationToken)"/>. Common causes are
+/// <see cref="INearby.StartAdvertisingAsync(CancellationToken)"/>. Common causes are
 /// missing permissions, a disabled radio, or an invalid
-/// <see cref="NearbyConnectionsOptions.ServiceId"/>.
+/// <see cref="NearbyOptions.ServiceId"/>.
 /// </remarks>
-public sealed class NearbyAdvertisingException : NearbyConnectionsException
+public sealed class NearbyAdvertisingException : NearbyException
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="NearbyAdvertisingException"/> class.

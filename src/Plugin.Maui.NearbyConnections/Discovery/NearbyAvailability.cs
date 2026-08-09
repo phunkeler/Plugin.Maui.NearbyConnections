@@ -15,7 +15,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// user would have to resolve rather than only the first problem encountered.
 /// </para>
 /// </remarks>
-/// <seealso cref="INearbyConnections.CheckAvailabilityAsync(CancellationToken)"/>
+/// <seealso cref="INearby.CheckAvailabilityAsync(CancellationToken)"/>
 [Flags]
 public enum NearbyAvailability
 {
@@ -71,7 +71,7 @@ public enum NearbyAvailability
     UnsupportedPlatform = 1 << 4,
 
     /// <summary>
-    /// <see cref="NearbyConnectionsOptions.ServiceId"/> is not valid for the current platform.
+    /// <see cref="NearbyOptions.ServiceId"/> is not valid for the current platform.
     /// </summary>
     /// <remarks>
     /// iOS only. Starting with an invalid service identifier raises an exception inside Multipeer

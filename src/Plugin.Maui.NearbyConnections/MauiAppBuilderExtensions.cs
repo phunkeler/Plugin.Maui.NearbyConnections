@@ -8,11 +8,11 @@ namespace Plugin.Maui.NearbyConnections;
 public static class MauiAppBuilderExtensions
 {
     /// <summary>
-    /// Registers <see cref="INearbyConnections"/> and its configuration with the application builder.
+    /// Registers <see cref="INearby"/> and its configuration with the application builder.
     /// </summary>
     /// <param name="builder">The <see cref="MauiAppBuilder"/> to add the services to.</param>
     /// <param name="configure">
-    /// An optional delegate that configures <see cref="NearbyConnectionsOptions"/>. If
+    /// An optional delegate that configures <see cref="NearbyOptions"/>. If
     /// <see langword="null"/>, platform defaults are used.
     /// </param>
     /// <returns>
@@ -20,13 +20,13 @@ public static class MauiAppBuilderExtensions
     /// </returns>
     /// <remarks>
     /// <para>
-    /// This method registers <see cref="INearbyConnections"/> as a singleton. Resolve it through
+    /// This method registers <see cref="INearby"/> as a singleton. Resolve it through
     /// constructor injection wherever nearby connectivity is needed.
     /// </para>
     /// <para>
     /// Neither advertising nor discovery starts automatically. Call
-    /// <see cref="INearbyConnections.StartAdvertisingAsync(CancellationToken)"/> or
-    /// <see cref="INearbyConnections.StartDiscoveringAsync(CancellationToken)"/> once the application
+    /// <see cref="INearby.StartAdvertisingAsync(CancellationToken)"/> or
+    /// <see cref="INearby.StartDiscoveryAsync(CancellationToken)"/> once the application
     /// is ready and the required permissions have been granted.
     /// </para>
     /// </remarks>
@@ -36,19 +36,19 @@ public static class MauiAppBuilderExtensions
     /// <example>
     /// The following example registers the plugin and sets the service identifier.
     /// <code language="csharp">
-    /// builder.UseNearbyConnections(options =>
+    /// builder.UseNearby(options =>
     /// {
     ///     options.ServiceId = "nearbychat";
     /// });
     /// </code>
     /// </example>
-    public static MauiAppBuilder UseNearbyConnections(
+    public static MauiAppBuilder UseNearby(
         this MauiAppBuilder builder,
-        Action<NearbyConnectionsOptions>? configure = null)
+        Action<NearbyOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        builder.Services.AddNearbyConnections(configure);
+        builder.Services.AddNearby(configure);
 
         return builder;
     }

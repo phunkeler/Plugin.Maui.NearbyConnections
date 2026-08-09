@@ -188,7 +188,7 @@ started its loop.
 effect of who happens to inject it:
 
 ```csharp
-public sealed class NearbyIngestionService(INearbyConnections session, /* … */) : IMauiInitializeService
+public sealed class NearbyIngestionService(INearby session, /* … */) : IMauiInitializeService
 {
     public void Initialize(IServiceProvider services)
     {
@@ -256,4 +256,4 @@ builder.Logging.AddFilter("Plugin.Maui.NearbyConnections", LogLevel.Warning);
 Everything that is a *notification of state* rather than a *sequence of data*: devices appearing and
 disappearing, connection requests arriving, connections establishing and dropping. Those have many
 interested consumers, need no ordering guarantee beyond "eventually", and their handlers do no I/O.
-They are plain C# events on `INearbyConnections`, raised on the dispatcher.
+They are plain C# events on `INearby`, raised on the dispatcher.

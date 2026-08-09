@@ -11,7 +11,10 @@ static partial class PeerRegistryExtensions
     /// Returns the <see cref="NearbyDevice"/> projection. Safe to call multiple times for the same peer.
     /// </summary>
     public static NearbyDevice TrackRemotePeer(
-        this PeerRegistry<MCPeerID> registry, PeerKeyProvider peerKeyProvider, MCPeerID peerID, ILogger logger)
+        this PeerRegistry<MCPeerID> registry,
+        PeerKeyProvider peerKeyProvider,
+        MCPeerID peerID,
+        ILogger logger)
     {
         var key = peerKeyProvider.PeerKey(peerID);
         var device = registry.Record(key, peerID, peerID.DisplayName);

@@ -45,7 +45,7 @@ public abstract record DeviceState
     /// </summary>
     /// <remarks>
     /// No role is carried here. The local device is not yet an acceptor — it becomes one only when
-    /// <see cref="INearbyConnections.AcceptAsync(NearbyDevice, CancellationToken)"/> is called.
+    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> is called.
     /// </remarks>
     public sealed record RequestReceived : DeviceState;
 

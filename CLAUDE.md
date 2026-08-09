@@ -1,36 +1,62 @@
 # CLAUDE.md
 
+Guidance for Claude Code working in this repository.
+
+`AGENTS.md` holds the repo facts — build commands, architecture, conventions, the gotchas that
+have cost real debugging time. **Read it first; it is the substance.** This file adds only what is
+specific to running Claude Code here.
+
 @AGENTS.md
 
-## Current work
+## What belongs in this file
 
-Implementing the `DeviceState` domain model refactor. The proposal is approved and ready for
-`/implementation` — do not re-run `/problem-definition`, `/design`, or `/planning` for this work.
+This file is committed and public. Everything in it must be actionable by any contributor who has
+cloned the repo and has Claude Code — not by one maintainer on one machine.
 
-- Direction: `.building/greenfield/design.md`
-- Approved proposal + ordered steps: `.building/planning/greenfield-proposal.md`
-- Sources: `.building/planning/greenfield-proposal-{a,b}.md`
+Before adding a line here, check it against that: personal workflow preferences, user-scope skills
+and slash commands, in-flight branch notes, and paths under `.claude/` or `.building/` all fail it
+and belong in your own gitignored `.claude/CLAUDE.md` instead. A build command, an architectural
+invariant, or a gotcha that will bite the next contributor passes.
 
-Start by invoking `/implementation` against the proposal's **Ordered steps** section.
+CI enforces the mechanical half of this rule; see `.github/workflows/ci.yml`.
 
-## Resolved — do not re-litigate
+## How work flows here
 
-- **Favour DI; avoid static types.** Governs every step below. Cached singletons on `DeviceState`
-  cases are dropped in favor of per-transition allocation. No new `static class` for behavior
-  (extension/DI-registration classes are the sole pre-existing exception, and stay out of scope).
-- **`EndReason` widens onto `NearbyConnectionChangedEventArgs`** as an additive `Reason` property —
-  closes the event-time-only observability gap without touching `Ended`'s transience.
-- **`Cancelled` vs `Failed`** branches on exception type per call site (`OperationCanceledException`
-  → `Cancelled`, `NearbyConnectionTimeoutException` → `TimedOut`, else `Failed`) — no blanket default.
-- **Android reason plumbing** is an injectable interface (mirrors `IDispatcher`/`ILogger`), resolved
-  via the existing DI extension — never a static mapper.
-- **Test seam stays status quo**: `DeviceState` keeps `internal set` + `InternalsVisibleTo` for the
-  test project. No new injectable seam or public constructor — simplest model, no new API surface,
-  YAGNI holds until a real external consumer need appears.
+Read the code, take a position, act. State the recommendation and the reason in a few lines, then
+implement it — a position the maintainer can check beats a document they have to read.
 
-## Still open — resolve during implementation, not before
+Escalate to a written plan before coding only when the decision is expensive to reverse: public API
+surface, published identity (see `AGENTS.md`), the platform-boundary shape, or a change touching
+both platform partials at once. Say why you are escalating.
 
-**The `Ended` → `Visible` double-write.** Now that `Reason` travels on the event args, check with
-evidence whether writing `Ended` to `device.State` is still needed, or whether it's a redundant
-`PropertyChanged` raise for a transient state no consumer can reliably observe. Decide at proposal
-step 4 — don't assume either way going in.
+For bugs: reproduce first, then fix the root cause rather than the reported symptom. If the cause
+resists two honest attempts, stop and report what was tried and what it ruled out.
+
+## Verification is not optional
+
+This repo has three target frameworks, warnings as errors, a build-enforced public API surface, and
+a test runner that does not work the standard way. A change is not done because it compiles on one
+TFM.
+
+Before reporting work complete, run the commands in `AGENTS.md` → Commands: build all three TFMs and
+run the unit tests via `dotnet run`. If a change touched a platform partial, build that platform's
+TFM specifically. Report what you ran and what it returned. If something failed or you skipped a
+step, say so plainly — an unverified claim of success costs more than an honest partial result.
+
+The `PublicAPI.Unshipped.txt` baselines are part of the build. When RS0016 fires, add the listed
+lines; never suppress the analyzer to go green.
+
+## Project hooks
+
+`.claude/hooks/` carries two checks that enforce conventions this repo cares about:
+
+- `stop-build-check.cs` — builds before Claude finishes and feeds errors back on failure.
+- `check-aaa-comments.cs` — enforces the strict Arrange / Act / Assert test convention.
+
+They are opt-in. To enable them, reference them from your own `.claude/settings.json`.
+
+## Design authority
+
+`DESIGN-PRINCIPLES.md` is authoritative on naming and structure and outranks habit. Read it before
+any naming or layout change. Its `OPEN` items are deliberately unresolved — raise them, do not
+settle them silently.

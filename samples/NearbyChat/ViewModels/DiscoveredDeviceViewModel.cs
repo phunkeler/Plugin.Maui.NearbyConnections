@@ -9,9 +9,9 @@ namespace NearbyChat.ViewModels;
 /// </summary>
 public partial class DiscoveredDeviceViewModel : NearbyDeviceViewModel
 {
-    readonly INearbyConnections _session;
+    readonly INearby _session;
 
-    public DiscoveredDeviceViewModel(NearbyDevice device, INearbyConnections session)
+    public DiscoveredDeviceViewModel(NearbyDevice device, INearby session)
         : base(device)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -39,7 +39,7 @@ public partial class DiscoveredDeviceViewModel : NearbyDeviceViewModel
         {
             await _session.ConnectAsync(Device);
         }
-        catch (NearbyConnectionsException)
+        catch (NearbyException)
         {
             // Rejected or unreachable. The session has already returned the device to Visible.
         }

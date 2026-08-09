@@ -15,10 +15,10 @@ namespace NearbyChat.Services;
 /// <remarks>
 /// <para>
 /// <strong>Why this implements <see cref="IMauiInitializeService"/>.</strong>
-/// <see cref="INearbyConnections.ConnectionEstablished"/> is a plain event with no replay, so this
+/// <see cref="INearby.ConnectionEstablished"/> is a plain event with no replay, so this
 /// subscriber must be attached before the first connection is established. MAUI calls
 /// <see cref="Initialize"/> during <c>MauiAppBuilder.Build()</c>, which guarantees that.
-/// (<c>AddNearbyConnections</c> uses the same hook to construct the session itself, so the session
+/// (<c>AddNearby</c> uses the same hook to construct the session itself, so the session
 /// exists by the time this runs.)
 /// </para>
 /// <para>
@@ -37,13 +37,13 @@ namespace NearbyChat.Services;
 /// </para>
 /// </remarks>
 public sealed partial class NearbyIngestionService(
-    INearbyConnections session,
+    INearby session,
     IChatMessageRepositoryFactory repositoryFactory,
     IMessenger messenger,
     IThumbnailService thumbnailService,
     ILogger<NearbyIngestionService> logger) : IMauiInitializeService
 {
-    readonly INearbyConnections _session = session ?? throw new ArgumentNullException(nameof(session));
+    readonly INearby _session = session ?? throw new ArgumentNullException(nameof(session));
     readonly IChatMessageRepositoryFactory _repositoryFactory = repositoryFactory ?? throw new ArgumentNullException(nameof(repositoryFactory));
     readonly IMessenger _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
     readonly IThumbnailService _thumbnailService = thumbnailService ?? throw new ArgumentNullException(nameof(thumbnailService));
@@ -143,13 +143,13 @@ public sealed partial class NearbyIngestionService(
     {
         switch (payload)
         {
-            case BytesPayload bytes:
+            case NearbyBytesPayload bytes:
                 return new ChatMessage(
                     Encoding.UTF8.GetString(bytes.Data),
                     NearbyDirection.Incoming,
                     DateTimeOffset.UtcNow);
 
-            case FilePayload file:
+            case NearbyFilePayload file:
             {
                 var path = file.FileResult.FullPath;
                 var contentType = file.FileResult.ContentType ?? string.Empty;

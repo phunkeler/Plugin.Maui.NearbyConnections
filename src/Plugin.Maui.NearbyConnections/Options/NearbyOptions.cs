@@ -5,13 +5,39 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 /// <remarks>
 /// Set these options in the delegate passed to
-/// <see cref="MauiAppBuilderExtensions"/>.<c>UseNearbyConnections</c> or
-/// <see cref="ServiceCollectionExtensions"/>.<c>AddNearbyConnections</c>. The library reads the
+/// <see cref="MauiAppBuilderExtensions"/>.<c>UseNearby</c> or
+/// <see cref="ServiceCollectionExtensions"/>.<c>AddNearby</c>. The library reads the
 /// resolved instance once, when the session is created; changing a property after application
 /// startup has no defined effect.
 /// </remarks>
-public sealed partial class NearbyConnectionsOptions
+public sealed partial class NearbyOptions
 {
+    /// <summary>
+    /// Gets the Android-specific settings.
+    /// </summary>
+    /// <value>
+    /// The Android options. Never <see langword="null"/>.
+    /// </value>
+    /// <remarks>
+    /// Present on every target framework so shared code compiles without <c>#if ANDROID</c>. On
+    /// other platforms these settings are read by nothing and have no effect — the nesting names
+    /// the platform at the call site so that is visible where the value is set.
+    /// </remarks>
+    public NearbyAndroidOptions Android { get; } = new();
+
+    /// <summary>
+    /// Gets the Apple-platform-specific settings.
+    /// </summary>
+    /// <value>
+    /// The Apple options. Never <see langword="null"/>.
+    /// </value>
+    /// <remarks>
+    /// Present on every target framework so shared code compiles without <c>#if IOS</c>. On other
+    /// platforms these settings are read by nothing and have no effect — the nesting names the
+    /// platform at the call site so that is visible where the value is set.
+    /// </remarks>
+    public NearbyAppleOptions Apple { get; } = new();
+
     /// <summary>
     /// Gets or sets the name shown to nearby devices when advertising or discovering.
     /// </summary>
@@ -88,7 +114,7 @@ public sealed partial class NearbyConnectionsOptions
     /// </para>
     /// <para>
     /// When this interval elapses,
-    /// <see cref="INearbyConnections.ConnectAsync(NearbyDevice, CancellationToken)"/> throws
+    /// <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/> throws
     /// <see cref="NearbyConnectionTimeoutException"/>.
     /// </para>
     /// </remarks>

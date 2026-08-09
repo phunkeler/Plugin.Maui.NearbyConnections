@@ -9,7 +9,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <see cref="NearbyDeviceEventType.Lost"/> when it disappears.
 /// </param>
 /// <remarks>
-/// Internal: the session applies these to <see cref="INearbyConnections.Devices"/>, which is what
+/// Internal: the session applies these to <see cref="INearby.Devices"/>, which is what
 /// consumers observe.
 /// </remarks>
 sealed record NearbyDeviceEvent(NearbyDevice Device, NearbyDeviceEventType Type);

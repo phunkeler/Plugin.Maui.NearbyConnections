@@ -1,22 +1,10 @@
 namespace Plugin.Maui.NearbyConnections;
 
-public sealed partial class NearbyConnectionsOptions
+public sealed partial class NearbyOptions
 {
     /// <summary>
-    /// Gets or sets whether the link between two devices must be encrypted.
-    /// </summary>
-    /// <value>
-    /// One of the <see cref="NearbyEncryptionPreference"/> values. The default is
-    /// <see cref="NearbyEncryptionPreference.Required"/>.
-    /// </value>
-    /// <remarks>
-    /// <b>This setting applies to iOS only.</b> Android encrypts every connection unconditionally
-    /// and always behaves as <see cref="NearbyEncryptionPreference.Required"/>.
-    /// </remarks>
-    public NearbyEncryptionPreference EncryptionPreference { get; set; } = NearbyEncryptionPreference.Required;
-
-    /// <summary>
-    /// Maps <see cref="EncryptionPreference"/> onto the MultipeerConnectivity value it names.
+    /// Maps <see cref="NearbyAppleOptions.EncryptionPreference"/> onto the MultipeerConnectivity
+    /// value it names.
     /// </summary>
     /// <remarks>
     /// The mapping is the whole point of the neutral enum: it keeps
@@ -24,7 +12,7 @@ public sealed partial class NearbyConnectionsOptions
     /// reference a vendor SDK type to configure the plugin.
     /// </remarks>
     internal MCEncryptionPreference ToPlatformEncryptionPreference()
-        => EncryptionPreference switch
+        => Apple.EncryptionPreference switch
         {
             NearbyEncryptionPreference.Optional => MCEncryptionPreference.Optional,
             NearbyEncryptionPreference.None => MCEncryptionPreference.None,

@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class PlatformNearbyConnections
+sealed partial class PlatformNearby
 {
     internal void WriteDeviceFound(NearbyDevice device)
     {
@@ -120,7 +120,7 @@ sealed partial class PlatformNearbyConnections
     /// extension when the name is already taken.
     /// </summary>
     /// <remarks>
-    /// Both platforms previously combined <see cref="NearbyConnectionsOptions.ReceivedFilesDirectory"/>
+    /// Both platforms previously combined <see cref="NearbyOptions.ReceivedFilesDirectory"/>
     /// with the sender-supplied name and overwrote unconditionally, so two peers sending
     /// <c>photo.jpg</c> silently clobbered one another and the app saw only the last one. This is
     /// best-effort, not atomic: a concurrent transfer could claim the same name between the check

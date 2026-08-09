@@ -26,21 +26,21 @@ public enum EndReason
 
     /// <summary>
     /// The local device rejected an inbound connection request, through
-    /// <see cref="INearbyConnections.RejectAsync(NearbyDevice, CancellationToken)"/>.
+    /// <see cref="INearby.RejectAsync(NearbyDevice, CancellationToken)"/>.
     /// </summary>
     LocalRejected,
 
     /// <summary>
     /// The caller withdrew before the handshake completed, by cancelling the
     /// <see cref="CancellationToken"/> passed to
-    /// <see cref="INearbyConnections.ConnectAsync(NearbyDevice, CancellationToken)"/> or
-    /// <see cref="INearbyConnections.AcceptAsync(NearbyDevice, CancellationToken)"/>.
+    /// <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/> or
+    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>.
     /// </summary>
     Cancelled,
 
     /// <summary>
     /// The handshake was not answered within
-    /// <see cref="NearbyConnectionsOptions.InvitationTimeout"/>.
+    /// <see cref="NearbyOptions.InvitationTimeout"/>.
     /// </summary>
     /// <remarks>
     /// This is distinct from <see cref="Failed"/> because the platforms differ: iOS has a native

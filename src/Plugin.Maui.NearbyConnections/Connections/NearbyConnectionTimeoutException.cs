@@ -2,7 +2,7 @@ namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
 /// The exception that is thrown when a remote device does not answer a connection request within
-/// <see cref="NearbyConnectionsOptions.InvitationTimeout"/>.
+/// <see cref="NearbyOptions.InvitationTimeout"/>.
 /// </summary>
 /// <remarks>
 /// This exception indicates that the request was sent but no response was received: the remote
@@ -11,7 +11,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// the <see cref="NearbyDeviceStatus.Visible"/> state, so retrying the connection is a reasonable
 /// response.
 /// </remarks>
-public sealed class NearbyConnectionTimeoutException : NearbyConnectionsException
+public sealed class NearbyConnectionTimeoutException : NearbyException
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="NearbyConnectionTimeoutException"/> class.

@@ -4,7 +4,7 @@ using System.Collections.Specialized;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// The default <see cref="INearbyConnections"/>: drives advertising and discovery through the platform
+/// The default <see cref="INearby"/>: drives advertising and discovery through the platform
 /// implementation, projects every platform callback into the observable <see cref="Devices"/>
 /// collection, and raises lifecycle events on the UI dispatcher.
 /// </summary>
@@ -21,11 +21,11 @@ namespace Plugin.Maui.NearbyConnections;
 /// <c>StartAdvertisingAsync</c> calls both reach the platform.
 /// </para>
 /// </remarks>
-sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyncDisposable
+sealed partial class NearbyImplementation : INearby, IAsyncDisposable
 {
     // The interface, not the concrete implementation: on net10.0 every Platform* start throws, so a
     // concrete dependency would make the session untestable off-device. Tests substitute a fake.
-    readonly IPlatformNearbyConnections _connections;
+    readonly IPlatformNearby _connections;
     readonly IDispatcher? _dispatcher;
     readonly ILogger _logger;
 
@@ -50,17 +50,8 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
 
     int _disposeGuard;
 
-#if IOS
-    /// <summary>
-    /// Tears the session down when iOS backgrounds the app. Owned by the session so it is
-    /// unsubscribed on disposal — see <see cref="AppLifecycleObserver"/> for why this is required
-    /// on iOS and has no Android counterpart.
-    /// </summary>
-    readonly AppLifecycleObserver _lifecycleObserver;
-#endif
-
-    internal NearbyConnectionsImplementation(
-        IPlatformNearbyConnections connections,
+    internal NearbyImplementation(
+        IPlatformNearby connections,
         IDispatcher? dispatcher,
         ILogger logger)
     {
@@ -81,10 +72,26 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
             start: ct => PumpDiscoverAsync(_connections.DiscoverAsync(ct), ct),
             setFlag: value => DispatchAsync(() => IsDiscovering = value));
 
-#if IOS
-        _lifecycleObserver = new AppLifecycleObserver(this, logger);
-#endif
+        PlatformInitializeLifecycleObserver(logger);
     }
+
+    /// <summary>
+    /// Wires up backgrounding teardown on platforms that need it. A partial method rather than an
+    /// inline <c>#if</c>, so the platform/shared boundary this codebase keeps checkable via file
+    /// suffix extends to the session's own constructor and disposal, not just <c>Native/</c>.
+    /// </summary>
+    /// <remarks>
+    /// On iOS this constructs the observer described on
+    /// <c>NearbyImplementation.ios.cs</c>'s <c>_lifecycleObserver</c> field — no Android
+    /// counterpart exists because the platform gives no equivalent backgrounding signal this
+    /// session needs to react to.
+    /// </remarks>
+    partial void PlatformInitializeLifecycleObserver(ILogger logger);
+
+    /// <summary>
+    /// Unsubscribes the backgrounding observer, if one was created. No-op where none exists.
+    /// </summary>
+    partial void PlatformDisposeLifecycleObserver();
 
     /// <inheritdoc/>
     /// <remarks>
@@ -149,7 +156,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
     }
 
     /// <inheritdoc/>
-    public async Task StartDiscoveringAsync(CancellationToken cancellationToken = default)
+    public async Task StartDiscoveryAsync(CancellationToken cancellationToken = default)
     {
         await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -167,7 +174,7 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
     }
 
     /// <inheritdoc/>
-    public async Task StopDiscoveringAsync(CancellationToken cancellationToken = default)
+    public async Task StopDiscoveryAsync(CancellationToken cancellationToken = default)
     {
         await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -346,11 +353,9 @@ sealed partial class NearbyConnectionsImplementation : INearbyConnections, IAsyn
             return;
         }
 
-#if IOS
         // Before StopAsync: unsubscribing first means a backgrounding notification arriving during
         // teardown cannot start a second, concurrent StopAsync against a session already going away.
-        _lifecycleObserver.Dispose();
-#endif
+        PlatformDisposeLifecycleObserver();
 
         try
         {

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
 /// <summary>
-/// Behavioural tests for <see cref="NearbyConnectionsImplementation"/>.
+/// Behavioural tests for <see cref="NearbyImplementation"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -15,17 +15,17 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// once. See <c>.building/notes/TEST-MINING.md</c> for the per-test classification.
 /// </para>
 /// <para>
-/// The session takes <see cref="IPlatformNearbyConnections"/> rather than the concrete implementation
+/// The session takes <see cref="IPlatformNearby"/> rather than the concrete implementation
 /// precisely so these can run on <c>net10.0</c>, where every <c>Platform*</c> start throws.
 /// </para>
 /// </remarks>
 [TestCategory("Session")]
 public class NearbySessionTests
 {
-    static NearbyConnectionsImplementation CreateSut(FakeNearbyConnections connections)
+    static NearbyImplementation CreateSut(FakeNearby connections)
         => new(connections, dispatcher: null, NullLogger.Instance);
 
-    static NearbyConnectionsImplementation CreateSut(FakeNearbyConnections connections, ILogger logger)
+    static NearbyImplementation CreateSut(FakeNearby connections, ILogger logger)
         => new(connections, dispatcher: null, logger);
 
     /// <summary>
@@ -63,9 +63,9 @@ public class NearbySessionTests
         => new(
             device,
             channel ?? Channel.CreateUnbounded<NearbyPayload>(),
-            sendBytesFactory: (_, _) => ValueTask.CompletedTask,
-            sendFileFactory: (_, _, _) => Task.CompletedTask,
-            disposeFactory: () => ValueTask.CompletedTask);
+            sendBytes: (_, _) => ValueTask.CompletedTask,
+            sendFile: (_, _, _) => Task.CompletedTask,
+            dispose: () => ValueTask.CompletedTask);
 
     // -------------------------------------------------------------------------
     // Preflight availability
@@ -77,7 +77,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task Always_DelegatesToThePlatform()
         {
-            var connections = new FakeNearbyConnections { Availability = NearbyAvailability.Ready };
+            var connections = new FakeNearby { Availability = NearbyAvailability.Ready };
             var sut = CreateSut(connections);
 
             var result = await sut.CheckAvailabilityAsync();
@@ -92,7 +92,7 @@ public class NearbySessionTests
             // The whole reason this is a [Flags] enum: a user with Bluetooth off AND permissions
             // denied should be told both at once, not made to fix one and retry to discover the
             // other.
-            var connections = new FakeNearbyConnections
+            var connections = new FakeNearby
             {
                 Availability = NearbyAvailability.BluetoothDisabled | NearbyAvailability.MissingPermissions,
         };
@@ -111,7 +111,7 @@ public class NearbySessionTests
             // Ready = 0 is what makes `result is NearbyAvailability.Ready` a valid readiness test.
             // If Ready ever gained a non-zero value, or a problem flag were assigned 0, that idiom
             // would silently start reporting a broken device as usable.
-            var connections = new FakeNearbyConnections
+            var connections = new FakeNearby
             {
                 Availability = NearbyAvailability.MissingPermissions,
         };
@@ -126,7 +126,7 @@ public class NearbySessionTests
         public async Task DoesNotStartAdvertisingOrDiscovery()
         {
             // A preflight check must not have side effects: it reports state, it does not mutate it.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
 
             await sut.CheckAvailabilityAsync();
@@ -140,7 +140,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task CanceledToken_Throws()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             using var cts = new CancellationTokenSource();
             await cts.CancelAsync();
@@ -160,7 +160,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task StartAdvertisingAsync_SetsIsAdvertising_WithoutSettingIsDiscovering()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
 
             await sut.StartAdvertisingAsync();
@@ -170,12 +170,12 @@ public class NearbySessionTests
         }
 
         [TestMethod]
-        public async Task StartDiscoveringAsync_SetsIsDiscovering_WithoutSettingIsAdvertising()
+        public async Task StartDiscoveryAsync_SetsIsDiscovering_WithoutSettingIsAdvertising()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
 
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             Assert.IsTrue(sut.IsDiscovering);
             Assert.IsFalse(sut.IsAdvertising);
@@ -184,10 +184,10 @@ public class NearbySessionTests
         [TestMethod]
         public async Task StopAdvertisingAsync_ClearsIsAdvertising_AndLeavesDiscoveryRunning()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             await sut.StartAdvertisingAsync();
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             await sut.StopAdvertisingAsync();
 
@@ -198,10 +198,10 @@ public class NearbySessionTests
         [TestMethod]
         public async Task StopAsync_ClearsBothToggles()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             await sut.StartAdvertisingAsync();
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             await sut.StopAsync();
 
@@ -212,7 +212,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task StartAdvertisingAsync_CalledTwice_IsNoOp()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
 
             await sut.StartAdvertisingAsync();
@@ -234,7 +234,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task AdvertisePumpFailure_ClearsIsAdvertising()
         {
-            var connections = new FakeNearbyConnections
+            var connections = new FakeNearby
             {
                 AdvertiseFault = new NearbyAdvertisingException("radio off"),
         };
@@ -249,13 +249,13 @@ public class NearbySessionTests
         [TestMethod]
         public async Task DiscoverPumpFailure_ClearsIsDiscovering()
         {
-            var connections = new FakeNearbyConnections
+            var connections = new FakeNearby
             {
                 DiscoverFault = new NearbyDiscoveryException("permission denied"),
         };
             var sut = CreateSut(connections);
 
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
             await connections.WaitForDiscoverPumpAsync();
 
             Assert.IsFalse(sut.IsDiscovering);
@@ -272,9 +272,9 @@ public class NearbySessionTests
         [TestMethod]
         public async Task DeviceFound_AddsToDevices()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitDeviceFoundAsync(device);
@@ -287,9 +287,9 @@ public class NearbySessionTests
         [TestMethod]
         public async Task DeviceFound_Twice_DoesNotDuplicate()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitDeviceFoundAsync(device);
@@ -301,9 +301,9 @@ public class NearbySessionTests
         [TestMethod]
         public async Task DeviceLost_RemovesVisibleDevice()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitDeviceFoundAsync(device);
@@ -317,9 +317,9 @@ public class NearbySessionTests
         {
             // Going out of discovery range is not the same as disconnecting. Removing a connected
             // device here would delete a live conversation from the UI.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitDeviceFoundAsync(device);
@@ -334,34 +334,34 @@ public class NearbySessionTests
         }
 
         [TestMethod]
-        public async Task StopDiscoveringAsync_DrainsVisibleDevices()
+        public async Task StopDiscoveryAsync_DrainsVisibleDevices()
         {
             // Otherwise the UI shows devices that are no longer being looked for, forever.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             await connections.EmitDeviceFoundAsync(new NearbyDevice("peer-1", "Alice"));
             await connections.EmitDeviceFoundAsync(new NearbyDevice("peer-2", "Bob"));
 
-            await sut.StopDiscoveringAsync();
+            await sut.StopDiscoveryAsync();
 
             Assert.IsEmpty(sut.Devices);
         }
 
         [TestMethod]
-        public async Task StopDiscoveringAsync_KeepsConnectedDevices()
+        public async Task StopDiscoveryAsync_KeepsConnectedDevices()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitDeviceFoundAsync(device);
             connections.ConnectResult = CreateConnection(device);
             await sut.ConnectAsync(device);
 
-            await sut.StopDiscoveringAsync();
+            await sut.StopDiscoveryAsync();
 
             Assert.HasCount(1, sut.Devices);
         }
@@ -377,7 +377,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task RequestArriving_RaisesConnectionRequested_AndSurfacesDevice()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             await sut.StartAdvertisingAsync();
 
@@ -396,7 +396,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task AcceptAsync_ConnectsAndRaisesConnectionEstablished()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             await sut.StartAdvertisingAsync();
 
@@ -420,7 +420,7 @@ public class NearbySessionTests
         public async Task RejectAsync_DoesNotConnect()
         {
             // Security-relevant: rejecting must never produce a connection.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             await sut.StartAdvertisingAsync();
 
@@ -439,7 +439,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task AcceptAsync_AfterReject_Throws()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             await sut.StartAdvertisingAsync();
 
@@ -453,7 +453,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task AcceptAsync_WithNoOutstandingRequest_Throws()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
 
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(
@@ -463,7 +463,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task AcceptAsync_WhenPlatformFails_ResetsDeviceToVisible()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             await sut.StartAdvertisingAsync();
 
@@ -488,7 +488,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task ConnectAsync_SetsConnectedStateAndRaisesEvent()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             var device = new NearbyDevice("peer-1", "Alice");
             var connection = CreateConnection(device);
@@ -508,7 +508,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task ConnectAsync_WhenRejected_ResetsDeviceToVisible()
         {
-            var connections = new FakeNearbyConnections
+            var connections = new FakeNearby
             {
                 ConnectFault = new InvalidOperationException("rejected"),
         };
@@ -523,7 +523,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task ConnectAsync_NullDevice_Throws()
         {
-            var sut = CreateSut(new FakeNearbyConnections());
+            var sut = CreateSut(new FakeNearby());
 
             await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => sut.ConnectAsync(null!));
         }
@@ -535,7 +535,7 @@ public class NearbySessionTests
         public async Task ConnectAsync_WithNoConnectionEstablishedSubscribers_LogsWarning()
         {
             var logger = new CapturingLogger();
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections, logger);
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = CreateConnection(device);
@@ -555,7 +555,7 @@ public class NearbySessionTests
         public async Task ConnectAsync_WithSubscriber_DoesNotLogWarning()
         {
             var logger = new CapturingLogger();
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections, logger);
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = CreateConnection(device);
@@ -581,7 +581,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task RemoteDisconnect_RaisesConnectionDroppedExactlyOnce()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             var device = new NearbyDevice("peer-1", "Alice");
             var connection = CreateConnection(device);
@@ -601,7 +601,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task DisconnectAsync_RaisesConnectionDroppedExactlyOnce()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = CreateConnection(device);
@@ -619,7 +619,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task DisconnectAsync_WhenNotConnected_IsNoOp()
         {
-            var sut = CreateSut(new FakeNearbyConnections());
+            var sut = CreateSut(new FakeNearby());
             var device = new NearbyDevice("peer-1", "Alice");
 
             await sut.DisconnectAsync(device);
@@ -634,7 +634,7 @@ public class NearbySessionTests
         public async Task ConnectionDropped_ReportsDisconnectedReason()
         {
             // Arrange
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = CreateConnection(device);
@@ -658,7 +658,7 @@ public class NearbySessionTests
         public async Task DroppedDevice_RejoinsTheDiscoveryFilter()
         {
             // Arrange
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = CreateConnection(device);
@@ -683,7 +683,7 @@ public class NearbySessionTests
         public async Task ConnectAsync_Cancelled_LeavesDeviceVisible()
         {
             // Arrange
-            var connections = new FakeNearbyConnections { ConnectFault = new OperationCanceledException() };
+            var connections = new FakeNearby { ConnectFault = new OperationCanceledException() };
             var sut = CreateSut(connections);
             var device = new NearbyDevice("peer-1", "Alice");
 
@@ -699,7 +699,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task DisconnectAsync_LeavesOtherConnectionsIntact()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
 
             var alice = new NearbyDevice("peer-1", "Alice");
@@ -733,7 +733,7 @@ public class NearbySessionTests
             var channel = Channel.CreateUnbounded<NearbyPayload>();
             var connection = CreateConnection(device, channel);
 
-            channel.Writer.TryWrite(new BytesPayload([1, 2, 3]));
+            channel.Writer.TryWrite(new NearbyBytesPayload([1, 2, 3]));
             await connection.DisposeAsync();
 
             var received = new List<NearbyPayload>();
@@ -749,7 +749,7 @@ public class NearbySessionTests
         [TestMethod]
         public async Task PayloadsFromMultipleConnections_AllArrive()
         {
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
 
             var alice = new NearbyDevice("peer-1", "Alice");
@@ -763,8 +763,8 @@ public class NearbySessionTests
             connections.ConnectResult = CreateConnection(bob, bobChannel);
             var bobConnection = await sut.ConnectAsync(bob);
 
-            aliceChannel.Writer.TryWrite(new BytesPayload([1]));
-            bobChannel.Writer.TryWrite(new BytesPayload([2]));
+            aliceChannel.Writer.TryWrite(new NearbyBytesPayload([1]));
+            bobChannel.Writer.TryWrite(new NearbyBytesPayload([2]));
             aliceChannel.Writer.TryComplete();
             bobChannel.Writer.TryComplete();
 
@@ -799,9 +799,9 @@ public class NearbySessionTests
             // Ports the *hazard* behind ConnectionLifecycleAdversarialTests rather than the test:
             // the specific bug died with ConnectionLifecycle, but handing consumers a live
             // collection makes "collection was modified during enumeration" newly reachable.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             for (var i = 0; i < 50; i++)
             {
@@ -832,9 +832,9 @@ public class NearbySessionTests
         {
             // C# events run handlers synchronously; without a guard, one bad consumer handler would
             // take down the platform callback path.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             sut.ConnectionEstablished += (_, _) => throw new InvalidOperationException("bad handler");
 
@@ -854,9 +854,9 @@ public class NearbySessionTests
             // EventsAsync(NavigationToken) streams cleaned up by ending their enumeration; C# events
             // against a singleton do not. Simulates five enter/leave page visits: a handler attached
             // without a matching detach would fire five times per event.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             var calls = 0;
             void Handler(object? sender, NearbyConnectionChangedEventArgs e) => calls++;
@@ -881,7 +881,7 @@ public class NearbySessionTests
         public async Task StopAsync_RejectsOutstandingRequests()
         {
             // Otherwise the remote device waits on a request nobody will ever answer.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             await sut.StartAdvertisingAsync();
 
@@ -922,9 +922,9 @@ public class NearbySessionTests
             // The zombie-Connected bug: without this, a consumer backgrounded mid-conversation
             // is never told the connection ended, because iOS tears MPC down silently and with
             // no NSError. ConnectionDropped is the only signal it will ever get.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = CreateConnection(device);
@@ -947,9 +947,9 @@ public class NearbySessionTests
         {
             // Devices is the state consumers bind to. A row still reading Connected after the OS
             // ended the session is precisely the state this fix exists to eliminate.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = CreateConnection(device);
@@ -984,9 +984,9 @@ public class NearbySessionTests
             // acceptable because iOS has already destroyed the transport and the state is rebuilt
             // from scratch on foreground — but if this ever needs to be synchronous, this test is
             // the one that will fail and say why.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = CreateConnection(device);
@@ -1005,10 +1005,10 @@ public class NearbySessionTests
         {
             // The second zombie state. While suspended nothing is advertising or scanning, so
             // leaving these true would misreport the radio just as Connected misreported the session.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             await sut.StartAdvertisingAsync();
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             await sut.StopAsync();
 
@@ -1021,14 +1021,14 @@ public class NearbySessionTests
         {
             // Nothing restarts automatically: the app calls Start* again on foreground. That is
             // only viable if StopAsync leaves the session usable rather than terminally torn down.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             await sut.StopAsync();
             Assert.IsFalse(sut.IsDiscovering);
 
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             Assert.IsTrue(sut.IsDiscovering);
             Assert.AreEqual(2, connections.DiscoverCallCount, "Restart must reach the platform, not be swallowed as a no-op.");
@@ -1039,10 +1039,10 @@ public class NearbySessionTests
         {
             // DidEnterBackground can arrive more than once across a suspend/resume cycle, and the
             // observer does not deduplicate — it relies on StopAsync being safe to call again.
-            var connections = new FakeNearbyConnections();
+            var connections = new FakeNearby();
             var sut = CreateSut(connections);
             await sut.StartAdvertisingAsync();
-            await sut.StartDiscoveringAsync();
+            await sut.StartDiscoveryAsync();
 
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = CreateConnection(device);

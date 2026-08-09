@@ -61,7 +61,7 @@ of what reads as a dead end here is specifically an *MPC* dead end.
 
 ### 1.1 The missing middle is the real problem
 
-Unit tests substitute `IPlatformNearbyConnections` with `FakeNearbyConnections`, so **everything below the
+Unit tests substitute `IPlatformNearby` with `FakeNearbyConnections`, so **everything below the
 session is untested by anything that runs in CI**: `NearbyConnections.android.cs`,
 `NearbyConnections.ios.cs`, `PeerRegistry` interactions, `ControlMessage` encode/decode against a
 real peer, payload materialization, file copy semantics.
@@ -91,7 +91,7 @@ better than it found it.
 
 ### Phase A — Fake-platform integration tests (highest value)
 
-**Goal:** exercise the real `NearbyConnectionsImplementation` against a scriptable in-memory transport, so the
+**Goal:** exercise the real `NearbyImplementation` against a scriptable in-memory transport, so the
 session/connection/payload interaction is covered in CI on every push.
 
 Build a `FakeTransport` implementing the same contract the platform layers satisfy, then run **both
@@ -216,7 +216,7 @@ Mechanics that matter here:
   remains unsupported.
 
 > **Closed 2026-08-04.** `AppLifecycleObserver` (iOS-only) now observes
-> `UIApplication.DidEnterBackgroundNotification` and calls `NearbyConnectionsImplementation.StopAsync`. See §3.7 for
+> `UIApplication.DidEnterBackgroundNotification` and calls `NearbyImplementation.StopAsync`. See §3.7 for
 > the decisions behind the scope, and §3.6.1 for what was left open.
 
 Previously the plugin did none of this — it had **no app-lifecycle handling whatsoever**. The result
@@ -278,7 +278,7 @@ lifetime per platform.
 the session's existing `StopAsync` — no bespoke teardown path. `StopAsync` already stops advertising
 and discovery, disposes every connection (so `ConnectionDropped` is raised through the one existing
 code path), rejects outstanding inbound requests, and clears `Devices`. The observer is owned by
-`NearbyConnectionsImplementation` and disposed before `StopAsync` during session disposal, so a notification arriving
+`NearbyImplementation` and disposed before `StopAsync` during session disposal, so a notification arriving
 mid-teardown cannot start a concurrent stop.
 
 Decisions worth recording, because each had a defensible alternative:
@@ -294,7 +294,7 @@ Decisions worth recording, because each had a defensible alternative:
   nothing scans while suspended, so reporting `true` would be a second zombie state beside the first.
 - **Nothing restarts on foreground.** Consistent with the plugin's "nothing starts on its own"
   contract, keeps permission prompts under app control, and there is no MPC reconnect primitive
-  anyway. The app calls `StartAdvertisingAsync`/`StartDiscoveringAsync` again.
+  anyway. The app calls `StartAdvertisingAsync`/`StartDiscoveryAsync` again.
 - **No opt-out option.** The session is dead either way; the only thing an opt-out would buy is the
   right to keep reporting the zombie `Connected` state.
 

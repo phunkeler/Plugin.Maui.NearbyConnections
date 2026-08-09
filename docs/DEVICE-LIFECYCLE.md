@@ -9,9 +9,9 @@ guarantees, where they diverge, and which behaviour the plugin supplies itself.
 
 > **Status — partly implemented.** The lifecycle model, `NearbyDeviceStatus`, and the single
 > `Devices` collection shipped as described. Read "Proposed shape" below as history, not as the
-> current API: the verbs live on `INearbyConnections` (`session.ConnectAsync(device)`), not on
+> current API: the verbs live on `INearby` (`session.ConnectAsync(device)`), not on
 > `NearbyDevice`, and there is no `LastEndReason`. Gaps 2 and 3 are closed; gaps 1 and 4 remain
-> open. `INearbyConnections` is the source of truth.
+> open. `INearby` is the source of truth.
 
 ---
 
@@ -74,7 +74,7 @@ async Task Connect()
 {
     IsConnecting = true;
     try { await discoverer.ConnectAsync(Device); }
-    catch (NearbyConnectionsException) { IsConnecting = false; }   // ← manual unwind on failure
+    catch (NearbyException) { IsConnecting = false; }   // ← manual unwind on failure
 }
 ```
 
@@ -181,7 +181,7 @@ sequenceDiagram
     else failure
         G->>P: OnConnectionResult(StatusCode, StatusMessage)
         P->>A: Status = Visible
-        Note over P,A: NearbyConnectionsException carries<br/>StatusCode and StatusMessage
+        Note over P,A: NearbyException carries<br/>StatusCode and StatusMessage
     else InvitationTimeout elapsed
         Note over P,G: No callback ever arrives. The plugin-owned<br/>deadline is the only thing that ends the wait.
         P->>G: DisconnectFromEndpoint() (clear GMS state)
@@ -228,7 +228,7 @@ sequenceDiagram
         M->>P: DidChangeState(NotConnected)
         Note over M,P: NO REASON PROVIDED — rejection,<br/>timeout, and range-loss are indistinguishable
         P->>A: Status = Visible
-        Note over P,A: NearbyConnectionsException
+        Note over P,A: NearbyException
     else InvitationTimeout elapsed
         Note over M,P: MPC can hang in Connecting with neither<br/>terminal callback arriving
         P->>A: Status = Visible
@@ -383,7 +383,7 @@ where `Connecting` hangs forever with neither terminal callback arriving.
 the last peer leaves (`NearbyConnections.ios.cs`, the `NotConnected` case — note the
 `connectedPeers.Length > 0` guard, which exists because `Enumerable.All` returns `true` for an empty
 sequence and without it a failed handshake disposed the session out from under still-connected
-peers). `INearbyConnections.DisconnectAsync(device)` is the public verb on both platforms.
+peers). `INearby.DisconnectAsync(device)` is the public verb on both platforms.
 
 Original analysis, retained for context:
 
@@ -453,7 +453,7 @@ public sealed partial class NearbyDevice : ObservableObject   // INotifyProperty
 ```
 
 ```csharp
-public interface INearbyConnections : IAsyncDisposable
+public interface INearby : IAsyncDisposable
 {
     IReadOnlyList<NearbyDevice> Devices { get; }   // INotifyCollectionChanged — every state
 
@@ -461,9 +461,9 @@ public interface INearbyConnections : IAsyncDisposable
     bool IsDiscovering { get; }
 
     Task StartAdvertisingAsync(CancellationToken ct = default);
-    Task StartDiscoveringAsync(CancellationToken ct = default);
+    Task StartDiscoveryAsync(CancellationToken ct = default);
     Task StopAdvertisingAsync(CancellationToken ct = default);
-    Task StopDiscoveringAsync(CancellationToken ct = default);
+    Task StopDiscoveryAsync(CancellationToken ct = default);
     Task StopAsync(CancellationToken ct = default);
 
     event EventHandler<NearbyPayloadReceivedEventArgs> PayloadReceived;
@@ -556,7 +556,7 @@ what disappears is the plumbing the sample wrote to compensate for the plugin's 
    - ~~`EncryptionPreference`~~ → **done:** `NearbyEncryptionPreference`.
    - ~~`ConnectionType`~~ → **done:** `NearbyConnectionType`. Was a raw `int` holding a Google
      constant — untyped *and* vendor-specific.
-   - `NearbyConnectionsOptions.ServiceId` → neutral enough, but its iOS semantics are Bonjour's
+   - `NearbyOptions.ServiceId` → neutral enough, but its iOS semantics are Bonjour's
      `serviceType`; keep the name, keep documenting the platform difference.
    - **`InvitationTimeout` → still open.** "Invitation" is MPC vocabulary, and the option is now
      cross-platform, which makes the leak more visible rather than less. `ConnectionRequestTimeout`

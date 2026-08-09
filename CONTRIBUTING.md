@@ -4,7 +4,7 @@
 
 ### One public interface, state and streams
 
-Every session goes through two phases: **discovery/advertising** (learning who is nearby) and **connection** (exchanging data with a specific peer). Both live behind a single public interface, `INearbyConnections`.
+Every session goes through two phases: **discovery/advertising** (learning who is nearby) and **connection** (exchanging data with a specific peer). Both live behind a single public interface, `INearby`.
 
 The split that matters is not between phases but between *state* and *streams*:
 
@@ -13,7 +13,7 @@ The split that matters is not between phases but between *state* and *streams*:
 | Observable state — `Devices` + three C# events | Device presence and connection lifecycle | Presence *is* state, not a sequence of occurrences. A collection can be bound directly and read at any time; an event stream forces every consumer to rebuild the same collection from deltas. `NearbyDevice.Status` changes in place, so a bound row updates rather than moving between collections. |
 | Stream — `NearbyConnection.ReceiveAsync` | Inbound payloads | Payloads are ordered, unbounded, and consumed once. The loop body is the seam where consumer async work goes, and it is awaited before the next payload is taken — a `void`-returning `EventHandler` cannot express that. See `docs/PAYLOAD-DELIVERY.md`. |
 
-Internally `INearbyConnections` is implemented by `NearbyConnectionsImplementation`, which drives the internal `IPlatformNearbyConnections` (the raw platform streams) and projects its callbacks into device state. `IPlatformNearbyConnections` and its `AdvertiseAsync`/`DiscoverAsync` streams are implementation detail, not public API.
+Internally `INearby` is implemented by `NearbyImplementation`, which drives the internal `IPlatformNearby` (the raw platform streams) and projects its callbacks into device state. `IPlatformNearby` and its `AdvertiseAsync`/`DiscoverAsync` streams are implementation detail, not public API.
 
 ### Stream primitive — `System.Threading.Channels`
 
@@ -30,7 +30,7 @@ All async delivery is backed by `System.Threading.Channels`. Platform callbacks 
 
 ### Threading — the session owns dispatcher marshalling
 
-Platform callbacks arrive on SDK-owned background threads on both platforms. `NearbyConnectionsImplementation` funnels **every** `Devices` mutation, `NearbyDevice` property write, and event raise through `DispatchAsync`, so consumers observe all of them on the UI thread and bindings are safe without extra work. Nothing outside `NearbyConnectionsImplementation.state.cs` may touch device state.
+Platform callbacks arrive on SDK-owned background threads on both platforms. `NearbyImplementation` funnels **every** `Devices` mutation, `NearbyDevice` property write, and event raise through `DispatchAsync`, so consumers observe all of them on the UI thread and bindings are safe without extra work. Nothing outside `NearbyImplementation.state.cs` may touch device state.
 
 This is why event handlers must be fast and must not do I/O: they run synchronously on the dispatcher. A throwing handler is caught and logged so it cannot take down the callback path, but it still starves the handlers after it.
 
@@ -44,10 +44,10 @@ The session is a singleton, so an event subscription without a matching `-=` kee
 
 One call registers everything; there are no opt-in tiers.
 
-**MAUI apps** — use `UseNearbyConnections()` on `MauiAppBuilder` (the MAUI-idiomatic style):
+**MAUI apps** — use `UseNearby()` on `MauiAppBuilder` (the MAUI-idiomatic style):
 
 ```csharp
-builder.UseNearbyConnections(opts =>
+builder.UseNearby(opts =>
 {
 #if IOS
     opts.InvitationTimeout = TimeSpan.FromSeconds(10);
@@ -55,10 +55,10 @@ builder.UseNearbyConnections(opts =>
 });
 ```
 
-**Testing seam** — `AddNearbyConnections()` also exists directly on `IServiceCollection`, and `INearbyConnections` is public, because consumers mock or implement the interface to test their own app code against the plugin. The public test-double constructor on `NearbyConnection` (`Connections/NearbyConnection.cs`) exists for exactly this: it lets a fake `INearbyConnections` hand real connection objects to the code under test.
+**Testing seam** — `AddNearby()` also exists directly on `IServiceCollection`, and `INearby` is public, because consumers mock or implement the interface to test their own app code against the plugin. The public test-double constructor on `NearbyConnection` (`Connections/NearbyConnection.cs`) exists for exactly this: it lets a fake `INearby` hand real connection objects to the code under test.
 
 ```csharp
-services.AddNearbyConnections();
+services.AddNearby();
 ```
 
 Registered with `TryAddSingleton` — one radio, one native session, so the lifetime is platform-forced rather than a preference. Nothing auto-starts.
@@ -77,13 +77,13 @@ builder.ConfigureLifecycleEvents(lifecycle =>
     lifecycle.AddAndroid(android => android.OnStop(activity =>
     {
         var sp = IPlatformApplication.Current?.Services;
-        _ = sp?.GetService<INearbyConnections>()?.StopAsync();
+        _ = sp?.GetService<INearby>()?.StopAsync();
     }));
 #elif IOS
     lifecycle.AddiOS(ios => ios.DidEnterBackground(app =>
     {
         var sp = IPlatformApplication.Current?.Services;
-        _ = sp?.GetService<INearbyConnections>()?.StopAsync();
+        _ = sp?.GetService<INearby>()?.StopAsync();
     }));
 #endif
 });
@@ -93,7 +93,7 @@ Use `OnStop` on Android and `DidEnterBackground` on iOS — these fire only on t
 
 ### Platform implementations
 
-Each platform implements the internal `IPlatformNearbyConnections` as a partial class sealed against `PlatformNearbyConnections`. Platform-specific files are excluded from non-matching build targets via `src/Directory.Build.targets`. Global usings per platform are also injected there.
+Each platform implements the internal `IPlatformNearby` as a partial class sealed against `PlatformNearby`. Platform-specific files are excluded from non-matching build targets via `src/Directory.Build.targets`. Global usings per platform are also injected there.
 
 ## Day-to-day development
 

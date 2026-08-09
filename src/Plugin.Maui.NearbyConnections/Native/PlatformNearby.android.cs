@@ -4,7 +4,7 @@ using Path = System.IO.Path;
 
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class PlatformNearbyConnections
+sealed partial class PlatformNearby
 {
     IConnectionsClient? _advertiseClient;
     IConnectionsClient? _discoverClient;
@@ -31,7 +31,7 @@ sealed partial class PlatformNearbyConnections
                     LogOnConnectionInitiatedError),
                 new AdvertisingOptions.Builder()
                     .SetStrategy(Options.ToPlatformStrategy())
-                    .SetLowPower(Options.UseLowPower)
+                    .SetLowPower(Options.Android.UseLowPower)
                     .SetConnectionType(Options.ToPlatformConnectionType())
                     .Build());
         }
@@ -74,7 +74,7 @@ sealed partial class PlatformNearbyConnections
 
                 var request = new NearbyConnectionRequest(
                     device,
-                    acceptFactory: async ct =>
+                    accept: async ct =>
                     {
                         await PlatformRespondToConnectionAsync(device, accept: true);
 
@@ -93,7 +93,7 @@ sealed partial class PlatformNearbyConnections
                             throw;
                         }
                     },
-                    rejectFactory: ct =>
+                    reject: ct =>
                     {
                         _connectionTcs.TryRemove(endpointId, out _);
                         return PlatformRespondToConnectionAsync(device, accept: false);
@@ -130,7 +130,7 @@ sealed partial class PlatformNearbyConnections
             {
                 if (!Devices.TryGetDevice(endpointId, out var device))
                 {
-                    FaultConnectionTcs(endpointId, new NearbyConnectionsException($"Device not found in manager for endpoint '{endpointId}' after successful connection."));
+                    FaultConnectionTcs(endpointId, new NearbyException($"Device not found in manager for endpoint '{endpointId}' after successful connection."));
                     return;
                 }
 
@@ -139,9 +139,9 @@ sealed partial class PlatformNearbyConnections
                 var connection = new NearbyConnection(
                     device,
                     receiveChannel,
-                    sendBytesFactory: (data, ct) => new ValueTask(PlatformSendBytesAsync(endpointId, data, ct)),
-                    sendFileFactory: (fileUri, progress, ct) => PlatformSendFileAsync(endpointId, fileUri, progress, ct),
-                    disposeFactory: () =>
+                    sendBytes: (data, ct) => new ValueTask(PlatformSendBytesAsync(endpointId, data, ct)),
+                    sendFile: (fileUri, progress, ct) => PlatformSendFileAsync(endpointId, fileUri, progress, ct),
+                    dispose: () =>
                     {
                         PlatformDisconnectEndpointAsync(endpointId);
                         return ValueTask.CompletedTask;
@@ -152,7 +152,7 @@ sealed partial class PlatformNearbyConnections
             else
             {
                 Devices.Remove(endpointId);
-                FaultConnectionTcs(endpointId, new NearbyConnectionsException(
+                FaultConnectionTcs(endpointId, new NearbyException(
                     $"Connection to endpoint '{endpointId}' failed: {resolution.Status.StatusMessage} (code {resolution.Status.StatusCode})."));
             }
         }
@@ -191,7 +191,7 @@ sealed partial class PlatformNearbyConnections
 
     #region Discovery
 
-    async Task PlatformStartDiscoveringAsync(CancellationToken cancellationToken)
+    async Task PlatformStartDiscoveryAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         _discoverClient ??= NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
@@ -203,7 +203,7 @@ sealed partial class PlatformNearbyConnections
                 new DiscoveryCallback(OnEndpointFound, OnEndpointLost),
                 new DiscoveryOptions.Builder()
                     .SetStrategy(Options.ToPlatformStrategy())
-                    .SetLowPower(Options.UseLowPower)
+                    .SetLowPower(Options.Android.UseLowPower)
                     .Build());
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
@@ -334,7 +334,7 @@ sealed partial class PlatformNearbyConnections
         NearbyPayload? nearbyPayload = entry.Payload.PayloadType == Payload.Type.File
             ? await CopyFilePayloadAsync(entry.Payload, Options.ReceivedFilesDirectory, CancellationToken.None)
             : entry.Payload.AsBytes() is { } bytes
-                ? new BytesPayload(bytes)
+                ? new NearbyBytesPayload(bytes)
                 : null;
 
         if (nearbyPayload is not null)
@@ -349,7 +349,7 @@ sealed partial class PlatformNearbyConnections
         entry.Payload.Dispose();
     }
 
-    async Task<FilePayload?> CopyFilePayloadAsync(Payload payload, string destinationDirectory, CancellationToken cancellationToken)
+    async Task<NearbyFilePayload?> CopyFilePayloadAsync(Payload payload, string destinationDirectory, CancellationToken cancellationToken)
     {
         var sourceUri = payload.AsFile()?.AsUri();
 
@@ -394,7 +394,7 @@ sealed partial class PlatformNearbyConnections
             }
         }
 
-        return new FilePayload(new FileResult(destinationPath));
+        return new NearbyFilePayload(new FileResult(destinationPath));
     }
 
     async Task PlatformInitiateConnectAsync(NearbyDevice device, CancellationToken cancellationToken)
@@ -429,7 +429,7 @@ sealed partial class PlatformNearbyConnections
             // ApiException STATUS_ALREADY_CONNECTED_TO_ENDPOINT). Left
             // unguarded, this exception propagated out of ConnectAsync's await
             // and crashed the whole app when a caller's own catch clause only
-            // handled NearbyConnectionsException. Fault the already-registered
+            // handled NearbyException. Fault the already-registered
             // TCS instead, consistent with how every other platform failure in
             // this file is surfaced (see PlatformStartAdvertisingAsync,
             // OnConnectionResult), so callers get a normal, typed, catchable
@@ -459,7 +459,7 @@ sealed partial class PlatformNearbyConnections
                 LogFailedToClearStaleConnectionState(device.Id, disconnectEx);
             }
 
-            FaultConnectionTcs(device.Id, new NearbyConnectionsException(
+            FaultConnectionTcs(device.Id, new NearbyException(
                 $"Failed to initiate connection to endpoint '{device.Id}'.", ex));
         }
     }
@@ -525,7 +525,7 @@ sealed partial class PlatformNearbyConnections
 
         if (!_activeConnections.ContainsKey(endpointId))
         {
-            throw new NearbyConnectionsException(
+            throw new NearbyException(
                 $"Cannot send bytes: no active connection for endpoint '{endpointId}'.");
         }
 
@@ -545,7 +545,7 @@ sealed partial class PlatformNearbyConnections
 
         if (!_activeConnections.ContainsKey(endpointId))
         {
-            throw new NearbyConnectionsException(
+            throw new NearbyException(
                 $"Cannot send file: no active connection for endpoint '{endpointId}'.");
         }
 
@@ -589,10 +589,7 @@ sealed partial class PlatformNearbyConnections
                 totalBytes: 0,
                 NearbyTransferStatus.Failure));
 
-            LogSendFileTimeout(endpointId, null, Options.TransferInactivityTimeout.TotalSeconds);
-
-            throw new NearbyTransferTimeoutException(
-                $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
+            throw TransferInactivityTimeoutException(endpointId);
         }
         finally
         {
@@ -601,42 +598,6 @@ sealed partial class PlatformNearbyConnections
             filePayload.Dispose();
         }
     }
-
-    static AndroidUri? TryCreateUri(string fileUri)
-    {
-        if (string.IsNullOrWhiteSpace(fileUri))
-        {
-            return null;
-        }
-
-        try
-        {
-            AndroidUri? uri;
-
-            if (Path.IsPathRooted(fileUri))
-            {
-                using var file = new Java.IO.File(fileUri);
-                uri = AndroidUri.FromFile(file);
-            }
-            else
-            {
-                uri = AndroidUri.Parse(fileUri);
-            }
-
-            return IsSupportedScheme(uri)
-                ? uri
-                : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    static bool IsSupportedScheme(AndroidUri? uri)
-        => uri?.Scheme is { } scheme
-            && (scheme.Equals(ContentResolver.SchemeFile, StringComparison.OrdinalIgnoreCase)
-                || scheme.Equals(ContentResolver.SchemeContent, StringComparison.OrdinalIgnoreCase));
 
     Payload? BuildFilePayload(AndroidUri uri)
     {
@@ -659,136 +620,6 @@ sealed partial class PlatformNearbyConnections
         }
 
         return null;
-    }
-
-    /// <summary>
-    /// Best-effort resolution of a human-readable resource name (including extension) from a URI.
-    /// <para>
-    /// For <c>content://</c> URIs the following sources are tried in order:
-    /// <list type="number">
-    ///   <item><description><c>_display_name</c> — already contains the extension for well-behaved providers (MediaStore, SAF, Downloads).</description></item>
-    ///   <item><description><c>_data</c> — the underlying file path; its filename gives a reliable name + extension for MediaStore URIs.</description></item>
-    ///   <item><description><see cref="ContentResolver.GetType"/> — maps the MIME type to an extension via <see cref="Android.Webkit.MimeTypeMap"/>.</description></item>
-    ///   <item><description>Decoded <c>LastPathSegment</c> — opaque but human-readable.</description></item>
-    /// </list>
-    /// </para>
-    /// For <c>file://</c> URIs, the real filesystem path is used directly.
-    /// </summary>
-    string ResolveResourceName(AndroidUri uri) =>
-        ContentResolver.SchemeContent.Equals(uri.Scheme, StringComparison.OrdinalIgnoreCase)
-            ? ResolveContentUriName(uri)
-            : ResolveFileUriName(uri);
-
-    string ResolveContentUriName(AndroidUri uri)
-    {
-        try
-        {
-            var (displayName, dataPath) = QueryContentColumns(uri);
-
-            return NameWithExtension(displayName)
-                ?? NameFromDataPath(dataPath)
-                ?? NameFromMimeType(uri, displayName)
-                ?? displayName
-                ?? uri.LastPathSegment
-                ?? Guid.NewGuid().ToString("N");
-        }
-        catch (Exception ex)
-        {
-            LogCouldNotResolveContentUriName(ex.Message);
-            return Guid.NewGuid().ToString("N");
-        }
-    }
-
-    static (string? displayName, string? dataPath) QueryContentColumns(AndroidUri uri)
-    {
-        string? displayName = null;
-        string? dataPath = null;
-
-        using var cursor = Application.Context.ContentResolver?.Query(
-            uri,
-            [Android.Provider.IOpenableColumns.DisplayName, Android.Provider.MediaStore.IMediaColumns.Data],
-            selection: null,
-            selectionArgs: null,
-            sortOrder: null);
-
-        if (cursor is null)
-        {
-            return (displayName, dataPath);
-        }
-
-        if (!cursor.MoveToFirst())
-        {
-            return (displayName, dataPath);
-        }
-
-        var nameIndex = cursor.GetColumnIndex(Android.Provider.IOpenableColumns.DisplayName);
-
-        if (nameIndex >= 0)
-        {
-            displayName = cursor.GetString(nameIndex);
-        }
-
-        var dataIndex = cursor.GetColumnIndex(Android.Provider.MediaStore.IMediaColumns.Data);
-
-        if (dataIndex >= 0)
-        {
-            dataPath = cursor.GetString(dataIndex);
-        }
-
-        return (displayName, dataPath);
-    }
-
-    static string? NameWithExtension(string? displayName) =>
-        !string.IsNullOrWhiteSpace(displayName)
-        && Path.GetExtension(displayName).Length > 0
-            ? displayName
-            : null;
-
-    static string? NameFromDataPath(string? dataPath)
-    {
-        if (!string.IsNullOrEmpty(dataPath)
-            && Path.GetFileName(dataPath) is { Length: > 0 } name)
-        {
-            return name;
-        }
-
-        return null;
-    }
-
-    // Derives an extension from the MIME type and pairs it with the display name stem.
-    static string? NameFromMimeType(AndroidUri uri, string? displayName)
-    {
-        var mimeType = Application.Context.ContentResolver?.GetType(uri);
-
-        if (string.IsNullOrWhiteSpace(mimeType))
-        {
-            return null;
-        }
-
-        var ext = Android.Webkit.MimeTypeMap.Singleton?.GetExtensionFromMimeType(mimeType);
-
-        if (string.IsNullOrWhiteSpace(ext))
-        {
-            return null;
-        }
-
-        var stem = !string.IsNullOrWhiteSpace(displayName)
-            ? Path.GetFileNameWithoutExtension(displayName)
-            : Guid.NewGuid().ToString("N");
-
-        return $"{stem}.{ext}";
-    }
-
-    static string ResolveFileUriName(AndroidUri uri)
-    {
-        if (uri?.Path is { Length: > 0 } filePath)
-        {
-            return Path.GetFileName(filePath) is { Length: > 0 } fileName
-                ? fileName
-                : filePath;
-        }
-
-        return Guid.NewGuid().ToString("N");
     }
 
     /// <summary>

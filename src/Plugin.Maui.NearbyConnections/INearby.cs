@@ -38,7 +38,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// </remarks>
 /// <seealso cref="NearbyDevice"/>
 /// <seealso cref="NearbyConnection"/>
-public interface INearbyConnections
+public interface INearby
 {
     /// <summary>
     /// Gets the devices known to this session, from first discovery until they are no longer
@@ -126,7 +126,7 @@ public interface INearbyConnections
     /// <remarks>
     /// <para>
     /// Call this before <see cref="StartAdvertisingAsync(CancellationToken)"/> or
-    /// <see cref="StartDiscoveringAsync(CancellationToken)"/> to tell the user what to fix. Without
+    /// <see cref="StartDiscoveryAsync(CancellationToken)"/> to tell the user what to fix. Without
     /// it, a missing permission or a disabled radio causes advertising and discovery to fail
     /// silently on Android, and to succeed but discover nothing on iOS.
     /// </para>
@@ -173,7 +173,7 @@ public interface INearbyConnections
     ///     return;
     /// }
     ///
-    /// await session.StartDiscoveringAsync();
+    /// await session.StartDiscoveryAsync();
     /// </code>
     /// </example>
     Task<NearbyAvailability> CheckAvailabilityAsync(CancellationToken cancellationToken = default);
@@ -238,7 +238,7 @@ public interface INearbyConnections
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was canceled.
     /// </exception>
-    Task StartDiscoveringAsync(CancellationToken cancellationToken = default);
+    Task StartDiscoveryAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops discovering nearby devices.
@@ -255,7 +255,7 @@ public interface INearbyConnections
     /// running. Devices that were only visible are removed from <see cref="Devices"/>; connected
     /// devices remain.
     /// </remarks>
-    Task StopDiscoveringAsync(CancellationToken cancellationToken = default);
+    Task StopDiscoveryAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops advertising and discovery and disconnects every established connection, returning the
@@ -304,7 +304,7 @@ public interface INearbyConnections
     /// </exception>
     /// <exception cref="NearbyConnectionTimeoutException">
     /// The remote device did not answer within
-    /// <see cref="NearbyConnectionsOptions.InvitationTimeout"/>.
+    /// <see cref="NearbyOptions.InvitationTimeout"/>.
     /// </exception>
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was canceled before the connection was established.

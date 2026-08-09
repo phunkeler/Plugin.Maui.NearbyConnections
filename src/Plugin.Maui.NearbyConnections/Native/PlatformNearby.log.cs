@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class PlatformNearbyConnections
+sealed partial class PlatformNearby
 {
     // -------------------------------------------------------------------------
     // Devices

@@ -1,11 +1,11 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Device-state projection and dispatcher marshalling for <see cref="NearbyConnectionsImplementation"/>.
+/// Device-state projection and dispatcher marshalling for <see cref="NearbyImplementation"/>.
 /// Everything that mutates <c>_devices</c>, writes a <see cref="NearbyDevice"/> property, or raises
 /// a lifecycle event lives here and runs on the dispatcher.
 /// </summary>
-sealed partial class NearbyConnectionsImplementation
+sealed partial class NearbyImplementation
 {
     /// <summary>
     /// Runs <paramref name="action"/> on the UI dispatcher, or inline when no dispatcher is
@@ -85,7 +85,7 @@ sealed partial class NearbyConnectionsImplementation
         }
         catch (OperationCanceledException)
         {
-            // Normal exit — StopDiscoveringAsync cancelled the pump.
+            // Normal exit — StopDiscoveryAsync cancelled the pump.
         }
         catch (Exception ex)
         {
@@ -158,7 +158,7 @@ sealed partial class NearbyConnectionsImplementation
 
     /// <summary>
     /// A connection was established, from either side. Publishes the connection onto the device,
-    /// raises <see cref="INearbyConnections.ConnectionEstablished"/>, and arms the drop notification.
+    /// raises <see cref="INearby.ConnectionEstablished"/>, and arms the drop notification.
     /// </summary>
     async Task OnConnectedAsync(NearbyDevice device, NearbyConnection connection, ConnectionRole role)
     {
@@ -191,7 +191,7 @@ sealed partial class NearbyConnectionsImplementation
 
     /// <summary>
     /// Awaits the connection's own disconnect signal and projects it into device state plus
-    /// <see cref="INearbyConnections.ConnectionDropped"/>.
+    /// <see cref="INearby.ConnectionDropped"/>.
     /// </summary>
     async Task WatchDisconnectAsync(NearbyDevice device, NearbyConnection connection)
     {
@@ -228,7 +228,7 @@ sealed partial class NearbyConnectionsImplementation
     /// </summary>
     /// <remarks>
     /// No connection was ever established on these paths, so there is nothing to raise
-    /// <see cref="INearbyConnections.ConnectionDropped"/> about. The reason reaches the caller as
+    /// <see cref="INearby.ConnectionDropped"/> about. The reason reaches the caller as
     /// the exception that <see cref="ConnectAsync"/> or <see cref="AcceptAsync"/> rethrows.
     /// </remarks>
     Task ResetToVisibleAsync(NearbyDevice device)
@@ -303,8 +303,8 @@ sealed partial class NearbyConnectionsImplementation
     /// </summary>
     /// <param name="start">Starts the pump task for the supplied cancellation token.</param>
     /// <param name="setFlag">
-    /// Publishes <see cref="INearbyConnections.IsAdvertising"/> or
-    /// <see cref="INearbyConnections.IsDiscovering"/> on the dispatcher.
+    /// Publishes <see cref="INearby.IsAdvertising"/> or
+    /// <see cref="INearby.IsDiscovering"/> on the dispatcher.
     /// </param>
     sealed class PumpState(Func<CancellationToken, Task> start, Func<bool, Task> setFlag)
     {

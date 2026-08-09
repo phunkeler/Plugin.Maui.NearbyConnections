@@ -8,20 +8,20 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 [TestCategory("Connections")]
 public class PlatformNearbyConnectionsTests
 {
-    // Builds a PlatformNearbyConnections without hitting any platform APIs.
-    static PlatformNearbyConnections CreateSut(
+    // Builds a PlatformNearby without hitting any platform APIs.
+    static PlatformNearby CreateSut(
         FakeTimeProvider? timeProvider = null,
-        NearbyConnectionsOptions? options = null)
+        NearbyOptions? options = null)
     {
         var tp = timeProvider ?? new FakeTimeProvider();
-        return new PlatformNearbyConnections(
+        return new PlatformNearby(
             tp,
-            options ?? new NearbyConnectionsOptions(),
+            options ?? new NearbyOptions(),
             NullLogger.Instance);
     }
 
     // Drains the first N items from the channel's reader via the internal channel.
-    // Because PlatformStartAdvertisingAsync / PlatformStartDiscoveringAsync throw
+    // Because PlatformStartAdvertisingAsync / PlatformStartDiscoveryAsync throw
     // PlatformNotSupportedException on net10.0, we exercise the channel bridge
     // helpers directly (WriteDeviceFound, WriteConnectionRequest, etc.) and read
     // from the channel reader rather than going through AdvertiseAsync/DiscoverAsync.
@@ -41,8 +41,8 @@ public class PlatformNearbyConnectionsTests
 
             var request = new NearbyConnectionRequest(
                 device,
-                acceptFactory: ct => tcs.Task.WaitAsync(ct),
-                rejectFactory: ct => Task.CompletedTask);
+                accept: ct => tcs.Task.WaitAsync(ct),
+                reject: ct => Task.CompletedTask);
 
             // Act
             sut.WriteConnectionRequest(request);
@@ -101,9 +101,9 @@ public class PlatformNearbyConnectionsTests
             var connection = new NearbyConnection(
                 device,
                 receiveChannel,
-                sendBytesFactory: (_, _) => ValueTask.CompletedTask,
-                sendFileFactory: (_, _, _) => Task.CompletedTask,
-                disposeFactory: () => ValueTask.CompletedTask);
+                sendBytes: (_, _) => ValueTask.CompletedTask,
+                sendFile: (_, _, _) => Task.CompletedTask,
+                dispose: () => ValueTask.CompletedTask);
 
             // Act — simulate platform callback resolving the TCS
             sut.ResolveConnectionTcs("peer-1", connection);
@@ -129,9 +129,9 @@ public class PlatformNearbyConnectionsTests
             var connection = new NearbyConnection(
                 device,
                 receiveChannel,
-                sendBytesFactory: (_, _) => ValueTask.CompletedTask,
-                sendFileFactory: (_, _, _) => Task.CompletedTask,
-                disposeFactory: () => ValueTask.CompletedTask);
+                sendBytes: (_, _) => ValueTask.CompletedTask,
+                sendFile: (_, _, _) => Task.CompletedTask,
+                dispose: () => ValueTask.CompletedTask);
 
             // Act
             sut.ResolveConnectionTcs("peer-1", connection);
@@ -163,7 +163,7 @@ public class PlatformNearbyConnectionsTests
         public void ResolveConnectionTcs_NoRegisteredTcs_SilentlyNoOps()
         {
             // Arrange - reproduces the iOS advertiser race window where a platform callback
-            // (e.g. MCSessionState.Connected) can fire before the acceptFactory continuation
+            // (e.g. MCSessionState.Connected) can fire before the accept continuation
             // has registered its TCS in _connectionTcs. Callers must register the TCS before
             // triggering any platform operation that could resolve it; this test pins down
             // that ResolveConnectionTcs offers no rescue if that ordering is violated.
@@ -174,9 +174,9 @@ public class PlatformNearbyConnectionsTests
             var connection = new NearbyConnection(
                 device,
                 receiveChannel,
-                sendBytesFactory: (_, _) => ValueTask.CompletedTask,
-                sendFileFactory: (_, _, _) => Task.CompletedTask,
-                disposeFactory: () => ValueTask.CompletedTask);
+                sendBytes: (_, _) => ValueTask.CompletedTask,
+                sendFile: (_, _, _) => Task.CompletedTask,
+                dispose: () => ValueTask.CompletedTask);
 
             // Act
             sut.ResolveConnectionTcs("peer-1", connection);
@@ -266,14 +266,14 @@ public class PlatformNearbyConnectionsTests
             var connection = new NearbyConnection(
                 device,
                 receiveChannel,
-                sendBytesFactory: (_, _) => ValueTask.CompletedTask,
-                sendFileFactory: (_, _, _) => Task.CompletedTask,
-                disposeFactory: () => ValueTask.CompletedTask);
+                sendBytes: (_, _) => ValueTask.CompletedTask,
+                sendFile: (_, _, _) => Task.CompletedTask,
+                dispose: () => ValueTask.CompletedTask);
 
             sut.ResolveConnectionTcs("peer-1", connection);
             await tcs.Task;
 
-            var payload = new BytesPayload([1, 2, 3]);
+            var payload = new NearbyBytesPayload([1, 2, 3]);
 
             // Act
             sut.WritePayload("peer-1", payload);
@@ -290,7 +290,7 @@ public class PlatformNearbyConnectionsTests
         {
             // Arrange
             var sut = CreateSut();
-            var payload = new BytesPayload([1, 2, 3]);
+            var payload = new NearbyBytesPayload([1, 2, 3]);
 
             // Act
             sut.WritePayload("nonexistent-peer", payload);
@@ -330,7 +330,7 @@ public class PlatformNearbyConnectionsTests
         public void True_WriteRunsAwaitingReaderContinuationInline()
         {
             // Arrange
-            var options = new NearbyConnectionsOptions { AllowSynchronousContinuations = true };
+            var options = new NearbyOptions { AllowSynchronousContinuations = true };
             var sut = CreateSut(options: options);
             var device = new NearbyDevice("peer-1", "Alice");
             var continuationRan = false;

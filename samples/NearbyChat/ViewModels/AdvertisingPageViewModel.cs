@@ -9,7 +9,7 @@ namespace NearbyChat.ViewModels;
 public partial class AdvertisingPageViewModel : BasePageViewModel
 {
     readonly INavigationService _navigationService;
-    readonly INearbyConnections _session;
+    readonly INearby _session;
     readonly INearbyPermissions _permissions;
     readonly RelativeTimeTicker _relativeTimeTicker;
 
@@ -30,7 +30,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     public AdvertisingPageViewModel(
         IDispatcher dispatcher,
         INavigationService navigationService,
-        INearbyConnections session,
+        INearby session,
         IConnectionTracker connectionTracker,
         INearbyPermissions permissions)
         : base(dispatcher)

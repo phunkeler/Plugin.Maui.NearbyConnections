@@ -5,14 +5,14 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 /// <remarks>
 /// Internal: the session projects each request into
-/// <see cref="INearbyConnections.ConnectionRequested"/> and holds the request itself so
-/// <see cref="INearbyConnections.AcceptAsync"/> and <see cref="INearbyConnections.RejectAsync"/> can answer
+/// <see cref="INearby.ConnectionRequested"/> and holds the request itself so
+/// <see cref="INearby.AcceptAsync"/> and <see cref="INearby.RejectAsync"/> can answer
 /// it. Consumers work with the <see cref="NearbyDevice"/>, never with this type.
 /// </remarks>
 sealed class NearbyConnectionRequest
 {
-    readonly Func<CancellationToken, Task<NearbyConnection>> _acceptFactory;
-    readonly Func<CancellationToken, Task> _rejectFactory;
+    readonly Func<CancellationToken, Task<NearbyConnection>> _accept;
+    readonly Func<CancellationToken, Task> _reject;
 
     /// <summary>
     /// Gets the remote device that sent the connection request.
@@ -20,19 +20,19 @@ sealed class NearbyConnectionRequest
     public NearbyDevice RemoteDevice { get; }
 
     /// <summary>
-    /// Initializes a new <see cref="NearbyConnectionRequest"/> for use in test doubles of <see cref="IPlatformNearbyConnections"/>.
+    /// Initializes a new <see cref="NearbyConnectionRequest"/> for use in test doubles of <see cref="IPlatformNearby"/>.
     /// </summary>
     /// <param name="remoteDevice">The device sending the connection request.</param>
-    /// <param name="acceptFactory">A delegate invoked when <see cref="AcceptAsync"/> is called.</param>
-    /// <param name="rejectFactory">A delegate invoked when <see cref="RejectAsync"/> is called.</param>
+    /// <param name="accept">A delegate invoked when <see cref="AcceptAsync"/> is called.</param>
+    /// <param name="reject">A delegate invoked when <see cref="RejectAsync"/> is called.</param>
     public NearbyConnectionRequest(
         NearbyDevice remoteDevice,
-        Func<CancellationToken, Task<NearbyConnection>> acceptFactory,
-        Func<CancellationToken, Task> rejectFactory)
+        Func<CancellationToken, Task<NearbyConnection>> accept,
+        Func<CancellationToken, Task> reject)
     {
         RemoteDevice = remoteDevice;
-        _acceptFactory = acceptFactory;
-        _rejectFactory = rejectFactory;
+        _accept = accept;
+        _reject = reject;
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ sealed class NearbyConnectionRequest
     /// </returns>
     /// <exception cref="OperationCanceledException">Thrown if the operation is canceled.</exception>
     public Task<NearbyConnection> AcceptAsync(CancellationToken cancellationToken = default)
-        => _acceptFactory(cancellationToken);
+        => _accept(cancellationToken);
 
     /// <summary>
     /// Rejects the connection request. The remote device will be notified that the connection
@@ -56,5 +56,5 @@ sealed class NearbyConnectionRequest
     /// <returns>A task that completes when the rejection has been signaled to the platform.</returns>
     /// <exception cref="OperationCanceledException">Thrown if the operation is canceled.</exception>
     public Task RejectAsync(CancellationToken cancellationToken = default)
-        => _rejectFactory(cancellationToken);
+        => _reject(cancellationToken);
 }

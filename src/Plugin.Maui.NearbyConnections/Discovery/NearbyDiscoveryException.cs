@@ -5,11 +5,11 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 /// <remarks>
 /// This exception surfaces from
-/// <see cref="INearbyConnections.StartDiscoveringAsync(CancellationToken)"/>. Common causes are
+/// <see cref="INearby.StartDiscoveryAsync(CancellationToken)"/>. Common causes are
 /// missing permissions, a disabled radio, or an invalid
-/// <see cref="NearbyConnectionsOptions.ServiceId"/>.
+/// <see cref="NearbyOptions.ServiceId"/>.
 /// </remarks>
-public sealed class NearbyDiscoveryException : NearbyConnectionsException
+public sealed class NearbyDiscoveryException : NearbyException
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="NearbyDiscoveryException"/> class.

@@ -8,18 +8,18 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 public class ServiceCollectionExtensionsTests
 {
     [TestClass]
-    public sealed class AddNearbyConnections : ServiceCollectionExtensionsTests
+    public sealed class AddNearby : ServiceCollectionExtensionsTests
     {
         [TestMethod]
         public async Task NoLoggingRegistered_ResolvesWithoutThrowing()
         {
             // Arrange
             var services = new ServiceCollection();
-            services.AddNearbyConnections(options => options.ServiceId = "test-service");
+            services.AddNearby(options => options.ServiceId = "test-service");
 
             // Act
             await using var provider = services.BuildServiceProvider();
-            var session = provider.GetRequiredService<INearbyConnections>();
+            var session = provider.GetRequiredService<INearby>();
 
             // Assert
             Assert.IsNotNull(session);
@@ -31,13 +31,13 @@ public class ServiceCollectionExtensionsTests
             // One radio, one native session — the singleton lifetime is platform-forced, not a
             // preference. Two instances would mean two MCSession/Nearby clients fighting over it.
             var services = new ServiceCollection();
-            services.AddNearbyConnections(options => options.ServiceId = "test-service");
+            services.AddNearby(options => options.ServiceId = "test-service");
 
             await using var provider = services.BuildServiceProvider();
 
             Assert.AreSame(
-                provider.GetRequiredService<INearbyConnections>(),
-                provider.GetRequiredService<INearbyConnections>());
+                provider.GetRequiredService<INearby>(),
+                provider.GetRequiredService<INearby>());
         }
 
         [TestMethod]
@@ -47,7 +47,7 @@ public class ServiceCollectionExtensionsTests
             var services = new ServiceCollection();
 
             // Act
-            services.AddNearbyConnections();
+            services.AddNearby();
 
             // Assert
             Assert.IsFalse(services.Any(d => d.ServiceType == typeof(ILoggerFactory)));
@@ -60,19 +60,19 @@ public class ServiceCollectionExtensionsTests
             // the initializer stops forcing construction, a connection established before the first
             // resolution raises an event with no subscriber and its payloads are silently lost.
             var services = new ServiceCollection();
-            services.AddNearbyConnections(options => options.ServiceId = "test-service");
+            services.AddNearby(options => options.ServiceId = "test-service");
 
             await using var provider = services.BuildServiceProvider();
 
             var initializer = provider.GetServices<IMauiInitializeService>()
-                .Single(s => s.GetType().Name == "NearbyConnectionsInitializer");
+                .Single(s => s.GetType().Name == "NearbySessionInitializer");
 
             initializer.Initialize(provider);
 
             // Same instance the initializer already built, not a second one made on demand.
             Assert.AreSame(
-                provider.GetRequiredService<INearbyConnections>(),
-                provider.GetRequiredService<INearbyConnections>());
+                provider.GetRequiredService<INearby>(),
+                provider.GetRequiredService<INearby>());
         }
 
         [TestMethod]
@@ -82,8 +82,8 @@ public class ServiceCollectionExtensionsTests
             // and — in a consuming app — double every startup subscription hung off it.
             var services = new ServiceCollection();
 
-            services.AddNearbyConnections();
-            services.AddNearbyConnections();
+            services.AddNearby();
+            services.AddNearby();
 
             Assert.HasCount(
                 1,

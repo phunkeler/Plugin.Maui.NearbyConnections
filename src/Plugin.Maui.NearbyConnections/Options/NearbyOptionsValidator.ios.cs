@@ -1,9 +1,9 @@
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbyConnectionsOptionsValidator
+sealed partial class NearbyOptionsValidator
 {
     /// <summary>
-    /// Rejects a <see cref="NearbyConnectionsOptions.ServiceId"/> that Multipeer Connectivity would
+    /// Rejects a <see cref="NearbyOptions.ServiceId"/> that Multipeer Connectivity would
     /// refuse, at application startup, before it can reach the platform.
     /// </summary>
     /// <remarks>
@@ -12,6 +12,6 @@ sealed partial class NearbyConnectionsOptionsValidator
     /// <see cref="ServiceIdRules"/> for why an invalid value must be caught here rather than
     /// handled by the consumer.
     /// </remarks>
-    static partial void PlatformValidate(NearbyConnectionsOptions options, List<string> failures)
+    static partial void PlatformValidate(NearbyOptions options, List<string> failures)
         => ServiceIdRules.Validate(options.ServiceId, failures);
 }

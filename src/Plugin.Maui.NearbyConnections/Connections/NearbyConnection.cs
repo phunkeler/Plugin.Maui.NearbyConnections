@@ -9,8 +9,8 @@ namespace Plugin.Maui.NearbyConnections;
 /// <remarks>
 /// <para>
 /// Obtain a connection by calling
-/// <see cref="INearbyConnections.ConnectAsync(NearbyDevice, CancellationToken)"/> or
-/// <see cref="INearbyConnections.AcceptAsync(NearbyDevice, CancellationToken)"/>, or by reading
+/// <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/> or
+/// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>, or by reading
 /// <see cref="DeviceState.Connected.Connection"/> from a device's
 /// <see cref="NearbyDevice.State"/>. The same instance is returned by all three.
 /// </para>
@@ -18,14 +18,14 @@ namespace Plugin.Maui.NearbyConnections;
 /// Call <see cref="DisposeAsync"/> to disconnect from the remote device. Disposal is idempotent.
 /// </para>
 /// </remarks>
-/// <seealso cref="INearbyConnections"/>
+/// <seealso cref="INearby"/>
 /// <seealso cref="NearbyDevice"/>
 public sealed class NearbyConnection : IAsyncDisposable
 {
     readonly Channel<NearbyPayload> _receiveChannel;
-    readonly Func<byte[], CancellationToken, ValueTask> _sendBytesFactory;
-    readonly Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> _sendFileFactory;
-    readonly Func<ValueTask> _disposeFactory;
+    readonly Func<byte[], CancellationToken, ValueTask> _sendBytes;
+    readonly Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> _sendFile;
+    readonly Func<ValueTask> _dispose;
     readonly TaskCompletionSource _disconnectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     readonly CancellationTokenSource _disconnectedCts = new();
 
@@ -97,32 +97,32 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// The channel that delivers inbound payloads to
     /// <see cref="ReceiveAsync(CancellationToken)"/>.
     /// </param>
-    /// <param name="sendBytesFactory">
+    /// <param name="sendBytes">
     /// A delegate invoked when <see cref="SendAsync(byte[], CancellationToken)"/> is called.
     /// </param>
-    /// <param name="sendFileFactory">
+    /// <param name="sendFile">
     /// A delegate invoked when any of the file-based <c>SendAsync</c> overloads is called.
     /// </param>
-    /// <param name="disposeFactory">
+    /// <param name="dispose">
     /// A delegate invoked when <see cref="DisposeAsync"/> is called.
     /// </param>
     /// <remarks>
     /// This constructor exists so that consumers can construct a connection in unit tests without
     /// a real platform session. Application code obtains connections from an
-    /// <see cref="INearbyConnections"/> instead.
+    /// <see cref="INearby"/> instead.
     /// </remarks>
     public NearbyConnection(
         NearbyDevice remoteDevice,
         Channel<NearbyPayload> receiveChannel,
-        Func<byte[], CancellationToken, ValueTask> sendBytesFactory,
-        Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> sendFileFactory,
-        Func<ValueTask> disposeFactory)
+        Func<byte[], CancellationToken, ValueTask> sendBytes,
+        Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> sendFile,
+        Func<ValueTask> dispose)
     {
         RemoteDevice = remoteDevice;
         _receiveChannel = receiveChannel;
-        _sendBytesFactory = sendBytesFactory;
-        _sendFileFactory = sendFileFactory;
-        _disposeFactory = disposeFactory;
+        _sendBytes = sendBytes;
+        _sendFile = sendFile;
+        _dispose = dispose;
     }
 
     /// <summary>
@@ -150,7 +150,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     public ValueTask SendAsync(byte[] data, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
-        return _sendBytesFactory(data, cancellationToken);
+        return _sendBytes(data, cancellationToken);
     }
 
     /// <summary>
@@ -176,7 +176,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// </exception>
     /// <exception cref="NearbyTransferTimeoutException">
     /// No transfer progress was reported within
-    /// <see cref="NearbyConnectionsOptions.TransferInactivityTimeout"/>.
+    /// <see cref="NearbyOptions.TransferInactivityTimeout"/>.
     /// </exception>
     public Task SendAsync(
         string fileUri,
@@ -184,13 +184,13 @@ public sealed class NearbyConnection : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(fileUri);
-        return _sendFileFactory(fileUri, progress, cancellationToken);
+        return _sendFile(fileUri, progress, cancellationToken);
     }
 
     /// <summary>
     /// Sends the specified file to the remote device.
     /// </summary>
-    /// <param name="fileResult">The file to send.</param>
+    /// <param name="file">The file to send.</param>
     /// <param name="progress">
     /// An optional provider that receives progress updates for the outgoing transfer, or
     /// <see langword="null"/> to ignore progress.
@@ -204,25 +204,25 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// </returns>
     /// <remarks>
     /// This overload accepts the same <see cref="FileResult"/> type that
-    /// <see cref="FilePayload"/> exposes, so a received file can be forwarded without conversion.
+    /// <see cref="NearbyFilePayload"/> exposes, so a received file can be forwarded without conversion.
     /// </remarks>
     /// <exception cref="ArgumentNullException">
-    /// <paramref name="fileResult"/> is <see langword="null"/>.
+    /// <paramref name="file"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was canceled.
     /// </exception>
     /// <exception cref="NearbyTransferTimeoutException">
     /// No transfer progress was reported within
-    /// <see cref="NearbyConnectionsOptions.TransferInactivityTimeout"/>.
+    /// <see cref="NearbyOptions.TransferInactivityTimeout"/>.
     /// </exception>
     public Task SendAsync(
-        FileResult fileResult,
+        FileResult file,
         IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(fileResult);
-        return _sendFileFactory(fileResult.FullPath, progress, cancellationToken);
+        ArgumentNullException.ThrowIfNull(file);
+        return _sendFile(file.FullPath, progress, cancellationToken);
     }
 
     /// <summary>
@@ -230,11 +230,11 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// mechanism for the payload type.
     /// </summary>
     /// <param name="payload">
-    /// The payload to send. Must be a <see cref="BytesPayload"/> or a <see cref="FilePayload"/>.
+    /// The payload to send. Must be a <see cref="NearbyBytesPayload"/> or a <see cref="NearbyFilePayload"/>.
     /// </param>
     /// <param name="progress">
     /// An optional provider that receives progress updates for the outgoing transfer. This
-    /// parameter is used only when <paramref name="payload"/> is a <see cref="FilePayload"/>.
+    /// parameter is used only when <paramref name="payload"/> is a <see cref="NearbyFilePayload"/>.
     /// </param>
     /// <param name="cancellationToken">
     /// A <see cref="CancellationToken"/> to observe while sending.
@@ -252,15 +252,15 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <paramref name="payload"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="payload"/> is not a <see cref="BytesPayload"/> or a
-    /// <see cref="FilePayload"/>.
+    /// <paramref name="payload"/> is not a <see cref="NearbyBytesPayload"/> or a
+    /// <see cref="NearbyFilePayload"/>.
     /// </exception>
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was canceled.
     /// </exception>
     /// <exception cref="NearbyTransferTimeoutException">
-    /// <paramref name="payload"/> is a <see cref="FilePayload"/> and no transfer progress was
-    /// reported within <see cref="NearbyConnectionsOptions.TransferInactivityTimeout"/>.
+    /// <paramref name="payload"/> is a <see cref="NearbyFilePayload"/> and no transfer progress was
+    /// reported within <see cref="NearbyOptions.TransferInactivityTimeout"/>.
     /// </exception>
     public ValueTask SendAsync(
         NearbyPayload payload,
@@ -271,10 +271,10 @@ public sealed class NearbyConnection : IAsyncDisposable
 
         return payload switch
         {
-            BytesPayload bytes => _sendBytesFactory(bytes.Data, cancellationToken),
-            FilePayload file => new ValueTask(_sendFileFactory(file.FileResult.FullPath, progress, cancellationToken)),
+            NearbyBytesPayload bytes => _sendBytes(bytes.Data, cancellationToken),
+            NearbyFilePayload file => new ValueTask(_sendFile(file.FileResult.FullPath, progress, cancellationToken)),
             _ => throw new ArgumentOutOfRangeException(nameof(payload),
-                $"Unsupported payload type '{payload.GetType().Name}'. Only {nameof(BytesPayload)} and {nameof(FilePayload)} are supported.")
+                $"Unsupported payload type '{payload.GetType().Name}'. Only {nameof(NearbyBytesPayload)} and {nameof(NearbyFilePayload)} are supported.")
         };
     }
 
@@ -369,7 +369,7 @@ public sealed class NearbyConnection : IAsyncDisposable
             return;
         }
 
-        await _disposeFactory();
+        await _dispose();
         CompleteReceive();
 
         // _disconnectedCts is deliberately NOT disposed. DisconnectedToken is public and consumers
@@ -404,7 +404,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <remarks>
     /// Used to detect the silent-loss case: payloads arriving on a connection nobody reads are
     /// buffered forever in an unbounded channel and never observed. See
-    /// <c>NearbyConnectionsImplementation.WarnIfPayloadUnobserved</c>.
+    /// <c>PlatformNearby.WritePayload</c>, which logs when a payload arrives unobserved.
     /// </remarks>
     internal bool IsBeingConsumed => Volatile.Read(ref _receiveGuard) != 0;
 
