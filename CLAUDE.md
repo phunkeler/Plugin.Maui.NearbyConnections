@@ -14,9 +14,9 @@ This file is committed and public. Everything in it must be actionable by any co
 cloned the repo and has Claude Code — not by one maintainer on one machine.
 
 Before adding a line here, check it against that: personal workflow preferences, user-scope skills
-and slash commands, in-flight branch notes, and paths under `.claude/` or `.building/` all fail it
-and belong in your own gitignored `.claude/CLAUDE.md` instead. A build command, an architectural
-invariant, or a gotcha that will bite the next contributor passes.
+and slash commands, in-flight branch notes, and paths under `.claude/` all fail it and belong in
+your own gitignored `.claude/CLAUDE.md` instead. A build command, an architectural invariant, or a
+gotcha that will bite the next contributor passes.
 
 CI enforces the mechanical half of this rule; see `.github/workflows/ci.yml`.
 
@@ -46,17 +46,10 @@ step, say so plainly — an unverified claim of success costs more than an hones
 The `PublicAPI.Unshipped.txt` baselines are part of the build. When RS0016 fires, add the listed
 lines; never suppress the analyzer to go green.
 
-## Project hooks
-
-`.claude/hooks/` carries two checks that enforce conventions this repo cares about:
-
-- `stop-build-check.cs` — builds before Claude finishes and feeds errors back on failure.
-- `check-aaa-comments.cs` — enforces the strict Arrange / Act / Assert test convention.
-
-They are opt-in. To enable them, reference them from your own `.claude/settings.json`.
-
 ## Design authority
 
-`DESIGN-PRINCIPLES.md` is authoritative on naming and structure and outranks habit. Read it before
-any naming or layout change. Its `OPEN` items are deliberately unresolved — raise them, do not
-settle them silently.
+The naming and structure contract lives in `.claude/rules/naming.md` and loads automatically when
+you touch `src/Plugin.Maui.NearbyConnections/`. It is binding and outranks habit.
+
+`DESIGN-PRINCIPLES.md` holds the reasoning behind those rules, plus the questions that are
+deliberately still open — raise those, do not settle them silently.

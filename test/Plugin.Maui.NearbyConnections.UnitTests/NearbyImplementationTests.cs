@@ -12,7 +12,7 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// Replaces <c>NearbyAdvertiserTests</c> + <c>NearbyDiscovererTests</c> (2,435 lines of two
 /// near-identical mirrors). Those files asserted the mechanics of the event-union/broadcaster design
 /// that no longer exists; what survives here is the consumer-visible behaviour they guarded, stated
-/// once. See <c>.building/notes/TEST-MINING.md</c> for the per-test classification.
+/// once.
 /// </para>
 /// <para>
 /// The session takes <see cref="IPlatformNearby"/> rather than the concrete implementation
@@ -900,7 +900,7 @@ public class NearbySessionTests
     }
 
     // -------------------------------------------------------------------------
-    // Backgrounding teardown (docs/TESTING-AND-LIFECYCLE-PLAN.md §3.6/§3.7).
+    // Backgrounding teardown (see docs/DECISIONS.md — "Product scope").
     //
     // On iOS, AppLifecycleObserver calls StopAsync when the app enters the
     // background, because MultipeerConnectivity does not survive suspension and

@@ -213,6 +213,8 @@ Plugin.Maui.NearbyConnections.NearbyTransferStatus.Success = 1 -> Plugin.Maui.Ne
 Plugin.Maui.NearbyConnections.NearbyTransferTimeoutException
 Plugin.Maui.NearbyConnections.NearbyTransferTimeoutException.NearbyTransferTimeoutException(string! message, System.Exception! innerException) -> void
 Plugin.Maui.NearbyConnections.NearbyTransferTimeoutException.NearbyTransferTimeoutException(string! message) -> void
+Plugin.Maui.NearbyConnections.Resource
+Plugin.Maui.NearbyConnections.Resource.Resource() -> void
 Plugin.Maui.NearbyConnections.ServiceCollectionExtensions
 static Plugin.Maui.NearbyConnections.DeviceState.Connected.operator !=(Plugin.Maui.NearbyConnections.DeviceState.Connected? left, Plugin.Maui.NearbyConnections.DeviceState.Connected? right) -> bool
 static Plugin.Maui.NearbyConnections.DeviceState.Connected.operator ==(Plugin.Maui.NearbyConnections.DeviceState.Connected? left, Plugin.Maui.NearbyConnections.DeviceState.Connected? right) -> bool

@@ -49,8 +49,44 @@ One public interface, registered as a DI singleton (one radio, one native sessio
   The `net10.0` target throws `PlatformNotSupportedException`, which is why `NearbyImplementation` depends
   on the interface rather than the concrete type — otherwise it is untestable off-device.
 
-State vs. streams: device presence and connection lifecycle are **state** (`Devices` +
-events); payloads are a **stream** (`NearbyConnection.ReceiveAsync`, one consumer per connection).
+### State vs. streams — the split that matters
+
+The division is not between discovery and connection phases but between *state* and *streams*:
+
+| Shape | Used for | Why |
+|---|---|---|
+| Observable state — `Devices` + three C# events | Device presence and connection lifecycle | Presence *is* state, not a sequence of occurrences. A collection can be bound directly and read at any time; an event stream forces every consumer to rebuild the same collection from deltas. `NearbyDevice.Status` changes in place, so a bound row updates rather than moving between collections. |
+| Stream — `NearbyConnection.ReceiveAsync` | Inbound payloads | Payloads are ordered, unbounded, and consumed once. The loop body is the seam where consumer async work goes, and it is awaited before the next payload is taken — a `void`-returning `EventHandler` cannot express that. See `docs/PAYLOAD-DELIVERY.md`. |
+
+All async delivery is backed by `System.Threading.Channels`. Platform callbacks write into an
+unbounded channel; the consumer's `await foreach` reads from it and suspends cheaply when empty.
+That is why the API is a stream and not polling.
+
+Two messaging primitives, chosen deliberately:
+
+| Primitive | Used for | Why |
+|---|---|---|
+| `Channel<NearbyPayload>` (`SingleReader = true`) | Per-connection payload stream | Single-consumer data pipe: each payload is consumed exactly once. Two concurrent `ReceiveAsync` enumerators would race and steal items from each other, and unbounded channels accept writes unconditionally so no back-pressure would expose the bug. Single-consumer is enforced by construction; fan out above the plugin. |
+| `TaskCompletionSource` | Disconnect signal (`NearbyConnection.Disconnected`) | One-time completion event: `Task` natively multicasts to any number of awaiters at zero cost. |
+
+### Subscription lifetime is the consumer's responsibility
+
+The session is a singleton, so an event subscription without a matching `-=` keeps the subscriber
+alive for the life of the app, and re-subscribing (re-navigating to a page) fires handlers N times
+after N visits. Event handlers must also be fast and must not do I/O — they run synchronously on the
+dispatcher. A throwing handler is caught and logged so it cannot take down the callback path, but it
+still starves the handlers after it.
+
+`samples/NearbyChat` shows the required pattern: `BasePageViewModel.RegisterSessionSubscription`
+detaches on navigate-away, and no page ViewModel subscribes directly. Payload loops need no
+equivalent — they self-terminate when the connection drops.
+
+### Lifecycle wiring is the app's responsibility
+
+The plugin does not attach to the host app's lifecycle. Stopping advertising and discovery on
+background is a product decision belonging to the app, not the library — and the platform (Android
+Doze, iOS background limits) terminates the session anyway, with the callbacks flowing back through
+the plugin as disconnection events.
 
 **All device-state mutation goes through `NearbyImplementation.state.cs` and is dispatcher-marshalled.**
 Platform callbacks arrive on background threads; mutating an `ObservableCollection` or raising
@@ -113,8 +149,9 @@ File-scoped namespaces are convention, not enforced.
   ```
 - Public members need XML docs (enforced). **Document platform divergence on the member itself.**
 - Public types stay vendor-neutral: `Peer` is Apple's vocabulary, `Endpoint` is Google's. Internal
-  code may use the platform's own term. **`DESIGN-PRINCIPLES.md` is authoritative on naming and
-  structure** — read it before any naming or layout change; do not resolve its `OPEN` items silently.
+  code may use the platform's own term. The binding contract is `.claude/rules/naming.md` (loads
+  automatically for `src/**`); `DESIGN-PRINCIPLES.md` explains the reasoning and holds the questions
+  that are still open — do not resolve those silently.
 
 ## Tests
 

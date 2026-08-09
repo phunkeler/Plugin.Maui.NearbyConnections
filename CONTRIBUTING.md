@@ -2,43 +2,9 @@
 
 ## Architecture
 
-### One public interface, state and streams
-
-Every session goes through two phases: **discovery/advertising** (learning who is nearby) and **connection** (exchanging data with a specific peer). Both live behind a single public interface, `INearby`.
-
-The split that matters is not between phases but between *state* and *streams*:
-
-| Shape | Used for | Why |
-|---|---|---|
-| Observable state — `Devices` + three C# events | Device presence and connection lifecycle | Presence *is* state, not a sequence of occurrences. A collection can be bound directly and read at any time; an event stream forces every consumer to rebuild the same collection from deltas. `NearbyDevice.Status` changes in place, so a bound row updates rather than moving between collections. |
-| Stream — `NearbyConnection.ReceiveAsync` | Inbound payloads | Payloads are ordered, unbounded, and consumed once. The loop body is the seam where consumer async work goes, and it is awaited before the next payload is taken — a `void`-returning `EventHandler` cannot express that. See `docs/PAYLOAD-DELIVERY.md`. |
-
-Internally `INearby` is implemented by `NearbyImplementation`, which drives the internal `IPlatformNearby` (the raw platform streams) and projects its callbacks into device state. `IPlatformNearby` and its `AdvertiseAsync`/`DiscoverAsync` streams are implementation detail, not public API.
-
-### Stream primitive — `System.Threading.Channels`
-
-All async delivery is backed by `System.Threading.Channels`. Platform callbacks (Bluetooth/WiFi hardware events, arriving bytes) write into an unbounded channel; consumer `await foreach` reads from it. When there is nothing to read the read suspends cheaply until a write occurs. This is why the API is a stream and not polling.
-
-`NearbyConnection` wraps its own per-connection `Channel<NearbyPayload>`, which the consumer enumerates directly.
-
-### Two messaging patterns
-
-| Pattern | Used for | Why |
-|---|---|---|
-| `Channel<NearbyPayload>` (single, `SingleReader = true`) | Per-connection payload stream (`NearbyConnection.ReceiveAsync`) | Single-consumer data pipe: each payload is consumed exactly once. Two concurrent `ReceiveAsync` enumerators on the same connection would race and steal items from each other — unbounded channels accept writes unconditionally so there is no back-pressure to expose the bug. The design enforces single-consumer by construction; fan out above the plugin. |
-| `TaskCompletionSource` | Disconnect signal (`NearbyConnection.Disconnected`) | One-time completion event: `Task` natively multicasts to any number of awaiters at zero cost. |
-
-### Threading — the session owns dispatcher marshalling
-
-Platform callbacks arrive on SDK-owned background threads on both platforms. `NearbyImplementation` funnels **every** `Devices` mutation, `NearbyDevice` property write, and event raise through `DispatchAsync`, so consumers observe all of them on the UI thread and bindings are safe without extra work. Nothing outside `NearbyImplementation.state.cs` may touch device state.
-
-This is why event handlers must be fast and must not do I/O: they run synchronously on the dispatcher. A throwing handler is caught and logged so it cannot take down the callback path, but it still starves the handlers after it.
-
-### Subscription lifetime — the consumer's responsibility
-
-The session is a singleton, so an event subscription without a matching `-=` keeps the subscriber alive for the life of the app, and re-subscribing (e.g. re-navigating to a page) fires handlers N times after N visits. A cancellation-scoped stream used to clean this up by ending its enumeration; C# events have no such affordance, so the discipline moved to the consumer.
-
-`samples/NearbyChat` shows the required pattern: `BasePageViewModel.RegisterSessionSubscription(subscribe, unsubscribe)` detaches on navigate-away, and no page ViewModel subscribes directly. Payload loops need no equivalent — they self-terminate when the connection drops.
+See **`AGENTS.md`** — it is the single home for the architecture story: the one public interface,
+state vs. streams, the Channels primitives, dispatcher marshalling, subscription lifetime, and the
+platform-partial boundary. This file covers only what a contributor does day to day.
 
 ### DI registration
 
@@ -55,19 +21,23 @@ builder.UseNearby(opts =>
 });
 ```
 
-**Testing seam** — `AddNearby()` also exists directly on `IServiceCollection`, and `INearby` is public, because consumers mock or implement the interface to test their own app code against the plugin. The public test-double constructor on `NearbyConnection` (`Connections/NearbyConnection.cs`) exists for exactly this: it lets a fake `INearby` hand real connection objects to the code under test.
+**Testing seam** — `AddNearby()` also exists directly on `IServiceCollection`, and `INearby` is
+public, because consumers mock or implement the interface to test their own app code against the
+plugin. The public test-double constructor on `NearbyConnection` exists for exactly this: it lets a
+fake `INearby` hand real connection objects to the code under test.
 
 ```csharp
 services.AddNearby();
 ```
 
-Registered with `TryAddSingleton` — one radio, one native session, so the lifetime is platform-forced rather than a preference. Nothing auto-starts.
+Registered with `TryAddSingleton` — one radio, one native session, so the lifetime is
+platform-forced rather than a preference. Nothing auto-starts.
 
-### Lifecycle wiring — app responsibility
+### Lifecycle wiring
 
-The plugin does not attach to the host app's lifecycle. Stopping advertising and discovering when the app backgrounds is a product decision that belongs to the app, not the library. The platform (Android Doze, iOS background limits) terminates Nearby Connections / Multipeer sessions anyway, and the platform callbacks flow back through the plugin as disconnection events.
-
-Apps that want to stop proactively — for example, to release Bluetooth/WiFi scan locks before the OS does — can wire lifecycle events themselves:
+The plugin does not attach to the host app's lifecycle; see `AGENTS.md` for why. Apps that want to
+stop proactively — for example to release Bluetooth/WiFi scan locks before the OS does — can wire
+lifecycle events themselves:
 
 ```csharp
 // MauiProgram.cs

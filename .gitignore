@@ -418,7 +418,12 @@ sample/NearbyChat/Scripts/tmp/
 
 **/coveragereport
 
-.claude/
+# Everything under .claude/ is machine-local except the shared agent rules below.
+# Note: git will not descend into an excluded directory, so .claude/ itself must stay
+# un-excluded for the negations to be reachable.
+.claude/*
+!.claude/rules/
+!.claude/rules/**
 
 # Local test settings — never commit real device serials or IPs
 *.local.runsettings

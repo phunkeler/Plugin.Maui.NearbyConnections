@@ -7,11 +7,9 @@ which parts are native on both platforms, native on one, or a plugin extension.
 This is a design reference for contributors. It documents what each platform SDK actually
 guarantees, where they diverge, and which behaviour the plugin supplies itself.
 
-> **Status — partly implemented.** The lifecycle model, `NearbyDeviceStatus`, and the single
-> `Devices` collection shipped as described. Read "Proposed shape" below as history, not as the
-> current API: the verbs live on `INearby` (`session.ConnectAsync(device)`), not on
-> `NearbyDevice`, and there is no `LastEndReason`. Gaps 2 and 3 are closed; gaps 1 and 4 remain
-> open. `INearby` is the source of truth.
+> **`INearby` is the source of truth for the API.** This document explains platform behaviour and
+> the reasoning behind the model; it does not define the surface. Gaps 2 and 3 are closed; gaps 1
+> and 4 remain open — tracked in issue #53.
 
 ---
 
@@ -51,37 +49,21 @@ says `Device`, internal says `Peer`, and the public/internal boundary is the enf
 
 ---
 
-## Why this document exists
+## Why the model is shaped this way
 
-A two-collection model captures only the stable endpoints:
+A model that exposes only *visible* devices and *established* connections captures the two stable
+endpoints and skips the negotiation phase between them — which is where essentially all of the
+difficulty in P2P lives: two-sided handshakes, rejection, timeout, expiry, and a peer vanishing
+mid-negotiation.
 
-```csharp
-IReadOnlyList<NearbyDevice> Devices { get; }        // visible
-IReadOnlyList<NearbyConnection> Connections { get; } // established
-```
+That is why negotiation is first-class here. A single `Devices` collection carries the whole
+lifecycle, and `NearbyDeviceStatus` moves through it in place, so a bound row updates rather than
+migrating between collections. Two collections could disagree with each other; one cannot.
 
-Those are the two *stable endpoints*. They skip the negotiation phase entirely — which is where
-essentially all of the difficulty in P2P lives: two-sided handshakes, rejection, timeout, expiry,
-and a peer vanishing mid-negotiation.
-
-**The sample already proves the gap.** `DiscoveredDeviceViewModel` hand-rolls the missing state:
-
-```csharp
-[ObservableProperty]
-public partial bool IsConnecting { get; private set; }   // ← outbound-pending, reinvented
-
-async Task Connect()
-{
-    IsConnecting = true;
-    try { await discoverer.ConnectAsync(Device); }
-    catch (NearbyException) { IsConnecting = false; }   // ← manual unwind on failure
-}
-```
-
-`AdvertisedDeviceViewModel` + `AdvertisingPageViewModel.AdvertisedDevices` are likewise a hand-rolled
-pending-inbound list, rebuilt from replayed events on every `NavigatedTo`.
-
-The plugin owns both platforms' state machines. The consumer should not have to rebuild them.
+The plugin owns both platforms' state machines, so the consumer does not rebuild them. Before this
+model shipped, the sample hand-rolled the missing states — an `IsConnecting` flag with manual unwind
+on failure, and a pending-inbound list rebuilt from replayed events on every navigation. Both are
+now plugin state, which is the concrete measure of what this model buys.
 
 ---
 
@@ -421,124 +403,6 @@ uniform for free: one timer, one `EndReason.Expired`, identical on both platform
 
 ---
 
-## Proposed shape
-
-State lives on the device; the collection carries the whole lifecycle.
-
-```csharp
-public enum NearbyDeviceStatus
-{
-    Visible,          // discovered, no negotiation in flight
-    RequestReceived,  // inbound invitation awaiting AcceptAsync/RejectAsync
-    Connecting,       // handshake in flight (either direction — see Role). ADVISORY: not
-                      // guaranteed to be observed on iOS; see Verified platform behaviour.
-    Connected,        // established; Connection is non-null
-}
-
-public sealed partial class NearbyDevice : ObservableObject   // INotifyPropertyChanged
-{
-    public string Id { get; }
-    public string? DisplayName { get; }
-
-    public NearbyDeviceStatus Status { get; }                 // observable
-    public NearbyConnectionRole? Role { get; }                // who initiated; null while Visible
-    public NearbyConnection? Connection { get; }              // non-null iff Connected
-    public NearbyConnectionEndReason? LastEndReason { get; }  // best-effort — see gap 1
-
-    public Task<NearbyConnection> ConnectAsync(CancellationToken ct = default);  // Visible only
-    public Task<NearbyConnection> AcceptAsync(CancellationToken ct = default);   // RequestReceived only
-    public Task RejectAsync(CancellationToken ct = default);                     // RequestReceived only
-    public Task DisconnectAsync(CancellationToken ct = default);                 // Connected only
-}
-```
-
-```csharp
-public interface INearby : IAsyncDisposable
-{
-    IReadOnlyList<NearbyDevice> Devices { get; }   // INotifyCollectionChanged — every state
-
-    bool IsAdvertising { get; }
-    bool IsDiscovering { get; }
-
-    Task StartAdvertisingAsync(CancellationToken ct = default);
-    Task StartDiscoveryAsync(CancellationToken ct = default);
-    Task StopAdvertisingAsync(CancellationToken ct = default);
-    Task StopDiscoveryAsync(CancellationToken ct = default);
-    Task StopAsync(CancellationToken ct = default);
-
-    event EventHandler<NearbyPayloadReceivedEventArgs> PayloadReceived;
-    event EventHandler<NearbySessionFaultedEventArgs> SessionFaulted;
-}
-```
-
-> `NearbyDevice`/`Devices` requires no rename of published API. Only the *kind* of type changes —
-> see the breaking change below.
-
-### ⚠ Breaking change inside a type that keeps its name
-
-`NearbyDevice` changes from an **immutable `record`** to an **observable class**:
-
-```csharp
-// today
-public sealed record NearbyDevice(string Id, string? DisplayName)
-{
-    public bool Equals(NearbyDevice? other) => other?.Id == Id;   // Id-based equality
-    public override int GetHashCode() => HashCode.Combine(Id);
-}
-```
-
-This is the easy kind of change to get wrong, because the name and the `Id`/`DisplayName` members
-are unchanged while the semantics shift underneath. Three properties **must** be preserved
-deliberately:
-
-1. **`Id`-based equality and `GetHashCode`.** `PeerRegistry` and `_activeConnections` key on device
-   identity; silently reverting to reference equality would break every lookup. Override both
-   explicitly on the class — a class does not inherit the record's generated equality.
-2. **Identity stability across state transitions.** The *same* instance must move
-   `Visible → Connecting → Connected`, mutating `Status`. Replacing the instance on each transition
-   would break `INotifyPropertyChanged` bindings and defeat the entire model.
-3. **Value-equality consumers.** Any existing `==`, `Contains`, or `Distinct` usage on
-   `NearbyDevice` keeps working *only* because of point 1. Grep for these before landing.
-
-Add a dedicated regression test asserting `Id`-equality survives the record→class conversion.
-
-### Consumer consequences
-
-**One collection, filtered per page** — no manual list maintenance, no replay, no `Synchronized`:
-
-```xml
-<CollectionView ItemsSource="{Binding IncomingRequests}" />
-```
-```csharp
-// Advertising page
-public IEnumerable<NearbyDevice> IncomingRequests =>
-    Session.Devices.Where(d => d.Status is NearbyDeviceStatus.RequestReceived);
-
-// Discovery page
-public IEnumerable<NearbyDevice> Available =>
-    Session.Devices.Where(d => d.Status is NearbyDeviceStatus.Visible or NearbyDeviceStatus.Connecting);
-```
-
-**Pending state survives navigation for free** — it is collection state, not a replayed event.
-
-**Actions move onto the device.** `device.AcceptAsync()` instead of `advertiser.AcceptAsync(request)`.
-Invalid transitions throw `InvalidOperationException` naming the current status.
-
-### Effect on NearbyChat — simplification, not behaviour change
-
-| Sample code | After |
-|---|---|
-| `DiscoveredDeviceViewModel.IsConnecting` + unwinding catches | **Deleted** — `Status == Connecting` |
-| `AdvertisedDeviceViewModel` / `DiscoveredDeviceViewModel` | **Collapse to one** — same type, different filter |
-| `AdvertisingPageViewModel.AdvertisedDevices` (manual list) | **Deleted** — filtered view |
-| `NavigatedTo` rebuild-from-replay | **Deleted** — collection is already correct |
-| Toggles, transfer, chat, `AutomationId`s | **Unchanged** |
-
-No user-visible behaviour changes. Every capability the sample demonstrates today is preserved;
-what disappears is the plumbing the sample wrote to compensate for the plugin's missing model.
-
----
-
 ## Open questions
 
 1. ~~`Peers`/`NearbyPeer` vs `Devices`/`NearbyDevice`~~ — **Settled:** `NearbyDevice`/`Devices`.
@@ -560,5 +424,5 @@ what disappears is the plumbing the sample wrote to compensate for the plugin's 
      `serviceType`; keep the name, keep documenting the platform difference.
    - **`InvitationTimeout` → still open.** "Invitation" is MPC vocabulary, and the option is now
      cross-platform, which makes the leak more visible rather than less. `ConnectionRequestTimeout`
-     reads neutrally on both. Deliberately *not* renamed alongside the type work: it belongs with
-     BACKLOG #2 (terminology) so the whole vocabulary is settled in one pass rather than piecemeal.
+     reads neutrally on both. Deliberately *not* renamed alongside the type work, so the whole
+     public vocabulary is settled in one pass rather than piecemeal — see `docs/DECISIONS.md`.
