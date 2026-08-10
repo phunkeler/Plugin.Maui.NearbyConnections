@@ -1,37 +1,25 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Specifies why a connection to a <see cref="NearbyDevice"/> ended, or why a handshake ended
-/// before one was established.
+/// Specifies why a handshake ended before a connection was established.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>This is currently reported in logs only.</b> A handshake that fails surfaces its reason to
-/// the caller as the exception <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/>
-/// or <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> throws; a drop after a
+/// <b>Internal: this reaches logs only.</b> A handshake that fails surfaces its reason to the caller
+/// as the exception <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/> or
+/// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> throws; a drop after a
 /// connection was established surfaces as the device returning to
-/// <see cref="NearbyDeviceStatus.Visible"/>, which does not carry a reason. Attaching the reason to
-/// that transition is not yet designed — see <c>docs/THREADING.md</c>.
+/// <see cref="NearbyDeviceStatus.Visible"/>, which does not carry a reason.
 /// </para>
-/// The plugin never guesses. A reason other than <see cref="Unknown"/> is reported only when the
-/// platform stated it, or when the plugin itself caused the ending. Platforms differ in how much
-/// they attribute, so <see cref="Unknown"/> is a legitimate outcome rather than an error.
+/// <para>
+/// It was public through 0.3.0-preview and no consumer could observe a value, because nothing
+/// returns one. If a future design attaches a reason to the transition — a nullable reason on
+/// <see cref="NearbyDeviceChange"/>, say — this becomes public again, with only the cases that
+/// design actually produces.
+/// </para>
 /// </remarks>
-public enum EndReason
+enum EndReason
 {
-    /// <summary>
-    /// The connection ended for a reason the platform did not report. This is the default, and on
-    /// iOS it is the usual outcome for a handshake that fails without the local device having
-    /// caused it: MultipeerConnectivity reports a state change without a cause.
-    /// </summary>
-    Unknown = 0,
-
-    /// <summary>
-    /// An established connection was lost, from either side. This covers both a deliberate
-    /// disconnect and a peer going out of range.
-    /// </summary>
-    Disconnected,
-
     /// <summary>
     /// The local device rejected an inbound connection request, through
     /// <see cref="INearby.RejectAsync(NearbyDevice, CancellationToken)"/>.

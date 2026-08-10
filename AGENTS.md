@@ -122,13 +122,15 @@ src/Plugin.Maui.NearbyConnections/
 ├── ServiceCollectionExtensions.cs
 ├── Connections/   NearbyConnection, request, role, ControlMessage, connect timeout
 ├── Devices/       NearbyDevice (immutable record), INearbyDevices + NearbyDeviceRegistry,
-│                  NearbyDeviceChange(+Action), NearbyDeviceCollection, status, EndReason
+│                  NearbyDeviceChange(+Action), NearbyDeviceCollection, status,
+│                  EndReason (internal — log-only)
 ├── Discovery/     availability + advertising/discovery failures
 ├── Payload/       NearbyPayload + NearbyBytesPayload/NearbyFilePayload — the data
 ├── Transfer/      progress, transfer timeout, outgoing transfer — the act of moving it
-├── Options/       NearbyOptions + platform scopes + validators + the enums they use
-├── Native/        IPlatformNearby, PlatformNearby.*, iOS peer identity,
-│                  AppLifecycleObserver.ios
+├── Options/       NearbyOptions + platform scopes + validator (iOS-only rules) + the enums
+├── Native/        IPlatformNearby, PlatformNearby.*, PeerRegistry{,.ios} — this layer's own
+│                  peer bookkeeping, NOT the session's device set (the .ios half adds the
+│                  MCPeerID handle), iOS peer identity, AppLifecycleObserver.ios
 └── Platforms/     MAUI SDK convention folder (Android permissions) — NOT the same as Native/
 ```
 

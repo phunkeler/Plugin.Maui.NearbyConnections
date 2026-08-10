@@ -20,15 +20,20 @@ sealed partial class PlatformNearby : IPlatformNearby
     readonly ConcurrentDictionary<string, byte> _unobservedWarned = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// Tracks discovered/connected remote devices on Android, where the endpoint ID is already
-    /// its own native handle so this registry uses <see cref="string"/> as the handle type.
-    /// iOS uses a separate <c>RemotePeers</c> registry (see this file's <c>#if IOS</c> members)
-    /// keyed by <c>MCPeerID</c> instead.
+    /// This layer's own record of the remote peers it has seen — <b>not</b> the session's device
+    /// set. Callbacks record a peer here so a later native callback can recover the
+    /// <see cref="NearbyDevice"/> already minted for it; what a consumer observes is
+    /// <c>INearby.Devices</c>, which the session maintains separately in
+    /// <see cref="NearbyDeviceRegistry"/>.
     /// </summary>
-    internal PeerRegistry<string> Devices { get; } = new();
+    /// <remarks>
+    /// Constructed by the registration code on iOS, where the registry also holds each device's
+    /// native <c>MCPeerID</c> and needs a <c>PeerKeyProvider</c> to derive its keys. Android's
+    /// endpoint id is already the handle, so there it needs nothing and is created here.
+    /// </remarks>
+    internal PeerRegistry Peers { get; }
 
 #if IOS
-    internal PeerRegistry<MCPeerID> RemotePeers { get; init; }
     internal PeerKeyProvider PeerKeyProvider { get; init; }
     internal LocalPeerIdentityStore LocalPeerIdentityStore { get; init; }
 #endif
@@ -41,14 +46,14 @@ sealed partial class PlatformNearby : IPlatformNearby
 
     internal TimeProvider TimeProvider { get; }
 
-    public NearbyOptions Options { get; }
+    readonly NearbyOptions _options;
 
     internal PlatformNearby(
         TimeProvider timeProvider,
         NearbyOptions options,
         ILogger logger
 #if IOS
-        , PeerRegistry<MCPeerID> remotePeers
+        , PeerRegistry peers
         , PeerKeyProvider peerKeyProvider
         , LocalPeerIdentityStore localPeerIdentityStore
 #endif
@@ -59,12 +64,16 @@ sealed partial class PlatformNearby : IPlatformNearby
         ArgumentNullException.ThrowIfNull(logger);
 
         TimeProvider = timeProvider;
-        Options = options;
+        _options = options;
         _logger = logger;
 #if IOS
-        RemotePeers = remotePeers;
+        ArgumentNullException.ThrowIfNull(peers);
+
+        Peers = peers;
         PeerKeyProvider = peerKeyProvider;
         LocalPeerIdentityStore = localPeerIdentityStore;
+#else
+        Peers = new PeerRegistry();
 #endif
 
         _advertiseChannel = NewChannel<NearbyConnectionRequest>();
@@ -74,7 +83,7 @@ sealed partial class PlatformNearby : IPlatformNearby
     }
 
     /// <summary>
-    /// Creates an unbounded channel configured from <see cref="Options"/>. Every channel in the
+    /// Creates an unbounded channel configured from <see cref="NearbyOptions"/>. Every channel in the
     /// implementation — the advertise and discover streams, and each connection's receive stream —
     /// shares these settings, so they are defined once here.
     /// </summary>
@@ -88,7 +97,7 @@ sealed partial class PlatformNearby : IPlatformNearby
         {
             SingleReader = singleReader,
             SingleWriter = false,
-            AllowSynchronousContinuations = Options.AllowSynchronousContinuations,
+            AllowSynchronousContinuations = _options.AllowSynchronousContinuations,
         });
 
     /// <inheritdoc/>
@@ -156,13 +165,13 @@ sealed partial class PlatformNearby : IPlatformNearby
         // request is *sent*, and nothing guarantees a callback ever follows. Without this, a peer
         // that walks out of range mid-handshake leaves ConnectAsync awaiting forever and strands
         // its _connectionTcs entry. Applied on both platforms so the observable behaviour matches.
-        var hasTimeout = Options.InvitationTimeout != Timeout.InfiniteTimeSpan;
+        var hasTimeout = _options.InvitationTimeout != Timeout.InfiniteTimeSpan;
 
         // Timed through the injected TimeProvider so this is testable with FakeTimeProvider rather
         // than requiring a real 30-second wait — the same pattern as OutgoingTransfer.
         // Timeout.InfiniteTimeSpan is a valid never-firing delay, so the infinite case needs no
         // separate construction.
-        using var deadlineCts = new CancellationTokenSource(Options.InvitationTimeout, TimeProvider);
+        using var deadlineCts = new CancellationTokenSource(_options.InvitationTimeout, TimeProvider);
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken, deadlineCts.Token);
@@ -179,7 +188,7 @@ sealed partial class PlatformNearby : IPlatformNearby
             await PlatformAbandonConnectAsync(device);
 
             throw new NearbyConnectionTimeoutException(
-                $"The connection request to '{device.DisplayName ?? device.Id}' was not answered within {Options.InvitationTimeout.TotalSeconds:0.#}s.");
+                $"The connection request to '{device.DisplayName ?? device.Id}' was not answered within {_options.InvitationTimeout.TotalSeconds:0.#}s.");
         }
         catch
         {
@@ -200,10 +209,10 @@ sealed partial class PlatformNearby : IPlatformNearby
     /// </summary>
     NearbyTransferTimeoutException TransferInactivityTimeoutException(string deviceId)
     {
-        LogSendFileTimeout(deviceId, null, Options.TransferInactivityTimeout.TotalSeconds);
+        LogSendFileTimeout(deviceId, null, _options.TransferInactivityTimeout.TotalSeconds);
 
         return new NearbyTransferTimeoutException(
-            $"Transfer stalled: no progress received for {Options.TransferInactivityTimeout}.");
+            $"Transfer stalled: no progress received for {_options.TransferInactivityTimeout}.");
     }
 
     /// <inheritdoc/>
@@ -251,6 +260,6 @@ sealed partial class PlatformNearby : IPlatformNearby
         }
 
         PlatformDispose();
-        Devices.Clear();
+        Peers.Clear();
     }
 }

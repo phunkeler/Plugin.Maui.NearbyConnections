@@ -3,11 +3,11 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 [TestCategory("Connections")]
 public class PeerRegistryTests
 {
-    readonly PeerRegistry<string> _sut;
+    readonly PeerRegistry _sut;
 
     public PeerRegistryTests()
     {
-        _sut = new PeerRegistry<string>();
+        _sut = new PeerRegistry();
     }
 
     [TestClass]
@@ -18,11 +18,10 @@ public class PeerRegistryTests
         {
             // Arrange
             var key = "peer-1";
-            var handle = "native-handle-1";
             var displayName = "Alice";
 
             // Act
-            var device = _sut.Record(key, handle, displayName);
+            var device = _sut.Record(key, displayName);
 
             // Assert
             Assert.AreEqual(key, device.Id);
@@ -34,49 +33,29 @@ public class PeerRegistryTests
         {
             // Arrange
             var key = "peer-1";
-            var handle = "native-handle-1";
             var displayName = "Alice";
-            var first = _sut.Record(key, handle, displayName);
+            var first = _sut.Record(key, displayName);
 
             // Act
-            var second = _sut.Record(key, handle, displayName);
+            var second = _sut.Record(key, displayName);
 
             // Assert
             Assert.AreSame(first, second);
         }
-    }
 
-    [TestClass]
-    public sealed class TryGetHandle : PeerRegistryTests
-    {
         [TestMethod]
-        public void KnownKey_ReturnsTrueAndHandle()
+        public void ExistingPeer_DoesNotAdoptNewDisplayName()
         {
-            // Arrange
+            // Arrange — a rediscovery re-records the same endpoint; the incumbent must survive.
             var key = "peer-1";
-            var handle = "native-handle-1";
-            _sut.Record(key, handle, "Alice");
+            var original = _sut.Record(key, "Alice");
 
             // Act
-            var found = _sut.TryGetHandle(key, out var resolvedHandle);
+            var rediscovered = _sut.Record(key, "Alice (renamed)");
 
             // Assert
-            Assert.IsTrue(found);
-            Assert.AreEqual(handle, resolvedHandle);
-        }
-
-        [TestMethod]
-        public void UnknownKey_ReturnsFalseAndNullOut()
-        {
-            // Arrange
-            var key = "peer-unknown";
-
-            // Act
-            var found = _sut.TryGetHandle(key, out var resolvedHandle);
-
-            // Assert
-            Assert.IsFalse(found);
-            Assert.IsNull(resolvedHandle);
+            Assert.AreSame(original, rediscovered);
+            Assert.AreEqual("Alice", rediscovered.DisplayName);
         }
     }
 
@@ -88,7 +67,7 @@ public class PeerRegistryTests
         {
             // Arrange
             var key = "peer-1";
-            _sut.Record(key, "native-handle-1", "Alice");
+            _sut.Record(key, "Alice");
 
             // Act
             var found = _sut.TryGetDevice(key, out var device);
@@ -122,7 +101,7 @@ public class PeerRegistryTests
         {
             // Arrange
             var key = "peer-1";
-            _sut.Record(key, "native-handle-1", "Alice");
+            _sut.Record(key, "Alice");
 
             // Act
             var removed = _sut.Remove(key);
@@ -137,14 +116,13 @@ public class PeerRegistryTests
         {
             // Arrange
             var key = "peer-1";
-            _sut.Record(key, "native-handle-1", "Alice");
+            _sut.Record(key, "Alice");
 
             // Act
             _sut.Remove(key);
 
             // Assert
             Assert.IsFalse(_sut.TryGetDevice(key, out _));
-            Assert.IsFalse(_sut.TryGetHandle(key, out _));
         }
 
         [TestMethod]
@@ -168,8 +146,8 @@ public class PeerRegistryTests
         public void RemovesAllTrackedPeers()
         {
             // Arrange
-            _sut.Record("peer-1", "native-handle-1", "Alice");
-            _sut.Record("peer-2", "native-handle-2", "Bob");
+            _sut.Record("peer-1", "Alice");
+            _sut.Record("peer-2", "Bob");
 
             // Act
             _sut.Clear();

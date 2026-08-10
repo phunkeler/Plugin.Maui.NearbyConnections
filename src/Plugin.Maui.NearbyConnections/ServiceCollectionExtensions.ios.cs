@@ -10,9 +10,9 @@ public static partial class ServiceCollectionExtensions
         NearbyOptions options,
         ILogger logger)
     {
-        var remotePeers = new PeerRegistry<MCPeerID>();
         var peerKeyProvider = new PeerKeyProvider(
             services.GetService<ILogger<PeerKeyProvider>>() ?? NullLogger<PeerKeyProvider>.Instance);
+        var peers = new PeerRegistry { PeerKeyProvider = peerKeyProvider, Logger = logger };
         var localPeerIdentityStore = new LocalPeerIdentityStore(
             services.GetService<ILogger<LocalPeerIdentityStore>>() ?? NullLogger<LocalPeerIdentityStore>.Instance);
 
@@ -20,7 +20,7 @@ public static partial class ServiceCollectionExtensions
             timeProvider,
             options,
             logger,
-            remotePeers,
+            peers,
             peerKeyProvider,
             localPeerIdentityStore);
     }

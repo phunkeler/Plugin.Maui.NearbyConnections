@@ -258,7 +258,7 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     void Apply(NearbyDeviceChange change)
     {
         var device = change.Device;
-        var index = IndexOf(device.Id);
+        var index = IndexOf(device);
 
         switch (change.Action)
         {
@@ -352,16 +352,7 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// Finds a device's position by id. Linear because the collection is a visible device list —
     /// tens of entries, not thousands.
     /// </summary>
-    int IndexOf(string id)
-    {
-        for (var i = 0; i < _devices.Count; i++)
-        {
-            if (string.Equals(_devices[i].Id, id, StringComparison.Ordinal))
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
+    // NearbyDevice equality is Id-only (see its Equals override), so the collection's own IndexOf
+    // already matches on identity regardless of how the device's status has since changed.
+    int IndexOf(NearbyDevice device) => _devices.IndexOf(device);
 }

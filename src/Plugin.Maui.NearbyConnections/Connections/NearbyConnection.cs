@@ -226,59 +226,6 @@ public sealed class NearbyConnection : IAsyncDisposable
     }
 
     /// <summary>
-    /// Sends the specified payload to the remote device, selecting the appropriate transfer
-    /// mechanism for the payload type.
-    /// </summary>
-    /// <param name="payload">
-    /// The payload to send. Must be a <see cref="NearbyBytesPayload"/> or a <see cref="NearbyFilePayload"/>.
-    /// </param>
-    /// <param name="progress">
-    /// An optional provider that receives progress updates for the outgoing transfer. This
-    /// parameter is used only when <paramref name="payload"/> is a <see cref="NearbyFilePayload"/>.
-    /// </param>
-    /// <param name="cancellationToken">
-    /// A <see cref="CancellationToken"/> to observe while sending.
-    /// </param>
-    /// <returns>
-    /// A <see cref="ValueTask"/> that represents the asynchronous operation. The task completes
-    /// when the payload has been handed off to the platform.
-    /// </returns>
-    /// <remarks>
-    /// This overload accepts the same payload types that
-    /// <see cref="ReceiveAsync(CancellationToken)"/> produces, so a received payload can be
-    /// forwarded without conversion.
-    /// </remarks>
-    /// <exception cref="ArgumentNullException">
-    /// <paramref name="payload"/> is <see langword="null"/>.
-    /// </exception>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="payload"/> is not a <see cref="NearbyBytesPayload"/> or a
-    /// <see cref="NearbyFilePayload"/>.
-    /// </exception>
-    /// <exception cref="OperationCanceledException">
-    /// <paramref name="cancellationToken"/> was canceled.
-    /// </exception>
-    /// <exception cref="NearbyTransferTimeoutException">
-    /// <paramref name="payload"/> is a <see cref="NearbyFilePayload"/> and no transfer progress was
-    /// reported within <see cref="NearbyOptions.TransferInactivityTimeout"/>.
-    /// </exception>
-    public ValueTask SendAsync(
-        NearbyPayload payload,
-        IProgress<NearbyTransferProgress>? progress = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(payload);
-
-        return payload switch
-        {
-            NearbyBytesPayload bytes => _sendBytes(bytes.Data, cancellationToken),
-            NearbyFilePayload file => new ValueTask(_sendFile(file.FileResult.FullPath, progress, cancellationToken)),
-            _ => throw new ArgumentOutOfRangeException(nameof(payload),
-                $"Unsupported payload type '{payload.GetType().Name}'. Only {nameof(NearbyBytesPayload)} and {nameof(NearbyFilePayload)} are supported.")
-        };
-    }
-
-    /// <summary>
     /// Gets or sets the provider that receives progress updates for inbound file transfers.
     /// </summary>
     /// <value>

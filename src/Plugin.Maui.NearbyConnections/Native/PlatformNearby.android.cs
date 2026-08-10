@@ -22,17 +22,17 @@ sealed partial class PlatformNearby
         try
         {
             await _advertiseClient.StartAdvertisingAsync(
-                Options.DisplayName,
-                Options.ServiceId,
+                _options.DisplayName,
+                _options.ServiceId,
                 new AdvertiseCallback(
                     OnConnectionInitiatedAsync,
                     OnConnectionResult,
                     OnDisconnected,
                     LogOnConnectionInitiatedError),
                 new AdvertisingOptions.Builder()
-                    .SetStrategy(Options.ToPlatformStrategy())
-                    .SetLowPower(Options.Android.UseLowPower)
-                    .SetConnectionType(Options.ToPlatformConnectionType())
+                    .SetStrategy(_options.ToPlatformStrategy())
+                    .SetLowPower(_options.Android.UseLowPower)
+                    .SetConnectionType(_options.ToPlatformConnectionType())
                     .Build());
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
@@ -62,7 +62,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var device = Devices.Record(endpointId, endpointId, connectionInfo.EndpointName);
+            var device = Peers.Record(endpointId, connectionInfo.EndpointName);
 
             if (connectionInfo.IsIncomingConnection)
             {
@@ -128,7 +128,7 @@ sealed partial class PlatformNearby
 
             if (resolution.Status.IsSuccess)
             {
-                if (!Devices.TryGetDevice(endpointId, out var device))
+                if (!Peers.TryGetDevice(endpointId, out var device))
                 {
                     FaultConnectionTcs(endpointId, new NearbyException($"Device not found in manager for endpoint '{endpointId}' after successful connection."));
                     return;
@@ -151,7 +151,7 @@ sealed partial class PlatformNearby
             }
             else
             {
-                Devices.Remove(endpointId);
+                Peers.Remove(endpointId);
                 FaultConnectionTcs(endpointId, new NearbyException(
                     $"Connection to endpoint '{endpointId}' failed: {resolution.Status.StatusMessage} (code {resolution.Status.StatusCode})."));
             }
@@ -179,7 +179,7 @@ sealed partial class PlatformNearby
 
             _unobservedWarned.TryRemove(endpointId, out _);
 
-            Devices.Remove(endpointId);
+            Peers.Remove(endpointId);
         }
         catch (Exception ex)
         {
@@ -199,11 +199,11 @@ sealed partial class PlatformNearby
         try
         {
             await _discoverClient.StartDiscoveryAsync(
-                Options.ServiceId,
+                _options.ServiceId,
                 new DiscoveryCallback(OnEndpointFound, OnEndpointLost),
                 new DiscoveryOptions.Builder()
-                    .SetStrategy(Options.ToPlatformStrategy())
-                    .SetLowPower(Options.Android.UseLowPower)
+                    .SetStrategy(_options.ToPlatformStrategy())
+                    .SetLowPower(_options.Android.UseLowPower)
                     .Build());
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
@@ -228,7 +228,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var device = Devices.Record(endpointId, endpointId, info.EndpointName);
+            var device = Peers.Record(endpointId, info.EndpointName);
 
             LogDeviceFound(device.Id, device.DisplayName);
 
@@ -246,14 +246,14 @@ sealed partial class PlatformNearby
         {
             if (_activeConnections.ContainsKey(endpointId))
             {
-                if (Devices.TryGetDevice(endpointId, out var existingDevice))
+                if (Peers.TryGetDevice(endpointId, out var existingDevice))
                 {
                     LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
                 }
                 return;
             }
 
-            var device = Devices.Remove(endpointId);
+            var device = Peers.Remove(endpointId);
 
             LogDeviceLost(endpointId, device?.DisplayName);
 
@@ -332,7 +332,7 @@ sealed partial class PlatformNearby
         }
 
         NearbyPayload? nearbyPayload = entry.Payload.PayloadType == Payload.Type.File
-            ? await CopyFilePayloadAsync(entry.Payload, Options.ReceivedFilesDirectory, CancellationToken.None)
+            ? await CopyFilePayloadAsync(entry.Payload, _options.ReceivedFilesDirectory, CancellationToken.None)
             : entry.Payload.AsBytes() is { } bytes
                 ? new NearbyBytesPayload(bytes)
                 : null;
@@ -415,7 +415,7 @@ sealed partial class PlatformNearby
             await NearbyClass
                 .GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
                 .RequestConnectionAsync(
-                    Options.DisplayName,
+                    _options.DisplayName,
                     device.Id,
                     new AdvertiseCallback(
                         OnConnectionInitiatedAsync,
@@ -501,7 +501,7 @@ sealed partial class PlatformNearby
 
     void PlatformDisconnectEndpointAsync(string endpointId)
     {
-        LogDisconnecting(endpointId, Devices.TryGetDevice(endpointId, out var d) ? d.DisplayName : null);
+        LogDisconnecting(endpointId, Peers.TryGetDevice(endpointId, out var d) ? d.DisplayName : null);
 
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
         client.DisconnectFromEndpoint(endpointId);
@@ -513,7 +513,7 @@ sealed partial class PlatformNearby
 
         _unobservedWarned.TryRemove(endpointId, out _);
 
-        Devices.Remove(endpointId);
+        Peers.Remove(endpointId);
     }
 
     async Task PlatformSendBytesAsync(
@@ -559,7 +559,7 @@ sealed partial class PlatformNearby
 
         var filePayload = BuildFilePayload(androidUri) ?? throw new InvalidOperationException($"Cannot send file: failed to open the file descriptor for the given URI.");
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
-        var transfer = new OutgoingTransfer(progress, Options.TransferInactivityTimeout, TimeProvider);
+        var transfer = new OutgoingTransfer(progress, _options.TransferInactivityTimeout, TimeProvider);
 
         _outgoingTransfers.TryAdd(filePayload.Id, transfer);
 
