@@ -490,6 +490,7 @@ sealed partial class PlatformNearby
                             }
 
                             _unobservedWarned.TryRemove(id, out _);
+                            RemoveProgressObserversFor(id);
                         });
 
                     ResolveConnectionTcs(id, connection);
@@ -505,6 +506,10 @@ sealed partial class PlatformNearby
 
                     _unobservedWarned.TryRemove(id, out _);
 
+                    // An inbound transfer in flight when the peer dropped gets no
+                    // DidFinishReceivingResource, so its KVO observer is only released here.
+                    RemoveProgressObserversFor(id);
+
                     // A pending _connectionTcs entry means this peer never reached Connected -
                     // the handshake itself failed or was rejected by the native layer. Without
                     // this, both AcceptAsync (advertiser) and ConnectAsync (discoverer) hang
@@ -516,21 +521,38 @@ sealed partial class PlatformNearby
                     // MPC fires NotConnected for the departing peer before removing it from
                     // ConnectedPeers, so check whether this peer was the only remaining one
                     // while it is still present in the session's list.
+                    // The session is torn down once nothing is using it any more — whether this
+                    // peer was the last connected one, or the handshake failed before anyone
+                    // connected at all. Both cases must be covered:
+                    //
+                    // - Peers still in ConnectedPeers: keep the session. MPC fires NotConnected for
+                    //   the departing peer *before* removing it from ConnectedPeers, so "every
+                    //   remaining entry is this peer" is what identifies the last one. An earlier
+                    //   fix guarded this with Length > 0, because Enumerable.All is true for an
+                    //   empty sequence and a failed handshake would otherwise dispose the session
+                    //   out from under live peers.
+                    // - Nobody connected and nothing pending: tear down. This is the case that
+                    //   Length > 0 excluded, and it leaked the MCSession and its SessionDelegate.
+                    //   Worse than the leak, _session stayed non-null, so every `_session ??=` site
+                    //   reused a session belonging to a dead handshake.
+                    //
+                    // _connectionTcs is what separates the second case from a handshake still in
+                    // flight: FaultConnectionTcs above has already removed this peer's own entry, so
+                    // a remaining entry means another peer is mid-handshake and still needs the
+                    // session it was handed.
                     MCSession? sessionToDisposePeer;
                     lock (_sessionLock)
                     {
-                        // Length > 0 guard: Enumerable.All returns true for an empty sequence, so
-                        // without it a NotConnected for a peer that never reached Connected (a
-                        // failed or rejected handshake — the very path that reaches this code via
-                        // the FaultConnectionTcs call above) disposed the session out from under
-                        // other still-connected peers. The comment below holds only for peers that
-                        // were actually in ConnectedPeers to begin with.
                         var connectedPeers = _session?.ConnectedPeers ?? [];
-                        var isLastPeer = _session is not null
-                            && connectedPeers.Length > 0
+                        var isLastPeer = connectedPeers.Length > 0
                             && connectedPeers.All(p => PeerKeyProvider.PeerKey(p) == id);
-                        sessionToDisposePeer = isLastPeer ? _session : null;
-                        if (isLastPeer)
+                        var isUnused = connectedPeers.Length == 0 && _connectionTcs.IsEmpty;
+
+                        sessionToDisposePeer = _session is not null && (isLastPeer || isUnused)
+                            ? _session
+                            : null;
+
+                        if (sessionToDisposePeer is not null)
                         {
                             _session = null;
                         }
@@ -632,6 +654,34 @@ sealed partial class PlatformNearby
     }
 
     static string ObserverKey(string peerId, string resourceName) => $"{peerId}{resourceName}";
+
+    /// <summary>
+    /// Disposes every inbound-progress observer still registered for a peer.
+    /// </summary>
+    /// <remarks>
+    /// <c>OnResourceFinished</c> is the normal removal path, but it is not guaranteed to arrive: a
+    /// peer that drops mid-transfer goes to <c>NotConnected</c> with no finish callback, which left
+    /// a KVO registration live on the native <c>NSProgress</c> until the whole session was disposed.
+    /// Matching on the key prefix is safe because <see cref="ObserverKey"/> separates the two halves
+    /// with a character that cannot occur in a peer key.
+    /// </remarks>
+    void RemoveProgressObserversFor(string peerId)
+    {
+        var prefix = ObserverKey(peerId, string.Empty);
+
+        foreach (var (key, _) in _progressObservers)
+        {
+            if (!key.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (_progressObservers.TryRemove(key, out var staleObserver))
+            {
+                staleObserver.Dispose();
+            }
+        }
+    }
 
     void OnResourceFinished(
         string resourceName,

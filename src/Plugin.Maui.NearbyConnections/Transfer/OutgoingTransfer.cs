@@ -11,8 +11,10 @@ sealed class OutgoingTransfer(
     TimeProvider timeProvider) : IDisposable
 {
     readonly TaskCompletionSource _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    readonly Lock _gate = new();
 
     CancellationTokenSource _inactivityCts = new(inactivityTimeout, timeProvider);
+    bool _disposed;
 
     /// <summary>
     /// Awaitable task that completes when the transfer reaches a terminal state.
@@ -27,10 +29,26 @@ sealed class OutgoingTransfer(
     public CancellationToken InactivityToken => _inactivityCts.Token;
 
     /// <summary>Called by platform code to report a progress update or terminal status.</summary>
+    /// <remarks>
+    /// A no-op once disposed. Platform callbacks arrive on their own thread and can land after the
+    /// <c>finally</c> in <c>PlatformSendFileAsync</c> has already disposed this transfer; without the
+    /// guard, the swap below installed a fresh <see cref="CancellationTokenSource"/> — with a live
+    /// timer — that nothing would ever dispose, and reported progress for a transfer whose caller had
+    /// already been handed a timeout exception.
+    /// </remarks>
     public void OnUpdate(NearbyTransferProgress transferProgress)
     {
-        var old = Interlocked.Exchange(ref _inactivityCts, new CancellationTokenSource(inactivityTimeout, timeProvider));
-        old.Dispose();
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            var old = _inactivityCts;
+            _inactivityCts = new CancellationTokenSource(inactivityTimeout, timeProvider);
+            old.Dispose();
+        }
 
         progress?.Report(transferProgress);
 
@@ -51,7 +69,12 @@ sealed class OutgoingTransfer(
 
     public void Dispose()
     {
-        _inactivityCts.Dispose();
+        lock (_gate)
+        {
+            _disposed = true;
+            _inactivityCts.Dispose();
+        }
+
         GC.SuppressFinalize(this);
     }
 }
