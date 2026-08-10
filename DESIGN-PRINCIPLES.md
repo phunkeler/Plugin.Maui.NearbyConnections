@@ -99,8 +99,9 @@ names in their own code.
 The payload pair proves the point: `BytesPayload` and `FilePayload` are exactly the names an app
 that models its own payloads would define itself. They are now `Nearby`-prefixed.
 
-The exemptions are principled, not lazy: `DeviceState`, `ConnectionRole`, and `EndReason` are
-compound domain nouns with no plausible MAUI collision.
+The exemptions are principled, not lazy: `ConnectionRole` and `EndReason` are compound domain nouns
+with no plausible MAUI collision. (`DeviceState` was a third; it was deleted when the connection
+moved off the device — see `docs/THREADING.md`.)
 
 ## Why payload and transfer are separate concepts
 

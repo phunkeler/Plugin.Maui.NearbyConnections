@@ -135,6 +135,42 @@ public sealed partial class NearbyOptions
     public TimeSpan TransferInactivityTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
+    /// Gets or sets a value indicating whether inbound connection requests are accepted
+    /// automatically, without the application calling
+    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>.
+    /// </summary>
+    /// <value>
+    /// <see langword="true"/> to accept every inbound request as it arrives; otherwise,
+    /// <see langword="false"/>. The default is <see langword="false"/>.
+    /// </value>
+    /// <remarks>
+    /// <para>
+    /// When this is <see langword="false"/>, an inbound request moves the device to
+    /// <see cref="NearbyDeviceStatus.RequestReceived"/>, reported through
+    /// <see cref="INearbyDevices.Changes"/>, and the application must answer it with
+    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> or
+    /// <see cref="INearby.RejectAsync(NearbyDevice, CancellationToken)"/> before
+    /// <see cref="InvitationTimeout"/> elapses.
+    /// </para>
+    /// <para>
+    /// When it is <see langword="true"/> the session answers on the application's behalf, so
+    /// <see cref="NearbyDeviceStatus.RequestReceived"/> is never observed: the device moves from
+    /// <see cref="NearbyDeviceStatus.Visible"/> through
+    /// <see cref="NearbyDeviceStatus.Connecting"/> to <see cref="NearbyDeviceStatus.Connected"/>
+    /// with that state skipped. Calling
+    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> then throws
+    /// <see cref="InvalidOperationException"/>, because no request is outstanding.
+    /// </para>
+    /// <para>
+    /// <b>This accepts every request from any device that knows the service identifier.</b> Neither
+    /// platform authenticates the remote device, so enable this only where an unsolicited connection
+    /// is acceptable — a kiosk, a paired-appliance scenario, or a trusted network. Prompting the
+    /// user is the safer default, which is why it is the default.
+    /// </para>
+    /// </remarks>
+    public bool AutoAcceptConnectionRequests { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether payload and event delivery may continue synchronously
     /// on the platform callback thread instead of being scheduled to the thread pool.
     /// </summary>

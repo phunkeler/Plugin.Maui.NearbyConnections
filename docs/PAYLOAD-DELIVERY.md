@@ -168,20 +168,22 @@ Stated plainly, because these are real:
 | Cost | Impact |
 | --- | --- |
 | **One consumer per connection** | Multiple interested components require an application-level fan-out (a messenger, an event, a subject). ~3 lines, as in the sample. |
-| **Manual loop management** | Someone must start the `await foreach` per connection and keep it running. Typically a single service subscribing to `ConnectionEstablished`. |
-| **Consumer must exist before the connection does** | `ConnectionEstablished` is a plain event with no replay — see below. |
+| **Manual loop management** | Someone must start the `await foreach` per connection and keep it running. Typically a single service watching `Devices.Changes`. |
+| **Consumer must exist before the connection does** | `Devices.Changes` does not replay — see below. |
 | **No LINQ-over-events ergonomics** | Not an issue in practice — the loop body is where processing goes. |
 
 ### Your consumer must be constructed before the first connection
 
-`ConnectionEstablished` does not replay. A consumer that subscribes after a connection is already
-established never starts a loop for it, so inbound payloads are written to a channel nobody reads and
-the peer's messages **silently never arrive** — no exception, no log, just nothing.
+`Devices.Changes` does not replay. A consumer that starts watching after a connection is already
+established never sees the transition, so it never starts a loop for it: inbound payloads are
+written to a channel nobody reads and the peer's messages **silently never arrive** — no exception,
+no log, just nothing. (A late starter *can* recover by reading `session.Devices` and opening a loop
+for anything already `Connected` — but it has to know to do that.)
 
 This bites hardest with DI. Registering the consumer as a singleton is not enough: the container
 constructs a singleton lazily, on first resolution. If the only thing that resolves it is a page or
-ViewModel opened *after* connecting, it is constructed too late and misses the event that would have
-started its loop.
+ViewModel opened *after* connecting, it is constructed too late and misses the transition that would
+have started its loop.
 
 **Use MAUI's startup hook, `IMauiInitializeService`.** MAUI calls `Initialize` during
 `MauiAppBuilder.Build()`, so "runs at startup" becomes a property of the type rather than a side
@@ -190,14 +192,38 @@ effect of who happens to inject it:
 ```csharp
 public sealed class NearbyIngestionService(INearby session, /* … */) : IMauiInitializeService
 {
-    public void Initialize(IServiceProvider services)
+    public void Initialize(IServiceProvider services) => _ = WatchAsync();
+
+    async Task WatchAsync()
     {
-        session.ConnectionEstablished += (_, e) => _ = ConsumePayloadsAsync(e.Connection);
+        // Changes reports status transitions, not connection events, so track which devices
+        // already have a loop: without this, any later change to a connected device starts a
+        // second consumer and every payload is handled twice.
+        var consuming = new HashSet<string>(StringComparer.Ordinal);
+
+        await foreach (var change in session.Devices.Changes)
+        {
+            var device = change.Device;
+
+            if (change.Action is not NearbyDeviceChangeAction.Removed
+                && device.Status is NearbyDeviceStatus.Connected)
+            {
+                if (consuming.Add(device.Id)
+                    && session.TryGetConnection(device.Id, out var connection))
+                {
+                    _ = ConsumePayloadsAsync(connection);
+                }
+            }
+            else
+            {
+                consuming.Remove(device.Id);
+            }
+        }
     }
 }
 
 // TryAddEnumerable: MAUI invokes these via GetServices<T>(), so a duplicate
-// registration would subscribe twice and deliver every payload twice.
+// registration would start two watchers and deliver every payload twice.
 builder.Services.TryAddEnumerable(
     ServiceDescriptor.Singleton<IMauiInitializeService, NearbyIngestionService>());
 ```
@@ -235,17 +261,17 @@ the consumer — see `IChatMessageRepositoryFactory` in [`samples/NearbyChat`](.
 
 ### The plugin warns you
 
-Because this failure is otherwise completely silent, the plugin logs a warning at `Warning` level in
-two places. Neither changes behaviour — they exist so the bug is discoverable without a debugger:
+Because this failure is otherwise completely silent, the plugin logs a warning at `Warning` level:
 
 | Warning | Fires when |
 | --- | --- |
-| `…nothing is subscribed to ConnectionEstablished` | A connection is established while the event has no subscribers. |
 | `…ReceiveAsync was never called for this connection` | A payload arrives on a connection nobody is consuming. Logged once per connection, not per payload. |
 
-The second is the more reliable signal: it fires even when *something* subscribed but never started a
-loop. If you see either, an inbound message has already been lost. Enable plugin logging while
-developing:
+There used to be a second, earlier warning — "nothing is subscribed to `ConnectionEstablished`" —
+which fired the moment a connection opened with no subscriber. A broadcast stream has no subscriber
+count to check, so it could not survive the move to `Devices.Changes`. The remaining warning catches
+the same mistake one step later, when the first payload actually arrives. If you see it, an inbound
+message has already been lost. Enable plugin logging while developing:
 
 ```csharp
 builder.Logging.AddFilter("Plugin.Maui.NearbyConnections", LogLevel.Warning);

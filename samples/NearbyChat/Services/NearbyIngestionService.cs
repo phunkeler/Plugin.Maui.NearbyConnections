@@ -15,11 +15,10 @@ namespace NearbyChat.Services;
 /// <remarks>
 /// <para>
 /// <strong>Why this implements <see cref="IMauiInitializeService"/>.</strong>
-/// <see cref="INearby.ConnectionEstablished"/> is a plain event with no replay, so this
-/// subscriber must be attached before the first connection is established. MAUI calls
-/// <see cref="Initialize"/> during <c>MauiAppBuilder.Build()</c>, which guarantees that.
-/// (<c>AddNearby</c> uses the same hook to construct the session itself, so the session
-/// exists by the time this runs.)
+/// <see cref="INearbyDevices.Changes"/> does not replay, so this watcher must be running before
+/// the first connection is established. MAUI calls <see cref="Initialize"/> during
+/// <c>MauiAppBuilder.Build()</c>, which guarantees that. (<c>AddNearby</c> uses the same hook to
+/// construct the session itself, so the session exists by the time this runs.)
 /// </para>
 /// <para>
 /// <strong>Separation of concerns.</strong> Ingestion (this class) is deliberately split from the
@@ -65,9 +64,8 @@ public sealed partial class NearbyIngestionService(
     /// <para>
     /// The <paramref name="services"/> parameter is part of the framework contract and is
     /// deliberately unused: every dependency arrives by constructor injection, so this type never
-    /// performs service location. Subscriptions are never detached — this singleton lives as long as
-    /// the app, which is the whole point. Page ViewModels must not copy that; see
-    /// <c>BasePageViewModel.RegisterSessionSubscription</c>.
+    /// performs service location. The watch loop is never cancelled — this singleton lives as long
+    /// as the app, which is the whole point.
     /// </para>
     /// </remarks>
     public void Initialize(IServiceProvider services)
@@ -79,21 +77,57 @@ public sealed partial class NearbyIngestionService(
             return;
         }
 
-        _session.ConnectionEstablished += OnConnectionEstablished;
-        _session.ConnectionDropped += OnConnectionDropped;
+        _ = WatchDevicesAsync();
     }
 
-    void OnConnectionEstablished(object? sender, NearbyConnectionChangedEventArgs e)
+    /// <summary>
+    /// Drives ingestion off the session's change stream: opens a receive loop for every device that
+    /// reaches Connected, and clears the chat session for every one that leaves it.
+    /// </summary>
+    /// <remarks>
+    /// The stream reports status transitions, not connection events, so this tracks which devices
+    /// it has already started a loop for. Without that, a device that changes any other way while
+    /// connected — a display name arriving late, for instance — would start a second consumer for
+    /// the same connection and every payload would be processed twice.
+    /// </remarks>
+    async Task WatchDevicesAsync()
     {
-        e.Connection.InboundProgress = new InboundProgressRelay(_messenger, e.Connection.RemoteDevice);
+        var consuming = new HashSet<string>(StringComparer.Ordinal);
 
-        // One consumer per connection, started as the connection opens. The loop ends by itself when
-        // the peer disconnects, so it needs no cancellation token and no cleanup.
-        _ = ConsumePayloadsAsync(e.Connection);
+        try
+        {
+            await foreach (var change in _session.Devices.Changes)
+            {
+                var device = change.Device;
+
+                var isConnected = change.Action is not NearbyDeviceChangeAction.Removed
+                    && device.Status is NearbyDeviceStatus.Connected;
+
+                if (isConnected)
+                {
+                    if (consuming.Add(device.Id)
+                        && _session.TryGetConnection(device.Id, out var connection))
+                    {
+                        connection.InboundProgress = new InboundProgressRelay(_messenger, connection.RemoteDevice);
+
+                        // One consumer per connection, started as the connection opens. The loop
+                        // ends by itself when the peer disconnects, so it needs no cancellation
+                        // token and no cleanup.
+                        _ = ConsumePayloadsAsync(connection);
+                    }
+                }
+                else if (consuming.Remove(device.Id))
+                {
+                    _ = ClearSessionAsync(device);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Nothing awaits this loop, so an unlogged exception here would end ingestion silently.
+            LogWatchEnded(ex);
+        }
     }
-
-    void OnConnectionDropped(object? sender, NearbyConnectionChangedEventArgs e)
-        => _ = ClearSessionAsync(e.Device);
 
     async Task ConsumePayloadsAsync(NearbyConnection connection)
     {
@@ -206,6 +240,9 @@ public sealed partial class NearbyIngestionService(
 
     [LoggerMessage(EventId = 3, Level = LogLevel.Error, Message = "Failed to clear the chat session for {DeviceId}.")]
     partial void LogClearSessionFailed(string deviceId, Exception exception);
+
+    [LoggerMessage(EventId = 4, Level = LogLevel.Error, Message = "Device watching ended; no further inbound payloads will be consumed.")]
+    partial void LogWatchEnded(Exception exception);
 
     sealed class InboundProgressRelay(IMessenger messenger, NearbyDevice device) : IProgress<NearbyTransferProgress>
     {

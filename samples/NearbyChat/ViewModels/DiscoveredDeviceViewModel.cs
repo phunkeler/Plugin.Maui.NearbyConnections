@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Plugin.Maui.NearbyConnections;
 
@@ -17,9 +16,6 @@ public partial class DiscoveredDeviceViewModel : NearbyDeviceViewModel
         ArgumentNullException.ThrowIfNull(session);
 
         _session = session;
-
-        // The device is observable, so the row tracks its status rather than maintaining a copy.
-        Device.PropertyChanged += OnDevicePropertyChanged;
     }
 
     /// <summary>
@@ -45,11 +41,5 @@ public partial class DiscoveredDeviceViewModel : NearbyDeviceViewModel
         }
     }
 
-    void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName is nameof(NearbyDevice.Status) or null)
-        {
-            OnPropertyChanged(nameof(IsConnecting));
-        }
-    }
+    protected override void OnDeviceChanged() => OnPropertyChanged(nameof(IsConnecting));
 }

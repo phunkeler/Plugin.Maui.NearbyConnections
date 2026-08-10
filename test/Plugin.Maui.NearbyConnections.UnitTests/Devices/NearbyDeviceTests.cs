@@ -1,23 +1,8 @@
-using System.Threading.Channels;
-
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
 [TestCategory("Devices")]
 public class NearbyDeviceTests
 {
-    /// <summary>
-    /// A connection with no behaviour, for building a <see cref="DeviceState.Connected"/>. Nothing
-    /// here sends or receives — the tests below only need an instance to hang off the state.
-    /// </summary>
-    static NearbyConnection CreateConnection(NearbyDevice device)
-        => new(
-            device,
-            Channel.CreateUnbounded<NearbyPayload>(),
-            (_, _) => ValueTask.CompletedTask,
-            (_, _, _) => Task.CompletedTask,
-            () => ValueTask.CompletedTask);
-
-
     [TestClass]
     public sealed class EqualsMethod : NearbyDeviceTests
     {
@@ -244,10 +229,10 @@ public class NearbyDeviceTests
     [TestClass]
     public sealed class Identity : NearbyDeviceTests
     {
-        // The load-bearing guarantee of the record -> observable class change. PeerRegistry and
-        // _activeConnections key on NearbyDevice, so if identity shifted as a device moved through
-        // its lifecycle, every existing dictionary entry would be stranded — a device would connect
-        // and then be unreachable by lookup.
+        // The load-bearing guarantee. Id-only equality replaces the record's generated member-wise
+        // equality, so a device that merely changed status stays the same device: registries and
+        // _activeConnections key on id, and an identity that shifted mid-lifecycle would strand
+        // every existing entry. Generated equality would break every assertion below.
         [TestMethod]
         public void HashCodeAndEquality_AreStable_AcrossStateTransitions()
         {
@@ -258,19 +243,38 @@ public class NearbyDeviceTests
 
             var dictionary = new Dictionary<NearbyDevice, string> { [device] = "tracked" };
 
-            // Act — walk the full lifecycle
-            device.State = new DeviceState.RequestReceived();
-            device.State = new DeviceState.Connecting(ConnectionRole.Acceptor);
-            device.State = new DeviceState.Connected(ConnectionRole.Acceptor, CreateConnection(device));
-            device.DisplayName = "Alice (renamed)";
+            // Act — walk the full lifecycle, which for a value means producing new snapshots
+            var connected = device
+                with { Status = NearbyDeviceStatus.RequestReceived }
+                with { Status = NearbyDeviceStatus.Connecting, Role = ConnectionRole.Acceptor }
+                with { Status = NearbyDeviceStatus.Connected }
+                with { DisplayName = "Alice (renamed)" };
 
             // Assert — identity never moved, so the entry is still reachable
-            Assert.AreEqual(originalHash, device.GetHashCode());
-            Assert.IsTrue(device.Equals(sameId));
-            Assert.IsTrue(device == sameId);
-            Assert.IsTrue(dictionary.TryGetValue(device, out var tracked));
+            Assert.AreEqual(originalHash, connected.GetHashCode());
+            Assert.IsTrue(connected.Equals(sameId));
+            Assert.IsTrue(connected == sameId);
+            Assert.IsTrue(dictionary.TryGetValue(connected, out var tracked));
             Assert.AreEqual("tracked", tracked);
             Assert.IsTrue(dictionary.ContainsKey(sameId));
+        }
+
+        // `with` must not be a way to forge a different device: Id has no init accessor, so this
+        // is enforced by the compiler. This test documents the intent that keeps it that way.
+        [TestMethod]
+        public void With_PreservesIdentity()
+        {
+            // Arrange
+            var device = new NearbyDevice("ep1", "Alice");
+
+            // Act
+            var updated = device with { Status = NearbyDeviceStatus.Connected };
+
+            // Assert
+            Assert.AreEqual("ep1", updated.Id);
+            Assert.AreEqual(device, updated);
+            Assert.AreEqual(NearbyDeviceStatus.Visible, device.Status, "The original snapshot must not change.");
+            Assert.AreEqual(NearbyDeviceStatus.Connected, updated.Status);
         }
 
         [TestMethod]
@@ -285,105 +289,64 @@ public class NearbyDeviceTests
 
             // Assert
             Assert.AreEqual(NearbyDeviceStatus.Visible, device.Status);
-            Assert.IsInstanceOfType<DeviceState.Visible>(device.State);
-        }
-
-        // Every DeviceState case must project to a status. A new case added without extending the
-        // projection throws, and this is what catches that.
-        [TestMethod]
-        public void Status_ProjectsEveryState()
-        {
-            // Arrange
-            var device = new NearbyDevice("ep1", "Alice");
-            var connection = CreateConnection(device);
-
-            var cases = new (DeviceState State, NearbyDeviceStatus Expected)[]
-            {
-                (new DeviceState.Visible(), NearbyDeviceStatus.Visible),
-                (new DeviceState.RequestReceived(), NearbyDeviceStatus.RequestReceived),
-                (new DeviceState.Connecting(ConnectionRole.Initiator), NearbyDeviceStatus.Connecting),
-                (new DeviceState.Connected(ConnectionRole.Acceptor, connection), NearbyDeviceStatus.Connected),
-            };
-
-            // Act & Assert
-            foreach (var (state, expected) in cases)
-            {
-                device.State = state;
-
-                Assert.AreEqual(expected, device.Status, $"{state.GetType().Name} projected wrongly.");
-            }
+            Assert.IsNull(device.Role, "A device that has only been discovered plays no role.");
         }
     }
 
     [TestClass]
-    public sealed class PropertyChangedNotification : NearbyDeviceTests
+    public sealed class Snapshots : NearbyDeviceTests
     {
-        // The tripwire. Status is derived from State, and consumers bind to Status — so a State
-        // write that raises only nameof(State) leaves every bound row frozen, with no compile error
-        // and nothing else in this suite failing. Nothing but this test catches that.
+        // A device is a value handed out by the session; nothing may write to it afterwards. If any
+        // of these properties ever regained a public setter, a consumer could mutate a snapshot the
+        // session still holds, and the thread-safety the value type exists to provide would be gone.
         [TestMethod]
-        public void State_RaisesPropertyChanged_ForBothStateAndStatus()
+        public void MutableProperties_AreInitOnly()
         {
             // Arrange
-            var device = new NearbyDevice("ep1", "Alice");
-            var raised = new List<string?>();
-            device.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
-
-            // Act
-            device.State = new DeviceState.Connecting(ConnectionRole.Initiator);
-
-            // Assert
-            Assert.Contains(nameof(NearbyDevice.State), raised);
-            Assert.Contains(nameof(NearbyDevice.Status), raised);
-        }
-
-        [TestMethod]
-        public void DisplayName_RaisesPropertyChanged()
-        {
-            // Arrange
-            var device = new NearbyDevice("ep1", "Alice");
-            var raised = new List<string?>();
-            device.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
-
-            // Act
-            device.DisplayName = "Bob";
-
-            // Assert
-            Assert.Contains(nameof(NearbyDevice.DisplayName), raised);
-        }
-
-        [TestMethod]
-        public void State_Null_Throws()
-        {
-            // Arrange
-            var device = new NearbyDevice("ep1", "Alice");
-
-            // Act & Assert
-            Assert.ThrowsExactly<ArgumentNullException>(() => device.State = null!);
-        }
-
-        // Suppressing no-op sets keeps bindings from re-rendering on every redundant platform
-        // callback — the platforms re-report unchanged state routinely. This relies on record
-        // equality: a second, distinct Connecting(Initiator) instance is equal to the first, so
-        // allocating per transition costs no spurious notifications.
-        [TestMethod]
-        public void SettingEqualState_DoesNotRaisePropertyChanged()
-        {
-            // Arrange
-            var device = new NearbyDevice("ep1", "Alice")
+            var properties = new[]
             {
-                State = new DeviceState.Connecting(ConnectionRole.Initiator),
+                nameof(NearbyDevice.Id),
+                nameof(NearbyDevice.DisplayName),
+                nameof(NearbyDevice.Status),
+                nameof(NearbyDevice.Role),
             };
 
-            var raised = new List<string?>();
-            device.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
-
             // Act
-            device.State = new DeviceState.Connecting(ConnectionRole.Initiator);
-            device.DisplayName = "Alice";
+            var settable = properties
+                .Select(name => typeof(NearbyDevice).GetProperty(name)!)
+                .Where(p => p.SetMethod is { ReturnParameter: var ret }
+                    && !ret.GetRequiredCustomModifiers().Any(m => m.Name == "IsExternalInit"))
+                .Select(p => p.Name)
+                .ToArray();
 
             // Assert
-            Assert.IsEmpty(raised);
+            Assert.IsEmpty(settable, "NearbyDevice is a snapshot: every property must be init-only.");
+        }
+
+        [TestMethod]
+        public void ToString_ReportsNameIdAndStatus()
+        {
+            // Arrange
+            var device = new NearbyDevice("ep1", "Alice") { Status = NearbyDeviceStatus.Connected };
+
+            // Act
+            var result = device.ToString();
+
+            // Assert
+            Assert.AreEqual("Alice [ep1] Connected", result);
+        }
+
+        [TestMethod]
+        public void ToString_UnnamedDevice_SaysSo()
+        {
+            // Arrange
+            var device = new NearbyDevice("ep1", displayName: null);
+
+            // Act
+            var result = device.ToString();
+
+            // Assert
+            Assert.AreEqual("(unnamed) [ep1] Visible", result);
         }
     }
 }

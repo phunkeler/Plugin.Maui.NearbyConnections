@@ -19,36 +19,56 @@ public partial class ConnectionsPageViewModel(
     {
         base.NavigatedTo();
 
-        // Two handlers where there were four: established/dropped are now one pair of events rather
-        // than one pair per role.
-        RegisterSessionSubscription(
-            () => session.ConnectionEstablished += OnConnectionEstablished,
-            () => session.ConnectionEstablished -= OnConnectionEstablished);
-
-        RegisterSessionSubscription(
-            () => session.ConnectionDropped += OnConnectionDropped,
-            () => session.ConnectionDropped -= OnConnectionDropped);
-
         // Connections made while this page was away are already in Devices.
         ConnectedDevices.Clear();
 
         foreach (var device in session.Devices)
         {
-            if (device.State is DeviceState.Connected { Connection: var connection })
+            if (session.TryGetConnection(device.Id, out var connection))
             {
                 Add(device.Id, connection);
             }
         }
+
+        _ = WatchDevicesAsync(NavigationToken);
     }
 
-    void OnConnectionEstablished(object? sender, NearbyConnectionChangedEventArgs e)
-        => Add(e.Device.Id, e.Connection);
-
-    void OnConnectionDropped(object? sender, NearbyConnectionChangedEventArgs e)
+    /// <summary>
+    /// Tracks connections coming and going until the page is navigated away from.
+    /// </summary>
+    async Task WatchDevicesAsync(CancellationToken cancellationToken)
     {
-        if (ConnectedDevices.FirstOrDefault(d => d.Id == e.Device.Id) is { } vm)
+        try
         {
-            ConnectedDevices.Remove(vm);
+            await foreach (var change in session.Devices.Changes.WithCancellation(cancellationToken))
+            {
+                var device = change.Device;
+
+                // The connection is looked up rather than carried on the change: a device is a
+                // value and cannot hold a live handle.
+                var connection = change.Action is not NearbyDeviceChangeAction.Removed
+                    && device.Status is NearbyDeviceStatus.Connected
+                    && session.TryGetConnection(device.Id, out var found)
+                        ? found
+                        : null;
+
+                // Changes arrive on a platform background thread; ConnectedDevices is bound.
+                await Dispatcher.DispatchAsync(() =>
+                {
+                    if (connection is not null)
+                    {
+                        Add(device.Id, connection);
+                    }
+                    else if (ConnectedDevices.FirstOrDefault(d => d.Id == device.Id) is { } vm)
+                    {
+                        ConnectedDevices.Remove(vm);
+                    }
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Navigated away.
         }
     }
 

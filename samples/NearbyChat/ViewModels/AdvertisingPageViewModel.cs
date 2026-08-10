@@ -94,24 +94,49 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
         AdvertisedDevices.Clear();
         IsAdvertising = _session.IsAdvertising;
 
-        // Never `+=` directly: the session is a singleton, so an un-detached handler would leak this
-        // ViewModel and fire twice after the second visit.
-        RegisterSessionSubscription(
-            () => _session.ConnectionRequested += OnConnectionRequested,
-            () => _session.ConnectionRequested -= OnConnectionRequested);
-
-        RegisterSessionSubscription(
-            () => _session.ConnectionEstablished += OnConnectionChanged,
-            () => _session.ConnectionEstablished -= OnConnectionChanged);
-
-        RegisterSessionSubscription(
-            () => _session.ConnectionDropped += OnConnectionChanged,
-            () => _session.ConnectionDropped -= OnConnectionChanged);
-
-        // Requests that arrived while the page was away are already in Devices.
+        // Requests that arrived while the page was away are already in Devices. Seeding first and
+        // then watching is what replaces the old seed-plus-subscribe pair: the stream has no
+        // replay, so the current state has to come from the collection.
         foreach (var device in _session.Devices.Where(d => d.Status is NearbyDeviceStatus.RequestReceived))
         {
             AddDevice(device);
+        }
+
+        _ = WatchDevicesAsync(NavigationToken);
+    }
+
+    /// <summary>
+    /// Adds a row when a device starts asking for a connection and removes it once it stops —
+    /// answered, expired, or gone. Ends when the page is navigated away from.
+    /// </summary>
+    async Task WatchDevicesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var change in _session.Devices.Changes.WithCancellation(cancellationToken))
+            {
+                var device = change.Device;
+
+                var isPending = change.Action is not NearbyDeviceChangeAction.Removed
+                    && device.Status is NearbyDeviceStatus.RequestReceived;
+
+                // Changes arrive on a platform background thread; AdvertisedDevices is bound.
+                await Dispatcher.DispatchAsync(() =>
+                {
+                    if (isPending)
+                    {
+                        AddDevice(device);
+                    }
+                    else
+                    {
+                        RemoveDevice(device.Id);
+                    }
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Navigated away.
         }
     }
 
@@ -122,20 +147,13 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
         _relativeTimeTicker.SetActive(false);
     }
 
-    void OnConnectionRequested(object? sender, NearbyConnectionRequestedEventArgs e)
-        => AddDevice(e.Device);
-
-    /// <summary>
-    /// A pending request leaves this list once it becomes a connection or the device goes away —
-    /// established and dropped are the same removal from this page's point of view.
-    /// </summary>
-    void OnConnectionChanged(object? sender, NearbyConnectionChangedEventArgs e)
-        => RemoveDevice(e.Device.Id);
-
     void AddDevice(NearbyDevice device)
     {
-        if (AdvertisedDevices.Any(d => d.Id == device.Id))
+        // A device is a snapshot, so an existing row is handed the newer one rather than left
+        // showing the instance it was created with.
+        if (AdvertisedDevices.FirstOrDefault(d => d.Id == device.Id) is { } existing)
         {
+            existing.Update(device);
             return;
         }
 

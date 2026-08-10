@@ -186,8 +186,8 @@ sealed partial class PlatformNearby
     [LoggerMessage(
         Level = LogLevel.Warning,
         Message = "A payload arrived from peer {PeerId} but ReceiveAsync was never called for this connection, so it " +
-            "cannot be observed. Payloads are buffered and lost. Start consuming the connection when " +
-            "ConnectionEstablished is raised, and register that consumer so it exists before the first connection. " +
+            "cannot be observed. Payloads are buffered and lost. Start consuming the connection when the device " +
+            "reports Connected, and register that consumer so it exists before the first connection. " +
             "See docs/PAYLOAD-DELIVERY.md.")]
     partial void LogPayloadArrivedUnobserved(string peerId);
 

@@ -1,43 +1,17 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Device-state projection and dispatcher marshalling for <see cref="NearbyImplementation"/>.
-/// Everything that mutates <c>_devices</c>, writes a <see cref="NearbyDevice"/> property, or raises
-/// a lifecycle event lives here and runs on the dispatcher.
+/// Device-state projection for <see cref="NearbyImplementation"/>. Everything that records what a
+/// platform callback reported lives here.
 /// </summary>
+/// <remarks>
+/// Nothing in this file marshals to a UI thread. <see cref="NearbyDeviceRegistry"/> is thread-safe
+/// by construction, so a platform callback records what it saw on whatever thread it arrived on and
+/// the change is fanned out from there. Consumers that need a UI thread apply that themselves —
+/// see <see cref="NearbyDeviceCollection"/>.
+/// </remarks>
 sealed partial class NearbyImplementation
 {
-    /// <summary>
-    /// Runs <paramref name="action"/> on the UI dispatcher, or inline when no dispatcher is
-    /// available (unit tests and the <c>net10.0</c> target, where there is no UI thread to marshal
-    /// to). <see cref="IDispatcher.IsDispatchRequired"/> keeps the already-on-UI-thread case
-    /// synchronous rather than posting a needless continuation.
-    /// </summary>
-    async Task DispatchAsync(Action action)
-    {
-        if (_dispatcher is null || !_dispatcher.IsDispatchRequired)
-        {
-            action();
-            return;
-        }
-
-        await _dispatcher.DispatchAsync(action).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// The one place a device's state changes. Every transition goes through here so there is a
-    /// single site to log, break on, or extend — the compound invariant that used to span three
-    /// properties is now one write, and this is where it happens.
-    /// </summary>
-    /// <remarks>
-    /// The two transitions nested inside a larger dispatcher action
-    /// (<see cref="OnRequestReceivedAsync"/>, <see cref="OnConnectedAsync"/>) assign inline instead,
-    /// so the state change and the event raise stay in one dispatcher turn rather than splitting
-    /// across two.
-    /// </remarks>
-    Task TransitionAsync(NearbyDevice device, DeviceState state)
-        => DispatchAsync(() => device.State = state);
-
     /// <summary>
     /// Maps a handshake failure to the reason it is reported as. The exception type already carries
     /// the distinction, so nothing needs to be plumbed up from the platform layer:
@@ -50,6 +24,21 @@ sealed partial class NearbyImplementation
         NearbyConnectionTimeoutException => EndReason.TimedOut,
         _ => EndReason.Failed,
     };
+
+    /// <summary>
+    /// The one place a device's state changes. Every transition goes through here so there is a
+    /// single site to log, break on, or extend.
+    /// </summary>
+    /// <remarks>
+    /// A no-op when the device is unknown to the session: a transition for a device that was never
+    /// added, or has since been removed, has nothing to update.
+    /// </remarks>
+    void Transition(NearbyDevice device, NearbyDeviceStatus status, ConnectionRole? role)
+        => _registry.Update(
+            device.Id,
+            current => current.Status == status && current.Role == role
+                ? current
+                : current with { Status = status, Role = role });
 
     async Task PumpAdvertiseAsync(IAsyncEnumerable<NearbyConnectionRequest> stream, CancellationToken cancellationToken)
     {
@@ -70,7 +59,7 @@ sealed partial class NearbyImplementation
             // lives inside the enumerable. Swallowing this silently is exactly the failure mode
             // that has already cost a debugging session, so it is always logged.
             LogAdvertisePumpFailed(ex);
-            await DispatchAsync(() => IsAdvertising = false).ConfigureAwait(false);
+            IsAdvertising = false;
         }
     }
 
@@ -80,7 +69,7 @@ sealed partial class NearbyImplementation
         {
             await foreach (var deviceEvent in stream.WithCancellation(cancellationToken).ConfigureAwait(false))
             {
-                await OnDeviceEventAsync(deviceEvent).ConfigureAwait(false);
+                OnDeviceEvent(deviceEvent);
             }
         }
         catch (OperationCanceledException)
@@ -90,42 +79,35 @@ sealed partial class NearbyImplementation
         catch (Exception ex)
         {
             LogDiscoverPumpFailed(ex);
-            await DispatchAsync(() => IsDiscovering = false).ConfigureAwait(false);
+            IsDiscovering = false;
         }
     }
 
     /// <summary>
-    /// A device came into view. Adds it if new; a device already present (connected, or rediscovered
-    /// after a drop) keeps its identity and status — the registry hands back the same instance, so
-    /// re-adding would duplicate the row.
+    /// A device came into view, or went out of it.
     /// </summary>
-    async Task OnDeviceEventAsync(NearbyDeviceEvent deviceEvent)
+    void OnDeviceEvent(NearbyDeviceEvent deviceEvent)
     {
         var device = deviceEvent.Device;
 
         switch (deviceEvent.Type)
         {
             case NearbyDeviceEventType.Found:
-                await DispatchAsync(() =>
-                {
-                    if (!_devices.Contains(device))
-                    {
-                        _devices.Add(device);
-                    }
-                }).ConfigureAwait(false);
+                // A device already present (connected, or rediscovered after a drop) keeps the
+                // status it has: the registry hands back the incumbent rather than overwriting it.
+                _registry.AddIfAbsent(device);
                 break;
 
             case NearbyDeviceEventType.Lost:
-                await DispatchAsync(() =>
+                // A connected device that goes out of discovery range is still connected — dropping
+                // it here would delete a live conversation from the UI. Only remove devices that
+                // are merely visible.
+                if (_registry.TryGet(device.Id, out var known)
+                    && known.Status is NearbyDeviceStatus.Visible)
                 {
-                    // A connected device that goes out of discovery range is still connected —
-                    // dropping it here would delete a live conversation from the UI. Only remove
-                    // devices that are merely visible.
-                    if (device.Status is NearbyDeviceStatus.Visible)
-                    {
-                        _devices.Remove(device);
-                    }
-                }).ConfigureAwait(false);
+                    _registry.Remove(device.Id);
+                }
+
                 break;
 
             default:
@@ -134,64 +116,87 @@ sealed partial class NearbyImplementation
     }
 
     /// <summary>
-    /// An inbound request arrived. The device is surfaced in <see cref="Devices"/> before the event
-    /// is raised, so a handler that inspects the collection sees a consistent picture.
+    /// An inbound request arrived. The device is surfaced before its status changes, so a consumer
+    /// watching <see cref="INearbyDevices.Changes"/> sees the device appear and then transition
+    /// rather than a status change for a device it has never heard of.
     /// </summary>
     async Task OnRequestReceivedAsync(NearbyConnectionRequest request)
     {
         var device = request.RemoteDevice;
+
+        if (_options.AutoAcceptConnectionRequests)
+        {
+            await AutoAcceptAsync(request, device).ConfigureAwait(false);
+            return;
+        }
+
         _pendingRequests[device.Id] = request;
 
-        await DispatchAsync(() =>
-        {
-            if (!_devices.Contains(device))
-            {
-                _devices.Add(device);
-            }
+        _registry.AddIfAbsent(device);
 
-            // No role here: the local device is not an acceptor until AcceptAsync is called.
-            device.State = new DeviceState.RequestReceived();
-
-            RaiseConnectionRequested(device);
-        }).ConfigureAwait(false);
+        // No role here: the local device is not an acceptor until AcceptAsync is called.
+        Transition(device, NearbyDeviceStatus.RequestReceived, role: null);
     }
 
     /// <summary>
-    /// A connection was established, from either side. Publishes the connection onto the device,
-    /// raises <see cref="INearby.ConnectionEstablished"/>, and arms the drop notification.
+    /// Answers an inbound request on the application's behalf when
+    /// <see cref="NearbyOptions.AutoAcceptConnectionRequests"/> is set.
     /// </summary>
-    async Task OnConnectedAsync(NearbyDevice device, NearbyConnection connection, ConnectionRole role)
+    /// <remarks>
+    /// <para>
+    /// The request is never published to <c>_pendingRequests</c>, so
+    /// <see cref="NearbyDeviceStatus.RequestReceived"/> is not observable in this mode. The device
+    /// is surfaced and moved to <see cref="NearbyDeviceStatus.Connecting"/> before the platform
+    /// call, so a consumer watching device changes sees the same progression as an outbound
+    /// connection rather than a row that appears already connected.
+    /// </para>
+    /// <para>
+    /// A failure here resets the device to <see cref="NearbyDeviceStatus.Visible"/> exactly as the
+    /// manual <see cref="AcceptAsync"/> path does. There is no caller to rethrow to — no application
+    /// code asked for this accept — so the exception is logged and swallowed rather than escaping
+    /// into the advertise pump, where it would tear down advertising for one failed handshake.
+    /// </para>
+    /// </remarks>
+    async Task AutoAcceptAsync(NearbyConnectionRequest request, NearbyDevice device)
     {
-        // Captured before raising: a handler could subscribe as a side effect, which would mask the
-        // very condition being detected.
-        var hasSubscribers = ConnectionEstablished is not null;
+        _registry.AddIfAbsent(device);
+        Transition(device, NearbyDeviceStatus.Connecting, ConnectionRole.Acceptor);
 
-        await DispatchAsync(() =>
+        try
         {
-            if (!_devices.Contains(device))
-            {
-                _devices.Add(device);
-            }
-
-            device.State = new DeviceState.Connected(role, connection);
-
-            RaiseConnectionEstablished(device, connection);
-        }).ConfigureAwait(false);
-
-        if (!hasSubscribers)
-        {
-            LogNoConnectionEstablishedSubscribers(device.Id);
+            var connection = await request.AcceptAsync(CancellationToken.None).ConfigureAwait(false);
+            OnConnected(device, connection, ConnectionRole.Acceptor);
         }
+        catch (Exception ex)
+        {
+            var reason = ReasonFor(ex);
+            LogHandshakeEnded(device.Id, reason);
+            LogAutoAcceptFailed(device.Id, ex);
+            ResetToVisible(device);
+        }
+    }
 
-        // One watcher per connection, regardless of which side disconnects, so ConnectionDropped is
-        // raised exactly once from a single place. Fire-and-forget by design: the continuation is
-        // the notification. Exceptions are handled inside WatchDisconnectAsync.
+    /// <summary>
+    /// A connection was established, from either side. Publishes the connection, moves the device to
+    /// <see cref="NearbyDeviceStatus.Connected"/>, and arms the drop notification.
+    /// </summary>
+    void OnConnected(NearbyDevice device, NearbyConnection connection, ConnectionRole role)
+    {
+        // Published before the status change: a consumer that reacts to Connected by looking the
+        // connection up must never lose that race.
+        _activeConnections[device.Id] = connection;
+
+        _registry.AddIfAbsent(device);
+        Transition(device, NearbyDeviceStatus.Connected, role);
+
+        // One watcher per connection, regardless of which side disconnects, so the drop is recorded
+        // exactly once from a single place. Fire-and-forget by design: the continuation is the
+        // notification. Exceptions are handled inside WatchDisconnectAsync.
         _ = WatchDisconnectAsync(device, connection);
     }
 
     /// <summary>
-    /// Awaits the connection's own disconnect signal and projects it into device state plus
-    /// <see cref="INearby.ConnectionDropped"/>.
+    /// Awaits the connection's own disconnect signal and projects it into device state.
     /// </summary>
     async Task WatchDisconnectAsync(NearbyDevice device, NearbyConnection connection)
     {
@@ -199,22 +204,18 @@ sealed partial class NearbyImplementation
         {
             await connection.Disconnected.ConfigureAwait(false);
 
-            await DispatchAsync(() =>
+            // Guard against a reconnect having already replaced the connection: only clear the
+            // entry that still belongs to the connection that dropped. This overload compares the
+            // value too, and does so atomically, so the check and the removal cannot interleave
+            // with a reconnect. Losing the race means a newer connection owns the device now and
+            // there is nothing to report.
+            if (!_activeConnections.TryRemove(
+                    new KeyValuePair<string, NearbyConnection>(device.Id, connection)))
             {
-                // Guard against a reconnect having already replaced the connection: only clear
-                // state that still belongs to the connection that dropped. ReferenceEquals, not
-                // record equality — two states could compare equal while holding the same
-                // connection reference, and identity is what matters here.
-                if (device.State is not DeviceState.Connected current
-                    || !ReferenceEquals(current.Connection, connection))
-                {
-                    return;
-                }
+                return;
+            }
 
-                device.State = new DeviceState.Visible();
-
-                RaiseConnectionDropped(device, connection, EndReason.Disconnected);
-            }).ConfigureAwait(false);
+            ResetToVisible(device);
         }
         catch (Exception ex)
         {
@@ -223,16 +224,11 @@ sealed partial class NearbyImplementation
     }
 
     /// <summary>
-    /// Returns a device to <see cref="DeviceState.Visible"/> after a failed, cancelled, or rejected
-    /// handshake.
+    /// Returns a device to <see cref="NearbyDeviceStatus.Visible"/> after a dropped connection, or a
+    /// failed, cancelled, or rejected handshake.
     /// </summary>
-    /// <remarks>
-    /// No connection was ever established on these paths, so there is nothing to raise
-    /// <see cref="INearby.ConnectionDropped"/> about. The reason reaches the caller as
-    /// the exception that <see cref="ConnectAsync"/> or <see cref="AcceptAsync"/> rethrows.
-    /// </remarks>
-    Task ResetToVisibleAsync(NearbyDevice device)
-        => TransitionAsync(device, new DeviceState.Visible());
+    void ResetToVisible(NearbyDevice device)
+        => Transition(device, NearbyDeviceStatus.Visible, role: null);
 
     /// <summary>
     /// Starts <paramref name="pump"/> and publishes its flag. Caller must hold <c>_stateGate</c>.
@@ -242,13 +238,13 @@ sealed partial class NearbyImplementation
     /// (the platform start lives in the enumerable), which clears the flag again, and that must not
     /// race ahead of the write that sets it.
     /// </remarks>
-    static async Task StartPumpAsync(PumpState pump)
+    static void StartPump(PumpState pump)
     {
         var cts = new CancellationTokenSource();
 
         pump.Cts = cts;
 
-        await pump.SetFlag(true).ConfigureAwait(false);
+        pump.SetFlag(true);
 
         pump.Task = pump.Start(cts.Token);
     }
@@ -279,23 +275,8 @@ sealed partial class NearbyImplementation
 
         cts?.Dispose();
 
-        await pump.SetFlag(false).ConfigureAwait(false);
+        pump.SetFlag(false);
     }
-
-    /// <summary>
-    /// Removes devices that are merely visible, leaving connected ones in place.
-    /// </summary>
-    Task RemoveVisibleDevicesAsync()
-        => DispatchAsync(() =>
-        {
-            for (var i = _devices.Count - 1; i >= 0; i--)
-            {
-                if (_devices[i].Status is NearbyDeviceStatus.Visible)
-                {
-                    _devices.RemoveAt(i);
-                }
-            }
-        });
 
     /// <summary>
     /// One of the session's two background pumps: the stream-draining task, the source that stops
@@ -303,46 +284,16 @@ sealed partial class NearbyImplementation
     /// </summary>
     /// <param name="start">Starts the pump task for the supplied cancellation token.</param>
     /// <param name="setFlag">
-    /// Publishes <see cref="INearby.IsAdvertising"/> or
-    /// <see cref="INearby.IsDiscovering"/> on the dispatcher.
+    /// Publishes <see cref="INearby.IsAdvertising"/> or <see cref="INearby.IsDiscovering"/>.
     /// </param>
-    sealed class PumpState(Func<CancellationToken, Task> start, Func<bool, Task> setFlag)
+    sealed class PumpState(Func<CancellationToken, Task> start, Action<bool> setFlag)
     {
         public Func<CancellationToken, Task> Start { get; } = start;
 
-        public Func<bool, Task> SetFlag { get; } = setFlag;
+        public Action<bool> SetFlag { get; } = setFlag;
 
         public CancellationTokenSource? Cts { get; set; }
 
         public Task? Task { get; set; }
     }
-
-    /// <summary>
-    /// Raises a lifecycle event. A throwing handler must not take down the platform callback thread
-    /// or starve the handlers after it, so every raise goes through here.
-    /// </summary>
-    /// <param name="handler">The event to raise, or <see langword="null"/> if nobody subscribed.</param>
-    /// <param name="args">The arguments to raise it with.</param>
-    /// <param name="eventName">The event's name, used only to attribute a handler failure in the log.</param>
-    void Raise<TArgs>(EventHandler<TArgs>? handler, TArgs args, string eventName)
-        where TArgs : EventArgs
-    {
-        try
-        {
-            handler?.Invoke(this, args);
-        }
-        catch (Exception ex)
-        {
-            LogEventHandlerFailed(eventName, ex);
-        }
-    }
-
-    void RaiseConnectionRequested(NearbyDevice device)
-        => Raise(ConnectionRequested, new NearbyConnectionRequestedEventArgs(device), nameof(ConnectionRequested));
-
-    void RaiseConnectionEstablished(NearbyDevice device, NearbyConnection connection)
-        => Raise(ConnectionEstablished, new NearbyConnectionChangedEventArgs(device, connection), nameof(ConnectionEstablished));
-
-    void RaiseConnectionDropped(NearbyDevice device, NearbyConnection connection, EndReason reason)
-        => Raise(ConnectionDropped, new NearbyConnectionChangedEventArgs(device, connection, reason), nameof(ConnectionDropped));
 }

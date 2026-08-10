@@ -1,5 +1,3 @@
-using System.Collections.Specialized;
-
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
@@ -16,24 +14,24 @@ namespace Plugin.Maui.NearbyConnections;
 /// </para>
 /// <para>
 /// <b>State compared with streams.</b> Device presence and connection state are exposed as state:
-/// the observable <see cref="Devices"/> collection and the three lifecycle events. Inbound payloads
-/// are instead exposed as a stream, consumed for each connection through
+/// <see cref="Devices"/> is the current set, and <see cref="INearbyDevices.Changes"/> the deltas to
+/// it. Inbound payloads are instead exposed as a stream, consumed for each connection through
 /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/>. A connection supports a single
 /// payload consumer; distribute payloads to multiple components in your own code.
 /// </para>
 /// <para>
-/// <b>Thread safety.</b> Platform callbacks arrive on background threads owned by the underlying
-/// platform SDK. The session marshals every <see cref="Devices"/> mutation, every
-/// <see cref="INotifyPropertyChanged.PropertyChanged"/> notification, and every lifecycle event
-/// onto the UI dispatcher, so event handlers and data bindings require no further marshalling.
-/// Handlers run synchronously on the dispatcher; keep them short and perform no I/O in them.
+/// <b>Thread safety.</b> Every member of this interface is callable from any thread, and nothing
+/// here has UI thread affinity. Platform callbacks arrive on background threads owned by the
+/// platform SDK, and that is the thread <see cref="INearbyDevices.Changes"/> delivers on. A
+/// consumer that binds to a user interface marshals for itself — or constructs a
+/// <see cref="NearbyDeviceCollection"/>, which is the supported way to get a bindable
+/// <c>ObservableCollection</c> back.
 /// </para>
 /// <para>
-/// <b>Subscription lifetime.</b> The events on this interface live as long as the singleton. A
-/// view model that subscribes without unsubscribing remains alive for the lifetime of the
-/// application, and navigating to the page a second time adds a second subscription. Always pair
-/// an <c>+=</c> subscription with a matching <c>-=</c> when the subscriber has a shorter lifetime
-/// than the session.
+/// <b>Subscription lifetime.</b> There is nothing to unsubscribe from. An enumeration of
+/// <see cref="INearbyDevices.Changes"/> ends when its cancellation token is cancelled or the loop
+/// is exited, so a consumer with a shorter lifetime than this singleton cannot leak the way an
+/// undetached event handler could.
 /// </para>
 /// </remarks>
 /// <seealso cref="NearbyDevice"/>
@@ -42,21 +40,21 @@ public interface INearby
 {
     /// <summary>
     /// Gets the devices known to this session, from first discovery until they are no longer
-    /// visible.
+    /// visible, together with the stream of changes to that set.
     /// </summary>
     /// <value>
-    /// A read-only collection of the devices currently known to the session. The collection
-    /// implements <see cref="INotifyCollectionChanged"/>.
+    /// The current set of devices. Enumerating it yields an immutable snapshot, so it is safe to
+    /// read from any thread.
     /// </value>
     /// <remarks>
     /// A single collection spans the whole device lifecycle; devices do not move between
-    /// collections as they connect. <see cref="NearbyDevice.Status"/> indicates the current state,
-    /// and each device raises <see cref="INotifyPropertyChanged.PropertyChanged"/> when its state
-    /// changes, so a bound item updates in place. Bind directly to this collection, or cast it to
-    /// <see cref="INotifyCollectionChanged"/> to observe additions and removals in code. To display
-    /// only connected devices, filter on <see cref="NearbyDeviceStatus.Connected"/>.
+    /// collections as they connect. <see cref="NearbyDevice.Status"/> reports where a device is in
+    /// that lifecycle. Read this property for the current state and enumerate
+    /// <see cref="INearbyDevices.Changes"/> for what happens next — every connection lifecycle
+    /// transition arrives there. To display only connected devices, filter on
+    /// <see cref="NearbyDeviceStatus.Connected"/>.
     /// </remarks>
-    IReadOnlyList<NearbyDevice> Devices { get; }
+    INearbyDevices Devices { get; }
 
     /// <summary>
     /// Gets a value indicating whether this device is currently advertising its presence.
@@ -73,43 +71,6 @@ public interface INearby
     /// <see langword="true"/> if the device is discovering; otherwise, <see langword="false"/>.
     /// </value>
     bool IsDiscovering { get; }
-
-    /// <summary>
-    /// Occurs when a remote device requests a connection.
-    /// </summary>
-    /// <remarks>
-    /// Respond by calling <see cref="AcceptAsync(NearbyDevice, CancellationToken)"/> or
-    /// <see cref="RejectAsync(NearbyDevice, CancellationToken)"/>. The device remains in the
-    /// <see cref="NearbyDeviceStatus.RequestReceived"/> state while the request is outstanding.
-    /// Leaving a request unanswered holds the remote device in its own pending state until the
-    /// platform times the request out.
-    /// </remarks>
-    event EventHandler<NearbyConnectionRequestedEventArgs> ConnectionRequested;
-
-    /// <summary>
-    /// Occurs when a connection to a remote device is established, in either direction.
-    /// </summary>
-    /// <remarks>
-    /// When this event is raised, the device's <see cref="NearbyDevice.State"/> is
-    /// <see cref="DeviceState.Connected"/>, which carries the connection. Start consuming payloads
-    /// at this point by calling
-    /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/>.
-    /// </remarks>
-    event EventHandler<NearbyConnectionChangedEventArgs> ConnectionEstablished;
-
-    /// <summary>
-    /// Occurs when an established connection ends, whether by a local disconnect, a remote
-    /// disconnect, or loss of the link.
-    /// </summary>
-    /// <remarks>
-    /// The device returns to <see cref="DeviceState.Visible"/> if it is still in range, so it no
-    /// longer carries a connection. Why the connection ended is reported by
-    /// <see cref="NearbyConnectionChangedEventArgs.Reason"/> — read it here, because
-    /// <see cref="DeviceState.Visible"/> does not carry it. Any in-flight
-    /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/> enumeration completes on its
-    /// own; no cleanup is required for payload consumption.
-    /// </remarks>
-    event EventHandler<NearbyConnectionChangedEventArgs> ConnectionDropped;
 
     /// <summary>
     /// Determines whether nearby connectivity can be started, and what is preventing it if not.
@@ -189,8 +150,10 @@ public interface INearby
     /// the platform has started advertising.
     /// </returns>
     /// <remarks>
-    /// Inbound connection requests are reported through the <see cref="ConnectionRequested"/>
-    /// event. Advertising and discovery are independent; starting one does not affect the other.
+    /// An inbound connection request surfaces as a device whose
+    /// <see cref="NearbyDevice.Status"/> is <see cref="NearbyDeviceStatus.RequestReceived"/>,
+    /// reported through <see cref="INearbyDevices.Changes"/>. Advertising and discovery are
+    /// independent; starting one does not affect the other.
     /// Calling this method while the device is already advertising is a no-op.
     /// </remarks>
     /// <exception cref="NearbyAdvertisingException">
@@ -289,11 +252,11 @@ public interface INearby
     /// <see cref="NearbyConnection"/>.
     /// </returns>
     /// <remarks>
-    /// While the handshake is in progress, the device's <see cref="NearbyDevice.State"/> is
-    /// <see cref="DeviceState.Connecting"/> with a role of
-    /// <see cref="ConnectionRole.Initiator"/>; on success the state becomes
-    /// <see cref="DeviceState.Connected"/>. The returned connection is the same instance that state
-    /// carries.
+    /// While the handshake is in progress, the device's <see cref="NearbyDevice.Status"/> is
+    /// <see cref="NearbyDeviceStatus.Connecting"/> with a <see cref="NearbyDevice.Role"/> of
+    /// <see cref="ConnectionRole.Initiator"/>; on success the status becomes
+    /// <see cref="NearbyDeviceStatus.Connected"/>. The returned connection is the same instance
+    /// that <see cref="TryGetConnection(string, out NearbyConnection)"/> hands back.
     /// </remarks>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="device"/> is <see langword="null"/>.
@@ -325,8 +288,10 @@ public interface INearby
     /// <see cref="NearbyConnection"/>.
     /// </returns>
     /// <remarks>
-    /// Connection requests are reported through the <see cref="ConnectionRequested"/> event. A
-    /// request can be accepted only once, and only before it expires.
+    /// A device with an outstanding request has a <see cref="NearbyDevice.Status"/> of
+    /// <see cref="NearbyDeviceStatus.RequestReceived"/>, reported through
+    /// <see cref="INearbyDevices.Changes"/>. A request can be accepted only once, and only before
+    /// it expires.
     /// </remarks>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="device"/> is <see langword="null"/>.
@@ -364,6 +329,29 @@ public interface INearby
     Task RejectAsync(NearbyDevice device, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the established connection to a device, if one exists.
+    /// </summary>
+    /// <param name="deviceId">The <see cref="NearbyDevice.Id"/> of the device.</param>
+    /// <param name="connection">
+    /// When this method returns, the established <see cref="NearbyConnection"/> to the device, or
+    /// <see langword="null"/> if the device is not connected.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if the device is connected; otherwise, <see langword="false"/>.
+    /// </returns>
+    /// <remarks>
+    /// Safe to call from any thread, like every member of this interface. A connection is held
+    /// separately from the device set because a <see cref="NearbyDevice"/> is an immutable snapshot
+    /// and cannot carry a live handle. The result is itself a snapshot — a connection can drop
+    /// immediately afterwards, so treat a successful lookup as "was connected a moment ago" and
+    /// handle the send failing.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="deviceId"/> is <see langword="null"/>.
+    /// </exception>
+    bool TryGetConnection(string deviceId, [NotNullWhen(true)] out NearbyConnection? connection);
+
+    /// <summary>
     /// Disconnects an established connection to the specified device, leaving every other
     /// connection intact.
     /// </summary>
@@ -376,8 +364,9 @@ public interface INearby
     /// the connection has been torn down.
     /// </returns>
     /// <remarks>
-    /// Disconnecting a device that is not connected performs no operation. The
-    /// <see cref="ConnectionDropped"/> event is raised as the connection ends.
+    /// Disconnecting a device that is not connected performs no operation. The device returns to
+    /// <see cref="NearbyDeviceStatus.Visible"/> as the connection ends, reported through
+    /// <see cref="INearbyDevices.Changes"/>.
     /// </remarks>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="device"/> is <see langword="null"/>.

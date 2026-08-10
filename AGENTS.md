@@ -43,7 +43,8 @@ One public interface, registered as a DI singleton (one radio, one native sessio
 
 - **`INearby`** — the only public entry point, implemented by `NearbyImplementation`
   (`NearbyImplementation.{cs,state.cs,log.cs}`, at the project root alongside the
-  interface). Owns device state, dispatcher marshalling, and the three lifecycle events.
+  interface). Owns device state and the change stream. **It takes no dispatcher and has no UI
+  thread affinity** — every member is callable from any thread.
 - **`IPlatformNearby`** — internal. The raw platform streams, implemented by a single
   `sealed partial class` split across `Native/PlatformNearby.{shared,android,ios,net}.cs`.
   The `net10.0` target throws `PlatformNotSupportedException`, which is why `NearbyImplementation` depends
@@ -55,7 +56,7 @@ The division is not between discovery and connection phases but between *state* 
 
 | Shape | Used for | Why |
 |---|---|---|
-| Observable state — `Devices` + three C# events | Device presence and connection lifecycle | Presence *is* state, not a sequence of occurrences. A collection can be bound directly and read at any time; an event stream forces every consumer to rebuild the same collection from deltas. `NearbyDevice.Status` changes in place, so a bound row updates rather than moving between collections. |
+| State + deltas — `Devices` (snapshot) and `Devices.Changes` | Device presence and connection lifecycle | Presence *is* state, not a sequence of occurrences: the current set is readable at any time, so a consumer that starts late does not have to reconstruct it from history. `Changes` carries deltas rather than whole-list snapshots so nobody re-diffs on every transition. Every connection lifecycle transition arrives here — there are no separate connection events. |
 | Stream — `NearbyConnection.ReceiveAsync` | Inbound payloads | Payloads are ordered, unbounded, and consumed once. The loop body is the seam where consumer async work goes, and it is awaited before the next payload is taken — a `void`-returning `EventHandler` cannot express that. See `docs/PAYLOAD-DELIVERY.md`. |
 
 All async delivery is backed by `System.Threading.Channels`. Platform callbacks write into an
@@ -69,17 +70,24 @@ Two messaging primitives, chosen deliberately:
 | `Channel<NearbyPayload>` (`SingleReader = true`) | Per-connection payload stream | Single-consumer data pipe: each payload is consumed exactly once. Two concurrent `ReceiveAsync` enumerators would race and steal items from each other, and unbounded channels accept writes unconditionally so no back-pressure would expose the bug. Single-consumer is enforced by construction; fan out above the plugin. |
 | `TaskCompletionSource` | Disconnect signal (`NearbyConnection.Disconnected`) | One-time completion event: `Task` natively multicasts to any number of awaiters at zero cost. |
 
-### Subscription lifetime is the consumer's responsibility
+### Watch lifetime is the consumer's responsibility
 
-The session is a singleton, so an event subscription without a matching `-=` keeps the subscriber
-alive for the life of the app, and re-subscribing (re-navigating to a page) fires handlers N times
-after N visits. Event handlers must also be fast and must not do I/O — they run synchronously on the
-dispatcher. A throwing handler is caught and logged so it cannot take down the callback path, but it
-still starves the handlers after it.
+`Devices.Changes` is a **broadcast** stream: every enumeration gets its own unbounded channel and
+receives every change, independently of the others. (Contrast `NearbyConnection.ReceiveAsync`, which
+is single-consumer because each payload must be handled exactly once.) It does **not** replay — read
+`Devices` for the current state, then watch for what happens next.
 
-`samples/NearbyChat` shows the required pattern: `BasePageViewModel.RegisterSessionSubscription`
-detaches on navigate-away, and no page ViewModel subscribes directly. Payload loops need no
-equivalent — they self-terminate when the connection drops.
+Ending the enumeration is the only cleanup, and it cannot be forgotten: cancelling the token or
+breaking out of the loop unregisters the watcher in a `finally`. This is what retired the leak class
+that events had, where a missing `-=` kept the subscriber alive for the life of the app and fired
+handlers N times after N page visits.
+
+`samples/NearbyChat` shows the pattern: page ViewModels watch with `BasePageViewModel.NavigationToken`,
+so navigating away ends the loop. Payload loops need no equivalent — they self-terminate when the
+connection drops.
+
+**Changes arrive on the platform's callback thread.** Consumers that bind marshal for themselves, or
+construct a `NearbyDeviceCollection` — the one type in the library that knows a UI thread exists.
 
 ### Lifecycle wiring is the app's responsibility
 
@@ -88,9 +96,11 @@ background is a product decision belonging to the app, not the library — and t
 Doze, iOS background limits) terminates the session anyway, with the callbacks flowing back through
 the plugin as disconnection events.
 
-**All device-state mutation goes through `NearbyImplementation.state.cs` and is dispatcher-marshalled.**
-Platform callbacks arrive on background threads; mutating an `ObservableCollection` or raising
-`PropertyChanged` off the UI thread crashes XAML binding.
+**All device-state mutation goes through `NearbyImplementation.state.cs`**, which records it in
+`NearbyDeviceRegistry`. The registry is thread-safe by construction — reads take an immutable
+snapshot, writes are serialised by a lock — so platform callbacks record what they saw on whatever
+thread they arrived on. Nothing in the library marshals to a UI thread except
+`NearbyDeviceCollection`.
 
 A pending handshake is a `TaskCompletionSource` in `_connectionTcs`. **Every failure path must
 resolve or fault that TCS** or `AcceptAsync`/`ConnectAsync` hang forever.
@@ -110,8 +120,9 @@ src/Plugin.Maui.NearbyConnections/
 ├── NearbyException.cs             root exception — at the root for the same reason
 ├── MauiAppBuilderExtensions.cs               registration entry points, beside the facade
 ├── ServiceCollectionExtensions.cs
-├── Connections/   NearbyConnection, request, role, ControlMessage, EventArgs, connect timeout
-├── Devices/       NearbyDevice, DeviceState, status, events, EndReason
+├── Connections/   NearbyConnection, request, role, ControlMessage, connect timeout
+├── Devices/       NearbyDevice (immutable record), INearbyDevices + NearbyDeviceRegistry,
+│                  NearbyDeviceChange(+Action), NearbyDeviceCollection, status, EndReason
 ├── Discovery/     availability + advertising/discovery failures
 ├── Payload/       NearbyPayload + NearbyBytesPayload/NearbyFilePayload — the data
 ├── Transfer/      progress, transfer timeout, outgoing transfer — the act of moving it

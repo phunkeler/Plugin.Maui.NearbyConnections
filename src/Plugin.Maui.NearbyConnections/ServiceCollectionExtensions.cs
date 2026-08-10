@@ -35,16 +35,15 @@ public static partial class ServiceCollectionExtensions
     /// is ready and the required permissions have been granted.
     /// </para>
     /// <para>
-    /// The session is constructed during application startup rather than on first resolution, so a
-    /// service that subscribes to <see cref="INearby.ConnectionEstablished"/> at startup is
-    /// guaranteed to be attached before any connection can be established. Constructing the session
-    /// does not start advertising or discovery.
+    /// The session is constructed during application startup rather than on first resolution, so
+    /// that a service which starts watching at startup is running before any connection can be
+    /// established. Constructing the session does not start advertising or discovery.
     /// </para>
     /// <para>
-    /// The session resolves <see cref="IDispatcher"/> when one is registered, which is always the
-    /// case in a .NET MAUI application, and uses it to marshal device state changes and events onto
-    /// the UI thread. When no dispatcher is registered, as in unit tests, callbacks are raised on
-    /// the thread the platform used.
+    /// The session has no UI thread affinity and takes no dispatcher: every member of
+    /// <see cref="INearby"/> is callable from any thread. A consumer that binds device state to a
+    /// user interface constructs a <see cref="NearbyDeviceCollection"/>, which is where the
+    /// marshalling lives.
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentNullException">
@@ -75,7 +74,7 @@ public static partial class ServiceCollectionExtensions
 
             return new NearbyImplementation(
                 connections,
-                sp.GetService<IDispatcher>(),
+                resolvedOptions,
                 sp.GetService<ILogger<NearbyImplementation>>() ?? NullLogger<NearbyImplementation>.Instance);
         });
 
@@ -107,16 +106,17 @@ public static partial class ServiceCollectionExtensions
 
     /// <summary>
     /// Constructs <see cref="INearby"/> during <c>MauiAppBuilder.Build()</c> so the session
-    /// — and any consumer that subscribes to it at startup — is alive before the first connection
-    /// can be established.
+    /// — and any consumer watching it at startup — is alive before the first connection can be
+    /// established.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <see cref="INearby.ConnectionEstablished"/> is a plain event with no replay. The
-    /// container creates singletons lazily, on first resolution, so without this the session might
-    /// not exist until a page injected it — and a connection established before that point raises
-    /// an event nobody is subscribed to. Inbound payloads are then written to a channel with no
-    /// reader: no exception, no log, messages simply never arrive.
+    /// <see cref="INearbyDevices.Changes"/> does not replay. The container creates singletons
+    /// lazily, on first resolution, so without this the session might not exist until a page
+    /// injected it — and a connection established before that point is a transition nobody
+    /// observed. Inbound payloads are then written to a channel with no reader: no exception, no
+    /// log, messages simply never arrive. A watcher that starts late can recover the current state
+    /// from <see cref="INearby.Devices"/>, but only if it knows to look.
     /// </para>
     /// <para>
     /// Resolving the session is the entire job; the resolved instance is deliberately discarded

@@ -26,7 +26,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// </para>
 /// <para>
 /// <strong>Nothing restarts on foreground.</strong> Teardown is an explicit, observable transition —
-/// connections raise <see cref="INearby.ConnectionDropped"/> and the flags go
+/// connections return their devices to <see cref="NearbyDeviceStatus.Visible"/> and the flags go
 /// <see langword="false"/> — and restarting is the app's call, consistent with the plugin's
 /// "nothing starts on its own" contract. There is no MPC reconnect primitive in any case: recovery
 /// means re-advertising and re-inviting, and the retry policy is app-specific.
@@ -73,7 +73,7 @@ sealed partial class AppLifecycleObserver : IDisposable
         try
         {
             // StopAsync, not a bespoke teardown: it already stops advertising and discovery,
-            // disposes every connection (so ConnectionDropped is raised through the one existing
+            // disposes every connection (so the drop is recorded through the one existing
             // path), rejects outstanding inbound requests so remote peers are not left hanging, and
             // clears Devices. Reimplementing that here would mean a second teardown path to keep
             // correct. The session remains usable — the app can start again on foreground.

@@ -24,9 +24,8 @@ public enum NearbyDeviceStatus
     RequestReceived,
 
     /// <summary>
-    /// A connection handshake is in progress, in either direction. Match
-    /// <see cref="NearbyDevice.State"/> against <see cref="DeviceState.Connecting"/> to determine
-    /// which side initiated it.
+    /// A connection handshake is in progress, in either direction. Read
+    /// <see cref="NearbyDevice.Role"/> to determine which side initiated it.
     /// </summary>
     /// <remarks>
     /// This state is advisory and is not a guaranteed step in the lifecycle. On iOS, a device can
@@ -37,9 +36,9 @@ public enum NearbyDeviceStatus
     Connecting,
 
     /// <summary>
-    /// A connection is established. <see cref="NearbyDevice.State"/> is
-    /// <see cref="DeviceState.Connected"/>, which carries the connection, in this state and only in
-    /// this state.
+    /// A connection is established.
+    /// <see cref="INearby.TryGetConnection(string, out NearbyConnection)"/> returns the connection
+    /// in this state and only in this state.
     /// </summary>
     Connected,
 }

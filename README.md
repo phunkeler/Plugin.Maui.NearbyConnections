@@ -17,10 +17,10 @@ This plugin targets **foreground, both-devices-present interactions** — the tw
 
 **It is not built for connections that survive backgrounding.** When an app is backgrounded on iOS, the connection ends — and the plugin reports that honestly rather than pretending otherwise. This is a platform constraint, not a plugin limitation:
 
-- **iOS.** Multipeer Connectivity has no background mode. Apple's Developer Technical Support is explicit that operating in the background is unsupported ([forum 11964](https://developer.apple.com/forums/thread/11964)); a normal app is suspended within seconds of backgrounding and the session dies silently. The plugin therefore tears the session down on `DidEnterBackground` and raises `ConnectionDropped`, so your app is told rather than left holding a dead connection.
+- **iOS.** Multipeer Connectivity has no background mode. Apple's Developer Technical Support is explicit that operating in the background is unsupported ([forum 11964](https://developer.apple.com/forums/thread/11964)); a normal app is suspended within seconds of backgrounding and the session dies silently. The plugin therefore tears the session down on `DidEnterBackground`, returning every device to `Visible` through `Devices.Changes`, so your app is told rather than left holding a dead connection.
 - **Android.** No framework prohibition, but the connection dies with the process, and Doze independently suspends networking. Surviving backgrounding requires a foreground service, which is app-level work the plugin does not impose on you.
 
-**There is no auto-reconnect, by design.** Neither platform offers a reconnect primitive — recovery means advertising and inviting again — and retry policy (how often, how long, whether to prompt) is app-specific. The plugin gives you `ConnectionDropped` and the device state to re-initiate from; your app decides whether and when.
+**There is no auto-reconnect, by design.** Neither platform offers a reconnect primitive — recovery means advertising and inviting again — and retry policy (how often, how long, whether to prompt) is app-specific. The plugin gives you the device state to re-initiate from; your app decides whether and when.
 
 If you need a long-lived connection that survives backgrounding, this is not the right library, and on iOS no library can give you that with Multipeer Connectivity.
 
@@ -182,14 +182,17 @@ var connected = session.Devices.Where(d => d.Status is NearbyDeviceStatus.Connec
 
 ### Accept inbound connection requests
 
-```csharp
-session.ConnectionRequested += async (sender, e) =>
-{
-    Console.WriteLine($"Connection request from: {e.Device.DisplayName}");
+A device asking to connect appears with `Status == RequestReceived`:
 
-    // Accept to establish the connection, or RejectAsync to decline.
-    NearbyConnection connection = await session.AcceptAsync(e.Device);
-};
+```csharp
+await foreach (var change in session.Devices.Changes.WithCancellation(cancellationToken))
+{
+    if (change.Device.Status is NearbyDeviceStatus.RequestReceived)
+    {
+        // Accept to establish the connection, or RejectAsync to decline.
+        NearbyConnection connection = await session.AcceptAsync(change.Device);
+    }
+}
 ```
 
 ### Find devices and initiate a connection
@@ -204,20 +207,38 @@ NearbyConnection connection = await session.ConnectAsync(device);
 
 ### Know when a connection opens or closes
 
+Every lifecycle transition arrives on one stream, as a change to the device's `Status`:
+
 ```csharp
-session.ConnectionEstablished += (sender, e) => StartConsuming(e.Connection);
-session.ConnectionDropped     += (sender, e) => Cleanup(e.Device);
+await foreach (var change in session.Devices.Changes.WithCancellation(cancellationToken))
+{
+    var device = change.Device;
+
+    if (change.Action is not NearbyDeviceChangeAction.Removed
+        && device.Status is NearbyDeviceStatus.Connected
+        && session.TryGetConnection(device.Id, out var connection))
+    {
+        StartConsuming(connection);
+    }
+}
 ```
 
-> **Handlers run on the UI thread and run synchronously.** The session marshals every collection change, property change, and event to the dispatcher for you, so bindings are safe without extra work — but keep handlers fast and do no I/O in them. Inbound payloads are a stream precisely so that consuming them can be asynchronous (see section 4).
+> **Changes arrive on a background thread.** `INearby` has no UI thread affinity — nothing is marshalled for you. Marshal in the loop body (`await Dispatcher.DispatchAsync(...)`), or bind to a `NearbyDeviceCollection`, which does it for you:
+>
+> ```csharp
+> // ItemsSource="{Binding Devices}"
+> public NearbyDeviceCollection Devices { get; } = new(session, Dispatcher.Dispatch);
+> ```
+>
+> Because the loop body is `async`, you can await inside it — an event handler could not.
 
-> **Unsubscribe what you subscribe.** The session is a singleton that outlives your pages. A page that does `+=` without a matching `-=` stays alive for the life of the app, and revisiting it attaches a second handler — after five visits every event fires five times. See `BasePageViewModel.RegisterSessionSubscription` in [`samples/NearbyChat`](samples/NearbyChat) for the pattern. Payload loops need no such care: they end by themselves when the connection drops.
+> **Ending the loop is the only cleanup.** There is nothing to unsubscribe from: cancel the token, or `break`, and the watcher is gone. A page that watches with its navigation token cannot leak the way an undetached `+=` handler could.
 
-> **Subscribe before the first connection exists.** These events do not replay. Whatever subscribes to `ConnectionEstablished` to start consuming payloads must already be constructed by the time a connection opens, or it never starts a loop for that connection and the peer's messages silently never arrive. Registering it as a DI singleton is *not* sufficient — singletons are constructed on first resolution, so a consumer resolved only by a page opened after connecting is built too late. Register it as an `IMauiInitializeService`, which MAUI constructs during `Build()`. See [`docs/PAYLOAD-DELIVERY.md`](docs/PAYLOAD-DELIVERY.md#your-consumer-must-be-constructed-before-the-first-connection).
+> **Start watching before the first connection exists.** `Changes` does not replay. A consumer that starts a receive loop must already be running by the time a connection opens, or it never starts one for that connection and the peer's messages silently never arrive. Registering it as a DI singleton is *not* sufficient — singletons are constructed on first resolution, so a consumer resolved only by a page opened after connecting is built too late. Register it as an `IMauiInitializeService`, which MAUI constructs during `Build()`. (A late starter can recover the current state by reading `session.Devices` before it begins watching.) See [`docs/PAYLOAD-DELIVERY.md`](docs/PAYLOAD-DELIVERY.md#your-consumer-must-be-constructed-before-the-first-connection).
 
 ## 4. Send and receive data
 
-`NearbyConnection` is obtained from `AcceptAsync`, from `ConnectAsync`, or by matching `NearbyDevice.State` against `DeviceState.Connected` while the device is connected.
+`NearbyConnection` is obtained from `AcceptAsync`, from `ConnectAsync`, or by looking one up with `session.TryGetConnection(device.Id, out var connection)` while the device is connected.
 
 ### Send bytes
 

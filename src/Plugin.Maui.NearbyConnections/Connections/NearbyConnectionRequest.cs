@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 /// <remarks>
 /// Internal: the session projects each request into
-/// <see cref="INearby.ConnectionRequested"/> and holds the request itself so
+/// <see cref="INearbyDevices.Changes"/> and holds the request itself so
 /// <see cref="INearby.AcceptAsync"/> and <see cref="INearby.RejectAsync"/> can answer
 /// it. Consumers work with the <see cref="NearbyDevice"/>, never with this type.
 /// </remarks>

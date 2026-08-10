@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NearbyChat.Services;
@@ -95,20 +94,31 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
         IsDiscovering = _session.IsDiscovering;
 
         // Devices is the state, so this page projects it rather than accumulating its own events.
-        // Devices found while the page was away are therefore already present.
-        RegisterSessionSubscription(
-            () => ((INotifyCollectionChanged)_session.Devices).CollectionChanged += OnDevicesChanged,
-            () => ((INotifyCollectionChanged)_session.Devices).CollectionChanged -= OnDevicesChanged);
-
-        RegisterSessionSubscription(
-            () => _session.ConnectionEstablished += OnConnectionChanged,
-            () => _session.ConnectionEstablished -= OnConnectionChanged);
-
-        RegisterSessionSubscription(
-            () => _session.ConnectionDropped += OnConnectionChanged,
-            () => _session.ConnectionDropped -= OnConnectionChanged);
-
+        // Devices found while the page was away are therefore already present, and Rebuild picks
+        // them up before the watch loop starts on what happens next.
         Rebuild();
+
+        _ = WatchDevicesAsync(NavigationToken);
+    }
+
+    /// <summary>
+    /// Re-projects the list on every device change until the page is navigated away from, which
+    /// cancels <see cref="BasePageViewModel.NavigationToken"/> and ends the loop.
+    /// </summary>
+    async Task WatchDevicesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var _ in _session.Devices.Changes.WithCancellation(cancellationToken))
+            {
+                // Changes arrive on a platform background thread; DiscoveredDevices is bound.
+                await Dispatcher.DispatchAsync(Rebuild);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Navigated away.
+        }
     }
 
     protected override void NavigatedFrom()
@@ -117,15 +127,6 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
 
         _relativeTimeTicker.SetActive(false);
     }
-
-    void OnDevicesChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        => Rebuild();
-
-    /// <summary>
-    /// A device that connects leaves the connectable list; one that drops rejoins it.
-    /// </summary>
-    void OnConnectionChanged(object? sender, NearbyConnectionChangedEventArgs e)
-        => Rebuild();
 
     /// <summary>
     /// Reconciles the list against the session, preserving existing row instances so bindings and
@@ -147,7 +148,13 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
 
         foreach (var device in connectable)
         {
-            if (!DiscoveredDevices.Any(d => d.Id == device.Id))
+            // A device is a snapshot, so an existing row is handed the new one rather than left
+            // watching an instance that will never change again.
+            if (DiscoveredDevices.FirstOrDefault(d => d.Id == device.Id) is { } existing)
+            {
+                existing.Update(device);
+            }
+            else
             {
                 DiscoveredDevices.Add(new DiscoveredDeviceViewModel(device, _session));
             }
