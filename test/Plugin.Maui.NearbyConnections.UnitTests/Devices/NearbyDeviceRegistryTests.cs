@@ -288,7 +288,7 @@ public class NearbyDeviceRegistryTests
 
             // A fixed wait, not a poll: this asserts that a change never reaches the earlier
             // snapshot, and polling can only establish that it has not reached it yet.
-            await Task.Delay(50);
+            await Task.Delay(50, TestContext.CancellationToken);
 
             // Assert
             Assert.HasCount(1, before, "Only the change published while watching should arrive.");
@@ -323,5 +323,7 @@ public class NearbyDeviceRegistryTests
             await Wait.UntilAsync(() => neverAwaited.IsCompleted);
             Assert.IsTrue(neverAwaited.IsCompleted, "The first change should have completed the pending read.");
         }
+
+        public TestContext TestContext { get; set; }
     }
 }

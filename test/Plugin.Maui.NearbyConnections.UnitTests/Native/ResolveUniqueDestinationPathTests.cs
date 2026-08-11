@@ -104,25 +104,26 @@ public class ResolveUniqueDestinationPathTests
         public void ResultIsAlwaysAFreePath()
         {
             // The property that actually matters: whatever is returned must not already exist, or
-            // the caller silently overwrites a file it did not create.
+            // the caller silently overwrites a file it did not create. Ten consecutive transfers is
+            // simulated in a loop because the property under test — freshness relative to the
+            // previous call's result — only shows up across repeated calls, not a single one.
+            const int TransferCount = 10;
 
             // Arrange
             using var temp = new TempDirectory();
             var dir = temp.Path;
-            for (var i = 0; i < 10; i++)
+
+            // Act — each iteration simulates the caller writing the file it was handed, so the next
+            // call must pick a new name.
+            for (var i = 0; i < TransferCount; i++)
             {
-                    var next = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
-
-                    Assert.IsFalse(File.Exists(next), $"Iteration {i} returned an existing path: {next}");
-
-                    // Simulate the caller writing the file, so the next call must pick a new name.
-
-            // Act
-                    temp.Touch(next);
+                var next = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
+                Assert.IsFalse(File.Exists(next), $"Iteration {i} returned an existing path: {next}");
+                temp.Touch(next);
             }
 
             // Assert
-            Assert.HasCount(10, Directory.GetFiles(dir), "Ten transfers should have produced ten distinct files.");
+            Assert.HasCount(TransferCount, Directory.GetFiles(dir), "Ten transfers should have produced ten distinct files.");
         }
     }
 }

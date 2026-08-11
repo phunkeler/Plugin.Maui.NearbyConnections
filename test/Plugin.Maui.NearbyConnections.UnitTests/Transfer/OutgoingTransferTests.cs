@@ -58,21 +58,19 @@ public class OutgoingTransferTests
             var time = new FakeTimeProvider();
             using var transfer = Create.Transfer(time);
 
+            // Act
             for (var i = 0; i < 5; i++)
             {
                 time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds) - TimeSpan.FromSeconds(1));
                 transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: i * 10));
 
-            // Act
                 Assert.IsFalse(
                     transfer.InactivityToken.IsCancellationRequested,
                     $"Timed out after update {i} despite continuous progress.");
             }
 
-            // Total elapsed time is far past the timeout, but no single gap ever was.
-
-            // Assert
-            Assert.IsTrue(time.GetUtcNow() > DateTimeOffset.UnixEpoch.AddSeconds(40));
+            // Assert — total elapsed time is far past the timeout, but no single gap ever was.
+            Assert.IsGreaterThan(DateTimeOffset.UnixEpoch.AddSeconds(40), time.GetUtcNow());
         }
 
         [TestMethod]
@@ -273,7 +271,7 @@ public class OutgoingTransferTests
             var time = new FakeTimeProvider();
             var transfer = Create.Transfer(time);
 
-            // Assert
+            // Act
             time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds));
             transfer.Dispose();
         }

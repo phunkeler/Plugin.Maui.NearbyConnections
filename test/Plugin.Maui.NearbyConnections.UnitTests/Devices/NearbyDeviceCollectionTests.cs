@@ -32,7 +32,7 @@ public class NearbyDeviceCollectionTests
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync();
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
             await platform.EmitDeviceFoundAsync(Create.Device("a", "Alice"));
 
             // Act
@@ -42,6 +42,8 @@ public class NearbyDeviceCollectionTests
             Assert.HasCount(1, devices);
             Assert.AreEqual("a", devices[0].Id);
         }
+
+        public TestContext TestContext { get; set; }
     }
 
     [TestClass]
@@ -53,7 +55,7 @@ public class NearbyDeviceCollectionTests
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync();
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
 
             using var devices = new NearbyDeviceCollection(session, a => a());
 
@@ -73,7 +75,7 @@ public class NearbyDeviceCollectionTests
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync();
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
 
             var device = Create.Device("a", "Alice");
             await platform.EmitDeviceFoundAsync(device);
@@ -83,15 +85,10 @@ public class NearbyDeviceCollectionTests
             var actions = new List<NotifyCollectionChangedAction>();
             devices.CollectionChanged += (_, e) => actions.Add(e.Action);
 
-            platform.ConnectResult = new NearbyConnection(
-                device,
-                System.Threading.Channels.Channel.CreateUnbounded<NearbyPayload>(),
-                (_, _) => ValueTask.CompletedTask,
-                (_, _, _) => Task.CompletedTask,
-                () => ValueTask.CompletedTask);
+            platform.ConnectResult = Create.Connection(device: device);
 
             // Act
-            await session.ConnectAsync(device);
+            await session.ConnectAsync(device, TestContext.CancellationToken);
             await Wait.UntilAsync(() => devices.Count == 1 && devices[0].Status is NearbyDeviceStatus.Connected);
 
             // Assert
@@ -107,7 +104,7 @@ public class NearbyDeviceCollectionTests
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync();
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
 
             var marshal = new InlineMarshal();
             using var devices = new NearbyDeviceCollection(session, marshal.Run);
@@ -126,7 +123,7 @@ public class NearbyDeviceCollectionTests
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync();
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
 
             var devices = new NearbyDeviceCollection(session, a => a());
             devices.Dispose();
@@ -136,7 +133,7 @@ public class NearbyDeviceCollectionTests
 
             // A fixed wait, not a poll: this asserts that something never arrives, and polling can
             // only establish that it has not arrived yet.
-            await Task.Delay(50);
+            await Task.Delay(50, TestContext.CancellationToken);
 
             // Assert
             Assert.IsEmpty(devices, "A disposed collection must stop applying changes.");
@@ -155,5 +152,7 @@ public class NearbyDeviceCollectionTests
             // Assert
             Assert.IsEmpty(devices);
         }
+
+        public TestContext TestContext { get; set; }
     }
 }

@@ -55,7 +55,7 @@ public class ServiceCollectionExtensionsTests
             services.AddNearby();
 
             // Assert
-            Assert.IsFalse(services.Any(d => d.ServiceType == typeof(ILoggerFactory)));
+            Assert.DoesNotContain(d => d.ServiceType == typeof(ILoggerFactory), services);
         }
 
         [TestMethod]
@@ -67,6 +67,8 @@ public class ServiceCollectionExtensionsTests
             //
             // Asserting ordering, not identity: a test that only compares two resolutions passes
             // whether or not the initializer ran at all.
+
+            // Arrange
             var services = new ServiceCollection();
             services.AddNearby(options => options.ServiceId = "test-service");
 
@@ -75,7 +77,6 @@ public class ServiceCollectionExtensionsTests
             var clock = new ConstructionWitness();
             services.AddSingleton<TimeProvider>(clock.Resolve);
 
-            // Arrange
             await using var provider = services.BuildServiceProvider();
             var initializer = provider.GetServices<IMauiInitializeService>()
                 .Single(s => s.GetType().Name == "NearbySessionInitializer");
@@ -101,10 +102,10 @@ public class ServiceCollectionExtensionsTests
             // Empty rather than malformed: the character rules live in ServiceIdRules and are
             // applied by NearbyOptionsValidator.ios.cs, so on net10.0 the null/empty check is the
             // whole of validation.
-            var services = new ServiceCollection();
-            services.AddNearby(options => options.ServiceId = "");
 
             // Arrange
+            var services = new ServiceCollection();
+            services.AddNearby(options => options.ServiceId = "");
             await using var provider = services.BuildServiceProvider();
 
             // Act + Assert
@@ -126,10 +127,8 @@ public class ServiceCollectionExtensionsTests
             services.AddSingleton<INearby>(stub);
 
             // Act
-            // Act
             services.AddNearby(options => options.ServiceId = "test-service");
 
-            // Assert
             // Assert
             await using var provider = services.BuildServiceProvider();
             Assert.AreSame(stub, provider.GetRequiredService<INearby>());
@@ -140,13 +139,14 @@ public class ServiceCollectionExtensionsTests
         {
             // The session falls back to TimeProvider.System, so a registered provider being ignored
             // would leave every timeout un-fakeable and silently wall-clock bound.
+
+            // Arrange
             var services = new ServiceCollection();
             services.AddNearby(options => options.ServiceId = "test-service");
 
             var clock = new ConstructionWitness();
             services.AddSingleton<TimeProvider>(clock.Resolve);
 
-            // Arrange
             await using var provider = services.BuildServiceProvider();
 
             // Act
@@ -169,9 +169,6 @@ public class ServiceCollectionExtensionsTests
 
             // Act
             services.AddNearby();
-
-            // Assert
-            // Act
             await using var provider = services.BuildServiceProvider();
 
             // Assert
@@ -192,9 +189,6 @@ public class ServiceCollectionExtensionsTests
 
             // Act
             services.AddNearby(options => options.ServiceId = "test-service");
-
-            // Assert
-            // Act
             await using var provider = services.BuildServiceProvider();
             var options = provider.GetRequiredService<IOptions<NearbyOptions>>().Value;
 

@@ -28,14 +28,14 @@ static class Create
     public static NearbyConnection Connection(
         NearbyDevice? device = null,
         Channel<NearbyPayload>? receiveChannel = null,
-        Func<byte[], CancellationToken, ValueTask>? sendBytes = null,
+        Func<byte[], CancellationToken, Task>? sendBytes = null,
         Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task>? sendFile = null,
         Func<ValueTask>? dispose = null)
         => new(
             device ?? Device(),
             receiveChannel ?? Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false }),
-            sendBytes: sendBytes ?? ((_, _) => ValueTask.CompletedTask),
+            sendBytes: sendBytes ?? ((_, _) => Task.CompletedTask),
             sendFile: sendFile ?? ((_, _, _) => Task.CompletedTask),
             dispose: dispose ?? (() => ValueTask.CompletedTask));
 

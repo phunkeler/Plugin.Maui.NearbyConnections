@@ -1,5 +1,4 @@
 using System.Threading.Channels;
-using Plugin.Maui.NearbyConnections;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
@@ -33,12 +32,12 @@ public class NearbyConnectionTests
             // Arrange
             byte[]? captured = null;
             var connection = Create.Connection(
-                sendBytes: (data, _) => { captured = data; return ValueTask.CompletedTask; });
+                sendBytes: (data, _) => { captured = data; return Task.CompletedTask; });
 
             var payload = new byte[] { 10, 20, 30 };
 
             // Act
-            await connection.SendAsync(payload);
+            await connection.SendAsync(payload, TestContext.CancellationToken);
 
             // Assert
             Assert.IsNotNull(captured);
@@ -51,7 +50,7 @@ public class NearbyConnectionTests
             // Arrange
             CancellationToken capturedToken = default;
             var connection = Create.Connection(
-                sendBytes: (_, ct) => { capturedToken = ct; return ValueTask.CompletedTask; });
+                sendBytes: (_, ct) => { capturedToken = ct; return Task.CompletedTask; });
 
             using var cts = new CancellationTokenSource();
 
@@ -69,11 +68,13 @@ public class NearbyConnectionTests
             var connection = Create.Connection();
 
             // Act
-            Func<Task> act = () => connection.SendAsync((byte[])null!).AsTask();
+            Func<Task> act = () => connection.SendAsync((byte[])null!, TestContext.CancellationToken);
 
             // Assert
             await Assert.ThrowsExactlyAsync<ArgumentNullException>(act);
         }
+
+        public TestContext TestContext { get; set; }
     }
 
     [TestClass]
@@ -88,7 +89,7 @@ public class NearbyConnectionTests
                 sendFile: (uri, _, _) => { capturedUri = uri; return Task.CompletedTask; });
 
             // Act
-            await connection.SendAsync("/path/to/file.txt");
+            await connection.SendAsync("/path/to/file.txt", cancellationToken: TestContext.CancellationToken);
 
             // Assert
             Assert.AreEqual("/path/to/file.txt", capturedUri);
@@ -105,7 +106,7 @@ public class NearbyConnectionTests
             var progress = new Progress<NearbyTransferProgress>();
 
             // Act
-            await connection.SendAsync("/path/to/file.txt", progress);
+            await connection.SendAsync("/path/to/file.txt", progress, TestContext.CancellationToken);
 
             // Assert
             Assert.AreSame(progress, capturedProgress);
@@ -118,11 +119,13 @@ public class NearbyConnectionTests
             var connection = Create.Connection();
 
             // Act
-            Func<Task> act = async () => await connection.SendAsync((string)null!);
+            Func<Task> act = async () => await connection.SendAsync((string)null!, cancellationToken: TestContext.CancellationToken);
 
             // Assert
             await Assert.ThrowsExactlyAsync<ArgumentNullException>(act);
         }
+
+        public TestContext TestContext { get; set; }
     }
 
     [TestClass]
@@ -217,10 +220,10 @@ public class NearbyConnectionTests
         {
             // Arrange
             var connection = Create.Connection();
-            connection.ReceiveAsync(); // first call — sets guard
+            connection.ReceiveAsync(TestContext.CancellationToken); // first call — sets guard
 
             // Act
-            Task Act() { connection.ReceiveAsync(); return Task.CompletedTask; }
+            Task Act() { connection.ReceiveAsync(TestContext.CancellationToken); return Task.CompletedTask; }
 
             // Assert
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(Act);
@@ -237,11 +240,13 @@ public class NearbyConnectionTests
             catch (OperationCanceledException) { }
 
             // Act
-            Task Act() { connection.ReceiveAsync(); return Task.CompletedTask; }
+            Task Act() { connection.ReceiveAsync(TestContext.CancellationToken); return Task.CompletedTask; }
 
             // Assert
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(Act);
         }
+
+        public TestContext TestContext { get; set; }
     }
 
     [TestClass]
@@ -369,7 +374,7 @@ public class NearbyConnectionTests
             var received = new List<byte>();
             connection.CompleteReceive();
 
-            await foreach (var payload in connection.ReceiveAsync())
+            await foreach (var payload in connection.ReceiveAsync(TestContext.CancellationToken))
             {
                 received.Add(((NearbyBytesPayload)payload).Data[0]);
             }
@@ -388,11 +393,13 @@ public class NearbyConnectionTests
             var connection = Create.Connection();
 
             // Act
-            _ = connection.ReceiveAsync();
+            _ = connection.ReceiveAsync(TestContext.CancellationToken);
 
             // Assert — set by calling ReceiveAsync, without needing to enumerate it
             Assert.IsTrue(connection.IsBeingConsumed);
         }
+
+        public TestContext TestContext { get; set; }
     }
 
     [TestClass]
@@ -408,7 +415,7 @@ public class NearbyConnectionTests
             connection.CompleteReceive();
 
             // Assert
-            await connection.Disconnected.WaitAsync(TimeSpan.FromSeconds(2));
+            await connection.Disconnected.WaitAsync(TimeSpan.FromSeconds(2), TestContext.CancellationToken);
             Assert.IsTrue(connection.Disconnected.IsCompleted);
         }
 
@@ -439,6 +446,8 @@ public class NearbyConnectionTests
             // Assert
             Assert.IsTrue(connection.Disconnected.IsCompleted);
         }
+
+        public TestContext TestContext { get; set; }
     }
 
     [TestClass]
@@ -508,7 +517,7 @@ public class NearbyConnectionTests
 
             // Act — disconnect from inside the loop after the first payload
             var received = new List<NearbyPayload>();
-            await foreach (var payload in connection.ReceiveAsync())
+            await foreach (var payload in connection.ReceiveAsync(TestContext.CancellationToken))
             {
                 received.Add(payload);
                 connection.CompleteReceive();
@@ -539,5 +548,7 @@ public class NearbyConnectionTests
                 }
             });
         }
+
+        public TestContext TestContext { get; set; }
     }
 }

@@ -1,7 +1,6 @@
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
-using Plugin.Maui.NearbyConnections;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
@@ -100,13 +99,7 @@ public class PlatformNearbyTests
             var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
             platform._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
 
-            var receiveChannel = Channel.CreateUnbounded<NearbyPayload>();
-            var connection = new NearbyConnection(
-                device,
-                receiveChannel,
-                sendBytes: (_, _) => ValueTask.CompletedTask,
-                sendFile: (_, _, _) => Task.CompletedTask,
-                dispose: () => ValueTask.CompletedTask);
+            var connection = Create.Connection(device: device);
 
             // Act — simulate platform callback resolving the TCS
             platform.ResolveConnectionTcs("peer-1", connection);
@@ -128,13 +121,7 @@ public class PlatformNearbyTests
             var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
             platform._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
 
-            var receiveChannel = Channel.CreateUnbounded<NearbyPayload>();
-            var connection = new NearbyConnection(
-                device,
-                receiveChannel,
-                sendBytes: (_, _) => ValueTask.CompletedTask,
-                sendFile: (_, _, _) => Task.CompletedTask,
-                dispose: () => ValueTask.CompletedTask);
+            var connection = Create.Connection(device: device);
 
             // Act
             platform.ResolveConnectionTcs("peer-1", connection);
@@ -173,13 +160,7 @@ public class PlatformNearbyTests
             var platform = Create.PlatformNearby();
             var device = Create.Device("peer-1", "Alice");
 
-            var receiveChannel = Channel.CreateUnbounded<NearbyPayload>();
-            var connection = new NearbyConnection(
-                device,
-                receiveChannel,
-                sendBytes: (_, _) => ValueTask.CompletedTask,
-                sendFile: (_, _, _) => Task.CompletedTask,
-                dispose: () => ValueTask.CompletedTask);
+            var connection = Create.Connection(device: device);
 
             // Act
             platform.ResolveConnectionTcs("peer-1", connection);
@@ -266,12 +247,7 @@ public class PlatformNearbyTests
 
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-            var connection = new NearbyConnection(
-                device,
-                receiveChannel,
-                sendBytes: (_, _) => ValueTask.CompletedTask,
-                sendFile: (_, _, _) => Task.CompletedTask,
-                dispose: () => ValueTask.CompletedTask);
+            var connection = Create.Connection(device: device, receiveChannel: receiveChannel);
 
             platform.ResolveConnectionTcs("peer-1", connection);
             await tcs.Task;
@@ -316,7 +292,7 @@ public class PlatformNearbyTests
             var device = Create.Device("peer-1", "Alice");
             var continuationRan = false;
 
-            var readValueTask = platform._discoverChannel.Reader.ReadAsync();
+            var readValueTask = platform._discoverChannel.Reader.ReadAsync(TestContext.CancellationToken);
             _ = readValueTask.AsTask().ContinueWith(
                 _ => continuationRan = true,
                 TaskContinuationOptions.ExecuteSynchronously);
@@ -338,7 +314,7 @@ public class PlatformNearbyTests
             var device = Create.Device("peer-1", "Alice");
             var continuationRan = false;
 
-            var readValueTask = platform._discoverChannel.Reader.ReadAsync();
+            var readValueTask = platform._discoverChannel.Reader.ReadAsync(TestContext.CancellationToken);
             _ = readValueTask.AsTask().ContinueWith(
                 _ => continuationRan = true,
                 TaskContinuationOptions.ExecuteSynchronously);
@@ -350,6 +326,8 @@ public class PlatformNearbyTests
             // before WriteDeviceFound returned.
             Assert.IsTrue(continuationRan);
         }
+
+        public TestContext TestContext { get; set; }
     }
 
     [TestClass]

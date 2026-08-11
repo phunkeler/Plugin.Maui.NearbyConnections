@@ -24,10 +24,6 @@ public class ControlMessageTests
     /// Hard-coded rather than derived from the implementation constant: a test that reads the
     /// constant would happily follow it to a new value and prove nothing.
     /// </summary>
-    /// <remarks>
-    /// A fresh array per read. A static <c>readonly byte[]</c> would be shared mutable state under
-    /// method-level parallelisation — <c>readonly</c> protects the reference, not the elements.
-    /// </remarks>
     static byte[] SignatureBytes => [0x43, 0x4E, 0x4D, 0x50];
 
     [TestClass]

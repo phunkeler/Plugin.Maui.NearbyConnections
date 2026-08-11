@@ -26,18 +26,13 @@ public sealed class InvitationTimeoutTests
     [TestMethod]
     public async Task ConnectAsync_TimeoutIsArmedFromOptions()
     {
-        // Guards the wiring rather than the clock: ConnectAsync must read InvitationTimeout from
-        // options. On net10.0 the platform call throws first, so the assertion is that the
-        // platform-not-supported failure surfaces rather than a timeout — proving the deadline was
-        // armed but is not what failed.
-
         // Arrange
         var time = new FakeTimeProvider();
         var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service", InvitationTimeout = TimeSpan.FromSeconds(5) });
 
         // Assert
         await Assert.ThrowsExactlyAsync<PlatformNotSupportedException>(
-            () => platform.ConnectAsync(Create.Device("peer-1", "Alice")));
+            () => platform.ConnectAsync(Create.Device("peer-1", "Alice"), TestContext.CancellationToken));
     }
 
     [TestMethod]
@@ -58,10 +53,8 @@ public sealed class InvitationTimeoutTests
         var device = Create.Device("peer-1", "Alice");
 
         // Act
-        // Act
-        await Assert.ThrowsExactlyAsync<PlatformNotSupportedException>(() => platform.ConnectAsync(device));
+        await Assert.ThrowsExactlyAsync<PlatformNotSupportedException>(() => platform.ConnectAsync(device, TestContext.CancellationToken));
 
-        // Assert
         // Assert
         Assert.IsEmpty(platform._connectionTcs);
     }
@@ -86,4 +79,6 @@ public sealed class InvitationTimeoutTests
         // Assert
         Assert.IsNotInstanceOfType<NearbyConnectionTimeoutException>(ex);
     }
+
+    public TestContext TestContext { get; set; }
 }
