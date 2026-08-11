@@ -93,6 +93,37 @@ public sealed partial class NearbyOptions
     /// </remarks>
     public string ReceivedFilesDirectory { get; set; } = GetDefaultReceivedFilesDirectory();
 
+    /// <summary>
+    /// Gets or sets how often discovery is restarted to drop devices that have gone away without
+    /// the platform saying so.
+    /// </summary>
+    /// <value>
+    /// The interval between discovery passes, or <see langword="null"/> to never restart. The
+    /// default is 30 seconds.
+    /// </value>
+    /// <remarks>
+    /// <para>
+    /// Neither platform reliably reports every departure: a device that is switched off or carried
+    /// out of range may simply stop being seen, leaving a row in <see cref="INearby.Devices"/> that
+    /// can never be connected to. Restarting discovery is the only way to re-establish what is
+    /// actually in range, because both platforms report discovery on an edge — once, when a device
+    /// appears — rather than continuously. Elapsed silence therefore says nothing; a completed
+    /// discovery pass says everything.
+    /// </para>
+    /// <para>
+    /// After each restart, devices that the new pass did not re-report are removed. Devices that
+    /// are connected, or mid-handshake, are never removed however long they have been quiet.
+    /// </para>
+    /// <para>
+    /// Lower values detect departures sooner at the cost of more frequent radio work. Set this to
+    /// <see langword="null"/> if the application drives
+    /// <see cref="INearby.StopDiscoveryAsync(CancellationToken)"/> and
+    /// <see cref="INearby.StartDiscoveryAsync(CancellationToken)"/> itself, or if stale entries are
+    /// acceptable.
+    /// </para>
+    /// </remarks>
+    public TimeSpan? DiscoveryRefreshInterval { get; set; } = TimeSpan.FromSeconds(30);
+
     private static partial string GetDefaultDisplayName();
     private static partial string GetDefaultServiceId();
     private static partial string GetDefaultReceivedFilesDirectory();

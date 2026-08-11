@@ -26,6 +26,12 @@ sealed class NearbyDeviceRegistry : INearbyDevices
     readonly List<Channel<NearbyDeviceChange>> _watchers = [];
 
     /// <summary>
+    /// Devices carried over from the previous discovery generation that the current pass has not
+    /// re-reported yet. Guarded by <see cref="_gate"/> like every other mutable field here.
+    /// </summary>
+    readonly HashSet<string> _unconfirmed = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// The current set, rebuilt on every mutation so a reader never touches the dictionary. Readers
     /// take this reference and enumerate it outside the lock; a concurrent mutation replaces the
     /// reference rather than modifying the array being read.
@@ -83,6 +89,11 @@ sealed class NearbyDeviceRegistry : INearbyDevices
 
         lock (_gate)
         {
+            // Confirms the device for this discovery generation whether or not it is new: a
+            // rediscovery is exactly the evidence EvictUnconfirmed is waiting for, and it arrives
+            // through this early return rather than through a published change.
+            _unconfirmed.Remove(device.Id);
+
             if (_devices.TryGetValue(device.Id, out var existing))
             {
                 return existing;
@@ -123,6 +134,10 @@ sealed class NearbyDeviceRegistry : INearbyDevices
             {
                 return null;
             }
+
+            // Any transition is proof of life — a device that connects or receives a request during
+            // a generation must not then be evicted by it.
+            _unconfirmed.Remove(id);
 
             var updated = update(current);
 
@@ -210,6 +225,44 @@ sealed class NearbyDeviceRegistry : INearbyDevices
     /// Removes every device.
     /// </summary>
     public void Clear() => RemoveWhere(static _ => true);
+
+    /// <summary>
+    /// Marks every device currently known as belonging to the previous discovery generation, so
+    /// that <see cref="EvictUnconfirmed"/> can tell which ones a fresh discovery pass re-reported.
+    /// </summary>
+    /// <remarks>
+    /// Publishes nothing: this is bookkeeping, not a state change a consumer should react to.
+    /// </remarks>
+    public void BeginGeneration()
+    {
+        lock (_gate)
+        {
+            _unconfirmed.Clear();
+
+            foreach (var device in _devices.Values)
+            {
+                // Only visible devices are candidates. A connected device is demonstrably present
+                // whatever discovery reports, and one mid-handshake is being acted on right now.
+                if (device.Status is NearbyDeviceStatus.Visible)
+                {
+                    _unconfirmed.Add(device.Id);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Removes every device that was present when <see cref="BeginGeneration"/> was called and has
+    /// not been seen since, publishing one <see cref="NearbyDeviceChangeAction.Removed"/> each.
+    /// </summary>
+    /// <remarks>
+    /// A device survives by being re-reported: <see cref="AddIfAbsent"/> confirms it, as does any
+    /// status transition through <see cref="Update"/>. This is the only sound basis for eviction
+    /// available — both platforms report discovery on an edge (once, when a device appears) rather
+    /// than on a level, so elapsed silence carries no information about whether a device is still
+    /// there. A completed discovery pass does.
+    /// </remarks>
+    public void EvictUnconfirmed() => RemoveWhere(device => _unconfirmed.Contains(device.Id));
 
     /// <summary>
     /// Rebuilds the read snapshot. Caller must hold <see cref="_gate"/>.

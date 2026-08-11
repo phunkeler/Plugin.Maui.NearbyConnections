@@ -16,6 +16,9 @@ sealed partial class NearbyImplementation
     [LoggerMessage(Level = LogLevel.Error, Message = "Discovery stopped unexpectedly. Discovery is no longer active.")]
     partial void LogDiscoverPumpFailed(Exception exception);
 
+    [LoggerMessage(Level = LogLevel.Error, Message = "Discovery refresh failed. Devices that have gone out of range may linger until discovery is restarted.")]
+    partial void LogRefreshDiscoveryFailed(Exception exception);
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to observe disconnect for device {DeviceId}. It may be left reporting Connected.")]
     partial void LogDisconnectWatchFailed(string deviceId, Exception exception);
 

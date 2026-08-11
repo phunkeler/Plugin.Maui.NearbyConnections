@@ -61,7 +61,7 @@ Never expose platform verbs: `StartBrowsingAsync`, `StartEndpointDiscoveryAsync`
 
 MAUI apps already define `Device`, `Application`, `Connectivity`, `Permissions`. Public types carry
 the `Nearby` qualifier wherever a bare noun would collide. Exempt: domain nouns that cannot collide
-(`ConnectionRole`, `EndReason`).
+(`ConnectionRole`). The same exemption covers internal types, where `EndReason` now lives.
 
 Do not rename `NearbyDevice` to `Peer` for networking purity — it is a discovered physical device,
 and `Device` is clearer to an app developer.

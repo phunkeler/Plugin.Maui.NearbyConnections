@@ -20,55 +20,47 @@ namespace Plugin.Maui.NearbyConnections;
 /// </remarks>
 sealed partial class NearbyImplementation : INearby, IAsyncDisposable
 {
-    // The interface, not the concrete implementation: on net10.0 every Platform* start throws, so a
-    // concrete dependency would make the session untestable off-device. Tests substitute a fake.
     readonly IPlatformNearby _connections;
     readonly NearbyOptions _options;
     readonly ILogger _logger;
+    readonly TimeProvider _timeProvider;
 
     readonly NearbyDeviceRegistry _registry = new();
     readonly SemaphoreSlim _stateGate = new(1, 1);
 
-    /// <summary>
-    /// Outstanding inbound requests, keyed by device id, so <see cref="AcceptAsync"/> and
-    /// <see cref="RejectAsync"/> can find the request behind a device that reported
-    /// <see cref="NearbyDeviceStatus.RequestReceived"/>. Entries are removed as soon as the request
-    /// is answered.
-    /// </summary>
     readonly ConcurrentDictionary<string, NearbyConnectionRequest> _pendingRequests
         = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// The live connections, keyed by device id. A dictionary rather than a field on
-    /// <see cref="NearbyDevice"/>, which is an immutable snapshot and cannot carry a live handle.
-    /// </summary>
-    /// <remarks>
-    /// <c>WatchDisconnectAsync</c> is the only place entries are removed, and that removal gates the
-    /// device's return to <see cref="NearbyDeviceStatus.Visible"/>. Nothing else may clear this
-    /// dictionary — see the comment in <see cref="StopAsync"/>.
-    /// </remarks>
     readonly ConcurrentDictionary<string, NearbyConnection> _activeConnections
         = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// The advertise and discover pumps, which differ only in the stream they drain and the flag
-    /// they publish. Holding each one's cancellation source and task together keeps start and stop
-    /// to a single implementation rather than two that must be kept in step.
-    /// </summary>
     readonly PumpState _advertise;
     readonly PumpState _discover;
 
-    // Volatile: written by whichever thread starts or stops a pump — including a platform callback
-    // thread when a pump fails — and read by any thread at all.
     volatile bool _isAdvertising;
     volatile bool _isDiscovering;
+
+    /// <summary>
+    /// How long a restarted discovery pass is given to re-report devices before the ones it did not
+    /// mention are evicted. Two seconds is comfortably longer than either platform takes to re-fire
+    /// its found callback for a device already in range.
+    /// </summary>
+    static readonly TimeSpan RefreshSettleWindow = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// The discovery refresh loop, live only while discovering and only when the options ask for
+    /// one. Guarded by <c>_stateGate</c> like the pumps.
+    /// </summary>
+    CancellationTokenSource? _refreshCts;
+    Task? _refreshTask;
 
     int _disposeGuard;
 
     internal NearbyImplementation(
         IPlatformNearby connections,
         NearbyOptions options,
-        ILogger logger)
+        ILogger logger,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(connections);
         ArgumentNullException.ThrowIfNull(options);
@@ -77,6 +69,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         _connections = connections;
         _options = options;
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
 
         _advertise = new PumpState(
             start: ct => PumpAdvertiseAsync(_connections.AdvertiseAsync(ct), ct),
@@ -174,6 +167,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
             if (!IsDiscovering)
             {
                 StartPump(_discover);
+                StartRefreshLoop();
             }
         }
         finally
@@ -185,6 +179,10 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     /// <inheritdoc/>
     public async Task StopDiscoveryAsync(CancellationToken cancellationToken = default)
     {
+        // Before the gate: the refresh loop takes it, so it must be released from its wait before
+        // this call can acquire it. Draining happens after the gate is released again.
+        CancelRefreshLoop();
+
         await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -192,9 +190,6 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
             if (IsDiscovering)
             {
                 await StopPumpAsync(_discover).ConfigureAwait(false);
-
-                // Devices that were only ever visible are no longer meaningful once discovery
-                // stops. Connected devices stay: stopping discovery does not end a conversation.
                 _registry.RemoveWhere(static d => d.Status is NearbyDeviceStatus.Visible);
             }
         }
@@ -202,11 +197,16 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         {
             _stateGate.Release();
         }
+
+        await DrainRefreshLoopAsync().ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
+        // Before the gate, for the same reason as StopDiscoveryAsync.
+        CancelRefreshLoop();
+
         await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -230,7 +230,6 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
                 }
                 catch (Exception ex)
                 {
-                    // One failed teardown must not abandon the rest.
                     LogStopConnectionError(connection.RemoteDevice.Id, ex);
                 }
             }
@@ -261,6 +260,8 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         {
             _stateGate.Release();
         }
+
+        await DrainRefreshLoopAsync().ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -354,9 +355,6 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
             return;
         }
 
-        // Disposing the connection drives the platform disconnect. The drop is reported back
-        // through the same path as a remote-initiated drop, so the device returns to Visible once,
-        // from one place, regardless of which side ended it.
         await connection.DisposeAsync().ConfigureAwait(false);
     }
 
@@ -372,8 +370,6 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
             return;
         }
 
-        // Before StopAsync: unsubscribing first means a backgrounding notification arriving during
-        // teardown cannot start a second, concurrent StopAsync against a session already going away.
         PlatformDisposeLifecycleObserver();
 
         try

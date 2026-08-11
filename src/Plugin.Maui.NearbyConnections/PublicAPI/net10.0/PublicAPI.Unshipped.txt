@@ -97,7 +97,6 @@ Plugin.Maui.NearbyConnections.NearbyDeviceCollection.Count.get -> int
 Plugin.Maui.NearbyConnections.NearbyDeviceCollection.Dispose() -> void
 Plugin.Maui.NearbyConnections.NearbyDeviceCollection.GetEnumerator() -> System.Collections.Generic.IEnumerator<Plugin.Maui.NearbyConnections.NearbyDevice!>!
 Plugin.Maui.NearbyConnections.NearbyDeviceCollection.NearbyDeviceCollection(Plugin.Maui.NearbyConnections.INearby! nearby, System.Action<System.Action!>! marshal) -> void
-Plugin.Maui.NearbyConnections.NearbyDeviceCollection.NearbyDeviceCollection(Plugin.Maui.NearbyConnections.INearby! nearby, System.Action<System.Action!>! marshal, System.TimeSpan? staleAfter, System.TimeProvider? timeProvider = null) -> void
 Plugin.Maui.NearbyConnections.NearbyDeviceCollection.this[int index].get -> Plugin.Maui.NearbyConnections.NearbyDevice!
 Plugin.Maui.NearbyConnections.NearbyDeviceStatus
 Plugin.Maui.NearbyConnections.NearbyDeviceStatus.Connected = 3 -> Plugin.Maui.NearbyConnections.NearbyDeviceStatus
@@ -129,6 +128,8 @@ Plugin.Maui.NearbyConnections.NearbyOptions.AutoAcceptConnectionRequests.get -> 
 Plugin.Maui.NearbyConnections.NearbyOptions.AutoAcceptConnectionRequests.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.DisplayName.get -> string!
 Plugin.Maui.NearbyConnections.NearbyOptions.DisplayName.set -> void
+Plugin.Maui.NearbyConnections.NearbyOptions.DiscoveryRefreshInterval.get -> System.TimeSpan?
+Plugin.Maui.NearbyConnections.NearbyOptions.DiscoveryRefreshInterval.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.InvitationTimeout.get -> System.TimeSpan
 Plugin.Maui.NearbyConnections.NearbyOptions.InvitationTimeout.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.NearbyOptions() -> void
@@ -192,7 +193,6 @@ static Plugin.Maui.NearbyConnections.NearbyFilePayload.operator ==(Plugin.Maui.N
 static Plugin.Maui.NearbyConnections.NearbyPayload.operator !=(Plugin.Maui.NearbyConnections.NearbyPayload? left, Plugin.Maui.NearbyConnections.NearbyPayload? right) -> bool
 static Plugin.Maui.NearbyConnections.NearbyPayload.operator ==(Plugin.Maui.NearbyConnections.NearbyPayload? left, Plugin.Maui.NearbyConnections.NearbyPayload? right) -> bool
 static Plugin.Maui.NearbyConnections.ServiceCollectionExtensions.AddNearby(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Plugin.Maui.NearbyConnections.NearbyOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
-static readonly Plugin.Maui.NearbyConnections.NearbyDeviceCollection.DefaultStaleAfter -> System.TimeSpan
 virtual Plugin.Maui.NearbyConnections.NearbyPayload.EqualityContract.get -> System.Type!
 virtual Plugin.Maui.NearbyConnections.NearbyPayload.Equals(Plugin.Maui.NearbyConnections.NearbyPayload? other) -> bool
 virtual Plugin.Maui.NearbyConnections.NearbyPayload.PrintMembers(System.Text.StringBuilder! builder) -> bool

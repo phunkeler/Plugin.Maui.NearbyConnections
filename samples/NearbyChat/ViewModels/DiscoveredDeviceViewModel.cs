@@ -28,12 +28,12 @@ public partial class DiscoveredDeviceViewModel : NearbyDeviceViewModel
     /// </remarks>
     public bool IsConnecting => Device.Status is NearbyDeviceStatus.Connecting;
 
-    [RelayCommand]
-    async Task Connect()
+    [RelayCommand(IncludeCancelCommand = true)]
+    async Task Connect(CancellationToken cancellationToken)
     {
         try
         {
-            await _session.ConnectAsync(Device);
+            await _session.ConnectAsync(Device, cancellationToken);
         }
         catch (NearbyException)
         {

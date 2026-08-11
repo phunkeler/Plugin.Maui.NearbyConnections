@@ -9,13 +9,12 @@ namespace Plugin.Maui.NearbyConnections;
 /// <b>Lifetime.</b> This service is registered as a singleton, because there is one radio and one
 /// native session per device. The dependency injection container owns the instance and tears it
 /// down. Call <see cref="StopAsync(CancellationToken)"/> to return the session to its initial
-/// state rather than disposing it, so that a single page cannot end the session for the whole
-/// application.
+/// state rather than disposing it.
 /// </para>
 /// <para>
 /// <b>State compared with streams.</b> Device presence and connection state are exposed as state:
 /// <see cref="Devices"/> is the current set, and <see cref="INearbyDevices.Changes"/> the deltas to
-/// it. Inbound payloads are instead exposed as a stream, consumed for each connection through
+/// it. Inbound payloads are exposed as a stream, consumed for each connection through
 /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/>. A connection supports a single
 /// payload consumer; distribute payloads to multiple components in your own code.
 /// </para>

@@ -55,9 +55,6 @@ sealed partial class NearbyImplementation
         }
         catch (Exception ex)
         {
-            // A start failure surfaces here, not from StartAdvertisingAsync: the platform start
-            // lives inside the enumerable. Swallowing this silently is exactly the failure mode
-            // that has already cost a debugging session, so it is always logged.
             LogAdvertisePumpFailed(ex);
             IsAdvertising = false;
         }
@@ -93,8 +90,6 @@ sealed partial class NearbyImplementation
         switch (deviceEvent.Type)
         {
             case NearbyDeviceEventType.Found:
-                // A device already present (connected, or rediscovered after a drop) keeps the
-                // status it has: the registry hands back the incumbent rather than overwriting it.
                 _registry.AddIfAbsent(device);
                 break;
 
@@ -134,7 +129,6 @@ sealed partial class NearbyImplementation
 
         _registry.AddIfAbsent(device);
 
-        // No role here: the local device is not an acceptor until AcceptAsync is called.
         Transition(device, NearbyDeviceStatus.RequestReceived, role: null);
     }
 
@@ -231,6 +225,131 @@ sealed partial class NearbyImplementation
         => Transition(device, NearbyDeviceStatus.Visible, role: null);
 
     /// <summary>
+    /// Starts the discovery refresh loop, if the options ask for one. Caller must hold
+    /// <c>_stateGate</c>.
+    /// </summary>
+    void StartRefreshLoop()
+    {
+        if (_options.DiscoveryRefreshInterval is not { } interval)
+        {
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+
+        _refreshCts = cts;
+        _refreshTask = RefreshDiscoveryLoopAsync(interval, cts.Token);
+    }
+
+    /// <summary>
+    /// Signals the refresh loop to stop. Callable with or without <c>_stateGate</c> held, and does
+    /// not wait — see <see cref="DrainRefreshLoopAsync"/> for why the two halves are separate.
+    /// </summary>
+    void CancelRefreshLoop() => _refreshCts?.Cancel();
+
+    /// <summary>
+    /// Waits for a cancelled refresh loop to finish and clears its state. Caller must
+    /// <b>not</b> hold <c>_stateGate</c>.
+    /// </summary>
+    /// <remarks>
+    /// Split from <see cref="CancelRefreshLoop"/> to avoid a deadlock: the loop body takes
+    /// <c>_stateGate</c> to restart the pump, so awaiting it while holding that gate would wait
+    /// forever on a loop that cannot proceed. Callers cancel before taking the gate and drain after
+    /// releasing it.
+    /// </remarks>
+    async Task DrainRefreshLoopAsync()
+    {
+        var cts = _refreshCts;
+        var task = _refreshTask;
+
+        _refreshCts = null;
+        _refreshTask = null;
+
+        if (task is not null)
+        {
+            await task.ConfigureAwait(false);
+        }
+
+        cts?.Dispose();
+    }
+
+    /// <summary>
+    /// Restarts discovery on <paramref name="interval"/>, removing devices that the new pass did
+    /// not re-report.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A restart, rather than a timestamp sweep, because both platforms report discovery on an edge:
+    /// <c>onEndpointFound</c> and <c>foundPeer</c> fire when a device appears and never again while
+    /// it stays put. Elapsed silence therefore carries no information about presence, and the only
+    /// way to learn what is still in range is to ask again.
+    /// </para>
+    /// <para>
+    /// The restart runs under <c>_stateGate</c>, so it cannot interleave with a caller's own
+    /// start/stop, and it re-checks <see cref="IsDiscovering"/> after acquiring the gate — a
+    /// <c>StopDiscoveryAsync</c> may have won the race while this was waiting.
+    /// </para>
+    /// </remarks>
+    async Task RefreshDiscoveryLoopAsync(TimeSpan interval, CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(interval, _timeProvider);
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            {
+                await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+                try
+                {
+                    if (!IsDiscovering)
+                    {
+                        return;
+                    }
+
+                    _registry.BeginGeneration();
+
+                    await StopPumpAsync(_discover).ConfigureAwait(false);
+                    StartPump(_discover);
+                }
+                finally
+                {
+                    _stateGate.Release();
+                }
+
+                // Outside the gate: the platform re-reports through the discovery pump, which needs
+                // the gate-free window to deliver. Devices still absent when the next tick arrives
+                // are evicted by that tick's BeginGeneration/EvictUnconfirmed pair.
+                await EvictAfterSettleAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Discovery stopped, or the session was disposed.
+        }
+        catch (Exception ex)
+        {
+            LogRefreshDiscoveryFailed(ex);
+        }
+    }
+
+    /// <summary>
+    /// Gives a freshly restarted discovery pass a moment to re-report what is in range, then drops
+    /// whatever it did not.
+    /// </summary>
+    /// <remarks>
+    /// The settle window is a heuristic, and deliberately a generous fraction of the refresh
+    /// interval rather than a fixed constant: a device that is present but slow to be re-reported
+    /// must not be evicted and immediately re-added, which would make a bound row flicker.
+    /// </remarks>
+    async Task EvictAfterSettleAsync(CancellationToken cancellationToken)
+    {
+        await Task.Delay(RefreshSettleWindow, _timeProvider, cancellationToken).ConfigureAwait(false);
+
+        _registry.EvictUnconfirmed();
+    }
+
+    /// <summary>
     /// Starts <paramref name="pump"/> and publishes its flag. Caller must hold <c>_stateGate</c>.
     /// </summary>
     /// <remarks>
@@ -241,11 +360,8 @@ sealed partial class NearbyImplementation
     static void StartPump(PumpState pump)
     {
         var cts = new CancellationTokenSource();
-
         pump.Cts = cts;
-
         pump.SetFlag(true);
-
         pump.Task = pump.Start(cts.Token);
     }
 
