@@ -175,6 +175,21 @@ MSTest specifics: `Assert.ThrowsExactly<T>` (not `ThrowsException<T>`), `Assert.
 `Assert.HasCount(n, x)` (count first). Class names cannot end in `Collection`. Parallelization is
 method-level, so tests must not share mutable state.
 
+**Assert through the surface a consumer uses.** Public API first; internals widened by
+`InternalsVisibleTo` are fair game where the type is itself internal (`PlatformNearby`,
+`PeerRegistry`). Private field names are not — a test coupled to one passes when the behaviour
+breaks and fails when a safe rename happens. The two deliberate exceptions each carry a comment
+saying why, and both exist because `net10.0` cannot reach the behaviour any other way; do not add a
+third without the same justification. Equally, do not test the compiler (generated record members)
+or the BCL (`CancellationTokenSource` firing on a `FakeTimeProvider`) — that is someone else's
+implementation.
+
+**Supporting code lives in `TestSupport/`, never in a test file.** A `*Tests.cs` file contains its
+test classes and test methods and nothing else — no factories, no fakes, no constants — so it reads
+top to bottom as tests. `TestSupport/Create.cs` builds the types under test; `FakeNearby` is the
+suite's one test double, standing in for the `IPlatformNearby` seam. Helpers carry XML docs (they
+are read apart from their call sites); tests do not (the name is the doc).
+
 **UI tests** (`test/NearbyChat.UiTests/`, Appium) locate elements by resource-id (`MobileBy.Id`),
 not `AccessibilityId` — MAUI clears `content-desc`. Never change an `x:Name` or `AutomationId`
 without updating that suite. It is historically flaky for environment reasons; triage a red run

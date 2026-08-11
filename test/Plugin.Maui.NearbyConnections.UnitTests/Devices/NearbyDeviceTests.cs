@@ -10,81 +10,81 @@ public class NearbyDeviceTests
         public void SameId_ReturnsTrue()
         {
             // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
-            var b = new NearbyDevice("ep1", "Alice");
+            var left = new NearbyDevice("ep1", "Alice");
+            var right = new NearbyDevice("ep1", "Alice");
 
             // Act
-            var result = a.Equals(b);
+            var areEqual = left.Equals(right);
 
             // Assert
-            Assert.IsTrue(result);
+            Assert.IsTrue(areEqual);
         }
 
         [TestMethod]
         public void SameId_DifferentDisplayName_ReturnsTrue()
         {
             // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
-            var b = new NearbyDevice("ep1", "Bob");
+            var left = new NearbyDevice("ep1", "Alice");
+            var right = new NearbyDevice("ep1", "Bob");
 
             // Act
-            var result = a.Equals(b);
+            var areEqual = left.Equals(right);
 
             // Assert
-            Assert.IsTrue(result);
+            Assert.IsTrue(areEqual);
         }
 
         [TestMethod]
         public void DifferentId_ReturnsFalse()
         {
             // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
-            var b = new NearbyDevice("ep2", "Alice");
+            var left = new NearbyDevice("ep1", "Alice");
+            var right = new NearbyDevice("ep2", "Alice");
 
             // Act
-            var result = a.Equals(b);
+            var areEqual = left.Equals(right);
 
             // Assert
-            Assert.IsFalse(result);
+            Assert.IsFalse(areEqual);
         }
 
         [TestMethod]
         public void SameReference_ReturnsTrue()
         {
             // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
+            var left = new NearbyDevice("ep1", "Alice");
 
             // Act
-            var result = a.Equals(a);
+            var areEqual = left.Equals(left);
 
             // Assert
-            Assert.IsTrue(result);
+            Assert.IsTrue(areEqual);
         }
 
         [TestMethod]
         public void Null_ReturnsFalse()
         {
             // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
+            var left = new NearbyDevice("ep1", "Alice");
 
             // Act
-            var result = a.Equals(null);
+            var areEqual = left.Equals(null);
 
             // Assert
-            Assert.IsFalse(result);
+            Assert.IsFalse(areEqual);
         }
 
         [TestMethod]
         public void NonDeviceObject_ReturnsFalse()
         {
             // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
+            var left = new NearbyDevice("ep1", "Alice");
 
             // Act
-            var result = a.Equals((object)"ep1");
+            var areEqual = left.Equals((object)"ep1");
 
             // Assert
-            Assert.IsFalse(result);
+            Assert.IsFalse(areEqual);
         }
     }
 
@@ -95,103 +95,30 @@ public class NearbyDeviceTests
         public void SameId_ReturnsTrue()
         {
             // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
-            var b = new NearbyDevice("ep1", "Alice");
+            var left = new NearbyDevice("ep1", "Alice");
+            var right = new NearbyDevice("ep1", "Alice");
 
             // Act
-            var result = a == b;
+            var areEqual = left == right;
 
             // Assert
-            Assert.IsTrue(result);
+            Assert.IsTrue(areEqual);
         }
 
         [TestMethod]
         public void DifferentId_ReturnsFalse()
         {
             // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
-            var b = new NearbyDevice("ep2", "Alice");
+            var left = new NearbyDevice("ep1", "Alice");
+            var right = new NearbyDevice("ep2", "Alice");
 
             // Act
-            var result = a == b;
+            var areEqual = left == right;
 
             // Assert
-            Assert.IsFalse(result);
+            Assert.IsFalse(areEqual);
         }
 
-        [TestMethod]
-        public void LeftNull_ReturnsFalse()
-        {
-            // Arrange
-            NearbyDevice? a = null;
-            var b = new NearbyDevice("ep1", "Alice");
-
-            // Act
-            var result = a == b;
-
-            // Assert
-            Assert.IsFalse(result);
-        }
-
-        [TestMethod]
-        public void RightNull_ReturnsFalse()
-        {
-            // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
-            NearbyDevice? b = null;
-
-            // Act
-            var result = a == b;
-
-            // Assert
-            Assert.IsFalse(result);
-        }
-
-        [TestMethod]
-        public void BothNull_ReturnsTrue()
-        {
-            // Arrange
-            NearbyDevice? a = null;
-            NearbyDevice? b = null;
-
-            // Act
-            var result = a == b;
-
-            // Assert
-            Assert.IsTrue(result);
-        }
-    }
-
-    [TestClass]
-    public sealed class InequalityOperator : NearbyDeviceTests
-    {
-        [TestMethod]
-        public void SameId_ReturnsFalse()
-        {
-            // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
-            var b = new NearbyDevice("ep1", "Alice");
-
-            // Act
-            var result = a != b;
-
-            // Assert
-            Assert.IsFalse(result);
-        }
-
-        [TestMethod]
-        public void DifferentId_ReturnsTrue()
-        {
-            // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
-            var b = new NearbyDevice("ep2", "Alice");
-
-            // Act
-            var result = a != b;
-
-            // Assert
-            Assert.IsTrue(result);
-        }
     }
 
     [TestClass]
@@ -201,28 +128,30 @@ public class NearbyDeviceTests
         public void SameId_ReturnsSameHashCode()
         {
             // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
-            var b = new NearbyDevice("ep1", "Bob");
+            var left = new NearbyDevice("ep1", "Alice");
+            var right = new NearbyDevice("ep1", "Bob");
 
             // Act
-            var result = a.GetHashCode() == b.GetHashCode();
+            var leftHash = left.GetHashCode();
+            var rightHash = right.GetHashCode();
 
             // Assert
-            Assert.IsTrue(result);
+            Assert.AreEqual(leftHash, rightHash);
         }
 
         [TestMethod]
         public void DifferentId_ReturnsDifferentHashCode()
         {
             // Arrange
-            var a = new NearbyDevice("ep1", "Alice");
-            var b = new NearbyDevice("ep2", "Alice");
+            var left = new NearbyDevice("ep1", "Alice");
+            var right = new NearbyDevice("ep2", "Alice");
 
             // Act
-            var result = a.GetHashCode() == b.GetHashCode();
+            var leftHash = left.GetHashCode();
+            var rightHash = right.GetHashCode();
 
             // Assert
-            Assert.IsFalse(result);
+            Assert.AreNotEqual(leftHash, rightHash);
         }
     }
 
@@ -257,24 +186,6 @@ public class NearbyDeviceTests
             Assert.IsTrue(dictionary.TryGetValue(connected, out var tracked));
             Assert.AreEqual("tracked", tracked);
             Assert.IsTrue(dictionary.ContainsKey(sameId));
-        }
-
-        // `with` must not be a way to forge a different device: Id has no init accessor, so this
-        // is enforced by the compiler. This test documents the intent that keeps it that way.
-        [TestMethod]
-        public void With_PreservesIdentity()
-        {
-            // Arrange
-            var device = new NearbyDevice("ep1", "Alice");
-
-            // Act
-            var updated = device with { Status = NearbyDeviceStatus.Connected };
-
-            // Assert
-            Assert.AreEqual("ep1", updated.Id);
-            Assert.AreEqual(device, updated);
-            Assert.AreEqual(NearbyDeviceStatus.Visible, device.Status, "The original snapshot must not change.");
-            Assert.AreEqual(NearbyDeviceStatus.Connected, updated.Status);
         }
 
         [TestMethod]
@@ -330,10 +241,10 @@ public class NearbyDeviceTests
             var device = new NearbyDevice("ep1", "Alice") { Status = NearbyDeviceStatus.Connected };
 
             // Act
-            var result = device.ToString();
+            var text = device.ToString();
 
             // Assert
-            Assert.AreEqual("Alice [ep1] Connected", result);
+            Assert.AreEqual("Alice [ep1] Connected", text);
         }
 
         [TestMethod]
@@ -343,10 +254,10 @@ public class NearbyDeviceTests
             var device = new NearbyDevice("ep1", displayName: null);
 
             // Act
-            var result = device.ToString();
+            var text = device.ToString();
 
             // Assert
-            Assert.AreEqual("(unnamed) [ep1] Visible", result);
+            Assert.AreEqual("(unnamed) [ep1] Visible", text);
         }
     }
 }

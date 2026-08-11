@@ -11,34 +11,21 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 [TestCategory("Connections")]
 public class ResolveUniqueDestinationPathTests
 {
-    /// <summary>A real temp directory per test; inbound naming genuinely touches the file system.</summary>
-    static string CreateTempDirectory()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), $"nc-tests-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        return dir;
-    }
-
-    static void Touch(string path) => File.WriteAllText(path, string.Empty);
-
     [TestClass]
     public sealed class WhenNameIsFree : ResolveUniqueDestinationPathTests
     {
         [TestMethod]
         public void ReturnsTheNameUnchanged()
         {
-            var dir = CreateTempDirectory();
+            // Arrange
+            using var temp = new TempDirectory();
+            var dir = temp.Path;
 
-            try
-            {
-                var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
+            // Act
+            var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
-                Assert.AreEqual(Path.Combine(dir, "photo.jpg"), result);
-            }
-            finally
-            {
-                Directory.Delete(dir, recursive: true);
-            }
+            // Assert
+            Assert.AreEqual(Path.Combine(dir, "photo.jpg"), result);
         }
     }
 
@@ -50,60 +37,49 @@ public class ResolveUniqueDestinationPathTests
         {
             // " (1)" goes before ".jpg", not after — otherwise the file loses its extension and
             // the OS no longer knows how to open it.
-            var dir = CreateTempDirectory();
 
-            try
-            {
-                Touch(Path.Combine(dir, "photo.jpg"));
+            // Arrange
+            using var temp = new TempDirectory();
+            var dir = temp.Path;
+            temp.Touch("photo.jpg");
 
-                var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
+            // Act
+            var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
-                Assert.AreEqual(Path.Combine(dir, "photo (1).jpg"), result);
-            }
-            finally
-            {
-                Directory.Delete(dir, recursive: true);
-            }
+            // Assert
+            Assert.AreEqual(Path.Combine(dir, "photo (1).jpg"), result);
         }
 
         [TestMethod]
         public void CountsUpPastMultipleCollisions()
         {
-            var dir = CreateTempDirectory();
+            // Arrange
+            using var temp = new TempDirectory();
+            var dir = temp.Path;
+            temp.Touch("photo.jpg");
+            temp.Touch(Path.Combine(dir, "photo (1).jpg"));
+            temp.Touch(Path.Combine(dir, "photo (2).jpg"));
 
-            try
-            {
-                Touch(Path.Combine(dir, "photo.jpg"));
-                Touch(Path.Combine(dir, "photo (1).jpg"));
-                Touch(Path.Combine(dir, "photo (2).jpg"));
+            // Act
+            var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
-                var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
-
-                Assert.AreEqual(Path.Combine(dir, "photo (3).jpg"), result);
-            }
-            finally
-            {
-                Directory.Delete(dir, recursive: true);
-            }
+            // Assert
+            Assert.AreEqual(Path.Combine(dir, "photo (3).jpg"), result);
         }
 
         [TestMethod]
         public void HandlesNamesWithNoExtension()
         {
-            var dir = CreateTempDirectory();
+            // Arrange
+            using var temp = new TempDirectory();
+            var dir = temp.Path;
+            temp.Touch("README");
 
-            try
-            {
-                Touch(Path.Combine(dir, "README"));
+            // Act
+            var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "README");
 
-                var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "README");
-
-                Assert.AreEqual(Path.Combine(dir, "README (1)"), result);
-            }
-            finally
-            {
-                Directory.Delete(dir, recursive: true);
-            }
+            // Assert
+            Assert.AreEqual(Path.Combine(dir, "README (1)"), result);
         }
 
         [TestMethod]
@@ -111,20 +87,17 @@ public class ResolveUniqueDestinationPathTests
         {
             // Only the final segment is the extension: "archive.tar.gz" must become
             // "archive.tar (1).gz", matching Path.GetExtension semantics.
-            var dir = CreateTempDirectory();
 
-            try
-            {
-                Touch(Path.Combine(dir, "archive.tar.gz"));
+            // Arrange
+            using var temp = new TempDirectory();
+            var dir = temp.Path;
+            temp.Touch("archive.tar.gz");
 
-                var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "archive.tar.gz");
+            // Act
+            var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "archive.tar.gz");
 
-                Assert.AreEqual(Path.Combine(dir, "archive.tar (1).gz"), result);
-            }
-            finally
-            {
-                Directory.Delete(dir, recursive: true);
-            }
+            // Assert
+            Assert.AreEqual(Path.Combine(dir, "archive.tar (1).gz"), result);
         }
 
         [TestMethod]
@@ -132,26 +105,24 @@ public class ResolveUniqueDestinationPathTests
         {
             // The property that actually matters: whatever is returned must not already exist, or
             // the caller silently overwrites a file it did not create.
-            var dir = CreateTempDirectory();
 
-            try
+            // Arrange
+            using var temp = new TempDirectory();
+            var dir = temp.Path;
+            for (var i = 0; i < 10; i++)
             {
-                for (var i = 0; i < 10; i++)
-                {
                     var next = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
                     Assert.IsFalse(File.Exists(next), $"Iteration {i} returned an existing path: {next}");
 
                     // Simulate the caller writing the file, so the next call must pick a new name.
-                    Touch(next);
-                }
 
-                Assert.HasCount(10, Directory.GetFiles(dir), "Ten transfers should have produced ten distinct files.");
+            // Act
+                    temp.Touch(next);
             }
-            finally
-            {
-                Directory.Delete(dir, recursive: true);
-            }
+
+            // Assert
+            Assert.HasCount(10, Directory.GetFiles(dir), "Ten transfers should have produced ten distinct files.");
         }
     }
 }

@@ -7,77 +7,6 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 [TestCategory("Devices")]
 public class NearbyDeviceRegistryTests
 {
-    static NearbyDevice Device(string id, NearbyDeviceStatus status = NearbyDeviceStatus.Visible)
-        => new(id, id) { Status = status };
-
-    /// <summary>
-    /// Drains <see cref="INearbyDevices.Changes"/> into a list. Subscribes synchronously, so a
-    /// change published after this returns is always captured.
-    /// </summary>
-    static (Task Pump, List<NearbyDeviceChange> Changes, CancellationTokenSource Cts) Watch(
-        NearbyDeviceRegistry registry)
-    {
-        var changes = new List<NearbyDeviceChange>();
-        var cts = new CancellationTokenSource();
-        var enumerator = registry.Changes.GetAsyncEnumerator(cts.Token);
-        var first = enumerator.MoveNextAsync();
-
-        var pump = Task.Run(async () =>
-        {
-            try
-            {
-                var hasNext = await first;
-
-                while (hasNext)
-                {
-                    lock (changes)
-                    {
-                        changes.Add(enumerator.Current);
-                    }
-
-                    hasNext = await enumerator.MoveNextAsync();
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected on teardown.
-            }
-            finally
-            {
-                await enumerator.DisposeAsync();
-            }
-        });
-
-        return (pump, changes, cts);
-    }
-
-    static async Task<IReadOnlyList<NearbyDeviceChange>> DrainAsync(
-        (Task Pump, List<NearbyDeviceChange> Changes, CancellationTokenSource Cts) watch,
-        int expected)
-    {
-        for (var i = 0; i < 100; i++)
-        {
-            lock (watch.Changes)
-            {
-                if (watch.Changes.Count >= expected)
-                {
-                    break;
-                }
-            }
-
-            await Task.Delay(10);
-        }
-
-        await watch.Cts.CancelAsync();
-        await watch.Pump;
-        watch.Cts.Dispose();
-
-        lock (watch.Changes)
-        {
-            return [.. watch.Changes];
-        }
-    }
-
     [TestClass]
     public sealed class Membership : NearbyDeviceRegistryTests
     {
@@ -86,7 +15,7 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            var device = Device("a");
+            var device = Create.Device("a");
 
             // Act
             var result = registry.AddIfAbsent(device);
@@ -103,11 +32,11 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            var connected = Device("a", NearbyDeviceStatus.Connected);
+            var connected = Create.Device("a", status: NearbyDeviceStatus.Connected);
             registry.AddIfAbsent(connected);
 
             // Act
-            var result = registry.AddIfAbsent(Device("a"));
+            var result = registry.AddIfAbsent(Create.Device("a"));
 
             // Assert
             Assert.AreSame(connected, result);
@@ -133,8 +62,8 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            registry.AddIfAbsent(Device("visible"));
-            registry.AddIfAbsent(Device("connected", NearbyDeviceStatus.Connected));
+            registry.AddIfAbsent(Create.Device("visible"));
+            registry.AddIfAbsent(Create.Device("connected", status: NearbyDeviceStatus.Connected));
 
             // Act
             registry.RemoveWhere(d => d.Status is NearbyDeviceStatus.Visible);
@@ -162,7 +91,7 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            registry.AddIfAbsent(Device("a"));
+            registry.AddIfAbsent(Create.Device("a"));
 
             // Act
             var result = registry.Update("a", d => d with { Status = NearbyDeviceStatus.Connected });
@@ -179,14 +108,14 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            registry.AddIfAbsent(Device("a"));
+            registry.AddIfAbsent(Create.Device("a"));
 
             // Act
             var enumerated = 0;
 
             foreach (var _ in registry)
             {
-                registry.AddIfAbsent(Device($"added-{enumerated}"));
+                registry.AddIfAbsent(Create.Device($"added-{enumerated}"));
                 enumerated++;
             }
 
@@ -204,13 +133,14 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            var watch = Watch(registry);
+            await using var watch = new ChangeRecorder(registry.Changes);
 
             // Act
-            registry.AddIfAbsent(Device("a"));
+            registry.AddIfAbsent(Create.Device("a"));
 
             // Assert
-            var changes = await DrainAsync(watch, 1);
+            await watch.WaitForAsync(1);
+            var changes = watch.Changes;
             Assert.HasCount(1, changes);
             Assert.AreEqual(NearbyDeviceChangeAction.Added, changes[0].Action);
             Assert.AreEqual("a", changes[0].Device.Id);
@@ -221,14 +151,15 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            registry.AddIfAbsent(Device("a"));
-            var watch = Watch(registry);
+            registry.AddIfAbsent(Create.Device("a"));
+            await using var watch = new ChangeRecorder(registry.Changes);
 
             // Act
-            registry.AddIfAbsent(Device("a"));
+            registry.AddIfAbsent(Create.Device("a"));
 
             // Assert
-            var changes = await DrainAsync(watch, 0);
+            await watch.WaitForAsync(0);
+            var changes = watch.Changes;
             Assert.IsEmpty(changes, "A no-op add must not wake every watcher.");
         }
 
@@ -239,14 +170,15 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            registry.AddIfAbsent(Device("a"));
-            var watch = Watch(registry);
+            registry.AddIfAbsent(Create.Device("a"));
+            await using var watch = new ChangeRecorder(registry.Changes);
 
             // Act
             registry.Update("a", d => d);
 
             // Assert
-            var changes = await DrainAsync(watch, 0);
+            await watch.WaitForAsync(0);
+            var changes = watch.Changes;
             Assert.IsEmpty(changes);
         }
 
@@ -255,15 +187,16 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            registry.AddIfAbsent(Device("a"));
-            registry.AddIfAbsent(Device("b"));
-            var watch = Watch(registry);
+            registry.AddIfAbsent(Create.Device("a"));
+            registry.AddIfAbsent(Create.Device("b"));
+            await using var watch = new ChangeRecorder(registry.Changes);
 
             // Act
             registry.Clear();
 
             // Assert
-            var changes = await DrainAsync(watch, 2);
+            await watch.WaitForAsync(2);
+            var changes = watch.Changes;
             Assert.HasCount(2, changes);
             Assert.IsTrue(changes.All(c => c.Action is NearbyDeviceChangeAction.Removed));
         }
@@ -275,15 +208,17 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            var first = Watch(registry);
-            var second = Watch(registry);
+            await using var first = new ChangeRecorder(registry.Changes);
+            await using var second = new ChangeRecorder(registry.Changes);
 
             // Act
-            registry.AddIfAbsent(Device("a"));
+            registry.AddIfAbsent(Create.Device("a"));
 
             // Assert
-            var firstChanges = await DrainAsync(first, 1);
-            var secondChanges = await DrainAsync(second, 1);
+            await first.WaitForAsync(1);
+            var firstChanges = first.Changes;
+            await second.WaitForAsync(1);
+            var secondChanges = second.Changes;
 
             Assert.HasCount(1, firstChanges);
             Assert.HasCount(1, secondChanges);
@@ -305,7 +240,7 @@ public class NearbyDeviceRegistryTests
             var enumerator = registry.Changes.GetAsyncEnumerator(cts.Token);
 
             // Act — published after subscribing, but before anything has read
-            registry.AddIfAbsent(Device("seed-window"));
+            registry.AddIfAbsent(Create.Device("seed-window"));
 
             // Assert
             Assert.IsTrue(await enumerator.MoveNextAsync(), "The change must already be buffered.");
@@ -321,15 +256,16 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            registry.AddIfAbsent(Device("early"));
+            registry.AddIfAbsent(Create.Device("early"));
 
-            var watch = Watch(registry);
+            await using var watch = new ChangeRecorder(registry.Changes);
 
             // Act
-            registry.AddIfAbsent(Device("late"));
+            registry.AddIfAbsent(Create.Device("late"));
 
             // Assert
-            var changes = await DrainAsync(watch, 1);
+            await watch.WaitForAsync(1);
+            var changes = watch.Changes;
             Assert.HasCount(1, changes);
             Assert.AreEqual("late", changes[0].Device.Id);
         }
@@ -342,12 +278,16 @@ public class NearbyDeviceRegistryTests
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
-            var watch = Watch(registry);
-            registry.AddIfAbsent(Device("a"));
-            var before = await DrainAsync(watch, 1);
+            await using var watch = new ChangeRecorder(registry.Changes);
+            registry.AddIfAbsent(Create.Device("a"));
+            await watch.WaitForAsync(1);
+            var before = watch.Changes;
 
             // Act
-            registry.AddIfAbsent(Device("b"));
+            registry.AddIfAbsent(Create.Device("b"));
+
+            // A fixed wait, not a poll: this asserts that a change never reaches the earlier
+            // snapshot, and polling can only establish that it has not reached it yet.
             await Task.Delay(50);
 
             // Assert
@@ -357,7 +297,7 @@ public class NearbyDeviceRegistryTests
         // A watcher that never reads must not block the publisher: each watcher buffers its own
         // changes in an unbounded channel.
         [TestMethod]
-        public void AWatcherThatNeverReads_DoesNotBlockPublishing()
+        public async Task AWatcherThatNeverReads_DoesNotBlockPublishing()
         {
             // Arrange
             var registry = new NearbyDeviceRegistry();
@@ -371,11 +311,16 @@ public class NearbyDeviceRegistryTests
             // Act
             for (var i = 0; i < 100; i++)
             {
-                registry.AddIfAbsent(Device($"device-{i}"));
+                registry.AddIfAbsent(Create.Device($"device-{i}"));
             }
 
             // Assert
             Assert.HasCount(100, registry);
+
+            // Publishing hands the change to the channel, which completes the pending read on a
+            // continuation — so this is reachable but not instantaneous. Asserting IsCompleted
+            // synchronously races that continuation.
+            await Wait.UntilAsync(() => neverAwaited.IsCompleted);
             Assert.IsTrue(neverAwaited.IsCompleted, "The first change should have completed the pending read.");
         }
     }

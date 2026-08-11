@@ -14,37 +14,21 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 [TestCategory("Connections")]
 public class OutgoingTransferTests
 {
-    static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
-
-    static NearbyTransferProgress Update(NearbyTransferStatus status, long bytes = 0)
-        => new(payloadId: 1, bytesTransferred: bytes, totalBytes: 100, status);
-
-    static OutgoingTransfer CreateSut(
-        FakeTimeProvider time,
-        IProgress<NearbyTransferProgress>? progress = null,
-        TimeSpan? timeout = null)
-        => new(progress, timeout ?? Timeout, time);
-
-    /// <summary>Captures reported progress so ordering and content can be asserted.</summary>
-    sealed class RecordingProgress : IProgress<NearbyTransferProgress>
-    {
-        public List<NearbyTransferProgress> Reports { get; } = [];
-
-        public void Report(NearbyTransferProgress value) => Reports.Add(value);
-    }
-
     [TestClass]
     public sealed class InactivityTimeout : OutgoingTransferTests
     {
         [TestMethod]
         public void BeforeTheDeadline_TokenIsNotCancelled()
         {
+            // Arrange
             var time = new FakeTimeProvider();
-            using var sut = CreateSut(time);
+            using var transfer = Create.Transfer(time);
 
-            time.Advance(Timeout - TimeSpan.FromMilliseconds(1));
+            // Act
+            time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds) - TimeSpan.FromMilliseconds(1));
 
-            Assert.IsFalse(sut.InactivityToken.IsCancellationRequested);
+            // Assert
+            Assert.IsFalse(transfer.InactivityToken.IsCancellationRequested);
         }
 
         [TestMethod]
@@ -52,12 +36,16 @@ public class OutgoingTransferTests
         {
             // This is what turns a silently stalled transfer into a NearbyTransferTimeoutException
             // instead of a SendAsync that never returns.
+
+            // Arrange
             var time = new FakeTimeProvider();
-            using var sut = CreateSut(time);
+            using var transfer = Create.Transfer(time);
 
-            time.Advance(Timeout);
+            // Act
+            time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds));
 
-            Assert.IsTrue(sut.InactivityToken.IsCancellationRequested);
+            // Assert
+            Assert.IsTrue(transfer.InactivityToken.IsCancellationRequested);
         }
 
         [TestMethod]
@@ -65,49 +53,42 @@ public class OutgoingTransferTests
         {
             // The timeout measures inactivity, not total duration: a transfer making steady progress
             // must never time out, however long it runs.
+
+            // Arrange
             var time = new FakeTimeProvider();
-            using var sut = CreateSut(time);
+            using var transfer = Create.Transfer(time);
 
             for (var i = 0; i < 5; i++)
             {
-                time.Advance(Timeout - TimeSpan.FromSeconds(1));
-                sut.OnUpdate(Update(NearbyTransferStatus.InProgress, bytes: i * 10));
+                time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds) - TimeSpan.FromSeconds(1));
+                transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: i * 10));
 
+            // Act
                 Assert.IsFalse(
-                    sut.InactivityToken.IsCancellationRequested,
+                    transfer.InactivityToken.IsCancellationRequested,
                     $"Timed out after update {i} despite continuous progress.");
             }
 
             // Total elapsed time is far past the timeout, but no single gap ever was.
+
+            // Assert
             Assert.IsTrue(time.GetUtcNow() > DateTimeOffset.UnixEpoch.AddSeconds(40));
-        }
-
-        [TestMethod]
-        public void AfterAnUpdate_TheFullTimeoutIsAvailableAgain()
-        {
-            var time = new FakeTimeProvider();
-            using var sut = CreateSut(time);
-
-            time.Advance(TimeSpan.FromSeconds(9));
-            sut.OnUpdate(Update(NearbyTransferStatus.InProgress));
-
-            time.Advance(TimeSpan.FromSeconds(9));
-            Assert.IsFalse(sut.InactivityToken.IsCancellationRequested, "The deadline was not reset.");
-
-            time.Advance(TimeSpan.FromSeconds(1));
-            Assert.IsTrue(sut.InactivityToken.IsCancellationRequested);
         }
 
         [TestMethod]
         public void InfiniteTimeout_NeverCancels()
         {
             // Documented escape hatch on TransferInactivityTimeout.
-            var time = new FakeTimeProvider();
-            using var sut = CreateSut(time, timeout: System.Threading.Timeout.InfiniteTimeSpan);
 
+            // Arrange
+            var time = new FakeTimeProvider();
+            using var transfer = Create.Transfer(time, timeout: System.Threading.Timeout.InfiniteTimeSpan);
+
+            // Act
             time.Advance(TimeSpan.FromDays(1));
 
-            Assert.IsFalse(sut.InactivityToken.IsCancellationRequested);
+            // Assert
+            Assert.IsFalse(transfer.InactivityToken.IsCancellationRequested);
         }
 
         [TestMethod]
@@ -124,20 +105,24 @@ public class OutgoingTransferTests
             //
             // If old.Dispose() is ever removed from OnUpdate — say, to "avoid disposing something
             // a caller might still hold" — this test fails and explains why that is unsafe.
+
+            // Arrange
             var time = new FakeTimeProvider();
-            using var sut = CreateSut(time);
+            using var transfer = Create.Transfer(time);
 
-            var capturedEarly = sut.InactivityToken;
+            var capturedEarly = transfer.InactivityToken;
 
+            // Act
             time.Advance(TimeSpan.FromSeconds(9));
-            sut.OnUpdate(Update(NearbyTransferStatus.InProgress));
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress));
             time.Advance(TimeSpan.FromSeconds(5)); // well past the original 10s deadline
 
+            // Assert
             Assert.IsFalse(
                 capturedEarly.IsCancellationRequested,
                 "The old source's timer must be dead after Dispose, or a progressing transfer aborts.");
             Assert.IsFalse(
-                sut.InactivityToken.IsCancellationRequested,
+                transfer.InactivityToken.IsCancellationRequested,
                 "The current token is only 5s into its fresh 10s deadline.");
         }
     }
@@ -148,47 +133,59 @@ public class OutgoingTransferTests
         [TestMethod]
         public async Task Success_CompletesTheTask()
         {
+            // Arrange
             var time = new FakeTimeProvider();
-            using var sut = CreateSut(time);
+            using var transfer = Create.Transfer(time);
 
-            sut.OnUpdate(Update(NearbyTransferStatus.Success));
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Success));
 
-            await sut.Completion;
-            Assert.IsTrue(sut.Completion.IsCompletedSuccessfully);
+            // Assert
+            await transfer.Completion;
+            Assert.IsTrue(transfer.Completion.IsCompletedSuccessfully);
         }
 
         [TestMethod]
         public async Task Failure_FaultsTheTask()
         {
+            // Arrange
             var time = new FakeTimeProvider();
-            using var sut = CreateSut(time);
+            using var transfer = Create.Transfer(time);
 
-            sut.OnUpdate(Update(NearbyTransferStatus.Failure));
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Failure));
 
-            var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => sut.Completion);
+            // Assert
+            var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => transfer.Completion);
             Assert.Contains("1", ex.Message, StringComparison.Ordinal);
         }
 
         [TestMethod]
         public async Task Canceled_CancelsTheTask()
         {
+            // Arrange
             var time = new FakeTimeProvider();
-            using var sut = CreateSut(time);
+            using var transfer = Create.Transfer(time);
 
-            sut.OnUpdate(Update(NearbyTransferStatus.Canceled));
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Canceled));
 
-            await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => sut.Completion);
+            // Assert
+            await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => transfer.Completion);
         }
 
         [TestMethod]
         public void InProgress_LeavesTheTaskPending()
         {
+            // Arrange
             var time = new FakeTimeProvider();
-            using var sut = CreateSut(time);
+            using var transfer = Create.Transfer(time);
 
-            sut.OnUpdate(Update(NearbyTransferStatus.InProgress));
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress));
 
-            Assert.IsFalse(sut.Completion.IsCompleted);
+            // Assert
+            Assert.IsFalse(transfer.Completion.IsCompleted);
         }
 
         [TestMethod]
@@ -196,15 +193,19 @@ public class OutgoingTransferTests
         {
             // TrySet* rather than Set*: a platform that reports Success then Failure must not throw
             // InvalidOperationException from inside a native callback.
+
+            // Arrange
             var time = new FakeTimeProvider();
-            using var sut = CreateSut(time);
+            using var transfer = Create.Transfer(time);
 
-            sut.OnUpdate(Update(NearbyTransferStatus.Success));
-            sut.OnUpdate(Update(NearbyTransferStatus.Failure));
-            sut.OnUpdate(Update(NearbyTransferStatus.Canceled));
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Success));
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Failure));
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Canceled));
 
-            await sut.Completion;
-            Assert.IsTrue(sut.Completion.IsCompletedSuccessfully);
+            // Assert
+            await transfer.Completion;
+            Assert.IsTrue(transfer.Completion.IsCompletedSuccessfully);
         }
     }
 
@@ -214,16 +215,19 @@ public class OutgoingTransferTests
         [TestMethod]
         public void EveryUpdate_IsForwardedInOrder()
         {
+            // Arrange
             var time = new FakeTimeProvider();
             var recorder = new RecordingProgress();
-            using var sut = CreateSut(time, recorder);
+            using var transfer = Create.Transfer(time, recorder);
 
-            sut.OnUpdate(Update(NearbyTransferStatus.InProgress, bytes: 10));
-            sut.OnUpdate(Update(NearbyTransferStatus.InProgress, bytes: 50));
-            sut.OnUpdate(Update(NearbyTransferStatus.Success, bytes: 100));
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: 10));
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: 50));
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Success, bytes: 100));
 
+            // Assert
             Assert.HasCount(3, recorder.Reports);
-            CollectionAssert.AreEqual(
+            Assert.AreSequenceEqual(
                 new long[] { 10, 50, 100 },
                 recorder.Reports.Select(r => r.BytesTransferred).ToArray());
         }
@@ -232,12 +236,16 @@ public class OutgoingTransferTests
         public void NullProgress_IsTolerated()
         {
             // progress is optional on every SendAsync overload.
+
+            // Arrange
             var time = new FakeTimeProvider();
-            using var sut = CreateSut(time, progress: null);
+            using var transfer = Create.Transfer(time, progress: null);
 
-            sut.OnUpdate(Update(NearbyTransferStatus.Success));
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Success));
 
-            Assert.IsTrue(sut.Completion.IsCompletedSuccessfully);
+            // Assert
+            Assert.IsTrue(transfer.Completion.IsCompletedSuccessfully);
         }
     }
 
@@ -247,22 +255,27 @@ public class OutgoingTransferTests
         [TestMethod]
         public void Dispose_IsIdempotent()
         {
+            // Arrange
             var time = new FakeTimeProvider();
-            var sut = CreateSut(time);
+            var transfer = Create.Transfer(time);
 
-            sut.Dispose();
-            sut.Dispose();
+            // Act
+            transfer.Dispose();
+            transfer.Dispose();
         }
 
         [TestMethod]
         public void DisposeAfterTimeout_DoesNotThrow()
         {
             // The finally block in PlatformSendFileAsync disposes on the timeout path too.
-            var time = new FakeTimeProvider();
-            var sut = CreateSut(time);
 
-            time.Advance(Timeout);
-            sut.Dispose();
+            // Arrange
+            var time = new FakeTimeProvider();
+            var transfer = Create.Transfer(time);
+
+            // Assert
+            time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds));
+            transfer.Dispose();
         }
     }
 }

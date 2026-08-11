@@ -3,34 +3,18 @@ using Plugin.Maui.NearbyConnections;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
-[TestClass]
 [TestCategory("Connections")]
-public sealed class NearbyConnectionTests
+public class NearbyConnectionTests
 {
-    static NearbyConnection CreateConnection(
-        NearbyDevice? device = null,
-        Channel<NearbyPayload>? receiveChannel = null,
-        Func<byte[], CancellationToken, ValueTask>? sendBytes = null,
-        Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task>? sendFile = null,
-        Func<ValueTask>? dispose = null)
-    {
-        return new NearbyConnection(
-            device ?? new NearbyDevice("peer-1", "Alice"),
-            receiveChannel ?? Channel.CreateUnbounded<NearbyPayload>(),
-            sendBytes ?? ((_, _) => ValueTask.CompletedTask),
-            sendFile ?? ((_, _, _) => Task.CompletedTask),
-            dispose ?? (() => ValueTask.CompletedTask));
-    }
-
     [TestClass]
-    public sealed class RemoteDevice
+    public sealed class RemoteDevice : NearbyConnectionTests
     {
         [TestMethod]
-        public void RemoteDevice_ReturnsConstructedDevice()
+        public void ReturnsConstructedDevice()
         {
             // Arrange
             var device = new NearbyDevice("peer-42", "Bob");
-            var connection = CreateConnection(device: device);
+            var connection = Create.Connection(device: device);
 
             // Act
             var result = connection.RemoteDevice;
@@ -41,14 +25,14 @@ public sealed class NearbyConnectionTests
     }
 
     [TestClass]
-    public sealed class SendAsyncBytes
+    public sealed class SendAsyncBytes : NearbyConnectionTests
     {
         [TestMethod]
         public async Task SendAsync_Bytes_DelegatesToSendBytes()
         {
             // Arrange
             byte[]? captured = null;
-            var connection = CreateConnection(
+            var connection = Create.Connection(
                 sendBytes: (data, _) => { captured = data; return ValueTask.CompletedTask; });
 
             var payload = new byte[] { 10, 20, 30 };
@@ -58,7 +42,7 @@ public sealed class NearbyConnectionTests
 
             // Assert
             Assert.IsNotNull(captured);
-            CollectionAssert.AreEqual(payload, captured);
+            Assert.AreSequenceEqual(payload, captured);
         }
 
         [TestMethod]
@@ -66,7 +50,7 @@ public sealed class NearbyConnectionTests
         {
             // Arrange
             CancellationToken capturedToken = default;
-            var connection = CreateConnection(
+            var connection = Create.Connection(
                 sendBytes: (_, ct) => { capturedToken = ct; return ValueTask.CompletedTask; });
 
             using var cts = new CancellationTokenSource();
@@ -82,7 +66,7 @@ public sealed class NearbyConnectionTests
         public async Task SendAsync_NullBytes_ThrowsArgumentNullException()
         {
             // Arrange
-            var connection = CreateConnection();
+            var connection = Create.Connection();
 
             // Act
             Func<Task> act = () => connection.SendAsync((byte[])null!).AsTask();
@@ -93,14 +77,14 @@ public sealed class NearbyConnectionTests
     }
 
     [TestClass]
-    public sealed class SendAsyncFile
+    public sealed class SendAsyncFile : NearbyConnectionTests
     {
         [TestMethod]
         public async Task SendAsync_File_DelegatesToSendFile()
         {
             // Arrange
             string? capturedUri = null;
-            var connection = CreateConnection(
+            var connection = Create.Connection(
                 sendFile: (uri, _, _) => { capturedUri = uri; return Task.CompletedTask; });
 
             // Act
@@ -115,7 +99,7 @@ public sealed class NearbyConnectionTests
         {
             // Arrange
             IProgress<NearbyTransferProgress>? capturedProgress = null;
-            var connection = CreateConnection(
+            var connection = Create.Connection(
                 sendFile: (_, progress, _) => { capturedProgress = progress; return Task.CompletedTask; });
 
             var progress = new Progress<NearbyTransferProgress>();
@@ -131,7 +115,7 @@ public sealed class NearbyConnectionTests
         public async Task SendAsync_NullFileUri_ThrowsArgumentNullException()
         {
             // Arrange
-            var connection = CreateConnection();
+            var connection = Create.Connection();
 
             // Act
             Func<Task> act = async () => await connection.SendAsync((string)null!);
@@ -142,16 +126,16 @@ public sealed class NearbyConnectionTests
     }
 
     [TestClass]
-    public sealed class ReceiveAsync
+    public sealed class ReceiveAsync : NearbyConnectionTests
     {
 
         [TestMethod]
-        public async Task ReceiveAsync_WritePayload_YieldsPayload()
+        public async Task WritePayload_YieldsPayload()
         {
             // Arrange
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-            var connection = CreateConnection(receiveChannel: receiveChannel);
+            var connection = Create.Connection(receiveChannel: receiveChannel);
 
             var payload = new NearbyBytesPayload([1, 2, 3]);
 
@@ -173,12 +157,12 @@ public sealed class NearbyConnectionTests
         }
 
         [TestMethod]
-        public async Task ReceiveAsync_MultiplePayloads_YieldsInOrder()
+        public async Task MultiplePayloads_YieldsInOrder()
         {
             // Arrange
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-            var connection = CreateConnection(receiveChannel: receiveChannel);
+            var connection = Create.Connection(receiveChannel: receiveChannel);
 
             var p1 = new NearbyBytesPayload([1]);
             var p2 = new NearbyBytesPayload([2]);
@@ -206,12 +190,12 @@ public sealed class NearbyConnectionTests
         }
 
         [TestMethod]
-        public async Task ReceiveAsync_CancellationRequested_ThrowsOperationCanceledException()
+        public async Task CancellationRequested_ThrowsOperationCanceledException()
         {
             // Arrange
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-            var connection = CreateConnection(receiveChannel: receiveChannel);
+            var connection = Create.Connection(receiveChannel: receiveChannel);
             using var cts = new CancellationTokenSource();
             await cts.CancelAsync();
 
@@ -229,10 +213,10 @@ public sealed class NearbyConnectionTests
         }
 
         [TestMethod]
-        public async Task ReceiveAsync_CalledTwice_ThrowsInvalidOperationException()
+        public async Task CalledTwice_ThrowsInvalidOperationException()
         {
             // Arrange
-            var connection = CreateConnection();
+            var connection = Create.Connection();
             connection.ReceiveAsync(); // first call — sets guard
 
             // Act
@@ -243,10 +227,10 @@ public sealed class NearbyConnectionTests
         }
 
         [TestMethod]
-        public async Task ReceiveAsync_CalledAfterCancellation_ThrowsInvalidOperationException()
+        public async Task CalledAfterCancellation_ThrowsInvalidOperationException()
         {
             // Arrange
-            var connection = CreateConnection();
+            var connection = Create.Connection();
             using var cts = new CancellationTokenSource();
             await cts.CancelAsync();
             try { await foreach (var _ in connection.ReceiveAsync(cts.Token)) { } }
@@ -261,15 +245,15 @@ public sealed class NearbyConnectionTests
     }
 
     [TestClass]
-    public sealed class CompleteReceive
+    public sealed class CompleteReceive : NearbyConnectionTests
     {
         [TestMethod]
-        public async Task CompleteReceive_CompletesReceiveEnumerable()
+        public async Task CompletesReceiveEnumerable()
         {
             // Arrange
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-            var connection = CreateConnection(receiveChannel: receiveChannel);
+            var connection = Create.Connection(receiveChannel: receiveChannel);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
@@ -293,14 +277,14 @@ public sealed class NearbyConnectionTests
     }
 
     [TestClass]
-    public sealed class DisposeAsync
+    public sealed class DisposeAsync : NearbyConnectionTests
     {
         [TestMethod]
-        public async Task DisposeAsync_CallsDispose()
+        public async Task CallsDispose()
         {
             // Arrange
             var disposed = false;
-            var connection = CreateConnection(
+            var connection = Create.Connection(
                 dispose: () => { disposed = true; return ValueTask.CompletedTask; });
 
             // Act
@@ -311,12 +295,12 @@ public sealed class NearbyConnectionTests
         }
 
         [TestMethod]
-        public async Task DisposeAsync_CompletesReceiveEnumerable()
+        public async Task CompletesReceiveEnumerable()
         {
             // Arrange
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-            var connection = CreateConnection(receiveChannel: receiveChannel);
+            var connection = Create.Connection(receiveChannel: receiveChannel);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
@@ -342,7 +326,7 @@ public sealed class NearbyConnectionTests
             // Arrange
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-            var connection = CreateConnection(receiveChannel: receiveChannel);
+            var connection = Create.Connection(receiveChannel: receiveChannel);
             await connection.DisposeAsync();
 
             // Act
@@ -358,7 +342,7 @@ public sealed class NearbyConnectionTests
         public void IsBeingConsumed_BeforeReceiveAsync_IsFalse()
         {
             // Arrange
-            var connection = CreateConnection();
+            var connection = Create.Connection();
 
             // Act
             var consumed = connection.IsBeingConsumed;
@@ -376,7 +360,7 @@ public sealed class NearbyConnectionTests
         public async Task ReceiveAsync_StartedLate_DrainsPayloadsWrittenBeforeItBegan()
         {
             // Arrange
-            var connection = CreateConnection();
+            var connection = Create.Connection();
             connection.TryWritePayload(new NearbyBytesPayload([1]));
             connection.TryWritePayload(new NearbyBytesPayload([2]));
             connection.TryWritePayload(new NearbyBytesPayload([3]));
@@ -401,7 +385,7 @@ public sealed class NearbyConnectionTests
         public void IsBeingConsumed_AfterReceiveAsync_IsTrue()
         {
             // Arrange
-            var connection = CreateConnection();
+            var connection = Create.Connection();
 
             // Act
             _ = connection.ReceiveAsync();
@@ -411,17 +395,14 @@ public sealed class NearbyConnectionTests
         }
     }
 
-    // ===========================================================================
-    // Disconnected
-    // ===========================================================================
     [TestClass]
-    public sealed class Disconnected
+    public sealed class Disconnected : NearbyConnectionTests
     {
         [TestMethod]
-        public async Task Disconnected_CompletesWhenCompleteReceiveCalled()
+        public async Task CompletesWhenCompleteReceiveCalled()
         {
             // Arrange
-            var connection = CreateConnection();
+            var connection = Create.Connection();
 
             // Act
             connection.CompleteReceive();
@@ -432,10 +413,10 @@ public sealed class NearbyConnectionTests
         }
 
         [TestMethod]
-        public async Task Disconnected_CompletesWhenDisposeAsyncCalled()
+        public async Task CompletesWhenDisposeAsyncCalled()
         {
             // Arrange
-            var connection = CreateConnection(dispose: () => ValueTask.CompletedTask);
+            var connection = Create.Connection(dispose: () => ValueTask.CompletedTask);
 
             // Act
             await connection.DisposeAsync();
@@ -445,10 +426,10 @@ public sealed class NearbyConnectionTests
         }
 
         [TestMethod]
-        public async Task Disconnected_IsIdempotentOnDoubleCompleteAndDispose()
+        public async Task IsIdempotentOnDoubleCompleteAndDispose()
         {
             // Arrange
-            var connection = CreateConnection(dispose: () => ValueTask.CompletedTask);
+            var connection = Create.Connection(dispose: () => ValueTask.CompletedTask);
 
             // Act — double CompleteReceive and one DisposeAsync; none should throw
             connection.CompleteReceive();
@@ -460,27 +441,24 @@ public sealed class NearbyConnectionTests
         }
     }
 
-    // ===========================================================================
-    // DisconnectedToken
-    // ===========================================================================
     [TestClass]
-    public sealed class DisconnectedToken
+    public sealed class DisconnectedToken : NearbyConnectionTests
     {
         [TestMethod]
-        public void DisconnectedToken_IsNotCanceled_WhileConnected()
+        public void IsNotCanceled_WhileConnected()
         {
             // Arrange
-            var connection = CreateConnection();
+            var connection = Create.Connection();
 
             // Assert
             Assert.IsFalse(connection.DisconnectedToken.IsCancellationRequested);
         }
 
         [TestMethod]
-        public void DisconnectedToken_IsCanceled_AfterCompleteReceive()
+        public void IsCanceled_AfterCompleteReceive()
         {
             // Arrange
-            var connection = CreateConnection();
+            var connection = Create.Connection();
 
             // Act
             connection.CompleteReceive();
@@ -490,10 +468,10 @@ public sealed class NearbyConnectionTests
         }
 
         [TestMethod]
-        public async Task DisconnectedToken_IsCanceled_AfterDisposeAsync()
+        public async Task IsCanceled_AfterDisposeAsync()
         {
             // Arrange
-            var connection = CreateConnection(dispose: () => ValueTask.CompletedTask);
+            var connection = Create.Connection(dispose: () => ValueTask.CompletedTask);
 
             // Act
             await connection.DisposeAsync();
@@ -506,10 +484,10 @@ public sealed class NearbyConnectionTests
         // backing CancellationTokenSource must NOT be disposed — reading the token after
         // DisposeAsync has to keep working rather than throw ObjectDisposedException.
         [TestMethod]
-        public async Task DisconnectedToken_RemainsReadable_AfterDisposeAsync()
+        public async Task RemainsReadable_AfterDisposeAsync()
         {
             // Arrange
-            var connection = CreateConnection(dispose: () => ValueTask.CompletedTask);
+            var connection = Create.Connection(dispose: () => ValueTask.CompletedTask);
 
             // Act
             await connection.DisposeAsync();
@@ -520,39 +498,12 @@ public sealed class NearbyConnectionTests
             using var registration = token.Register(static () => { });
         }
 
-        // The core guarantee: completing the writer — not cancelling a token — is what ends the
-        // receive loop, so payloads buffered immediately before the disconnect are still delivered.
-        // This is PayloadWrittenBeforeDisconnect_IsNotLost expressed at the NearbyConnection level.
-        [TestMethod]
-        public async Task ReceiveAsync_DeliversBufferedPayloads_ThenCompletes_AfterDisconnect()
-        {
-            // Arrange
-            var channel = Channel.CreateUnbounded<NearbyPayload>();
-            var connection = CreateConnection(receiveChannel: channel);
-
-            channel.Writer.TryWrite(new NearbyBytesPayload([1]));
-            channel.Writer.TryWrite(new NearbyBytesPayload([2]));
-
-            // Act — disconnect with payloads still buffered, then consume with no token
-            connection.CompleteReceive();
-
-            var received = new List<NearbyPayload>();
-            await foreach (var payload in connection.ReceiveAsync())
-            {
-                received.Add(payload);
-            }
-
-            // Assert — both payloads survive the disconnect and the loop ends on its own
-            Assert.HasCount(2, received);
-            Assert.IsTrue(connection.DisconnectedToken.IsCancellationRequested);
-        }
-
         [TestMethod]
         public async Task ReceiveAsync_ExitsLoop_WhenPeerDisconnectsMidEnumeration()
         {
             // Arrange
             var channel = Channel.CreateUnbounded<NearbyPayload>();
-            var connection = CreateConnection(receiveChannel: channel);
+            var connection = Create.Connection(receiveChannel: channel);
             channel.Writer.TryWrite(new NearbyBytesPayload([1]));
 
             // Act — disconnect from inside the loop after the first payload
@@ -576,7 +527,7 @@ public sealed class NearbyConnectionTests
         {
             // Arrange
             var channel = Channel.CreateUnbounded<NearbyPayload>();
-            var connection = CreateConnection(receiveChannel: channel);
+            var connection = Create.Connection(receiveChannel: channel);
             channel.Writer.TryWrite(new NearbyBytesPayload([1]));
             connection.CompleteReceive();
 

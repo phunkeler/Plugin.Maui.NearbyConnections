@@ -1,91 +1,47 @@
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
-[TestCategory("Connections")]
+/// <summary>
+/// Both start-failure exceptions carry the same contract, so they are asserted from one set of
+/// rows: a caller catching <see cref="NearbyException"/> must handle either without knowing which
+/// operation failed.
+/// </summary>
+[TestCategory("Discovery")]
 public class NearbyConnectionsExceptionTests
 {
     [TestClass]
-    public sealed class Advertising : NearbyConnectionsExceptionTests
+    public sealed class Construction : NearbyConnectionsExceptionTests
     {
         [TestMethod]
-        public void PreservesMessage()
+        [DataRow(typeof(NearbyAdvertisingException), DisplayName = "Advertising")]
+        [DataRow(typeof(NearbyDiscoveryException), DisplayName = "Discovery")]
+        public void MessageOnly_PreservesMessageAndDerivesFromNearbyException(Type exceptionType)
         {
             // Arrange
-            var ex = new NearbyAdvertisingException("failed");
+            const string Message = "failed";
 
             // Act
-            var message = ex.Message;
+            var exception = (Exception)Activator.CreateInstance(exceptionType, Message)!;
 
             // Assert
-            Assert.AreEqual("failed", message);
+            Assert.AreEqual(Message, exception.Message);
+            Assert.IsInstanceOfType<NearbyException>(exception);
         }
 
         [TestMethod]
-        public void PreservesInnerException()
+        [DataRow(typeof(NearbyAdvertisingException), DisplayName = "Advertising")]
+        [DataRow(typeof(NearbyDiscoveryException), DisplayName = "Discovery")]
+        public void MessageAndInner_PreservesBoth(Type exceptionType)
         {
             // Arrange
+            const string Message = "failed";
             var inner = new InvalidOperationException("root cause");
-            var ex = new NearbyAdvertisingException("failed", inner);
 
             // Act
-            var result = ex.InnerException;
+            var exception = (Exception)Activator.CreateInstance(exceptionType, Message, inner)!;
 
             // Assert
-            Assert.AreSame(inner, result);
-        }
-
-        [TestMethod]
-        public void IsCatchableAsNearbyConnectionsException()
-        {
-            // Arrange
-            var ex = new NearbyAdvertisingException("failed");
-
-            // Act (type relationship is structural — no runtime operation required)
-
-            // Assert
-            Assert.IsInstanceOfType<NearbyException>(ex);
-        }
-    }
-
-    [TestClass]
-    public sealed class Discovery : NearbyConnectionsExceptionTests
-    {
-        [TestMethod]
-        public void PreservesMessage()
-        {
-            // Arrange
-            var ex = new NearbyDiscoveryException("failed");
-
-            // Act
-            var message = ex.Message;
-
-            // Assert
-            Assert.AreEqual("failed", message);
-        }
-
-        [TestMethod]
-        public void PreservesInnerException()
-        {
-            // Arrange
-            var inner = new InvalidOperationException("root cause");
-            var ex = new NearbyDiscoveryException("failed", inner);
-
-            // Act
-            var result = ex.InnerException;
-
-            // Assert
-            Assert.AreSame(inner, result);
-        }
-
-        [TestMethod]
-        public void IsCatchableAsNearbyConnectionsException()
-        {
-            // Arrange
-            var ex = new NearbyDiscoveryException("failed");
-
-            // Act (type relationship is structural — no runtime operation required)
-
-            // Assert
-            Assert.IsInstanceOfType<NearbyException>(ex);
+            Assert.AreEqual(Message, exception.Message);
+            Assert.AreSame(inner, exception.InnerException);
         }
     }
 }

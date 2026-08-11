@@ -25,10 +25,13 @@ public class ServiceIdRulesTests
         [DataRow("abcdefghijklmno", DisplayName = "exactly 15 characters, the maximum")]
         public void ValidServiceId_ProducesNoFailures(string serviceId)
         {
+            // Arrange
             var failures = new List<string>();
 
+            // Act
             ServiceIdRules.Validate(serviceId, failures);
 
+            // Assert
             Assert.IsEmpty(failures, $"'{serviceId}' is legal per RFC 6335 but was rejected.");
         }
     }
@@ -49,10 +52,13 @@ public class ServiceIdRulesTests
         [DataRow("near--chat", DisplayName = "adjacent hyphens")]
         public void InvalidServiceId_ProducesAtLeastOneFailure(string serviceId)
         {
+            // Arrange
             var failures = new List<string>();
 
+            // Act
             ServiceIdRules.Validate(serviceId, failures);
 
+            // Assert
             Assert.IsNotEmpty(failures, $"'{serviceId}' violates RFC 6335 but was accepted — this would crash on iOS.");
         }
 
@@ -61,10 +67,14 @@ public class ServiceIdRulesTests
         {
             // The sentinel violates several rules at once. Reporting all of them would bury the one
             // thing the developer needs to know: the value was never set.
+
+            // Arrange
             var failures = new List<string>();
 
+            // Act
             ServiceIdRules.Validate(ServiceIdRules.Unset, failures);
 
+            // Assert
             Assert.HasCount(1, failures);
             Assert.Contains("has not been set", failures[0], StringComparison.Ordinal);
         }
@@ -75,10 +85,14 @@ public class ServiceIdRulesTests
             // A developer fixing a value should learn every problem at once rather than one per
             // rebuild. "-A-" is too-short-safe but breaks casing, the letter rule's sibling, and
             // both hyphen rules.
+
+            // Arrange
             var failures = new List<string>();
 
+            // Act
             ServiceIdRules.Validate("-A-", failures);
 
+            // Assert
             Assert.IsGreaterThan(1, failures.Count,
                 "Validation stopped at the first violation instead of reporting all of them.");
         }
@@ -88,10 +102,14 @@ public class ServiceIdRulesTests
         {
             // The shared validator already reports null/empty. Adding four more rule violations
             // here would bury it.
+
+            // Arrange
             var failures = new List<string>();
 
+            // Act
             ServiceIdRules.Validate(string.Empty, failures);
 
+            // Assert
             Assert.IsEmpty(failures);
         }
     }
@@ -103,10 +121,14 @@ public class ServiceIdRulesTests
         public void NamesTheOffendingCharacters()
         {
             // The message has to be actionable: "invalid" alone sends the developer hunting.
+
+            // Arrange
             var failures = new List<string>();
 
+            // Act
             ServiceIdRules.Validate("Nearby_Chat", failures);
 
+            // Assert
             var message = string.Join(" ", failures);
             Assert.Contains("N", message, StringComparison.Ordinal);
             Assert.Contains("_", message, StringComparison.Ordinal);
@@ -116,10 +138,13 @@ public class ServiceIdRulesTests
         [TestMethod]
         public void IncludesTheOffendingValue()
         {
+            // Arrange
             var failures = new List<string>();
 
+            // Act
             ServiceIdRules.Validate("way-too-long-service-id", failures);
 
+            // Assert
             Assert.Contains("way-too-long-service-id", string.Join(" ", failures), StringComparison.Ordinal);
         }
     }

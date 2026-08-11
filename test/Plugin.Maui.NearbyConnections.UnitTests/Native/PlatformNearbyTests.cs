@@ -5,36 +5,39 @@ using Plugin.Maui.NearbyConnections;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
+/// <summary>
+/// Covers the channel bridge platform callbacks write into: <c>WriteDeviceFound</c>,
+/// <c>WriteConnectionRequest</c>, <c>ResolveConnectionTcs</c> and their siblings.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>These tests read internal fields, against this suite's usual rule of asserting only
+/// through the surface a consumer uses.</strong> The natural observation point is
+/// <c>AdvertiseAsync</c> / <c>DiscoverAsync</c>, but both call a <c>Platform*</c> start that throws
+/// <see cref="PlatformNotSupportedException"/> on <c>net10.0</c>, so no enumeration can reach the
+/// channel. Reading the channel directly is the only way to test this layer off-device.
+/// </para>
+/// <para>
+/// The cost is real and worth stating: <c>AdvertiseAsync</c> swaps <c>_advertiseChannel</c> via
+/// <c>Interlocked.Exchange</c> on every call, so these tests pass partly because nothing enumerates
+/// during them. They verify the write side, not the swap. Closing this properly means giving the
+/// <c>net10.0</c> target a way to enumerate without a platform start — tracked as open
+/// question 7 in docs/DEVICE-LIFECYCLE.md, because it changes what the platform-support stub does
+/// rather than how a test is written.
+/// </para>
+/// </remarks>
 [TestCategory("Connections")]
-public class PlatformNearbyConnectionsTests
+public class PlatformNearbyTests
 {
-    // Builds a PlatformNearby without hitting any platform APIs.
-    static PlatformNearby CreateSut(
-        FakeTimeProvider? timeProvider = null,
-        NearbyOptions? options = null)
-    {
-        var tp = timeProvider ?? new FakeTimeProvider();
-        return new PlatformNearby(
-            tp,
-            options ?? new NearbyOptions(),
-            NullLogger.Instance);
-    }
-
-    // Drains the first N items from the channel's reader via the internal channel.
-    // Because PlatformStartAdvertisingAsync / PlatformStartDiscoveryAsync throw
-    // PlatformNotSupportedException on net10.0, we exercise the channel bridge
-    // helpers directly (WriteDeviceFound, WriteConnectionRequest, etc.) and read
-    // from the channel reader rather than going through AdvertiseAsync/DiscoverAsync.
-
     [TestClass]
-    public sealed class WriteConnectionRequest : PlatformNearbyConnectionsTests
+    public sealed class WriteConnectionRequest : PlatformNearbyTests
     {
         [TestMethod]
-        public async Task WriteConnectionRequest_YieldsRequestOnAdvertiseChannel()
+        public async Task YieldsRequestOnAdvertiseChannel()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var platform = Create.PlatformNearby();
+            var device = Create.Device("peer-1", "Alice");
 
             NearbyConnectionRequest? captured = null;
             var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -45,11 +48,11 @@ public class PlatformNearbyConnectionsTests
                 reject: ct => Task.CompletedTask);
 
             // Act
-            sut.WriteConnectionRequest(request);
+            platform.WriteConnectionRequest(request);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             // Read one item directly from the internal advertise channel reader
-            var reader = sut._advertiseChannel.Reader;
+            var reader = platform._advertiseChannel.Reader;
             captured = await reader.ReadAsync(cts.Token);
 
             // Assert
@@ -58,20 +61,20 @@ public class PlatformNearbyConnectionsTests
         }
 
         [TestMethod]
-        public async Task WriteConnectionRequest_MultipleRequests_AllYielded()
+        public async Task MultipleRequests_AllYielded()
         {
             // Arrange
-            var sut = CreateSut();
-            var device1 = new NearbyDevice("peer-1", "Alice");
+            var platform = Create.PlatformNearby();
+            var device1 = Create.Device("peer-1", "Alice");
             var device2 = new NearbyDevice("peer-2", "Bob");
 
             var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            sut.WriteConnectionRequest(new NearbyConnectionRequest(device1, ct => tcs.Task.WaitAsync(ct), ct => Task.CompletedTask));
-            sut.WriteConnectionRequest(new NearbyConnectionRequest(device2, ct => tcs.Task.WaitAsync(ct), ct => Task.CompletedTask));
+            platform.WriteConnectionRequest(new NearbyConnectionRequest(device1, ct => tcs.Task.WaitAsync(ct), ct => Task.CompletedTask));
+            platform.WriteConnectionRequest(new NearbyConnectionRequest(device2, ct => tcs.Task.WaitAsync(ct), ct => Task.CompletedTask));
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            var reader = sut._advertiseChannel.Reader;
+            var reader = platform._advertiseChannel.Reader;
 
             // Act
             var first = await reader.ReadAsync(cts.Token);
@@ -84,18 +87,18 @@ public class PlatformNearbyConnectionsTests
     }
 
     [TestClass]
-    public sealed class ResolveConnectionTcs : PlatformNearbyConnectionsTests
+    public sealed class ResolveConnectionTcs : PlatformNearbyTests
     {
         [TestMethod]
         public async Task AcceptAsync_ResolveConnectionTcs_CompletesWithNearbyConnection()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var platform = Create.PlatformNearby();
+            var device = Create.Device("peer-1", "Alice");
 
             // Simulate what ConnectAsync does: register a TCS keyed by peer ID
             var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-            sut._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
+            platform._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
 
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>();
             var connection = new NearbyConnection(
@@ -106,7 +109,7 @@ public class PlatformNearbyConnectionsTests
                 dispose: () => ValueTask.CompletedTask);
 
             // Act — simulate platform callback resolving the TCS
-            sut.ResolveConnectionTcs("peer-1", connection);
+            platform.ResolveConnectionTcs("peer-1", connection);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             var result = await tcs.Task.WaitAsync(cts.Token);
@@ -116,14 +119,14 @@ public class PlatformNearbyConnectionsTests
         }
 
         [TestMethod]
-        public async Task ResolveConnectionTcs_RegistersConnectionInActiveConnections()
+        public async Task RegistersConnectionInActiveConnections()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var platform = Create.PlatformNearby();
+            var device = Create.Device("peer-1", "Alice");
 
             var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-            sut._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
+            platform._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
 
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>();
             var connection = new NearbyConnection(
@@ -134,25 +137,25 @@ public class PlatformNearbyConnectionsTests
                 dispose: () => ValueTask.CompletedTask);
 
             // Act
-            sut.ResolveConnectionTcs("peer-1", connection);
+            platform.ResolveConnectionTcs("peer-1", connection);
             await tcs.Task; // wait for resolution
 
             // Assert — connection is now tracked in _activeConnections
-            Assert.IsTrue(sut._activeConnections.ContainsKey("peer-1"));
+            Assert.IsTrue(platform._activeConnections.ContainsKey("peer-1"));
         }
 
         [TestMethod]
         public async Task FaultConnectionTcs_FaultsTheTcsWithGivenException()
         {
             // Arrange
-            var sut = CreateSut();
+            var platform = Create.PlatformNearby();
             var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-            sut._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
+            platform._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
 
             var expectedException = new InvalidOperationException("connection failed");
 
             // Act
-            sut.FaultConnectionTcs("peer-1", expectedException);
+            platform.FaultConnectionTcs("peer-1", expectedException);
 
             // Assert
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(
@@ -160,15 +163,15 @@ public class PlatformNearbyConnectionsTests
         }
 
         [TestMethod]
-        public void ResolveConnectionTcs_NoRegisteredTcs_SilentlyNoOps()
+        public void NoRegisteredTcs_SilentlyNoOps()
         {
             // Arrange - reproduces the iOS advertiser race window where a platform callback
             // (e.g. MCSessionState.Connected) can fire before the accept continuation
             // has registered its TCS in _connectionTcs. Callers must register the TCS before
             // triggering any platform operation that could resolve it; this test pins down
             // that ResolveConnectionTcs offers no rescue if that ordering is violated.
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var platform = Create.PlatformNearby();
+            var device = Create.Device("peer-1", "Alice");
 
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>();
             var connection = new NearbyConnection(
@@ -179,29 +182,29 @@ public class PlatformNearbyConnectionsTests
                 dispose: () => ValueTask.CompletedTask);
 
             // Act
-            sut.ResolveConnectionTcs("peer-1", connection);
+            platform.ResolveConnectionTcs("peer-1", connection);
 
             // Assert - no TCS was registered, so the resolution is dropped and the connection
             // is never tracked as active; nothing throws.
-            Assert.IsFalse(sut._activeConnections.ContainsKey("peer-1"));
+            Assert.IsFalse(platform._activeConnections.ContainsKey("peer-1"));
         }
     }
 
     [TestClass]
-    public sealed class WriteDeviceFound : PlatformNearbyConnectionsTests
+    public sealed class WriteDeviceFound : PlatformNearbyTests
     {
         [TestMethod]
-        public async Task WriteDeviceFound_YieldsFoundEventOnDiscoverChannel()
+        public async Task YieldsFoundEventOnDiscoverChannel()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var platform = Create.PlatformNearby();
+            var device = Create.Device("peer-1", "Alice");
 
             // Act
-            sut.WriteDeviceFound(device);
+            platform.WriteDeviceFound(device);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            var evt = await sut._discoverChannel.Reader.ReadAsync(cts.Token);
+            var evt = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
 
             // Assert
             Assert.AreEqual(NearbyDeviceEventType.Found, evt.Type);
@@ -212,14 +215,14 @@ public class PlatformNearbyConnectionsTests
         public async Task WriteDeviceLost_YieldsLostEventOnDiscoverChannel()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var platform = Create.PlatformNearby();
+            var device = Create.Device("peer-1", "Alice");
 
             // Act
-            sut.WriteDeviceLost(device);
+            platform.WriteDeviceLost(device);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            var evt = await sut._discoverChannel.Reader.ReadAsync(cts.Token);
+            var evt = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
 
             // Assert
             Assert.AreEqual(NearbyDeviceEventType.Lost, evt.Type);
@@ -227,18 +230,18 @@ public class PlatformNearbyConnectionsTests
         }
 
         [TestMethod]
-        public async Task WriteDeviceFound_ThenLost_PreservesOrder()
+        public async Task ThenLost_PreservesOrder()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var platform = Create.PlatformNearby();
+            var device = Create.Device("peer-1", "Alice");
 
             // Act
-            sut.WriteDeviceFound(device);
-            sut.WriteDeviceLost(device);
+            platform.WriteDeviceFound(device);
+            platform.WriteDeviceLost(device);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            var reader = sut._discoverChannel.Reader;
+            var reader = platform._discoverChannel.Reader;
             var first = await reader.ReadAsync(cts.Token);
             var second = await reader.ReadAsync(cts.Token);
 
@@ -249,17 +252,17 @@ public class PlatformNearbyConnectionsTests
     }
 
     [TestClass]
-    public sealed class WritePayload : PlatformNearbyConnectionsTests
+    public sealed class WritePayload : PlatformNearbyTests
     {
         [TestMethod]
-        public async Task WritePayload_RoutesPayloadToActiveConnection()
+        public async Task RoutesPayloadToActiveConnection()
         {
             // Arrange
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var platform = Create.PlatformNearby();
+            var device = Create.Device("peer-1", "Alice");
 
             var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-            sut._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
+            platform._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
 
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
@@ -270,13 +273,13 @@ public class PlatformNearbyConnectionsTests
                 sendFile: (_, _, _) => Task.CompletedTask,
                 dispose: () => ValueTask.CompletedTask);
 
-            sut.ResolveConnectionTcs("peer-1", connection);
+            platform.ResolveConnectionTcs("peer-1", connection);
             await tcs.Task;
 
             var payload = new NearbyBytesPayload([1, 2, 3]);
 
             // Act
-            sut.WritePayload("peer-1", payload);
+            platform.WritePayload("peer-1", payload);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             var received = await receiveChannel.Reader.ReadAsync(cts.Token);
@@ -286,22 +289,22 @@ public class PlatformNearbyConnectionsTests
         }
 
         [TestMethod]
-        public void WritePayload_UnknownPeer_DoesNotThrow()
+        public void UnknownPeer_DoesNotThrow()
         {
             // Arrange
-            var sut = CreateSut();
+            var platform = Create.PlatformNearby();
             var payload = new NearbyBytesPayload([1, 2, 3]);
 
             // Act
-            sut.WritePayload("nonexistent-peer", payload);
+            platform.WritePayload("nonexistent-peer", payload);
 
             // Assert — unknown peer silently ignored; no connection was registered
-            Assert.IsFalse(sut._activeConnections.ContainsKey("nonexistent-peer"));
+            Assert.IsFalse(platform._activeConnections.ContainsKey("nonexistent-peer"));
         }
     }
 
     [TestClass]
-    public sealed class AllowSynchronousContinuations : PlatformNearbyConnectionsTests
+    public sealed class AllowSynchronousContinuations : PlatformNearbyTests
     {
         [TestMethod]
         public void False_WriteReturnsBeforeAwaitingReaderContinuationRuns()
@@ -309,17 +312,17 @@ public class PlatformNearbyConnectionsTests
             // Arrange — default options: AllowSynchronousContinuations is false, so the
             // channel schedules the waiting reader's continuation to the thread pool
             // instead of running it inline on the writer's call stack.
-            var sut = CreateSut();
-            var device = new NearbyDevice("peer-1", "Alice");
+            var platform = Create.PlatformNearby();
+            var device = Create.Device("peer-1", "Alice");
             var continuationRan = false;
 
-            var readValueTask = sut._discoverChannel.Reader.ReadAsync();
+            var readValueTask = platform._discoverChannel.Reader.ReadAsync();
             _ = readValueTask.AsTask().ContinueWith(
                 _ => continuationRan = true,
                 TaskContinuationOptions.ExecuteSynchronously);
 
             // Act
-            sut.WriteDeviceFound(device);
+            platform.WriteDeviceFound(device);
 
             // Assert — WriteDeviceFound (a synchronous TryWrite) has already returned, but
             // the continuation was scheduled rather than run inline, so it hasn't run yet.
@@ -331,17 +334,17 @@ public class PlatformNearbyConnectionsTests
         {
             // Arrange
             var options = new NearbyOptions { AllowSynchronousContinuations = true };
-            var sut = CreateSut(options: options);
-            var device = new NearbyDevice("peer-1", "Alice");
+            var platform = Create.PlatformNearby(options: options);
+            var device = Create.Device("peer-1", "Alice");
             var continuationRan = false;
 
-            var readValueTask = sut._discoverChannel.Reader.ReadAsync();
+            var readValueTask = platform._discoverChannel.Reader.ReadAsync();
             _ = readValueTask.AsTask().ContinueWith(
                 _ => continuationRan = true,
                 TaskContinuationOptions.ExecuteSynchronously);
 
             // Act
-            sut.WriteDeviceFound(device);
+            platform.WriteDeviceFound(device);
 
             // Assert — the continuation ran synchronously, inline within TryWrite,
             // before WriteDeviceFound returned.
@@ -350,64 +353,64 @@ public class PlatformNearbyConnectionsTests
     }
 
     [TestClass]
-    public sealed class DisposeAsync : PlatformNearbyConnectionsTests
+    public sealed class DisposeAsync : PlatformNearbyTests
     {
         [TestMethod]
-        public async Task DisposeAsync_CompletesAdvertiseChannel()
+        public async Task CompletesAdvertiseChannel()
         {
             // Arrange
-            var sut = CreateSut();
+            var platform = Create.PlatformNearby();
 
             // Act
-            await sut.DisposeAsync();
+            await platform.DisposeAsync();
 
             // Assert — channel writer is completed, so reader will complete immediately
-            Assert.IsTrue(sut._advertiseChannel.Reader.Completion.IsCompleted);
+            Assert.IsTrue(platform._advertiseChannel.Reader.Completion.IsCompleted);
         }
 
         [TestMethod]
-        public async Task DisposeAsync_CompletesDiscoverChannel()
+        public async Task CompletesDiscoverChannel()
         {
             // Arrange
-            var sut = CreateSut();
+            var platform = Create.PlatformNearby();
 
             // Act
-            await sut.DisposeAsync();
+            await platform.DisposeAsync();
 
             // Assert
-            Assert.IsTrue(sut._discoverChannel.Reader.Completion.IsCompleted);
+            Assert.IsTrue(platform._discoverChannel.Reader.Completion.IsCompleted);
         }
 
         [TestMethod]
-        public async Task DisposeAsync_CancelsPendingConnectionTcs()
+        public async Task CancelsPendingConnectionTcs()
         {
             // Arrange
-            var sut = CreateSut();
+            var platform = Create.PlatformNearby();
             using var cts = new CancellationTokenSource();
             var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-            sut._connectionTcs["peer-1"] = (tcs, cts.Token);
+            platform._connectionTcs["peer-1"] = (tcs, cts.Token);
 
             // Act
-            await sut.DisposeAsync();
+            await platform.DisposeAsync();
 
             // Assert
             Assert.IsTrue(tcs.Task.IsCanceled);
         }
 
         [TestMethod]
-        public async Task DisposeAsync_CalledTwice_DoesNotThrow()
+        public async Task CalledTwice_DoesNotThrow()
         {
             // Arrange
-            var sut = CreateSut();
+            var platform = Create.PlatformNearby();
 
             // Act
-            await sut.DisposeAsync();
+            await platform.DisposeAsync();
 #pragma warning disable S3966 // intentional: second call verifies idempotency
-            await sut.DisposeAsync();
+            await platform.DisposeAsync();
 #pragma warning restore S3966
 
             // Assert
-            Assert.IsTrue(sut._advertiseChannel.Reader.Completion.IsCompleted);
+            Assert.IsTrue(platform._advertiseChannel.Reader.Completion.IsCompleted);
         }
     }
 }

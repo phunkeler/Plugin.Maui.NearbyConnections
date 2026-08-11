@@ -426,3 +426,19 @@ uniform for free: one timer, one `EndReason.Expired`, identical on both platform
      cross-platform, which makes the leak more visible rather than less. `ConnectionRequestTimeout`
      reads neutrally on both. Deliberately *not* renamed alongside the type work, so the whole
      public vocabulary is settled in one pass rather than piecemeal — see `docs/DECISIONS.md`.
+
+7. **`net10.0` cannot enumerate the advertise/discover streams — so `PlatformNearbyTests` reads
+   internal channel fields.** `AdvertiseAsync`/`DiscoverAsync` call a `Platform*` start that throws
+   `PlatformNotSupportedException` on the headless target, so no test can enumerate past it. The
+   ~20 assertions in `test/.../Native/PlatformNearbyTests.cs` therefore read `_advertiseChannel`,
+   `_discoverChannel`, `_connectionTcs` and `_activeConnections` directly.
+
+   The concrete cost: `AdvertiseAsync` swaps `_advertiseChannel` via `Interlocked.Exchange` on every
+   call, so those tests are correct only because nothing enumerates during them. They cover the
+   write side of the bridge and not the swap, and they would keep passing if the swap logic broke.
+
+   Closing it means giving the `net10.0` target a way to enumerate without a platform start — for
+   example a stub that yields an empty completed stream rather than throwing. That is a change to
+   what platform-unsupported *means*, not a test refactor, which is why it was deliberately left out
+   of the test cleanup pass that documented it. Until then the coupling is called out in that
+   file's class remarks so it reads as a known exception rather than an accident.

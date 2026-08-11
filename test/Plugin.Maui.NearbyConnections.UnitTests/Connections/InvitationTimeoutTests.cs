@@ -23,68 +23,6 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 [TestCategory("Session")]
 public sealed class InvitationTimeoutTests
 {
-    static PlatformNearby CreateSut(
-        FakeTimeProvider timeProvider,
-        TimeSpan? invitationTimeout = null)
-        => new(
-            timeProvider,
-            new NearbyOptions
-            {
-                ServiceId = "test-service",
-                InvitationTimeout = invitationTimeout ?? TimeSpan.FromSeconds(30),
-            },
-            NullLogger.Instance);
-
-    [TestMethod]
-    public void InvitationTimeout_DefaultsTo30Seconds()
-    {
-        // The default is load-bearing: it is what stops an un-configured app from hanging forever
-        // on Android.
-        Assert.AreEqual(TimeSpan.FromSeconds(30), new NearbyOptions().InvitationTimeout);
-    }
-
-    [TestMethod]
-    public void Deadline_FiresAfterInvitationTimeout()
-    {
-        var time = new FakeTimeProvider();
-        var timeout = TimeSpan.FromSeconds(30);
-
-        using var deadlineCts = new CancellationTokenSource(timeout, time);
-
-        Assert.IsFalse(deadlineCts.IsCancellationRequested);
-
-        time.Advance(timeout);
-
-        Assert.IsTrue(deadlineCts.IsCancellationRequested, "The deadline must fire once InvitationTimeout elapses.");
-    }
-
-    [TestMethod]
-    public void Deadline_DoesNotFireEarly()
-    {
-        var time = new FakeTimeProvider();
-        var timeout = TimeSpan.FromSeconds(30);
-
-        using var deadlineCts = new CancellationTokenSource(timeout, time);
-
-        time.Advance(timeout - TimeSpan.FromMilliseconds(1));
-
-        Assert.IsFalse(deadlineCts.IsCancellationRequested);
-    }
-
-    [TestMethod]
-    public void InfiniteTimeout_NeverFires()
-    {
-        // Timeout.InfiniteTimeSpan is the documented opt-out; a CancellationTokenSource constructed
-        // with it must never fire no matter how far the clock moves.
-        var time = new FakeTimeProvider();
-
-        using var deadlineCts = new CancellationTokenSource(Timeout.InfiniteTimeSpan, time);
-
-        time.Advance(TimeSpan.FromHours(24));
-
-        Assert.IsFalse(deadlineCts.IsCancellationRequested);
-    }
-
     [TestMethod]
     public async Task ConnectAsync_TimeoutIsArmedFromOptions()
     {
@@ -92,11 +30,14 @@ public sealed class InvitationTimeoutTests
         // options. On net10.0 the platform call throws first, so the assertion is that the
         // platform-not-supported failure surfaces rather than a timeout — proving the deadline was
         // armed but is not what failed.
-        var time = new FakeTimeProvider();
-        var sut = CreateSut(time, TimeSpan.FromSeconds(5));
 
+        // Arrange
+        var time = new FakeTimeProvider();
+        var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service", InvitationTimeout = TimeSpan.FromSeconds(5) });
+
+        // Assert
         await Assert.ThrowsExactlyAsync<PlatformNotSupportedException>(
-            () => sut.ConnectAsync(new NearbyDevice("peer-1", "Alice")));
+            () => platform.ConnectAsync(Create.Device("peer-1", "Alice")));
     }
 
     [TestMethod]
@@ -105,13 +46,24 @@ public sealed class InvitationTimeoutTests
         // A failed attempt must clear its own _connectionTcs entry. A stranded entry means a later
         // callback for the same device resolves a task nobody is awaiting, and the device can never
         // be connected to again in this session.
+        //
+        // Asserts on an internal field deliberately, against this suite's usual rule. The
+        // consumer-visible symptom needs a real platform callback to arrive after the failure, which
+        // net10.0 cannot produce — a retry-based version of this test was tried and passed even with
+        // both cleanup paths removed, so it would have been weaker cover for a real hazard.
+
+        // Arrange
         var time = new FakeTimeProvider();
-        var sut = CreateSut(time);
-        var device = new NearbyDevice("peer-1", "Alice");
+        var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service" });
+        var device = Create.Device("peer-1", "Alice");
 
-        await Assert.ThrowsExactlyAsync<PlatformNotSupportedException>(() => sut.ConnectAsync(device));
+        // Act
+        // Act
+        await Assert.ThrowsExactlyAsync<PlatformNotSupportedException>(() => platform.ConnectAsync(device));
 
-        Assert.IsEmpty(sut._connectionTcs);
+        // Assert
+        // Assert
+        Assert.IsEmpty(platform._connectionTcs);
     }
 
     [TestMethod]
@@ -119,15 +71,19 @@ public sealed class InvitationTimeoutTests
     {
         // The caller cancelling and the deadline elapsing are different failures and must not be
         // conflated: a caller who cancels deliberately should not be told the peer timed out.
+
+        // Arrange
         var time = new FakeTimeProvider();
-        var sut = CreateSut(time);
+        var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service" });
 
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
+        // Act
         var ex = await Assert.ThrowsExactlyAsync<OperationCanceledException>(
-            () => sut.ConnectAsync(new NearbyDevice("peer-1", "Alice"), cts.Token));
+            () => platform.ConnectAsync(Create.Device("peer-1", "Alice"), cts.Token));
 
+        // Assert
         Assert.IsNotInstanceOfType<NearbyConnectionTimeoutException>(ex);
     }
 }

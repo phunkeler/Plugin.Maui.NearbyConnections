@@ -31,28 +31,6 @@ public class NearbyConnectionsOptionsTests
         }
 
         [TestMethod]
-        public void Scopes_AreSettableOnEveryTargetFramework()
-        {
-            // Arrange
-            var options = new NearbyOptions();
-            const NearbyTopology expectedTopology = NearbyTopology.PointToPoint;
-            const NearbyConnectionType expectedConnectionType = NearbyConnectionType.HighBandwidth;
-            const NearbyEncryptionPreference expectedEncryption = NearbyEncryptionPreference.Optional;
-
-            // Act
-            options.Android.Topology = expectedTopology;
-            options.Android.ConnectionType = expectedConnectionType;
-            options.Android.UseLowPower = true;
-            options.Apple.EncryptionPreference = expectedEncryption;
-
-            // Assert
-            Assert.AreEqual(expectedTopology, options.Android.Topology);
-            Assert.AreEqual(expectedConnectionType, options.Android.ConnectionType);
-            Assert.IsTrue(options.Android.UseLowPower);
-            Assert.AreEqual(expectedEncryption, options.Apple.EncryptionPreference);
-        }
-
-        [TestMethod]
         public void Scopes_AreIndependentBetweenInstances()
         {
             // Arrange
@@ -93,6 +71,20 @@ public class NearbyConnectionsOptionsTests
                  false,
                  NearbyEncryptionPreference.Required),
                 actual);
+        }
+
+        [TestMethod]
+        public void InvitationTimeout_IsThirtySeconds()
+        {
+            // Arrange
+            var expected = TimeSpan.FromSeconds(30);
+
+            // Act
+            var actual = new NearbyOptions().InvitationTimeout;
+
+            // Assert — load-bearing: Google's Nearby Connections has no native invitation timeout,
+            // so this default is what stops an un-configured app hanging forever on Android.
+            Assert.AreEqual(expected, actual);
         }
     }
 }
