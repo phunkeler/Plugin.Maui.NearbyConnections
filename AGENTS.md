@@ -16,6 +16,19 @@ dotnet build src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csp
 
 # Unit tests — `dotnet run`, NOT `dotnet test` (VSTest is unsupported on the .NET 10 SDK)
 dotnet run --project test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj
+
+# Coverage — dotnet-coverage is pinned in .config/dotnet-tools.json, not globally installed.
+# `dotnet tool restore` once per clone; the tool then runs as `dotnet dotnet-coverage`, not bare.
+# test/coverage.runsettings scopes collection to the plugin DLL, excluding test/sample code.
+dotnet tool restore
+dotnet build -c Release test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj
+dotnet dotnet-coverage collect "dotnet exec test/Plugin.Maui.NearbyConnections.UnitTests/bin/Release/net10.0/Plugin.Maui.NearbyConnections.UnitTests.dll" \
+  --settings test/coverage.runsettings -f xml -o coverage.xml
+
+# Browsable HTML report from the coverage.xml above — same tool ci.yml uses for the PR summary.
+# coverage.xml and coveragereport/ are both gitignored; never commit either.
+dotnet reportgenerator -reports:coverage.xml -targetdir:coveragereport -reporttypes:Html
+open coveragereport/index.html   # macOS; use `start` on Windows, `xdg-open` on Linux
 ```
 
 ## The things people get wrong
@@ -189,6 +202,27 @@ test classes and test methods and nothing else — no factories, no fakes, no co
 top to bottom as tests. `TestSupport/Create.cs` builds the types under test; `FakeNearby` is the
 suite's one test double, standing in for the `IPlatformNearby` seam. Helpers carry XML docs (they
 are read apart from their call sites); tests do not (the name is the doc).
+
+A change that touches the same construction shape at 3+ test call sites (e.g. a constructor
+signature edit rippling through several `new NearbyConnection(...)` sites) is not done when it
+compiles and tests pass — check whether a `TestSupport/Create.*` factory already covers that shape
+and route every call site through it before reporting the change complete. This is the mechanical
+form of the rule above; it is easy to satisfy the letter of "use `Create.*`" while still hand-rolling
+construction at a handful of sites a mechanical find-and-replace didn't think to touch. For general
+test-quality convention beyond this repo's own rules, weigh changes against Microsoft's
+[Unit testing best practices for .NET](https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-best-practices)
+rather than relying on memory of a past review — an agent with no prior context on this repo can
+fetch that page directly and re-derive the same checks (AAA structure, one Act per test, no magic
+values, minimal input, helper methods over `[TestInitialize]`/`[TestCleanup]`).
+
+**When adding or changing tests, generate coverage** (Commands, above) and check the delta on the
+files the change actually touches — a new test that doesn't move coverage on its target method
+usually means it isn't exercising the path it claims to. There is currently no enforced coverage
+threshold; `Native/PlatformNearby.*` sits far below whatever a repo-wide number would require
+because platform partials need real SDKs (see below) and cannot be raised from `net10.0`, so a
+blanket percentage gate would either block on that permanently or have to be file-scoped. Coverage
+is visible in CI (`ci.yml` posts a per-PR summary via SonarQube) — read that before adding a second,
+possibly conflicting coverage gate.
 
 **UI tests** (`test/NearbyChat.UiTests/`, Appium) locate elements by resource-id (`MobileBy.Id`),
 not `AccessibilityId` — MAUI clears `content-desc`. Never change an `x:Name` or `AutomationId`

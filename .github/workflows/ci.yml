@@ -46,8 +46,8 @@ jobs:
           mkdir -p ${{ runner.temp }}/scanner
           dotnet tool update dotnet-sonarscanner --tool-path ${{ runner.temp }}/scanner
 
-      - name: Install dotnet-coverage
-        run: dotnet tool install --global dotnet-coverage
+      - name: Restore local .NET tools
+        run: dotnet tool restore
 
       - name: Restore Workloads
         run: dotnet workload restore src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj
@@ -85,7 +85,7 @@ jobs:
           ${{ runner.temp }}/scanner/dotnet-sonarscanner begin /k:"phunkeler_Plugin.Maui.NearbyConnections" /o:"phunkeler" /d:sonar.token="$SONAR_TOKEN" /d:sonar.cs.vscoveragexml.reportsPaths="${{ runner.temp }}/coverage.xml" /d:sonar.exclusions="test/**/**,samples/**,.github/**,.claude/**,.vscode/**,global.json,nuget.config,.release-please-config.json,.release-please-manifest.json"
           dotnet build -c Release src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj --no-incremental
           dotnet build -c Release test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj
-          dotnet-coverage collect "dotnet exec ${{ github.workspace }}/test/Plugin.Maui.NearbyConnections.UnitTests/bin/Release/net10.0/Plugin.Maui.NearbyConnections.UnitTests.dll" --settings test/coverage.runsettings -f xml -o "${{ runner.temp }}/coverage.xml"
+          dotnet dotnet-coverage collect "dotnet exec ${{ github.workspace }}/test/Plugin.Maui.NearbyConnections.UnitTests/bin/Release/net10.0/Plugin.Maui.NearbyConnections.UnitTests.dll" --settings test/coverage.runsettings -f xml -o "${{ runner.temp }}/coverage.xml"
           ${{ runner.temp }}/scanner/dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
 
       - name: Upload coverage artifact
