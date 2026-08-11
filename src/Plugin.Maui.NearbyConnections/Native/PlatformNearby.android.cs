@@ -139,7 +139,7 @@ sealed partial class PlatformNearby
                 var connection = new NearbyConnection(
                     device,
                     receiveChannel,
-                    sendBytes: (data, ct) => new ValueTask(PlatformSendBytesAsync(endpointId, data, ct)),
+                    sendBytes: (data, ct) => PlatformSendBytesAsync(endpointId, data, ct),
                     sendFile: (fileUri, progress, ct) => PlatformSendFileAsync(endpointId, fileUri, progress, ct),
                     dispose: () =>
                     {

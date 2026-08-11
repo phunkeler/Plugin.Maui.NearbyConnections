@@ -23,7 +23,7 @@ namespace Plugin.Maui.NearbyConnections;
 public sealed class NearbyConnection : IAsyncDisposable
 {
     readonly Channel<NearbyPayload> _receiveChannel;
-    readonly Func<byte[], CancellationToken, ValueTask> _sendBytes;
+    readonly Func<byte[], CancellationToken, Task> _sendBytes;
     readonly Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> _sendFile;
     readonly Func<ValueTask> _dispose;
     readonly TaskCompletionSource _disconnectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -114,7 +114,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     public NearbyConnection(
         NearbyDevice remoteDevice,
         Channel<NearbyPayload> receiveChannel,
-        Func<byte[], CancellationToken, ValueTask> sendBytes,
+        Func<byte[], CancellationToken, Task> sendBytes,
         Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> sendFile,
         Func<ValueTask> dispose)
     {
@@ -133,7 +133,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// A <see cref="CancellationToken"/> to observe while sending.
     /// </param>
     /// <returns>
-    /// A <see cref="ValueTask"/> that represents the asynchronous operation. The task completes
+    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes
     /// when the bytes have been handed off to the platform.
     /// </returns>
     /// <remarks>
@@ -147,7 +147,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was canceled.
     /// </exception>
-    public ValueTask SendAsync(byte[] data, CancellationToken cancellationToken = default)
+    public Task SendAsync(byte[] data, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
         return _sendBytes(data, cancellationToken);
@@ -333,14 +333,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     internal void CompleteReceive()
     {
         _disconnectedTcs.TrySetResult();
-
-        // Completing the writer is what ends ReceiveAsync: ReadAllAsync drains whatever is still
-        // buffered and then finishes the loop normally. Payloads that arrived immediately before the
-        // disconnect are therefore delivered, not dropped — the guarantee
-        // PayloadWrittenBeforeDisconnect_IsNotLost exists to protect. DisconnectedToken must never
-        // be used to drive that loop, for exactly this reason; see its remarks.
         _receiveChannel.Writer.TryComplete();
-
         _disconnectedCts.Cancel();
     }
 
