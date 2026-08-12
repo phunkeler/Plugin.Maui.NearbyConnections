@@ -201,16 +201,9 @@ sealed partial class NearbyImplementation
     /// </summary>
     void OnConnected(NearbyDevice device, NearbyConnection connection, ConnectionRole role)
     {
-        // Published before the status change: a consumer that reacts to Connected by looking the
-        // connection up must never lose that race.
         _activeConnections[device.Id] = connection;
-
         _registry.AddIfAbsent(device);
         Transition(device, NearbyDeviceStatus.Connected, role);
-
-        // One watcher per connection, regardless of which side disconnects, so the drop is recorded
-        // exactly once from a single place. Fire-and-forget by design: the continuation is the
-        // notification. Exceptions are handled inside WatchDisconnectAsync.
         _ = WatchDisconnectAsync(device, connection);
     }
 
@@ -223,11 +216,6 @@ sealed partial class NearbyImplementation
         {
             await connection.Disconnected.ConfigureAwait(false);
 
-            // Guard against a reconnect having already replaced the connection: only clear the
-            // entry that still belongs to the connection that dropped. This overload compares the
-            // value too, and does so atomically, so the check and the removal cannot interleave
-            // with a reconnect. Losing the race means a newer connection owns the device now and
-            // there is nothing to report.
             if (!_activeConnections.TryRemove(
                     new KeyValuePair<string, NearbyConnection>(device.Id, connection)))
             {
@@ -383,7 +371,7 @@ sealed partial class NearbyImplementation
     /// </remarks>
     async Task EvictAfterSettleAsync(CancellationToken cancellationToken)
     {
-        await Task.Delay(RefreshSettleWindow, _timeProvider, cancellationToken).ConfigureAwait(false);
+        await Task.Delay(s_refreshSettleWindow, _timeProvider, cancellationToken).ConfigureAwait(false);
 
         _registry.EvictUnconfirmed();
     }

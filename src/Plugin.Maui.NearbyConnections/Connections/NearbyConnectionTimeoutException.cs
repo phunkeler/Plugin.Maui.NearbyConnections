@@ -9,13 +9,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// it moved out of range mid-handshake, or its user never answered the prompt. The device returns to
 /// <see cref="NearbyDeviceStatus.Visible"/>, so retrying the connection is a reasonable response.
 /// </remarks>
-public sealed class NearbyConnectionTimeoutException : NearbyException
+/// <param name="message">The error message that explains the reason for the exception.</param>
+public sealed class NearbyConnectionTimeoutException(string message) : NearbyException(message)
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="NearbyConnectionTimeoutException"/> class.
-    /// </summary>
-    /// <param name="message">The error message that explains the reason for the exception.</param>
-    public NearbyConnectionTimeoutException(string message) : base(message)
-    {
-    }
 }

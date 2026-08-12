@@ -90,27 +90,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// </example>
     public CancellationToken DisconnectedToken => _disconnectedCts.Token;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="NearbyConnection"/> class for use as a test
-    /// double.
-    /// </summary>
-    /// <param name="remoteDevice">The remote device this connection represents.</param>
-    /// <param name="receiveChannel">
-    /// The channel that delivers inbound payloads to
-    /// <see cref="ReceiveAsync(CancellationToken)"/>.
-    /// </param>
-    /// <param name="sendBytes">
-    /// A delegate invoked when <see cref="SendAsync(byte[], CancellationToken)"/> is called.
-    /// </param>
-    /// <param name="sendFile">
-    /// A delegate invoked when any of the file-based <c>SendAsync</c> overloads is called.
-    /// </param>
-    /// <param name="dispose">A delegate invoked when <see cref="DisposeAsync"/> is called.</param>
-    /// <remarks>
-    /// Exists so tests can construct a connection without a real platform session. Application code
-    /// obtains connections from an <see cref="INearby"/> instead.
-    /// </remarks>
-    public NearbyConnection(
+    internal NearbyConnection(
         NearbyDevice remoteDevice,
         Channel<NearbyPayload> receiveChannel,
         Func<byte[], CancellationToken, Task> sendBytes,
@@ -332,7 +312,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// </returns>
     /// <remarks>
     /// Once this completes, the stream from <see cref="ReceiveAsync(CancellationToken)"/> ends and
-    /// no further payloads can be sent. Idempotent — a second call performs no additional work. A
+    /// no further payloads can be sent. Idempotent - a second call performs no additional work. A
     /// failure signaling the disconnect to the platform propagates from this method unguarded, and
     /// teardown is not retried, so a caller that wants disposal to always succeed should catch
     /// around the call.

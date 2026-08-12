@@ -1,6 +1,4 @@
-using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -35,14 +33,6 @@ namespace Plugin.Maui.NearbyConnections;
 /// // then bind straight to it: ItemsSource="{Binding Devices}"
 /// </code>
 /// </example>
-[SuppressMessage(
-    "Naming",
-    "CA1711:Identifiers should not have incorrect suffix",
-    Justification = "This is a collection: it is enumerable and raises CollectionChanged. CA1711 " +
-        "wants ICollection specifically, but the mutating half of that interface is deliberately " +
-        "not offered — the session is the only writer. Every *Collection type across MAUI, " +
-        "Avalonia and Newtonsoft.Json is enumerable; several (Avalonia's FamilyNameCollection, " +
-        "EmbeddedFontCollection, GestureRecognizerCollection) are likewise not ICollection.")]
 public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotifyCollectionChanged, IDisposable
 {
     readonly ObservableCollection<NearbyDevice> _devices = [];
@@ -84,16 +74,8 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
         _nearby = nearby;
         _marshal = marshal;
 
-        // Subscribe before seeding, so a change arriving between the two is buffered by the
-        // enumeration rather than lost. GetAsyncEnumerator subscribes eagerly for exactly this
-        // reason — see NearbyDeviceRegistry.ChangeStream. Apply then reconciles by id, so a device
-        // present in both the seed and an early change is updated, not duplicated.
         var changes = _nearby.Devices.Changes.GetAsyncEnumerator(_cts.Token);
 
-        // Through marshal like every other mutation: this collection may be constructed off the UI
-        // thread, and WatchAsync can already be marshalling additions onto it. The seed is queued
-        // before WatchAsync starts, so an ordered marshal (a dispatcher queue, or an inline call)
-        // runs it before any change it might overlap with.
         _marshal(() =>
         {
             foreach (var device in _nearby.Devices)
@@ -170,10 +152,6 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
             return;
         }
 
-        // Cancel only. WatchAsync resumes on another thread and still reads this token; disposing
-        // here would make that read throw ObjectDisposedException, which escapes its
-        // `catch (OperationCanceledException)` and faults an unobserved task. Cancellation alone
-        // ends the loop, and the source is collectable once it does.
         _cts.Cancel();
     }
 
@@ -214,9 +192,6 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
         {
             case NearbyDeviceChangeAction.Added:
             case NearbyDeviceChangeAction.Updated:
-                // A device is a value, so an update is a replacement, not a property write. The
-                // indexer assignment raises NotifyCollectionChangedAction.Replace, which a bound
-                // row observes as an in-place update.
                 if (index >= 0)
                 {
                     _devices[index] = device;
@@ -241,11 +216,5 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
         }
     }
 
-    /// <summary>
-    /// Finds a device's position by id. Linear because the collection is a visible device list —
-    /// tens of entries, not thousands.
-    /// </summary>
-    // NearbyDevice equality is Id-only (see its Equals override), so the collection's own IndexOf
-    // already matches on identity regardless of how the device's status has since changed.
     int IndexOf(NearbyDevice device) => _devices.IndexOf(device);
 }

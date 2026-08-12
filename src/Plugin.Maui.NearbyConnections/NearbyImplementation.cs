@@ -49,7 +49,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     /// mention are evicted. Two seconds is comfortably longer than either platform takes to re-fire
     /// its found callback for a device already in range.
     /// </summary>
-    static readonly TimeSpan RefreshSettleWindow = TimeSpan.FromSeconds(2);
+    static readonly TimeSpan s_refreshSettleWindow = TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// The discovery refresh loop, live only while discovering and only when the options ask for
@@ -142,8 +142,6 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
                 }
                 catch
                 {
-                    // Clean up the failed pump so a retry starts fresh rather than reusing a dead
-                    // task/cts pair.
                     await StopPumpAsync(_advertise).ConfigureAwait(false);
                     throw;
                 }

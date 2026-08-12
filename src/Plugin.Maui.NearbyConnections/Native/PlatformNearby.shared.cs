@@ -38,10 +38,6 @@ sealed partial class PlatformNearby : IPlatformNearby
     internal LocalPeerIdentityStore LocalPeerIdentityStore { get; init; }
 #endif
 
-    // Interlocked guard, not a plain bool: IPlatformNearby is a DI singleton, so nothing prevents
-    // two concurrent calls to StopAsync from racing here. A non-atomic check-then-set let both
-    // callers past the guard and ran PlatformDispose() twice — on iOS that double-disposes the
-    // native MCSession. Mirrors the pattern already used in NearbyConnection.DisposeAsync.
     int _disposeGuard;
 
     internal TimeProvider TimeProvider { get; }
@@ -82,16 +78,6 @@ sealed partial class PlatformNearby : IPlatformNearby
         _activeConnections = new ConcurrentDictionary<string, NearbyConnection>(StringComparer.Ordinal);
     }
 
-    /// <summary>
-    /// Creates an unbounded channel configured from <see cref="NearbyOptions"/>. Every channel in the
-    /// implementation — the advertise and discover streams, and each connection's receive stream —
-    /// shares these settings, so they are defined once here.
-    /// </summary>
-    /// <param name="singleReader">
-    /// <see langword="true"/> for a per-connection receive channel, which
-    /// <see cref="NearbyConnection.ReceiveAsync"/> guarantees has at most one consumer. The
-    /// advertise and discover streams can be re-enumerated, so they pass <see langword="false"/>.
-    /// </param>
     internal Channel<T> NewChannel<T>(bool singleReader = false)
         => Channel.CreateUnbounded<T>(new UnboundedChannelOptions
         {
@@ -114,8 +100,6 @@ sealed partial class PlatformNearby : IPlatformNearby
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            // Thrown before the first yield: the loop's own finally never runs for this attempt,
-            // so the same cleanup it would have done is repeated here.
             PlatformStopAdvertising();
             newAdvertiseChannel.Writer.TryComplete();
             started.TrySetException(ex);

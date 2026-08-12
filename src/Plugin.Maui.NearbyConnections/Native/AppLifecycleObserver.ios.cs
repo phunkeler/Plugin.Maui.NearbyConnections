@@ -27,7 +27,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <para>
 /// <strong>Nothing restarts on foreground.</strong> Teardown is an explicit, observable transition —
 /// connections return their devices to <see cref="NearbyDeviceStatus.Visible"/> and the flags go
-/// <see langword="false"/> — and restarting is the app's call, consistent with the plugin's
+/// <see langword="false"/> - and restarting is the app's call, consistent with the plugin's
 /// "nothing starts on its own" contract. There is no MPC reconnect primitive in any case: recovery
 /// means re-advertising and re-inviting, and the retry policy is app-specific.
 /// </para>
@@ -48,10 +48,6 @@ sealed partial class AppLifecycleObserver : IDisposable
         _session = session;
         _logger = logger;
 
-        // DidEnterBackground, not WillResignActive: the latter also fires for transient
-        // interruptions that never suspend the app — the app switcher, a control-centre pull, an
-        // incoming call banner — and tearing a live connection down for those would be far more
-        // disruptive than the bug being fixed.
         _backgroundRegistration = NSNotificationCenter.DefaultCenter.AddObserver(
             UIApplication.DidEnterBackgroundNotification,
             OnDidEnterBackground);
@@ -60,11 +56,6 @@ sealed partial class AppLifecycleObserver : IDisposable
     void OnDidEnterBackground(NSNotification notification)
     {
         LogTearingDownForBackground();
-
-        // Fire-and-forget with an explicit continuation, deliberately: this runs on the main thread
-        // inside a UIKit notification callback, where iOS gives the app only seconds before
-        // suspension. Blocking on StopAsync here would risk a watchdog kill, and there is no
-        // caller to hand the task to.
         _ = TearDownAsync();
     }
 
@@ -72,16 +63,10 @@ sealed partial class AppLifecycleObserver : IDisposable
     {
         try
         {
-            // StopAsync, not a bespoke teardown: it already stops advertising and discovery,
-            // disposes every connection (so the drop is recorded through the one existing
-            // path), rejects outstanding inbound requests so remote peers are not left hanging, and
-            // clears Devices. Reimplementing that here would mean a second teardown path to keep
-            // correct. The session remains usable — the app can start again on foreground.
             await _session.StopAsync(CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            // Nothing awaits this task, so an unlogged failure here would be invisible.
             LogBackgroundTearDownFailed(ex);
         }
     }
