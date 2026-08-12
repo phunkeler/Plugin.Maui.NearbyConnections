@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 public enum NearbyTransferStatus
 {
-    /// <summary>The transfer is in progress.</summary>
+    /// <summary>The transfer has started and has not yet reached a terminal state.</summary>
     InProgress,
 
     /// <summary>The transfer completed successfully.</summary>
@@ -14,7 +14,7 @@ public enum NearbyTransferStatus
     /// <summary>The transfer failed because of an error.</summary>
     Failure,
 
-    /// <summary>The transfer was canceled.</summary>
+    /// <summary>The transfer was canceled before it completed.</summary>
     Canceled,
 }
 
@@ -28,9 +28,9 @@ public enum NearbyTransferStatus
 /// </param>
 /// <param name="status">The status of the transfer.</param>
 /// <remarks>
-/// Instances are reported through the <see cref="IProgress{T}"/> provider supplied to a
-/// <c>SendAsync</c> overload, or through
-/// <see cref="NearbyConnection.InboundProgress"/> for incoming transfers.
+/// Instances are reported through the <see cref="IProgress{T}"/> supplied to a <c>SendAsync</c>
+/// overload for an outgoing transfer, or through <see cref="NearbyConnection.InboundProgress"/> for
+/// an incoming one.
 /// </remarks>
 public sealed class NearbyTransferProgress(
     long payloadId,
@@ -68,8 +68,8 @@ public sealed class NearbyTransferProgress(
     /// Gets the proportion of the transfer that has completed.
     /// </summary>
     /// <value>
-    /// A value between 0.0 and 1.0, or <see langword="null"/> if <see cref="TotalBytes"/> is not
-    /// known. Bind to this value to drive a progress indicator.
+    /// A value between 0.0 and 1.0, or <see langword="null"/> if <see cref="TotalBytes"/> is zero or
+    /// negative (the size is not known in advance). Bind to this value to drive a progress indicator.
     /// </value>
     public double? Fraction => TotalBytes > 0
         ? (double)BytesTransferred / TotalBytes

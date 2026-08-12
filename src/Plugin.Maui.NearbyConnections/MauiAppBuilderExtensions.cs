@@ -4,31 +4,31 @@ using Microsoft.Maui.Hosting;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Provides extension methods for adding nearby connectivity to a <see cref="MauiAppBuilder"/>.
+/// Provides the <see cref="MauiAppBuilder"/> entry point for registering nearby connectivity.
 /// </summary>
 public static class MauiAppBuilderExtensions
 {
     /// <summary>
     /// Registers <see cref="INearby"/> and its configuration with the application builder.
     /// </summary>
-    /// <param name="builder">The <see cref="MauiAppBuilder"/> to add the services to.</param>
+    /// <param name="builder">The <see cref="MauiAppBuilder"/> to register the services with.</param>
     /// <param name="configure">
     /// An optional delegate that configures <see cref="NearbyOptions"/>. If
     /// <see langword="null"/>, platform defaults are used.
     /// </param>
     /// <returns>
-    /// The same <see cref="MauiAppBuilder"/> instance, so that multiple calls can be chained.
+    /// The same <see cref="MauiAppBuilder"/> instance, so that calls can be chained.
     /// </returns>
     /// <remarks>
     /// <para>
-    /// This method registers <see cref="INearby"/> as a singleton. Resolve it through
-    /// constructor injection wherever nearby connectivity is needed.
+    /// <see cref="INearby"/> is registered as a singleton — resolve it through constructor
+    /// injection wherever nearby connectivity is needed.
     /// </para>
     /// <para>
     /// Neither advertising nor discovery starts automatically. Call
     /// <see cref="INearby.StartAdvertisingAsync(CancellationToken)"/> or
-    /// <see cref="INearby.StartDiscoveryAsync(CancellationToken)"/> once the application
-    /// is ready and the required permissions have been granted.
+    /// <see cref="INearby.StartDiscoveryAsync(CancellationToken)"/> once the application is ready
+    /// and the required permissions have been granted.
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentNullException">

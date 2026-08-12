@@ -1,20 +1,21 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// The devices known to an <see cref="INearby"/>: the current set, and the stream of changes to it.
+/// The set of devices known to an <see cref="INearby"/>, together with the stream of changes to
+/// that set.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Thread-agnostic.</b> Enumerating this collection yields an immutable snapshot taken at the
-/// moment of the call, so it is safe to read from any thread and never throws for concurrent
-/// modification. <see cref="Changes"/> is delivered on whatever thread the platform callback
-/// arrived on; a consumer that binds the result to a user interface marshals it itself, or uses
-/// <see cref="NearbyDeviceCollection"/>, which does that.
+/// <b>Callable from any thread.</b> Enumerating the list itself reads an immutable snapshot taken
+/// at the moment of the call, so it never throws for concurrent modification. <see cref="Changes"/>
+/// is delivered on whatever thread the underlying platform callback arrived on — a consumer binding
+/// to a user interface marshals it itself, or constructs a <see cref="NearbyDeviceCollection"/>,
+/// which does that on its behalf.
 /// </para>
 /// <para>
 /// This is a noun-phrase interface, which the Framework Design Guidelines discourage in general —
-/// but it is a collection, where noun names are the convention
-/// (<see cref="IReadOnlyList{T}"/>, <see cref="ICollection{T}"/>).
+/// but noun names are the established convention for a collection type
+/// (<see cref="IReadOnlyList{T}"/>, <see cref="ICollection{T}"/>), which is what this is.
 /// </para>
 /// </remarks>
 public interface INearbyDevices : IReadOnlyList<NearbyDevice>
@@ -24,20 +25,21 @@ public interface INearbyDevices : IReadOnlyList<NearbyDevice>
     /// </summary>
     /// <value>
     /// An <see cref="IAsyncEnumerable{T}"/> that yields one <see cref="NearbyDeviceChange"/> per
-    /// change until the enumeration is cancelled.
+    /// change, until the enumeration is cancelled.
     /// </value>
     /// <remarks>
     /// <para>
-    /// <b>Broadcast, and without replay.</b> Every enumeration receives every change that occurs
-    /// while it is running, independently of the others — unlike
+    /// <b>Broadcast, not replayed.</b> Every enumeration gets its own feed of every change raised
+    /// while it runs, independently of any other enumeration — unlike
     /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/>, which is single-consumer
-    /// because each payload must be handled exactly once. Changes that occurred before an
-    /// enumeration started are not replayed: read this collection for the current state, then watch
-    /// for what happens next.
+    /// because each payload must be handled exactly once. A change raised before an enumeration
+    /// started is never delivered to it: read the list for current state, then watch this for what
+    /// happens next.
     /// </para>
     /// <para>
-    /// A slow consumer does not block the others or the platform callback: each enumeration buffers
-    /// independently. The enumeration ends when its cancellation token is cancelled.
+    /// Each enumeration buffers independently, so a slow consumer neither blocks another enumeration
+    /// nor blocks the platform callback that raised the change. Ending the enumeration — cancelling
+    /// the token or breaking out of the loop — is the only cleanup required.
     /// </para>
     /// </remarks>
     /// <example>

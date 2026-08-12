@@ -10,16 +10,16 @@ namespace Plugin.Maui.NearbyConnections;
 /// configured with different topologies do not find each other.
 /// </para>
 /// <para>
-/// <b>This setting applies to Android only.</b> Multipeer Connectivity on iOS has no equivalent
-/// setting and always behaves as a mesh, so this value is ignored there.
+/// <b>Android only.</b> Multipeer Connectivity on iOS has no equivalent setting and always behaves
+/// as a mesh, so this value is ignored there.
 /// </para>
 /// </remarks>
 public enum NearbyTopology
 {
     /// <summary>
     /// Many-to-many. Every device may connect to several others at once. This is the most flexible
-    /// option and the recommended default for group scenarios, at the cost of lower per-connection
-    /// bandwidth.
+    /// option and the recommended default for group scenarios, at the cost of lower
+    /// per-connection bandwidth.
     /// </summary>
     Cluster,
 

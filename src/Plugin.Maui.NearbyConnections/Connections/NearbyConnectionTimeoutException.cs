@@ -1,15 +1,13 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// The exception that is thrown when a remote device does not answer a connection request within
+/// The exception that is thrown when a connection request goes unanswered within
 /// <see cref="NearbyOptions.InvitationTimeout"/>.
 /// </summary>
 /// <remarks>
-/// This exception indicates that the request was sent but no response was received: the remote
-/// device neither accepted nor rejected it. This most often occurs when the device moves out of
-/// range during the handshake, or when the user does not answer the prompt. The device returns to
-/// the <see cref="NearbyDeviceStatus.Visible"/> state, so retrying the connection is a reasonable
-/// response.
+/// The request was sent but the remote device neither accepted nor rejected it — most often because
+/// it moved out of range mid-handshake, or its user never answered the prompt. The device returns to
+/// <see cref="NearbyDeviceStatus.Visible"/>, so retrying the connection is a reasonable response.
 /// </remarks>
 public sealed class NearbyConnectionTimeoutException : NearbyException
 {

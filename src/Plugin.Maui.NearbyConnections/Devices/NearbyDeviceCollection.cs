@@ -5,25 +5,25 @@ using System.Diagnostics.CodeAnalysis;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// A bindable, live collection of nearby devices, kept up to date by consuming
+/// A bindable, live collection of nearby devices, kept in sync by consuming
 /// <see cref="INearbyDevices.Changes"/> and applying each change on a caller-supplied thread.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>This type is optional.</b> <see cref="INearby"/> itself has no thread affinity: it hands out
-/// immutable snapshots and a change stream that can be consumed from anywhere. This class exists
-/// only for consumers who want a collection they can bind to XAML, and it is the single place in
-/// the library that knows a UI thread exists.
+/// <b>Optional.</b> <see cref="INearby"/> itself has no thread affinity — it hands out immutable
+/// snapshots and a change stream consumable from anywhere. This type exists only for consumers who
+/// want a collection they can bind to XAML, and it is the one place in the library that assumes a
+/// UI thread exists.
 /// </para>
 /// <para>
-/// Construct one per view that needs it and dispose it when the view goes away. Disposal cancels
-/// the enumeration; there is no event to unsubscribe from and therefore no subscription to leak.
+/// Construct one per view that needs it, and dispose it when the view goes away. Disposal cancels
+/// the underlying enumeration; there is no event to unsubscribe from and so nothing to leak.
 /// </para>
 /// <para>
-/// The collection is read-only to consumers: it reflects what the session reports and cannot be
+/// The collection is read-only to its consumers — it mirrors what the session reports and cannot be
 /// added to or removed from directly. It raises
-/// <see cref="INotifyCollectionChanged.CollectionChanged"/>, so it can be bound to an
-/// <c>ItemsSource</c> directly.
+/// <see cref="INotifyCollectionChanged.CollectionChanged"/>, so it binds straight to an
+/// <c>ItemsSource</c>.
 /// </para>
 /// </remarks>
 /// <example>
@@ -61,7 +61,7 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// Runs an action where collection mutations are safe — in .NET MAUI,
     /// <see cref="IDispatcher.Dispatch(Action)"/>.
     /// <para>
-    /// A callback rather than a dependency on <see cref="IDispatcher"/> so this type stays
+    /// A callback rather than a dependency on <see cref="IDispatcher"/>, so this type stays
     /// platform-neutral: it compiles and is testable on the <c>net10.0</c> target, and all three
     /// public API baselines stay identical.
     /// </para>
@@ -70,11 +70,11 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// <paramref name="nearby"/> or <paramref name="marshal"/> is <see langword="null"/>.
     /// </exception>
     /// <remarks>
-    /// A device is removed when the platform reports it lost, and not before. Neither platform
-    /// reliably reports every departure, so a device carried out of range can linger until
-    /// discovery restarts — the alternative, evicting on a timer, would need a periodic "still
-    /// here" signal that <see cref="INearbyDevices.Changes"/> does not carry, and would delete
-    /// devices that are still present.
+    /// A device is removed only once the platform reports it lost, never before. Neither platform
+    /// reliably reports every departure, so a device that moved out of range can linger until
+    /// discovery restarts — evicting on a timer instead would need a periodic "still here" signal
+    /// that <see cref="INearbyDevices.Changes"/> does not carry, and would delete devices that are
+    /// still present.
     /// </remarks>
     public NearbyDeviceCollection(INearby nearby, Action<Action> marshal)
     {
@@ -109,8 +109,8 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// Occurs when devices are added, replaced, or removed.
     /// </summary>
     /// <remarks>
-    /// Raised inside the <c>marshal</c> callback, so a handler — including a XAML binding — runs on
-    /// whatever thread the caller nominated as safe.
+    /// Raised from inside the <c>marshal</c> callback supplied to the constructor, so every handler
+    /// — including a XAML binding — runs on whatever thread the caller nominated as safe.
     /// </remarks>
     public event NotifyCollectionChangedEventHandler? CollectionChanged
     {
@@ -122,8 +122,9 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// Gets the number of devices currently known.
     /// </summary>
     /// <remarks>
-    /// Read only on the thread that <c>marshal</c> runs actions on. Devices are added and removed
-    /// on that thread, so a count read anywhere else is stale the moment it is returned.
+    /// Read only on the thread that the constructor's <c>marshal</c> callback runs actions on.
+    /// Devices are added and removed on that thread, so a count read from elsewhere is already
+    /// stale by the time it is returned.
     /// </remarks>
     public int Count => _devices.Count;
 
@@ -136,9 +137,9 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// <paramref name="index"/> is outside the bounds of the collection.
     /// </exception>
     /// <remarks>
-    /// Read only on the thread that <c>marshal</c> runs actions on — the same rule that applies to
+    /// Read only on the thread that <c>marshal</c> runs actions on — the same rule as
     /// <see cref="Count"/> and <see cref="GetEnumerator"/>. Indexing from another thread can throw
-    /// even for an index that was valid when it was chosen, because a removal may land in between.
+    /// even for an index that was valid when it was chosen, because a removal can land in between.
     /// </remarks>
     public NearbyDevice this[int index] => _devices[index];
 
@@ -147,9 +148,9 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// </summary>
     /// <returns>An enumerator over the collection.</returns>
     /// <remarks>
-    /// Enumerate only on the thread that <c>marshal</c> runs actions on — the same rule that
-    /// applies to any <see cref="ObservableCollection{T}"/> bound to a user interface. Mutations
-    /// arrive on that thread, so enumerating anywhere else can observe a torn collection.
+    /// Enumerate only on the thread that <c>marshal</c> runs actions on, the same rule that applies
+    /// to any <see cref="ObservableCollection{T}"/> bound to a user interface — mutations arrive on
+    /// that thread, so enumerating elsewhere can observe a torn collection.
     /// </remarks>
     public IEnumerator<NearbyDevice> GetEnumerator() => _devices.GetEnumerator();
 
@@ -157,8 +158,11 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
         => ((System.Collections.IEnumerable)_devices).GetEnumerator();
 
     /// <summary>
-    /// Stops watching and releases the enumeration.
+    /// Stops watching the session's change stream and releases the underlying enumeration.
     /// </summary>
+    /// <remarks>
+    /// Idempotent — calling this more than once performs no additional work.
+    /// </remarks>
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposeGuard, 1) != 0)

@@ -3,19 +3,19 @@ using System.Threading.Channels;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Represents an established peer-to-peer connection with a remote device, over which payloads can
-/// be sent and received.
+/// Represents an established connection to a remote device, over which payloads can be sent and
+/// received.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Obtain a connection by calling
-/// <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/> or
-/// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>, or by looking one up with
-/// <see cref="INearby.TryGetConnection(string, out NearbyConnection)"/>. The same instance is
-/// returned by all three.
+/// Obtain an instance from
+/// <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/>,
+/// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>, or
+/// <see cref="INearby.TryGetConnection(string, out NearbyConnection)"/> — all three return the same
+/// instance for a given remote device.
 /// </para>
 /// <para>
-/// Call <see cref="DisposeAsync"/> to disconnect from the remote device. Disposal is idempotent.
+/// Call <see cref="DisposeAsync"/> to disconnect. Disposal is idempotent.
 /// </para>
 /// </remarks>
 /// <seealso cref="INearby"/>
@@ -33,29 +33,28 @@ public sealed class NearbyConnection : IAsyncDisposable
     int _receiveGuard;
 
     /// <summary>
-    /// Gets the remote device that this connection is established with.
+    /// Gets the remote device this connection is established with.
     /// </summary>
     /// <value>The device on the other end of the connection.</value>
     public NearbyDevice RemoteDevice { get; }
 
     /// <summary>
-    /// Gets a task that completes when this connection terminates.
+    /// Gets a task that completes once this connection terminates.
     /// </summary>
     /// <value>
     /// A <see cref="Task"/> that completes when the connection ends, from either side and for any
     /// reason.
     /// </value>
     /// <remarks>
-    /// This task can be awaited concurrently with
-    /// <see cref="ReceiveAsync(CancellationToken)"/> and does not consume the receive stream.
-    /// <b>This task never faults or is canceled</b> — a connection dropping is not treated as an
-    /// error at this boundary, so it always completes successfully. It carries no information about
-    /// why the connection ended.
+    /// Safe to await alongside <see cref="ReceiveAsync(CancellationToken)"/> — it does not consume
+    /// the receive stream. <b>Never faults or is canceled:</b> a dropped connection is not an error
+    /// at this boundary, so this task always completes successfully and carries no information
+    /// about why the connection ended.
     /// </remarks>
     public Task Disconnected => _disconnectedTcs.Task;
 
     /// <summary>
-    /// Gets a cancellation token that is canceled when this connection terminates.
+    /// Gets a cancellation token that is canceled once this connection terminates.
     /// </summary>
     /// <value>
     /// A <see cref="CancellationToken"/> that is canceled when the connection ends, from either
@@ -63,21 +62,21 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// </value>
     /// <remarks>
     /// <para>
-    /// This is the token form of <see cref="Disconnected"/>. Use it to cancel your own
-    /// per-connection work when the remote device goes away, such as a retry loop, a periodic
-    /// keep-alive, or an upload started on the connection's behalf.
+    /// The token form of <see cref="Disconnected"/>. Use it to cancel your own per-connection work
+    /// when the remote device goes away — a retry loop, a periodic keep-alive, an upload started on
+    /// the connection's behalf.
     /// </para>
     /// <para>
-    /// <b>Do not pass this token to <see cref="ReceiveAsync(CancellationToken)"/>.</b> Doing so is
-    /// unnecessary, because the receive stream already completes on disconnect. It is also harmful:
+    /// <b>Do not pass this token to <see cref="ReceiveAsync(CancellationToken)"/>.</b> It is
+    /// unnecessary, since the receive stream already completes on disconnect — and harmful, since
     /// cancellation is observed on every iteration, so a canceled token throws
-    /// <see cref="OperationCanceledException"/> and discards payloads that were buffered
-    /// immediately before the disconnect. Enumerate without a token, or with one of your own, and
-    /// let the stream complete on its own.
+    /// <see cref="OperationCanceledException"/> and discards payloads buffered immediately before
+    /// the disconnect. Enumerate with no token, or one of your own, and let the stream complete on
+    /// its own.
     /// </para>
     /// <para>
-    /// This property remains valid after <see cref="DisposeAsync"/> is called; reading it never
-    /// throws <see cref="ObjectDisposedException"/>.
+    /// Remains valid after <see cref="DisposeAsync"/> — reading it never throws
+    /// <see cref="ObjectDisposedException"/>.
     /// </para>
     /// </remarks>
     /// <example>
@@ -95,7 +94,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// Initializes a new instance of the <see cref="NearbyConnection"/> class for use as a test
     /// double.
     /// </summary>
-    /// <param name="remoteDevice">The remote device that this connection represents.</param>
+    /// <param name="remoteDevice">The remote device this connection represents.</param>
     /// <param name="receiveChannel">
     /// The channel that delivers inbound payloads to
     /// <see cref="ReceiveAsync(CancellationToken)"/>.
@@ -106,13 +105,10 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <param name="sendFile">
     /// A delegate invoked when any of the file-based <c>SendAsync</c> overloads is called.
     /// </param>
-    /// <param name="dispose">
-    /// A delegate invoked when <see cref="DisposeAsync"/> is called.
-    /// </param>
+    /// <param name="dispose">A delegate invoked when <see cref="DisposeAsync"/> is called.</param>
     /// <remarks>
-    /// This constructor exists so that consumers can construct a connection in unit tests without
-    /// a real platform session. Application code obtains connections from an
-    /// <see cref="INearby"/> instead.
+    /// Exists so tests can construct a connection without a real platform session. Application code
+    /// obtains connections from an <see cref="INearby"/> instead.
     /// </remarks>
     public NearbyConnection(
         NearbyDevice remoteDevice,
@@ -136,11 +132,11 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// A <see cref="CancellationToken"/> to observe while sending.
     /// </param>
     /// <returns>
-    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes
-    /// when the bytes have been handed off to the platform.
+    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes once the
+    /// bytes are handed off to the platform.
     /// </returns>
     /// <remarks>
-    /// On Android, byte payloads are limited to 32 KB. Use
+    /// Android limits byte payloads to 32 KB. Use
     /// <see cref="SendAsync(string, IProgress{NearbyTransferProgress}?, CancellationToken)"/> for
     /// larger data.
     /// </remarks>
@@ -163,7 +159,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     }
 
     /// <summary>
-    /// Sends the file identified by the specified URI to the remote device.
+    /// Sends the file at the specified URI to the remote device.
     /// </summary>
     /// <param name="fileUri">A URI that identifies the file to send.</param>
     /// <param name="progress">
@@ -174,8 +170,8 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// A <see cref="CancellationToken"/> to observe while transferring.
     /// </param>
     /// <returns>
-    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes when the
-    /// transfer has finished.
+    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes once the
+    /// transfer finishes.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="fileUri"/> is <see langword="null"/>.
@@ -215,12 +211,12 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// A <see cref="CancellationToken"/> to observe while transferring.
     /// </param>
     /// <returns>
-    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes when the
-    /// transfer has finished.
+    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes once the
+    /// transfer finishes.
     /// </returns>
     /// <remarks>
-    /// This overload accepts the same <see cref="FileResult"/> type that
-    /// <see cref="NearbyFilePayload"/> exposes, so a received file can be forwarded without conversion.
+    /// Accepts the same <see cref="FileResult"/> type that <see cref="NearbyFilePayload"/> exposes,
+    /// so a received file can be forwarded without conversion.
     /// </remarks>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="file"/> is <see langword="null"/>.
@@ -256,15 +252,15 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// </value>
     /// <remarks>
     /// <para>
-    /// Outbound progress is supplied for each call, as a parameter on the <c>SendAsync</c>
-    /// overloads, because the caller starts the transfer and knows which provider to use. Inbound
-    /// transfers cannot follow that pattern, because they begin on a platform callback thread
-    /// before the consumer has any opportunity to supply a provider. Setting this property lets a
-    /// handler be attached as soon as the connection is established, before any payload arrives.
+    /// Outbound progress is a parameter on each <c>SendAsync</c> overload, because the caller starts
+    /// the transfer and already knows which provider to use. An inbound transfer can't follow that
+    /// pattern — it begins on a platform callback thread before the consumer has any chance to
+    /// supply a provider. Setting this property instead lets a handler be attached as soon as the
+    /// connection is established, ahead of any payload arriving.
     /// </para>
     /// <para>
-    /// <see cref="IProgress{T}.Report(T)"/> is invoked on a platform callback thread. Marshal to
-    /// the UI thread inside the handler if you update the user interface from it.
+    /// <see cref="IProgress{T}.Report(T)"/> is invoked on a platform callback thread — marshal to
+    /// the UI thread inside the handler if it updates the user interface.
     /// </para>
     /// </remarks>
     public IProgress<NearbyTransferProgress>? InboundProgress { get; set; }
@@ -275,7 +271,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// </summary>
     /// <param name="cancellationToken">
     /// A <see cref="CancellationToken"/> to observe while enumerating. Do not pass
-    /// <see cref="DisconnectedToken"/>; see the remarks on that property.
+    /// <see cref="DisconnectedToken"/> — see the remarks on that property.
     /// </param>
     /// <returns>
     /// An <see cref="IAsyncEnumerable{T}"/> of <see cref="NearbyPayload"/> objects that completes
@@ -283,29 +279,28 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// </returns>
     /// <remarks>
     /// <para>
-    /// The body of the enumeration provides backpressure. The next payload is not dequeued until
-    /// the body completes, so a handler can await long-running work — decoding a file, generating a
-    /// thumbnail, writing to a database — without losing or reordering payloads.
+    /// The enumeration body provides backpressure: the next payload is not dequeued until the
+    /// current body completes, so a handler can await long-running work — decoding a file,
+    /// generating a thumbnail, writing to a database — without losing or reordering payloads.
     /// </para>
     /// <para>
-    /// <b>A connection supports a single payload consumer.</b> The receive stream is a pipe rather
-    /// than a broadcast, and payloads read by one enumerator are permanently removed. Calling this
-    /// method more than once, including after cancellation, throws
-    /// <see cref="InvalidOperationException"/>. If several components need inbound data, enumerate
-    /// once and distribute an application-level message from inside the loop.
+    /// <b>Single-consumer.</b> The receive stream is a pipe, not a broadcast — a payload read by one
+    /// enumerator is permanently removed from it. Calling this method a second time, including after
+    /// the first enumeration was cancelled, throws <see cref="InvalidOperationException"/>. Where
+    /// several components need inbound data, enumerate once and fan out an application-level message
+    /// from inside the loop.
     /// </para>
     /// <para>
-    /// Payloads are delivered on a platform background thread. Marshal to the UI thread inside the
-    /// loop if you update the user interface from it.
+    /// Payloads are delivered on a platform background thread — marshal to the UI thread inside the
+    /// loop if it updates the user interface.
     /// </para>
     /// <para>
-    /// <b>The stream never faults.</b> A disconnect — whether initiated locally, by the remote
-    /// device, or by the platform — is delivered as a clean end of enumeration, indistinguishable
-    /// from an orderly shutdown. Only <see cref="OperationCanceledException"/> from
-    /// <paramref name="cancellationToken"/>, or the once-only
-    /// <see cref="InvalidOperationException"/> from calling this method twice, can come out of the
-    /// enumeration itself. Use <see cref="Disconnected"/> if you need to know that the connection
-    /// ended.
+    /// <b>Never faults.</b> A disconnect — local, remote, or platform-initiated — ends the
+    /// enumeration cleanly, indistinguishable from an orderly shutdown. The only exceptions the
+    /// enumeration itself can produce are <see cref="OperationCanceledException"/> from
+    /// <paramref name="cancellationToken"/>, and the once-only
+    /// <see cref="InvalidOperationException"/> from a second call. Use <see cref="Disconnected"/> to
+    /// learn that the connection ended.
     /// </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">
@@ -333,14 +328,14 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// </summary>
     /// <returns>
     /// A <see cref="ValueTask"/> that represents the asynchronous dispose operation. The task
-    /// completes when the disconnect has been signaled to the platform.
+    /// completes once the disconnect is signaled to the platform.
     /// </returns>
     /// <remarks>
-    /// After disposal, the stream returned by <see cref="ReceiveAsync(CancellationToken)"/>
-    /// completes and no further payloads can be sent. Calling this method more than once performs
-    /// no additional work. A failure signaling the disconnect to the platform propagates from this
-    /// method unguarded — teardown is not attempted a second time, so a caller that wants disposal
-    /// to always succeed should catch around the call.
+    /// Once this completes, the stream from <see cref="ReceiveAsync(CancellationToken)"/> ends and
+    /// no further payloads can be sent. Idempotent — a second call performs no additional work. A
+    /// failure signaling the disconnect to the platform propagates from this method unguarded, and
+    /// teardown is not retried, so a caller that wants disposal to always succeed should catch
+    /// around the call.
     /// </remarks>
     public async ValueTask DisposeAsync()
     {

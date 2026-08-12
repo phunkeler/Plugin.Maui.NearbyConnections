@@ -4,8 +4,8 @@ namespace Plugin.Maui.NearbyConnections;
 /// Represents data sent to, or received from, a nearby device.
 /// </summary>
 /// <remarks>
-/// This is the base type for all payloads. The library produces and accepts two concrete payload
-/// types: <see cref="NearbyBytesPayload"/> and <see cref="NearbyFilePayload"/>.
+/// This is the abstract base for every payload shape the library produces or accepts:
+/// <see cref="NearbyBytesPayload"/> and <see cref="NearbyFilePayload"/>.
 /// </remarks>
 /// <seealso cref="NearbyBytesPayload"/>
 /// <seealso cref="NearbyFilePayload"/>

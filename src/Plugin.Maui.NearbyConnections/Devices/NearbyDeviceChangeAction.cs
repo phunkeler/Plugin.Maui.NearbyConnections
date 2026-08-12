@@ -1,28 +1,28 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Specifies what happened to a device in a <see cref="NearbyDeviceChange"/>.
+/// Identifies what kind of change a <see cref="NearbyDeviceChange"/> describes.
 /// </summary>
 public enum NearbyDeviceChangeAction
 {
     /// <summary>
-    /// The device became known to the session and was not present before.
+    /// The device was not previously known and has just become known.
     /// </summary>
     Added,
 
     /// <summary>
-    /// A device already known to the session changed — its
-    /// <see cref="NearbyDevice.Status"/>, <see cref="NearbyDevice.Role"/>, or
-    /// <see cref="NearbyDevice.DisplayName"/> is not what it was.
+    /// An already-known device changed: its <see cref="NearbyDevice.Status"/>,
+    /// <see cref="NearbyDevice.Role"/>, or <see cref="NearbyDevice.DisplayName"/> differs from
+    /// before.
     /// </summary>
     /// <remarks>
-    /// Every connection lifecycle transition arrives as one of these. A device that receives a
-    /// connection request, connects, or drops is updated, not removed and re-added.
+    /// Every connection lifecycle transition — receiving a request, connecting, dropping — arrives
+    /// as an update. A device is never removed and re-added to reflect its own state changing.
     /// </remarks>
     Updated,
 
     /// <summary>
-    /// The device is no longer known to the session.
+    /// The device is no longer known.
     /// </summary>
     Removed,
 }

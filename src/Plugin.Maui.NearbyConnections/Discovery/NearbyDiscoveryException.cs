@@ -4,9 +4,8 @@ namespace Plugin.Maui.NearbyConnections;
 /// The exception that is thrown when the platform fails to start or continue discovery.
 /// </summary>
 /// <remarks>
-/// This exception surfaces from
-/// <see cref="INearby.StartDiscoveryAsync(CancellationToken)"/>. Common causes are
-/// missing permissions, a disabled radio, or an invalid
+/// This exception surfaces from <see cref="INearby.StartDiscoveryAsync(CancellationToken)"/>. Common
+/// causes are missing permissions, a disabled radio, or an invalid
 /// <see cref="NearbyOptions.ServiceId"/>.
 /// </remarks>
 public sealed class NearbyDiscoveryException : NearbyException

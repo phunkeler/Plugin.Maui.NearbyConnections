@@ -1,28 +1,26 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Represents a remote device that has been discovered by, or connected to, an
-/// <see cref="INearby"/>.
+/// Represents a remote device discovered by, or connected to, an <see cref="INearby"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A device is an immutable snapshot.</b> It describes what was true at the moment it was
+/// <b>An instance is an immutable snapshot.</b> It describes what was true the moment it was
 /// produced and never changes afterwards. When a device's status changes, the session publishes a
-/// new instance through <see cref="INearbyDevices.Changes"/>; the old one keeps reporting the old
-/// status. Hold a device only as long as the change that delivered it, or re-read it from
-/// <see cref="INearby.Devices"/>.
+/// new instance through <see cref="INearbyDevices.Changes"/> — the instance you are already holding
+/// keeps reporting the old status. Hold a device only as long as the change that delivered it, or
+/// re-read the current one from <see cref="INearby.Devices"/>.
 /// </para>
 /// <para>
-/// <b>Equality is based on <see cref="Id"/> alone.</b> Two instances with the same
-/// <see cref="Id"/> are equal regardless of their status, and a device's hash code does not change
-/// as it transitions between states. The library keys internal dictionaries on device identity, so
-/// an identity that changed during the device lifecycle would strand those entries. This is why the
-/// generated record equality is replaced below: value equality over every property would make a
-/// device that merely connected a different device.
+/// <b>Equality is <see cref="Id"/> alone</b>, overriding the record's generated member-wise
+/// equality below. The library keys internal dictionaries on device identity, so two snapshots of
+/// the same device — one <see cref="NearbyDeviceStatus.Visible"/>, one
+/// <see cref="NearbyDeviceStatus.Connected"/> — must compare equal, or those entries would be
+/// stranded the moment the device's status changed.
 /// </para>
 /// <para>
-/// The live <see cref="NearbyConnection"/> to a device is not carried here — a device is read from
-/// any thread, and a connection is owned by the session. Look one up with
+/// A live <see cref="NearbyConnection"/> is deliberately not a property here: a device can be read
+/// from any thread, while a connection is owned by the session. Look one up with
 /// <see cref="INearby.TryGetConnection(string, out NearbyConnection)"/>.
 /// </para>
 /// </remarks>
@@ -32,8 +30,8 @@ public sealed record NearbyDevice
     /// Initializes a new instance of the <see cref="NearbyDevice"/> class.
     /// </summary>
     /// <param name="id">
-    /// A unique identifier for the device that is valid within the current session. This is the
-    /// endpoint identifier on Android, and a serialized peer identifier on iOS.
+    /// A unique identifier for the device, valid within the current session — the endpoint
+    /// identifier on Android, a serialized peer identifier on iOS.
     /// </param>
     /// <param name="displayName">A user-friendly display name for the device.</param>
     /// <exception cref="ArgumentNullException">
@@ -51,8 +49,8 @@ public sealed record NearbyDevice
     /// Gets the unique identifier for this device.
     /// </summary>
     /// <value>
-    /// An identifier that is unique within the current session. This value is the sole basis for
-    /// equality.
+    /// An identifier unique within the current session. This is the sole basis for
+    /// <see cref="Equals(NearbyDevice?)"/>.
     /// </value>
     public string Id { get; }
 
@@ -60,13 +58,13 @@ public sealed record NearbyDevice
     /// Gets the user-friendly display name for this device.
     /// </summary>
     /// <value>
-    /// The display name supplied by the remote device, or <see langword="null"/> if the platform
-    /// did not supply one.
+    /// The name supplied by the remote device, or <see langword="null"/> if the platform did not
+    /// supply one.
     /// </value>
     public string? DisplayName { get; init; }
 
     /// <summary>
-    /// Gets the position of this device in its lifecycle at the moment this snapshot was taken.
+    /// Gets where this device sits in its lifecycle, as of this snapshot.
     /// </summary>
     /// <value>
     /// One of the <see cref="NearbyDeviceStatus"/> values. The default is
@@ -83,14 +81,14 @@ public sealed record NearbyDevice
     /// <see cref="NearbyDeviceStatus.Connected"/>; otherwise <see langword="null"/>.
     /// </value>
     /// <remarks>
-    /// This is <see langword="null"/> in <see cref="NearbyDeviceStatus.RequestReceived"/>: the local
-    /// device is not an acceptor until
+    /// Still <see langword="null"/> in <see cref="NearbyDeviceStatus.RequestReceived"/> — the local
+    /// device is not yet an acceptor until
     /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> is called.
     /// </remarks>
     public ConnectionRole? Role { get; init; }
 
     /// <summary>
-    /// Determines whether the specified device refers to the same device as this one.
+    /// Determines whether the specified device is the same device as this one.
     /// </summary>
     /// <param name="other">The device to compare with the current device.</param>
     /// <returns>
@@ -98,8 +96,8 @@ public sealed record NearbyDevice
     /// <see langword="false"/>.
     /// </returns>
     /// <remarks>
-    /// Equality is determined by <see cref="Id"/> alone, replacing the record's generated
-    /// member-wise equality. A device that changed status is still the same device.
+    /// Compares <see cref="Id"/> only — two snapshots of a device that merely changed status are
+    /// still the same device.
     /// </remarks>
     public bool Equals(NearbyDevice? other)
         => other is not null
@@ -108,10 +106,9 @@ public sealed record NearbyDevice
     /// <summary>
     /// Returns the hash code for this device.
     /// </summary>
-    /// <returns>A 32-bit signed integer hash code.</returns>
+    /// <returns>A 32-bit signed integer hash code derived from <see cref="Id"/> alone.</returns>
     /// <remarks>
-    /// The hash code is derived from <see cref="Id"/> alone, so it remains stable for the lifetime
-    /// of the device regardless of state transitions.
+    /// Stable for the life of the device, regardless of how many times its status changes.
     /// </remarks>
     public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Id);
 
@@ -120,7 +117,7 @@ public sealed record NearbyDevice
     /// </summary>
     /// <returns>
     /// A string containing the device's display name, identifier, and status, intended for
-    /// diagnostic output.
+    /// diagnostic output rather than parsing.
     /// </returns>
     public override string ToString()
         => $"{DisplayName ?? "(unnamed)"} [{Id}] {Status}";

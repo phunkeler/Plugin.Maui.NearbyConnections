@@ -1,21 +1,25 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// The default <see cref="INearby"/>: drives advertising and discovery through the platform
-/// implementation and projects every platform callback into <see cref="Devices"/>.
+/// The default implementation of <see cref="INearby"/>. Drives advertising and discovery through
+/// the injected <see cref="IPlatformNearby"/> and projects every platform callback into
+/// <see cref="Devices"/>.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <strong>Threading contract.</strong> Platform callbacks arrive on SDK-owned background threads,
-/// and this type does nothing to change that: <see cref="NearbyDeviceRegistry"/> is thread-safe,
-/// connections are a concurrent dictionary, and both flags are volatile. Every member is callable
-/// from any thread, and nothing here knows a UI thread exists. A consumer that binds to a user
-/// interface marshals for itself, or uses <see cref="NearbyDeviceCollection"/>.
+/// and this type does nothing to marshal off of them: <see cref="NearbyDeviceRegistry"/> is
+/// thread-safe by construction, the connection and pending-request dictionaries are
+/// <see cref="ConcurrentDictionary{TKey,TValue}"/> instances, and the advertising/discovering flags
+/// are <see langword="volatile"/>. Every member is callable from any thread, and nothing here
+/// assumes a UI thread exists — a consumer that binds device state to a user interface marshals for
+/// itself, or constructs a <see cref="NearbyDeviceCollection"/>.
 /// </para>
 /// <para>
-/// Start/stop state is guarded by <c>_stateGate</c> rather than an <see cref="Interlocked"/> flag:
-/// the platform start calls are async, and a plain check-then-set let two concurrent
-/// <c>StartAdvertisingAsync</c> calls both reach the platform.
+/// Start/stop state is guarded by a <see cref="SemaphoreSlim"/> rather than an
+/// <see cref="Interlocked"/> flag, because the platform start calls are asynchronous: a plain
+/// check-then-set would let two concurrent <see cref="StartAdvertisingAsync"/> calls both reach the
+/// platform before either observed the other's flag.
 /// </para>
 /// </remarks>
 sealed partial class NearbyImplementation : INearby, IAsyncDisposable

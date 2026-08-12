@@ -1,18 +1,19 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Android-specific configuration, exposed on every target framework.
+/// Provides Android-specific configuration, exposed on every target framework.
 /// </summary>
 /// <remarks>
 /// <para>
-/// These settings map onto Google Nearby Connections knobs that Multipeer Connectivity has no
-/// equivalent for. They exist on all platforms so shared code compiles without
-/// <c>#if ANDROID</c>; on iOS they are read by nothing and have no effect.
+/// The settings on this type map onto Google Nearby Connections knobs for which Multipeer
+/// Connectivity has no counterpart. They are exposed on every target framework so shared code
+/// compiles without <c>#if ANDROID</c>; running on iOS, nothing reads them and they have no
+/// effect.
 /// </para>
 /// <para>
-/// The nesting is the disclosure: <c>options.Android.Topology</c> names the platform at the call
-/// site, so a setting that does nothing on the current platform is visible in the expression
-/// rather than only in this comment.
+/// Nesting these settings under <c>options.Android</c> is deliberate disclosure: an expression
+/// such as <c>options.Android.Topology</c> names the platform it applies to at the call site,
+/// rather than leaving that fact to be discovered only by reading this comment.
 /// </para>
 /// </remarks>
 public sealed class NearbyAndroidOptions
@@ -25,14 +26,15 @@ public sealed class NearbyAndroidOptions
     /// <see cref="NearbyTopology.Cluster"/>.
     /// </value>
     /// <remarks>
-    /// This value must match on the advertising and discovering devices, or they do not find each
-    /// other. <b>Android only</b> — Multipeer Connectivity always behaves as a mesh.
+    /// <b>Android only</b> — Multipeer Connectivity always behaves as a mesh and has no equivalent
+    /// setting. The advertising device and the discovering device must agree on this value, or they
+    /// do not find each other.
     /// </remarks>
     public NearbyTopology Topology { get; set; } = NearbyTopology.Cluster;
 
     /// <summary>
-    /// Gets or sets a value indicating whether only low-power radios are used for advertising and
-    /// discovery.
+    /// Gets or sets a value that indicates whether advertising and discovery are restricted to
+    /// low-power radios.
     /// </summary>
     /// <value>
     /// <see langword="true"/> to restrict advertising and discovery to low-power radios such as
@@ -40,8 +42,8 @@ public sealed class NearbyAndroidOptions
     /// <see langword="false"/>.
     /// </value>
     /// <remarks>
-    /// Enabling this option reduces battery consumption at the cost of range and throughput.
-    /// <b>Android only.</b>
+    /// <b>Android only.</b> Enabling this option reduces battery consumption at the cost of range
+    /// and throughput.
     /// </remarks>
     public bool UseLowPower { get; set; }
 
@@ -53,8 +55,8 @@ public sealed class NearbyAndroidOptions
     /// <see cref="NearbyConnectionType.Balanced"/>.
     /// </value>
     /// <remarks>
-    /// <b>Android only.</b> This is a distinct setting from <see cref="Topology"/>: topology decides
-    /// who may connect to whom, this decides how hard the radio works once connected.
+    /// <b>Android only.</b> This is a distinct knob from <see cref="Topology"/>: topology decides
+    /// who may connect to whom, and this decides how hard the radio works once a connection exists.
     /// </remarks>
     public NearbyConnectionType ConnectionType { get; set; } = NearbyConnectionType.Balanced;
 }

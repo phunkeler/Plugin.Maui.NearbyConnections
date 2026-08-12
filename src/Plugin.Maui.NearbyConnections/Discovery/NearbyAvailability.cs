@@ -5,14 +5,14 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 /// <remarks>
 /// <para>
-/// More than one condition can apply at once — a device may have Bluetooth disabled
-/// <i>and</i> the required permissions denied — so this enumeration is a bit field. Test for
-/// readiness by comparing with <see cref="Ready"/>, and test individual causes with
-/// <see cref="Enum.HasFlag(Enum)"/>.
+/// A device can fail more than one condition at once — Bluetooth disabled <i>and</i> a required
+/// permission denied, for example — so this enumeration is a bit field. Compare the result with
+/// <see cref="Ready"/> to test overall readiness, and use <see cref="Enum.HasFlag(Enum)"/> to test
+/// for an individual cause.
 /// </para>
 /// <para>
-/// Conditions are reported independently of one another, so the result describes everything the
-/// user would have to resolve rather than only the first problem encountered.
+/// Every applicable flag is set at once, so the result describes everything the user would have to
+/// resolve rather than only the first problem encountered.
 /// </para>
 /// </remarks>
 /// <seealso cref="INearby.CheckAvailabilityAsync(CancellationToken)"/>
@@ -20,7 +20,7 @@ namespace Plugin.Maui.NearbyConnections;
 public enum NearbyAvailability
 {
     /// <summary>
-    /// Everything required is present. Advertising and discovery can be started.
+    /// Everything required is present, and advertising and discovery can be started.
     /// </summary>
     Ready = 0,
 
@@ -28,9 +28,9 @@ public enum NearbyAvailability
     /// One or more required permissions have not been granted.
     /// </summary>
     /// <remarks>
-    /// Request them with the .NET MAUI <c>Permissions</c> API before starting. This flag reports
-    /// only that a permission is missing; it does not distinguish a permission the user has not
-    /// been asked for from one they have permanently denied.
+    /// Request the missing permission with the .NET MAUI <c>Permissions</c> API before starting.
+    /// This flag only reports that a permission is missing — it does not distinguish a permission
+    /// the user has not yet been asked for from one they have permanently denied.
     /// </remarks>
     MissingPermissions = 1 << 0,
 
@@ -38,8 +38,8 @@ public enum NearbyAvailability
     /// Bluetooth is supported but currently turned off.
     /// </summary>
     /// <remarks>
-    /// Nearby connectivity uses Bluetooth for discovery on both platforms. Prompt the user to
-    /// enable it; the operating system does not allow an app to enable it directly.
+    /// Nearby connectivity uses Bluetooth for discovery on both platforms. Prompt the user to turn
+    /// it on; an app cannot enable it directly.
     /// </remarks>
     BluetoothDisabled = 1 << 1,
 
@@ -47,8 +47,8 @@ public enum NearbyAvailability
     /// Wi-Fi is supported but currently turned off.
     /// </summary>
     /// <remarks>
-    /// Connections can often still be established over Bluetooth alone, at substantially lower
-    /// throughput. Treat this as a warning rather than a hard failure.
+    /// A connection can often still be established over Bluetooth alone, at substantially lower
+    /// throughput, so treat this flag as a warning rather than a hard failure.
     /// </remarks>
     WifiDisabled = 1 << 2,
 
@@ -65,8 +65,8 @@ public enum NearbyAvailability
     /// The current platform does not support nearby connectivity.
     /// </summary>
     /// <remarks>
-    /// Reported on every target other than Android and iOS. This condition cannot be resolved at
-    /// run time.
+    /// Reported on every target other than Android and iOS. Unlike the other flags, this condition
+    /// cannot be resolved at run time.
     /// </remarks>
     UnsupportedPlatform = 1 << 4,
 
@@ -76,8 +76,9 @@ public enum NearbyAvailability
     /// <remarks>
     /// iOS only. Starting with an invalid service identifier raises an exception inside Multipeer
     /// Connectivity that terminates the process and cannot be caught, so this condition must be
-    /// resolved rather than handled. Options validation normally rejects it during application
-    /// startup; this flag exists for consumers who construct the session outside that pipeline.
+    /// resolved rather than handled at run time. Options validation normally rejects an invalid
+    /// <see cref="NearbyOptions.ServiceId"/> during application startup; this flag exists for
+    /// consumers who construct the session outside that pipeline.
     /// </remarks>
     InvalidConfiguration = 1 << 5,
 }

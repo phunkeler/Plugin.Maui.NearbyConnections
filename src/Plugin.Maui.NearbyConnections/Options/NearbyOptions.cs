@@ -1,49 +1,48 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Provides configuration options for nearby connectivity.
+/// Configures nearby connectivity: display identity, service discovery, timeouts, and
+/// platform-specific behavior.
 /// </summary>
 /// <remarks>
-/// Set these options in the delegate passed to
+/// Configure this type in the delegate passed to
 /// <see cref="MauiAppBuilderExtensions"/>.<c>UseNearby</c> or
-/// <see cref="ServiceCollectionExtensions"/>.<c>AddNearby</c>. The library reads the
-/// resolved instance once, when the session is created; changing a property after application
-/// startup has no defined effect.
+/// <see cref="ServiceCollectionExtensions"/>.<c>AddNearby</c>. The library reads the resolved
+/// instance once, when the session is created — changing a property afterward has no defined
+/// effect.
 /// </remarks>
 public sealed partial class NearbyOptions
 {
     /// <summary>
     /// Gets the Android-specific settings.
     /// </summary>
-    /// <value>
-    /// The Android options. Never <see langword="null"/>.
-    /// </value>
+    /// <value>The Android options. Never <see langword="null"/>.</value>
     /// <remarks>
-    /// Present on every target framework so shared code compiles without <c>#if ANDROID</c>. On
-    /// other platforms these settings are read by nothing and have no effect — the nesting names
-    /// the platform at the call site so that is visible where the value is set.
+    /// Exposed on every target framework so shared code compiles without <c>#if ANDROID</c>; on
+    /// other platforms these settings are read by nothing and have no effect, and the nesting under
+    /// this property names that at the call site. The property itself is get-only, so the returned
+    /// instance can be configured in place but never replaced or shared with another
+    /// <see cref="NearbyOptions"/> instance.
     /// </remarks>
     public NearbyAndroidOptions Android { get; } = new();
 
     /// <summary>
     /// Gets the Apple-platform-specific settings.
     /// </summary>
-    /// <value>
-    /// The Apple options. Never <see langword="null"/>.
-    /// </value>
+    /// <value>The Apple options. Never <see langword="null"/>.</value>
     /// <remarks>
-    /// Present on every target framework so shared code compiles without <c>#if IOS</c>. On other
-    /// platforms these settings are read by nothing and have no effect — the nesting names the
-    /// platform at the call site so that is visible where the value is set.
+    /// Exposed on every target framework so shared code compiles without <c>#if IOS</c>; on other
+    /// platforms these settings are read by nothing and have no effect, and the nesting under this
+    /// property names that at the call site. The property itself is get-only, so the returned
+    /// instance can be configured in place but never replaced or shared with another
+    /// <see cref="NearbyOptions"/> instance.
     /// </remarks>
     public NearbyAppleOptions Apple { get; } = new();
 
     /// <summary>
     /// Gets or sets the name shown to nearby devices when advertising or discovering.
     /// </summary>
-    /// <value>
-    /// The display name for this device. The default is <see cref="DeviceInfo.Name"/>.
-    /// </value>
+    /// <value>The display name for this device. The default is <see cref="DeviceInfo.Name"/>.</value>
     public string DisplayName { get; set; } = GetDefaultDisplayName();
 
     /// <summary>
@@ -72,7 +71,7 @@ public sealed partial class NearbyOptions
     /// </para>
     /// <para>
     /// On iOS, application startup fails with a descriptive error if this property is not set, or
-    /// if its length is outside the supported range, because an invalid service type causes an
+    /// if its length is outside the supported range — an invalid service type otherwise causes an
     /// unrecoverable native failure.
     /// </para>
     /// </remarks>
@@ -87,15 +86,15 @@ public sealed partial class NearbyOptions
     /// <see cref="FileSystem.AppDataDirectory"/>.
     /// </value>
     /// <remarks>
-    /// The Android default is a cache directory, which the operating system may purge to reclaim
-    /// space. Set this property to a persistent location, or move received files after they
-    /// arrive, if they must survive.
+    /// The Android default is a cache directory that the operating system may purge to reclaim
+    /// space. If received files must survive, set this property to a persistent location, or move
+    /// files out of the default directory after they arrive.
     /// </remarks>
     public string ReceivedFilesDirectory { get; set; } = GetDefaultReceivedFilesDirectory();
 
     /// <summary>
-    /// Gets or sets how often discovery is restarted to drop devices that have gone away without
-    /// the platform saying so.
+    /// Gets or sets how often discovery is restarted to drop devices that have gone away without the
+    /// platform reporting it.
     /// </summary>
     /// <value>
     /// The interval between discovery passes, or <see langword="null"/> to never restart. The
@@ -103,16 +102,16 @@ public sealed partial class NearbyOptions
     /// </value>
     /// <remarks>
     /// <para>
-    /// Neither platform reliably reports every departure: a device that is switched off or carried
-    /// out of range may simply stop being seen, leaving a row in <see cref="INearby.Devices"/> that
-    /// can never be connected to. Restarting discovery is the only way to re-establish what is
-    /// actually in range, because both platforms report discovery on an edge — once, when a device
-    /// appears — rather than continuously. Elapsed silence therefore says nothing; a completed
-    /// discovery pass says everything.
+    /// Neither platform reliably reports every departure — a device that is switched off or carried
+    /// out of range can simply stop being seen, leaving a row in <see cref="INearby.Devices"/> that
+    /// can never be connected to. Both platforms report discovery on an edge, once when a device
+    /// appears, rather than continuously, so elapsed silence says nothing on its own; restarting
+    /// discovery is the only way to re-establish what is actually in range, because a completed pass
+    /// says everything.
     /// </para>
     /// <para>
-    /// After each restart, devices that the new pass did not re-report are removed. Devices that
-    /// are connected, or mid-handshake, are never removed however long they have been quiet.
+    /// After each restart, devices the new pass does not re-report are removed. A device that is
+    /// connected, or mid-handshake, is never removed no matter how long it has been quiet.
     /// </para>
     /// <para>
     /// Lower values detect departures sooner at the cost of more frequent radio work. Set this to
@@ -138,10 +137,10 @@ public sealed partial class NearbyOptions
     /// </value>
     /// <remarks>
     /// <para>
-    /// This timeout applies on both platforms, but is enforced differently. iOS has a native
-    /// invitation timeout, whereas on Android the library maintains its own timer, because the
-    /// Nearby Connections API imposes no timeout. Without it, connecting to a device that never
-    /// answers, or that moves out of range during the handshake, would wait indefinitely.
+    /// This timeout applies on both platforms but is enforced differently: iOS has a native
+    /// invitation timeout, while Android has none at the platform level, so the library maintains
+    /// its own timer there instead. Without it, connecting to a device that never answers, or that
+    /// moves out of range during the handshake, would wait indefinitely.
     /// </para>
     /// <para>
     /// When this interval elapses,
@@ -166,7 +165,7 @@ public sealed partial class NearbyOptions
     public TimeSpan TransferInactivityTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
-    /// Gets or sets a value indicating whether inbound connection requests are accepted
+    /// Gets or sets a value that indicates whether inbound connection requests are accepted
     /// automatically, without the application calling
     /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>.
     /// </summary>
@@ -184,37 +183,38 @@ public sealed partial class NearbyOptions
     /// <see cref="InvitationTimeout"/> elapses.
     /// </para>
     /// <para>
-    /// When it is <see langword="true"/> the session answers on the application's behalf, so
-    /// <see cref="NearbyDeviceStatus.RequestReceived"/> is never observed: the device moves from
+    /// When it is <see langword="true"/>, the session answers on the application's behalf, so
+    /// <see cref="NearbyDeviceStatus.RequestReceived"/> is never observed — the device moves from
     /// <see cref="NearbyDeviceStatus.Visible"/> through
     /// <see cref="NearbyDeviceStatus.Connecting"/> to <see cref="NearbyDeviceStatus.Connected"/>
     /// with that state skipped. Calling
-    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> then throws
+    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> at that point throws
     /// <see cref="InvalidOperationException"/>, because no request is outstanding.
     /// </para>
     /// <para>
     /// <b>This accepts every request from any device that knows the service identifier.</b> Neither
     /// platform authenticates the remote device, so enable this only where an unsolicited connection
-    /// is acceptable — a kiosk, a paired-appliance scenario, or a trusted network. Prompting the
-    /// user is the safer default, which is why it is the default.
+    /// is acceptable — a kiosk, a paired-appliance scenario, or a trusted network. Prompting the user
+    /// is the safer default, which is why it is the default here.
     /// </para>
     /// </remarks>
     public bool AutoAcceptConnectionRequests { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether payload and event delivery may continue synchronously
-    /// on the platform callback thread instead of being scheduled to the thread pool.
+    /// Gets or sets a value that indicates whether payload and device-change delivery may continue
+    /// synchronously on the platform's callback thread instead of being scheduled to the thread
+    /// pool.
     /// </summary>
     /// <value>
     /// <see langword="true"/> to allow synchronous continuations; otherwise,
     /// <see langword="false"/>. The default is <see langword="false"/>.
     /// </value>
     /// <remarks>
-    /// Payloads and device events are written from background threads owned by the platform SDK.
-    /// Setting this property to <see langword="true"/> allows the body of a consuming
-    /// <c>await foreach</c> loop to run directly on that thread, avoiding a thread-pool transition.
-    /// A slow loop body then stalls the platform SDK's own callback dispatch, so enable this only
-    /// when consuming loops complete very quickly.
+    /// Payloads and device changes are written from background threads owned by the platform SDK.
+    /// Setting this property to <see langword="true"/> lets the body of a consuming
+    /// <c>await foreach</c> loop run directly on that writer thread, avoiding a thread-pool
+    /// transition — but a slow loop body then stalls the platform SDK's own callback dispatch, so
+    /// enable this only when every consuming loop completes very quickly.
     /// </remarks>
     public bool AllowSynchronousContinuations { get; set; }
 }

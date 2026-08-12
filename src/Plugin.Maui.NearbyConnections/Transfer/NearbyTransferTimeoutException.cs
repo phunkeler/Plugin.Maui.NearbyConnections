@@ -4,6 +4,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// The exception that is thrown when a file transfer stalls and no progress is reported within
 /// <see cref="NearbyOptions.TransferInactivityTimeout"/>.
 /// </summary>
+/// <seealso cref="NearbyTransferException"/>
 public sealed class NearbyTransferTimeoutException : NearbyException
 {
     /// <summary>
