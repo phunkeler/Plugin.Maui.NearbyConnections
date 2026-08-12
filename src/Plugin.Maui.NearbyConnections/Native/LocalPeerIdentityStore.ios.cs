@@ -49,6 +49,9 @@ sealed partial class LocalPeerIdentityStore
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Created local peer: DisplayName={DisplayName}")]
+    [LoggerMessage(
+        EventId = 3020,
+        Level = LogLevel.Debug,
+        Message = "Created local peer: DisplayName={DisplayName}")]
     partial void LogCreatedLocalPeer(string displayName);
 }

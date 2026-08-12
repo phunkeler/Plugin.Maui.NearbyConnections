@@ -17,8 +17,11 @@ namespace NearbyChat.Services;
 /// <strong>Why this implements <see cref="IMauiInitializeService"/>.</strong>
 /// <see cref="INearbyDevices.Changes"/> does not replay, so this watcher must be running before
 /// the first connection is established. MAUI calls <see cref="Initialize"/> during
-/// <c>MauiAppBuilder.Build()</c>, which guarantees that. (<c>AddNearby</c> uses the same hook to
-/// construct the session itself, so the session exists by the time this runs.)
+/// <c>MauiAppBuilder.Build()</c>, which guarantees that. Resolving <see cref="INearby"/> in the
+/// constructor also constructs the session if it is not already alive — DI resolution is
+/// idempotent, so it does not matter whether <c>AddNearby</c> or this initializer runs first;
+/// whichever asks for it first builds it, and every later resolution (from either) gets that same
+/// instance.
 /// </para>
 /// <para>
 /// <strong>Separation of concerns.</strong> Ingestion (this class) is deliberately split from the

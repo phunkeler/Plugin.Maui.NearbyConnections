@@ -18,11 +18,24 @@ namespace Plugin.Maui.NearbyConnections;
 /// <see cref="DiscoverAsync"/>.
 /// </para>
 /// <para>
-/// <strong>Error delivery.</strong> On both platforms, start failures (advertising or
-/// discovery) are delivered asynchronously as a faulted stream — the exception surfaces at
-/// the first <c>await</c> of the enumeration, not when <see cref="AdvertiseAsync"/> /
-/// <see cref="DiscoverAsync"/> is called. Wrap the <c>await foreach</c> (header and body) in
-/// a <c>try/catch</c> to handle start failures.
+/// <strong>Error delivery.</strong> <see cref="AdvertiseAsync"/> and <see cref="DiscoverAsync"/>
+/// each take a <see cref="TaskCompletionSource"/> <c>started</c> that resolves once the platform
+/// start phase is known: it completes successfully once advertising/discovery has actually started,
+/// or faults with the typed exception if the platform failed to start. Await that task, not the
+/// first item of the stream, to learn whether starting succeeded — the stream itself can validly
+/// yield nothing for a long time on a successful start. A fault delivered <em>after</em>
+/// <c>started</c> has already completed successfully (e.g. the platform's radio drops later)
+/// instead ends the stream with that exception; it does not retroactively fault <c>started</c>.
+/// </para>
+/// <para>
+/// <strong>Start latency.</strong> How quickly <c>started</c> resolves on a successful start
+/// differs by platform: Android's platform start call is directly awaitable, so <c>started</c>
+/// resolves as soon as it returns. iOS has no equivalent success signal — Multipeer Connectivity
+/// only reports failure — so a successful iOS start always waits out
+/// <see cref="NearbyAppleOptions.StartFailureGraceWindow"/> before <c>started</c> resolves. A
+/// consumer timing <c>StartAdvertisingAsync</c>/<c>StartDiscoveryAsync</c>, or asserting against a
+/// tight deadline in a test, should expect iOS to take measurably longer than Android in the
+/// success case.
 /// </para>
 /// </remarks>
 interface IPlatformNearby : IAsyncDisposable
@@ -49,14 +62,18 @@ interface IPlatformNearby : IAsyncDisposable
     /// Inbound progress is instead a settable property — see <see cref="NearbyConnection.InboundProgress"/>.
     /// </para>
     /// </remarks>
+    /// <param name="started">
+    /// Resolved once the platform start phase is known — see the interface-level <b>Error
+    /// delivery</b> remarks.
+    /// </param>
     /// <param name="cancellationToken">A token to stop advertising and complete the stream.</param>
     /// <returns>
     /// An <see cref="IAsyncEnumerable{T}"/> of <see cref="NearbyConnectionRequest"/> items,
     /// one per inbound connection request received while advertising.
     /// </returns>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
-    /// <exception cref="NearbyAdvertisingException">Thrown if the platform fails to start advertising. Observed while enumerating the returned stream.</exception>
-    IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(CancellationToken cancellationToken = default);
+    /// <exception cref="NearbyAdvertisingException">Thrown if the platform fails to start advertising. Delivered through <paramref name="started"/>.</exception>
+    IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(TaskCompletionSource started, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Starts discovering nearby advertising devices and yields device-visibility events
@@ -73,13 +90,17 @@ interface IPlatformNearby : IAsyncDisposable
     /// thread if needed (e.g. <c>await MainThread.InvokeOnMainThreadAsync(...)</c>).
     /// </para>
     /// </remarks>
+    /// <param name="started">
+    /// Resolved once the platform start phase is known — see the interface-level <b>Error
+    /// delivery</b> remarks.
+    /// </param>
     /// <param name="cancellationToken">A token to stop discovery and complete the stream.</param>
     /// <returns>
     /// An <see cref="IAsyncEnumerable{T}"/> of <see cref="NearbyDeviceEvent"/> items.
     /// </returns>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
-    /// <exception cref="NearbyDiscoveryException">Thrown if the platform fails to start discovery. Observed while enumerating the returned stream.</exception>
-    IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(CancellationToken cancellationToken = default);
+    /// <exception cref="NearbyDiscoveryException">Thrown if the platform fails to start discovery. Delivered through <paramref name="started"/>.</exception>
+    IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(TaskCompletionSource started, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Initiates a connection to the specified <paramref name="device"/> discovered during

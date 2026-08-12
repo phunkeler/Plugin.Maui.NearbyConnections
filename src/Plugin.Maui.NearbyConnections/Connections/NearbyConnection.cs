@@ -48,6 +48,9 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <remarks>
     /// This task can be awaited concurrently with
     /// <see cref="ReceiveAsync(CancellationToken)"/> and does not consume the receive stream.
+    /// <b>This task never faults or is canceled</b> — a connection dropping is not treated as an
+    /// error at this boundary, so it always completes successfully. It carries no information about
+    /// why the connection ended.
     /// </remarks>
     public Task Disconnected => _disconnectedTcs.Task;
 
@@ -147,6 +150,12 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was canceled.
     /// </exception>
+    /// <exception cref="NearbyTransferException">
+    /// The platform rejected the send.
+    /// </exception>
+    /// <exception cref="NearbyException">
+    /// The remote device disconnected before this call, so no active connection remains to send on.
+    /// </exception>
     public Task SendAsync(byte[] data, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
@@ -177,6 +186,13 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <exception cref="NearbyTransferTimeoutException">
     /// No transfer progress was reported within
     /// <see cref="NearbyOptions.TransferInactivityTimeout"/>.
+    /// </exception>
+    /// <exception cref="NearbyTransferException">
+    /// The file could not be sent — for example, the URI does not identify a readable file, or the
+    /// platform rejected the send.
+    /// </exception>
+    /// <exception cref="NearbyException">
+    /// The remote device disconnected before this call, so no active connection remains to send on.
     /// </exception>
     public Task SendAsync(
         string fileUri,
@@ -215,6 +231,12 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <exception cref="NearbyTransferTimeoutException">
     /// No transfer progress was reported within
     /// <see cref="NearbyOptions.TransferInactivityTimeout"/>.
+    /// </exception>
+    /// <exception cref="NearbyTransferException">
+    /// The platform rejected the send.
+    /// </exception>
+    /// <exception cref="NearbyException">
+    /// The remote device disconnected before this call, so no active connection remains to send on.
     /// </exception>
     public Task SendAsync(
         FileResult file,
@@ -276,6 +298,15 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// Payloads are delivered on a platform background thread. Marshal to the UI thread inside the
     /// loop if you update the user interface from it.
     /// </para>
+    /// <para>
+    /// <b>The stream never faults.</b> A disconnect — whether initiated locally, by the remote
+    /// device, or by the platform — is delivered as a clean end of enumeration, indistinguishable
+    /// from an orderly shutdown. Only <see cref="OperationCanceledException"/> from
+    /// <paramref name="cancellationToken"/>, or the once-only
+    /// <see cref="InvalidOperationException"/> from calling this method twice, can come out of the
+    /// enumeration itself. Use <see cref="Disconnected"/> if you need to know that the connection
+    /// ended.
+    /// </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     /// This method has already been called on this connection.
@@ -307,7 +338,9 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <remarks>
     /// After disposal, the stream returned by <see cref="ReceiveAsync(CancellationToken)"/>
     /// completes and no further payloads can be sent. Calling this method more than once performs
-    /// no additional work.
+    /// no additional work. A failure signaling the disconnect to the platform propagates from this
+    /// method unguarded — teardown is not attempted a second time, so a caller that wants disposal
+    /// to always succeed should catch around the call.
     /// </remarks>
     public async ValueTask DisposeAsync()
     {

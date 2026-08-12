@@ -59,7 +59,7 @@ sealed class OutgoingTransfer(
                 break;
             case NearbyTransferStatus.Failure:
                 _tcs.TrySetException(
-                    new InvalidOperationException($"Transfer {transferProgress.PayloadId} failed."));
+                    new NearbyTransferException($"Transfer {transferProgress.PayloadId} failed."));
                 break;
             case NearbyTransferStatus.Canceled:
                 _tcs.TrySetCanceled();

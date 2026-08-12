@@ -32,6 +32,14 @@ namespace Plugin.Maui.NearbyConnections;
 /// is exited, so a consumer with a shorter lifetime than this singleton cannot leak the way an
 /// undetached event handler could.
 /// </para>
+/// <para>
+/// <b>Platform support.</b> This plugin supports Android and iOS only. On every other target
+/// framework (including a plain <c>net10.0</c> class library with no platform suffix), every member
+/// that would otherwise reach the platform throws <see cref="PlatformNotSupportedException"/>.
+/// <see cref="CheckAvailabilityAsync(CancellationToken)"/> is the exception: it reports
+/// <see cref="NearbyAvailability.UnsupportedPlatform"/> instead of throwing, consistent with never
+/// throwing to report unavailability.
+/// </para>
 /// </remarks>
 /// <seealso cref="NearbyDevice"/>
 /// <seealso cref="NearbyConnection"/>
@@ -176,6 +184,9 @@ public interface INearby
     /// <remarks>
     /// Established connections are unaffected, and discovery continues if it was already running.
     /// </remarks>
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was canceled.
+    /// </exception>
     Task StopAdvertisingAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -217,6 +228,9 @@ public interface INearby
     /// running. Devices that were only visible are removed from <see cref="Devices"/>; connected
     /// devices remain.
     /// </remarks>
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was canceled.
+    /// </exception>
     Task StopDiscoveryAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -234,6 +248,9 @@ public interface INearby
     /// The session remains usable after this method returns; advertising or discovery can be
     /// started again at any time.
     /// </remarks>
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was canceled.
+    /// </exception>
     Task StopAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -260,7 +277,7 @@ public interface INearby
     /// <exception cref="ArgumentNullException">
     /// <paramref name="device"/> is <see langword="null"/>.
     /// </exception>
-    /// <exception cref="InvalidOperationException">
+    /// <exception cref="NearbyException">
     /// The connection could not be established because the remote device rejected the request, the
     /// device is no longer visible, or the platform returned an error.
     /// </exception>
@@ -296,8 +313,10 @@ public interface INearby
     /// <paramref name="device"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="InvalidOperationException">
-    /// The device has no outstanding connection request, or the platform failed to complete the
-    /// connection.
+    /// The device has no outstanding connection request.
+    /// </exception>
+    /// <exception cref="NearbyException">
+    /// The platform failed to complete the connection.
     /// </exception>
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was canceled before the connection was established.

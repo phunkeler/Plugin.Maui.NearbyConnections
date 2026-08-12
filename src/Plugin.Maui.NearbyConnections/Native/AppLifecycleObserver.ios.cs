@@ -102,6 +102,7 @@ sealed partial class AppLifecycleObserver : IDisposable
     }
 
     [LoggerMessage(
+        EventId = 3010,
         Level = LogLevel.Information,
         Message = "App entered the background. Tearing the nearby session down, because MultipeerConnectivity " +
             "does not survive suspension. Connections are dropped and advertising/discovery stop; start again " +
@@ -109,6 +110,7 @@ sealed partial class AppLifecycleObserver : IDisposable
     partial void LogTearingDownForBackground();
 
     [LoggerMessage(
+        EventId = 3011,
         Level = LogLevel.Error,
         Message = "Failed to tear the nearby session down after the app entered the background. " +
             "Session state may not reflect that iOS has already ended the connection.")]

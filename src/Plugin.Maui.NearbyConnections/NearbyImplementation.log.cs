@@ -1,5 +1,11 @@
 namespace Plugin.Maui.NearbyConnections;
 
+// EventId ranges (stable across edits — assign the next free id in a type's range rather than
+// renumbering; never reuse an id once shipped):
+//   NearbyImplementation (this file)        1000-1099
+//   PlatformNearby                          2000-2099
+//   iOS identity/lifecycle (PeerKeyProvider, AppLifecycleObserver,
+//     LocalPeerIdentityStore, PeerRegistry) 3000-3099
 sealed partial class NearbyImplementation
 {
     // -------------------------------------------------------------------------
@@ -10,16 +16,27 @@ sealed partial class NearbyImplementation
     // construction, so every one of them logs.
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Advertising stopped unexpectedly. Advertising is no longer active.")]
+    [LoggerMessage(
+        EventId = 1000,
+        Level = LogLevel.Error,
+        Message = "Advertising stopped unexpectedly. Advertising is no longer active.")]
     partial void LogAdvertisePumpFailed(Exception exception);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Discovery stopped unexpectedly. Discovery is no longer active.")]
+    [LoggerMessage(
+        EventId = 1001,
+        Level = LogLevel.Error,
+        Message = "Discovery stopped unexpectedly. Discovery is no longer active.")]
     partial void LogDiscoverPumpFailed(Exception exception);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Discovery refresh failed. Devices that have gone out of range may linger until discovery is restarted.")]
+    [LoggerMessage(
+        EventId = 1002,
+        Level = LogLevel.Error, Message = "Discovery refresh failed. Devices that have gone out of range may linger until discovery is restarted.")]
     partial void LogRefreshDiscoveryFailed(Exception exception);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to observe disconnect for device {DeviceId}. It may be left reporting Connected.")]
+    [LoggerMessage(
+        EventId = 1003,
+        Level = LogLevel.Error,
+        Message = "Failed to observe disconnect for device {DeviceId}. It may be left reporting Connected.")]
     partial void LogDisconnectWatchFailed(string deviceId, Exception exception);
 
     // -------------------------------------------------------------------------
@@ -27,11 +44,13 @@ sealed partial class NearbyImplementation
     // -------------------------------------------------------------------------
 
     [LoggerMessage(
+        EventId = 1010,
         Level = LogLevel.Information,
         Message = "The handshake with device {DeviceId} ended before a connection was established: {Reason}.")]
     partial void LogHandshakeEnded(string deviceId, EndReason reason);
 
     [LoggerMessage(
+        EventId = 1011,
         Level = LogLevel.Error,
         Message = "Automatically accepting the connection request from device {DeviceId} failed. " +
             "No application code initiated this accept, so there is no caller to observe the " +
@@ -42,12 +61,12 @@ sealed partial class NearbyImplementation
     // Teardown
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to disconnect device {DeviceId} while stopping the session. Teardown continued.")]
+    [LoggerMessage(EventId = 1020, Level = LogLevel.Warning, Message = "Failed to disconnect device {DeviceId} while stopping the session. Teardown continued.")]
     partial void LogStopConnectionError(string deviceId, Exception exception);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to reject the outstanding request from device {DeviceId} while stopping the session. Teardown continued.")]
+    [LoggerMessage(EventId = 1021, Level = LogLevel.Warning, Message = "Failed to reject the outstanding request from device {DeviceId} while stopping the session. Teardown continued.")]
     partial void LogStopRejectError(string deviceId, Exception exception);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to stop the session cleanly during disposal.")]
+    [LoggerMessage(EventId = 1022, Level = LogLevel.Error, Message = "Failed to stop the session cleanly during disposal.")]
     partial void LogDisposeError(Exception exception);
 }

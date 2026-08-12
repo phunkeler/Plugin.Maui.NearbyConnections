@@ -206,15 +206,17 @@ public class NearbyImplementationTests
     }
 
     // -------------------------------------------------------------------------
-    // Start failures. Previously delivered as a faulted stream observed at first
-    // enumeration; the pump now reports them and clears the toggle.
+    // Start failures. A platform start failure now faults the Task StartAdvertisingAsync/
+    // StartDiscoveryAsync returns, matching the documented INearby contract. A fault that arrives
+    // after a successful start is a separate, later failure and is still only observable through
+    // IsAdvertising/IsDiscovering flipping false.
     // -------------------------------------------------------------------------
 
     [TestClass]
     public sealed class StartFailures : NearbyImplementationTests
     {
         [TestMethod]
-        public async Task AdvertisePumpFailure_ClearsIsAdvertising()
+        public async Task AdvertiseStartFailure_ThrowsAndClearsIsAdvertising()
         {
             // Arrange
             var connections = new FakeNearby
@@ -223,16 +225,15 @@ public class NearbyImplementationTests
             };
             var session = Create.Session(connections);
 
-            // Act
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
-            await connections.WaitForAdvertisePumpAsync();
+            // Act & Assert
+            await Assert.ThrowsExactlyAsync<NearbyAdvertisingException>(
+                () => session.StartAdvertisingAsync(TestContext.CancellationToken));
 
-            // Assert
             Assert.IsFalse(session.IsAdvertising, "A failed start must not leave the session claiming to advertise.");
         }
 
         [TestMethod]
-        public async Task DiscoverPumpFailure_ClearsIsDiscovering()
+        public async Task DiscoverStartFailure_ThrowsAndClearsIsDiscovering()
         {
             // Arrange
             var connections = new FakeNearby
@@ -241,12 +242,115 @@ public class NearbyImplementationTests
             };
             var session = Create.Session(connections);
 
+            // Act & Assert
+            await Assert.ThrowsExactlyAsync<NearbyDiscoveryException>(
+                () => session.StartDiscoveryAsync(TestContext.CancellationToken));
+
+            Assert.IsFalse(session.IsDiscovering);
+        }
+
+        [TestMethod]
+        public async Task AdvertiseStartFailure_IsRetryable()
+        {
+            // A failed start must clean up the dead pump so a retry reaches the platform again,
+            // rather than reusing a Task/CancellationTokenSource pair that already faulted.
+
+            // Arrange
+            var connections = new FakeNearby
+            {
+                AdvertiseFault = new NearbyAdvertisingException("radio off"),
+            };
+            var session = Create.Session(connections);
+
             // Act
+            await Assert.ThrowsExactlyAsync<NearbyAdvertisingException>(
+                () => session.StartAdvertisingAsync(TestContext.CancellationToken));
+            await Assert.ThrowsExactlyAsync<NearbyAdvertisingException>(
+                () => session.StartAdvertisingAsync(TestContext.CancellationToken));
+
+            // Assert
+            Assert.AreEqual(2, connections.AdvertiseCallCount);
+        }
+
+        [TestMethod]
+        public async Task AdvertiseFaultAfterSuccessfulStart_DoesNotThrowFromStartAdvertisingAsync()
+        {
+            // A late fault (e.g. the platform's radio drops mid-session) is a different failure
+            // mode from a start failure: it must not retroactively fault the already-returned
+            // StartAdvertisingAsync Task. It is still only observable via IsAdvertising.
+
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+
+            // Act
+            connections.FaultAdvertiseStream(new NearbyAdvertisingException("radio dropped"));
+            await Wait.UntilAsync(() => !session.IsAdvertising);
+
+            // Assert
+            Assert.IsFalse(session.IsAdvertising);
+        }
+
+        [TestMethod]
+        public async Task DiscoverFaultAfterSuccessfulStart_DoesNotThrowFromStartDiscoveryAsync()
+        {
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+
             await session.StartDiscoveryAsync(TestContext.CancellationToken);
-            await connections.WaitForDiscoverPumpAsync();
+
+            // Act
+            connections.FaultDiscoverStream(new NearbyDiscoveryException("radio dropped"));
+            await Wait.UntilAsync(() => !session.IsDiscovering);
 
             // Assert
             Assert.IsFalse(session.IsDiscovering);
+        }
+
+        [TestMethod]
+        public async Task AdvertiseFaultAfterSuccessfulStart_PumpTakesLoggedPathAndSessionRestarts()
+        {
+            // The dead pump's own Cts/Task must not wedge a later restart: a fault that loses the
+            // started race (started.TrySetException returns false, so the pump falls through to the
+            // logged path instead of rethrowing) still leaves the pump cleanly stoppable, so a fresh
+            // StartAdvertisingAsync reaches the platform again rather than hanging on stale state.
+
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            connections.FaultAdvertiseStream(new NearbyAdvertisingException("radio dropped"));
+            await Wait.UntilAsync(() => !session.IsAdvertising);
+
+            // Act
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+
+            // Assert
+            Assert.IsTrue(session.IsAdvertising);
+            Assert.AreEqual(2, connections.AdvertiseCallCount);
+        }
+
+        [TestMethod]
+        public async Task DiscoverFaultAfterSuccessfulStart_PumpTakesLoggedPathAndSessionRestarts()
+        {
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            connections.FaultDiscoverStream(new NearbyDiscoveryException("radio dropped"));
+            await Wait.UntilAsync(() => !session.IsDiscovering);
+
+            // Act
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+
+            // Assert
+            Assert.IsTrue(session.IsDiscovering);
+            Assert.AreEqual(2, connections.DiscoverCallCount);
         }
 
         public TestContext TestContext { get; set; }

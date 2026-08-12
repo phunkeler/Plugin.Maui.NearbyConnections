@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Maui.Hosting;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -25,8 +24,14 @@ public static partial class ServiceCollectionExtensions
     /// <remarks>
     /// <para>
     /// <see cref="INearby"/> is registered as a singleton, because the underlying resources
-    /// are singular: one radio and one native session per device. Options are configured through
-    /// the <see cref="IOptions{TOptions}"/> pipeline and validated at startup.
+    /// are singular: one radio and one native session per device. It is constructed lazily, on
+    /// first resolution, like any other DI singleton — nothing here forces it into existence
+    /// earlier.
+    /// </para>
+    /// <para>
+    /// <paramref name="configure"/> is applied and validated synchronously, before this method
+    /// returns: an unusable <see cref="NearbyOptions.ServiceId"/> fails immediately at the call
+    /// site, rather than surfacing later as a confusing failure the first time advertising starts.
     /// </para>
     /// <para>
     /// Neither advertising nor discovery starts automatically. Call
@@ -35,9 +40,14 @@ public static partial class ServiceCollectionExtensions
     /// is ready and the required permissions have been granted.
     /// </para>
     /// <para>
-    /// The session is constructed during application startup rather than on first resolution, so
-    /// that a service which starts watching at startup is running before any connection can be
-    /// established. Constructing the session does not start advertising or discovery.
+    /// <see cref="INearbyDevices.Changes"/> does not replay: an app that wants to observe every
+    /// connection and consume every payload from the moment it starts — rather than only from
+    /// whenever a page happens to resolve <see cref="INearby"/> — registers its own
+    /// <c>IMauiInitializeService</c> that resolves <see cref="INearby"/> and starts watching. That
+    /// resolution constructs the singleton if it is not already alive, regardless of registration
+    /// order relative to this method, because DI resolution is idempotent: whichever caller asks
+    /// first gets the same instance every later caller does. See <c>NearbyIngestionService</c> in
+    /// the <c>NearbyChat</c> sample for the pattern.
     /// </para>
     /// <para>
     /// The session has no UI thread affinity and takes no dispatcher: every member of
@@ -49,42 +59,34 @@ public static partial class ServiceCollectionExtensions
     /// <exception cref="ArgumentNullException">
     /// <paramref name="services"/> is <see langword="null"/>.
     /// </exception>
+    /// <exception cref="OptionsValidationException">
+    /// The configured <see cref="NearbyOptions"/> is unusable — for example,
+    /// <see cref="NearbyOptions.ServiceId"/> is null, empty, or not valid for Multipeer
+    /// Connectivity.
+    /// </exception>
     public static IServiceCollection AddNearby(
         this IServiceCollection services,
         Action<NearbyOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        if (configure is not null)
-        {
-            services.Configure(configure);
-        }
-
-        services.AddOptions<NearbyOptions>().ValidateOnStart();
-        services.AddSingleton<IValidateOptions<NearbyOptions>, NearbyOptionsValidator>();
+        var options = new NearbyOptions();
+        configure?.Invoke(options);
+        NearbyOptionsValidator.Validate(options);
 
         services.TryAddSingleton<INearby>(sp =>
         {
-            var resolvedOptions = sp.GetRequiredService<IOptions<NearbyOptions>>().Value;
             var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
             var logger = sp.GetService<ILogger<PlatformNearby>>()
                 ?? NullLogger<PlatformNearby>.Instance;
 
-            var connections = CreatePlatformNearby(sp, timeProvider, resolvedOptions, logger);
+            var connections = CreatePlatformNearby(sp, timeProvider, options, logger);
 
             return new NearbyImplementation(
                 connections,
-                resolvedOptions,
+                options,
                 sp.GetService<ILogger<NearbyImplementation>>() ?? NullLogger<NearbyImplementation>.Instance);
         });
-
-        // Forces the session into existence during MauiAppBuilder.Build(), rather than leaving it
-        // to whichever consumer happens to resolve it first. See NearbySessionInitializer for the
-        // silent payload loss this prevents. TryAddEnumerable because MAUI runs these via
-        // GetServices<T>(): a second AddNearby() call would otherwise register a
-        // duplicate initializer.
-        services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IMauiInitializeService, NearbySessionInitializer>());
 
         return services;
     }
@@ -103,29 +105,4 @@ public static partial class ServiceCollectionExtensions
         TimeProvider timeProvider,
         NearbyOptions options,
         ILogger logger);
-
-    /// <summary>
-    /// Constructs <see cref="INearby"/> during <c>MauiAppBuilder.Build()</c> so the session
-    /// — and any consumer watching it at startup — is alive before the first connection can be
-    /// established.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="INearbyDevices.Changes"/> does not replay. The container creates singletons
-    /// lazily, on first resolution, so without this the session might not exist until a page
-    /// injected it — and a connection established before that point is a transition nobody
-    /// observed. Inbound payloads are then written to a channel with no reader: no exception, no
-    /// log, messages simply never arrive. A watcher that starts late can recover the current state
-    /// from <see cref="INearby.Devices"/>, but only if it knows to look.
-    /// </para>
-    /// <para>
-    /// Resolving the session is the entire job; the resolved instance is deliberately discarded
-    /// because the container owns it from here on.
-    /// </para>
-    /// </remarks>
-    sealed class NearbySessionInitializer : IMauiInitializeService
-    {
-        public void Initialize(IServiceProvider services)
-            => services.GetRequiredService<INearby>();
-    }
 }

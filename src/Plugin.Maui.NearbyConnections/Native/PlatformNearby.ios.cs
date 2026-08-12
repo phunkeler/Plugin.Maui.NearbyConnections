@@ -15,7 +15,7 @@ sealed partial class PlatformNearby
 
     #region Advertising
 
-    Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
+    async Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -31,7 +31,27 @@ sealed partial class PlatformNearby
 
         _mcAdvertiser.StartAdvertisingPeer();
 
-        return Task.CompletedTask;
+        await AwaitStartFailureGraceWindowAsync(_advertiseChannel.Reader.Completion, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Waits up to <see cref="NearbyAppleOptions.StartFailureGraceWindow"/> for a channel's
+    /// completion and rethrows a fault that arrives within it. A fault that arrives after the
+    /// window — including the <see cref="TimeoutException"/> this method swallows — is left on the
+    /// channel for the pump to observe as today's logged, post-start failure.
+    /// </summary>
+    async Task AwaitStartFailureGraceWindowAsync(Task channelCompletion, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await channelCompletion.WaitAsync(_options.Apple.StartFailureGraceWindow, TimeProvider, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            // Started successfully as far as this window can tell; a later fault takes the logged path.
+        }
     }
 
     void PlatformStopAdvertising()
@@ -43,9 +63,11 @@ sealed partial class PlatformNearby
 
     internal void DidNotStartAdvertisingPeer(MCNearbyServiceAdvertiser advertiser, NSError error)
     {
-        LogDidNotStartAdvertising(error.LocalizedDescription);
+        var exception = new NearbyAdvertisingException(error.LocalizedDescription, new NSErrorException(error));
 
-        if (!_advertiseChannel.Writer.TryComplete(new NearbyAdvertisingException(error.LocalizedDescription)))
+        LogDidNotStartAdvertising(exception);
+
+        if (!_advertiseChannel.Writer.TryComplete(exception))
         {
             LogStartAdvertisingFaultDropped();
         }
@@ -53,9 +75,11 @@ sealed partial class PlatformNearby
 
     internal void DidNotStartBrowsingForPeers(MCNearbyServiceBrowser browser, NSError error)
     {
-        LogDidNotStartBrowsing(error.LocalizedDescription);
+        var exception = new NearbyDiscoveryException(error.LocalizedDescription, new NSErrorException(error));
 
-        if (!_discoverChannel.Writer.TryComplete(new NearbyDiscoveryException(error.LocalizedDescription)))
+        LogDidNotStartBrowsing(exception);
+
+        if (!_discoverChannel.Writer.TryComplete(exception))
         {
             LogStartDiscoveringFaultDropped();
         }
@@ -129,7 +153,7 @@ sealed partial class PlatformNearby
 
     #region Discovery
 
-    Task PlatformStartDiscoveryAsync(CancellationToken cancellationToken)
+    async Task PlatformStartDiscoveryAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -144,7 +168,8 @@ sealed partial class PlatformNearby
 
         _mcBrowser.StartBrowsingForPeers();
 
-        return Task.CompletedTask;
+        await AwaitStartFailureGraceWindowAsync(_discoverChannel.Reader.Completion, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     void PlatformStopDiscovering()
@@ -209,7 +234,7 @@ sealed partial class PlatformNearby
         if (!Peers.TryGetHandle(device.Id, out var peerID))
         {
             LogNoPeerFoundForDevice(device.Id, device.DisplayName);
-            FaultConnectionTcs(device.Id, new InvalidOperationException(
+            FaultConnectionTcs(device.Id, new NearbyException(
                 $"Cannot connect: device '{device.DisplayName}' (Id={device.Id}) is not currently visible. Ensure it is actively advertising and within range."));
             return Task.CompletedTask;
         }
@@ -275,8 +300,9 @@ sealed partial class PlatformNearby
 
         if (error is not null)
         {
-            LogSendBytesFailed(peerID.DisplayName, error.LocalizedDescription);
-            throw new NearbyException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}");
+            var nsErrorException = new NSErrorException(error);
+            LogSendBytesFailed(peerID.DisplayName, nsErrorException);
+            throw new NearbyTransferException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}", nsErrorException);
         }
 
         return Task.CompletedTask;
@@ -376,7 +402,7 @@ sealed partial class PlatformNearby
         {
             Report(NearbyTransferStatus.Failure);
 
-            LogSendFileFailed(peerId, null, ex.Message);
+            LogSendFileFailed(peerId, null, ex);
             throw;
         }
         finally
@@ -703,13 +729,13 @@ sealed partial class PlatformNearby
 
             if (error is not null)
             {
-                LogFileCopyFailed(resourceName, "n/a", error.LocalizedDescription);
+                LogFileCopyFailed(resourceName, "n/a", new NSErrorException(error));
                 return;
             }
 
             if (localUrl?.Path is not string sourcePath)
             {
-                LogFileCopyFailed(resourceName, "n/a", "Resource URL has no file path.");
+                LogFileCopyFailed(resourceName, "n/a", new InvalidOperationException("Resource URL has no file path."));
                 return;
             }
 
@@ -721,7 +747,7 @@ sealed partial class PlatformNearby
             }
             catch (Exception ex)
             {
-                LogFileCopyFailed(sourcePath, destinationPath, ex.Message);
+                LogFileCopyFailed(sourcePath, destinationPath, ex);
                 return;
             }
             finally
@@ -732,7 +758,7 @@ sealed partial class PlatformNearby
                 }
                 catch (Exception ex)
                 {
-                    LogFileDeleteFailed(sourcePath, ex.Message);
+                    LogFileDeleteFailed(sourcePath, ex);
                 }
             }
 

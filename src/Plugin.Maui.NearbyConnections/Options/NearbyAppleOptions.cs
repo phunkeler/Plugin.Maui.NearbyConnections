@@ -30,4 +30,23 @@ public sealed class NearbyAppleOptions
     /// weaken an Android link.
     /// </remarks>
     public NearbyEncryptionPreference EncryptionPreference { get; set; } = NearbyEncryptionPreference.Required;
+
+    /// <summary>
+    /// Gets or sets how long a fresh call to <c>StartAdvertisingAsync</c> or
+    /// <c>StartDiscoveryAsync</c> waits for MultipeerConnectivity's failure delegate before assuming
+    /// the platform started successfully.
+    /// </summary>
+    /// <value>A <see cref="TimeSpan"/>. The default is 250 milliseconds.</value>
+    /// <remarks>
+    /// <b>Apple platforms only.</b> Multipeer Connectivity has no start-success callback, only a
+    /// delegate method that fires on failure — this window is the only way to translate that into
+    /// "did starting succeed" for the Task <c>StartAdvertisingAsync</c>/<c>StartDiscoveryAsync</c>
+    /// returns. A slow or thermally-throttled device can exceed the default window before the
+    /// platform reports a genuine failure; that failure is not lost, but it downgrades to the
+    /// same logged, post-start failure path as a radio dropping later — it no longer faults the
+    /// already-returned Task. Raise this value if that downgrade is observed in the field. Android
+    /// has no equivalent because its platform start call is directly awaitable and this value has
+    /// no effect there.
+    /// </remarks>
+    public TimeSpan StartFailureGraceWindow { get; set; } = TimeSpan.FromMilliseconds(250);
 }

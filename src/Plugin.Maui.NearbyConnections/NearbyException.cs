@@ -11,6 +11,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <seealso cref="NearbyAdvertisingException"/>
 /// <seealso cref="NearbyDiscoveryException"/>
 /// <seealso cref="NearbyConnectionTimeoutException"/>
+/// <seealso cref="NearbyTransferException"/>
 /// <seealso cref="NearbyTransferTimeoutException"/>
 public class NearbyException : Exception
 {

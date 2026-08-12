@@ -40,7 +40,10 @@ sealed partial class NearbyImplementation
                 ? current
                 : current with { Status = status, Role = role });
 
-    async Task PumpAdvertiseAsync(IAsyncEnumerable<NearbyConnectionRequest> stream, CancellationToken cancellationToken)
+    async Task PumpAdvertiseAsync(
+        IAsyncEnumerable<NearbyConnectionRequest> stream,
+        TaskCompletionSource started,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -48,19 +51,34 @@ sealed partial class NearbyImplementation
             {
                 await OnRequestReceivedAsync(request).ConfigureAwait(false);
             }
+
+            // The stream ended cleanly without ever resolving started (e.g. immediately cancelled
+            // before the platform reported anything) — resolve it so the caller never hangs.
+            started.TrySetResult();
         }
         catch (OperationCanceledException)
         {
             // Normal exit — StopAdvertisingAsync cancelled the pump.
+            started.TrySetCanceled(cancellationToken);
         }
         catch (Exception ex)
         {
-            LogAdvertisePumpFailed(ex);
             IsAdvertising = false;
+
+            // A fault that started already resolved successfully is a later, post-start failure —
+            // today's logged path. A fault that wins the race is the start failure itself, and the
+            // caller awaiting started observes it directly instead.
+            if (!started.TrySetException(ex))
+            {
+                LogAdvertisePumpFailed(ex);
+            }
         }
     }
 
-    async Task PumpDiscoverAsync(IAsyncEnumerable<NearbyDeviceEvent> stream, CancellationToken cancellationToken)
+    async Task PumpDiscoverAsync(
+        IAsyncEnumerable<NearbyDeviceEvent> stream,
+        TaskCompletionSource started,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -68,15 +86,22 @@ sealed partial class NearbyImplementation
             {
                 OnDeviceEvent(deviceEvent);
             }
+
+            started.TrySetResult();
         }
         catch (OperationCanceledException)
         {
             // Normal exit — StopDiscoveryAsync cancelled the pump.
+            started.TrySetCanceled(cancellationToken);
         }
         catch (Exception ex)
         {
-            LogDiscoverPumpFailed(ex);
             IsDiscovering = false;
+
+            if (!started.TrySetException(ex))
+            {
+                LogDiscoverPumpFailed(ex);
+            }
         }
     }
 
@@ -310,7 +335,21 @@ sealed partial class NearbyImplementation
                     _registry.BeginGeneration();
 
                     await StopPumpAsync(_discover).ConfigureAwait(false);
-                    StartPump(_discover);
+
+                    var started = StartPump(_discover);
+
+                    try
+                    {
+                        await started.Task.ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // Clean up the failed pump so a later StartDiscoveryAsync call starts fresh
+                        // rather than reusing a dead task/cts pair — same cleanup as the top-level
+                        // Start*Async methods perform on the same failure shape.
+                        await StopPumpAsync(_discover).ConfigureAwait(false);
+                        throw;
+                    }
                 }
                 finally
                 {
@@ -357,12 +396,21 @@ sealed partial class NearbyImplementation
     /// (the platform start lives in the enumerable), which clears the flag again, and that must not
     /// race ahead of the write that sets it.
     /// </remarks>
-    static void StartPump(PumpState pump)
+    /// <returns>
+    /// A <see cref="TaskCompletionSource"/> whose task resolves once the platform start phase is
+    /// known — see <see cref="IPlatformNearby"/>'s error-delivery remarks. Await
+    /// <c>started.Task</c> to observe a start failure as a thrown exception.
+    /// </returns>
+    static TaskCompletionSource StartPump(PumpState pump)
     {
         var cts = new CancellationTokenSource();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
         pump.Cts = cts;
         pump.SetFlag(true);
-        pump.Task = pump.Start(cts.Token);
+        pump.Task = pump.Start(started, cts.Token);
+
+        return started;
     }
 
     /// <summary>
@@ -398,13 +446,16 @@ sealed partial class NearbyImplementation
     /// One of the session's two background pumps: the stream-draining task, the source that stops
     /// it, and the flag it publishes.
     /// </summary>
-    /// <param name="start">Starts the pump task for the supplied cancellation token.</param>
+    /// <param name="start">
+    /// Starts the pump task for the supplied <see cref="TaskCompletionSource"/> and cancellation
+    /// token. The task completion source resolves once the platform start phase is known.
+    /// </param>
     /// <param name="setFlag">
     /// Publishes <see cref="INearby.IsAdvertising"/> or <see cref="INearby.IsDiscovering"/>.
     /// </param>
-    sealed class PumpState(Func<CancellationToken, Task> start, Action<bool> setFlag)
+    sealed class PumpState(Func<TaskCompletionSource, CancellationToken, Task> start, Action<bool> setFlag)
     {
-        public Func<CancellationToken, Task> Start { get; } = start;
+        public Func<TaskCompletionSource, CancellationToken, Task> Start { get; } = start;
 
         public Action<bool> SetFlag { get; } = setFlag;
 

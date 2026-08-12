@@ -170,10 +170,11 @@ Deliberately undecided. **Raise them; do not resolve them silently.**
 |---|---|
 | Final package name, and whether a new repo/package is created | Gated by the rename guard — issue #52 |
 | `InvitationTimeout` → `ConnectionRequestTimeout` | Open. "Invitation" is MPC vocabulary and the option is now cross-platform, which makes the leak more visible. Deferred so the whole public vocabulary settles in one pass. |
+| iOS `StartFailureGraceWindow` (`Native/PlatformNearby.ios.cs`) | Open. MultipeerConnectivity has no start-success callback, only a delegate that fires on failure — so a fixed 250ms window is used to decide whether `StartAdvertisingAsync`/`StartDiscoveryAsync` should fault or return successfully. A device slow enough to blow past the window gets a false "started successfully," with the real failure only surfacing later as a stream fault plus a log line. No better signal exists in the MPC API to key off instead; raised here rather than resolved silently. |
 
 Everything previously listed here has been resolved and moved into the rules file: the primary
 interface is `INearby`, the device noun is `NearbyDevice`, payload types are `Nearby`-prefixed and
-live in `Payload/`, and the exception base is `NearbyException` with four `sealed` prefixed
+live in `Payload/`, and the exception base is `NearbyException` with five `sealed` prefixed
 subclasses each filed under the folder its domain owns.
 
 ---

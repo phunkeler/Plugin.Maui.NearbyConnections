@@ -14,11 +14,8 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// </remarks>
 sealed class FakeNearby : IPlatformNearby
 {
-    readonly Channel<NearbyConnectionRequest> _requests = Channel.CreateUnbounded<NearbyConnectionRequest>();
-    readonly Channel<NearbyDeviceEvent> _deviceEvents = Channel.CreateUnbounded<NearbyDeviceEvent>();
-
-    readonly TaskCompletionSource _advertisePumpFaulted = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    readonly TaskCompletionSource _discoverPumpFaulted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    Channel<NearbyConnectionRequest> _requests = Channel.CreateUnbounded<NearbyConnectionRequest>();
+    Channel<NearbyDeviceEvent> _deviceEvents = Channel.CreateUnbounded<NearbyDeviceEvent>();
 
     /// <summary>Gets how many times advertising was started, to assert repeat starts are no-ops.</summary>
     public int AdvertiseCallCount { get; private set; }
@@ -52,38 +49,61 @@ sealed class FakeNearby : IPlatformNearby
     }
 
     public async IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(
+        TaskCompletionSource started,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         AdvertiseCallCount++;
 
         if (AdvertiseFault is not null)
         {
-            _advertisePumpFaulted.TrySetResult();
+            started.SetException(AdvertiseFault);
             throw AdvertiseFault;
         }
 
-        await foreach (var request in _requests.Reader.ReadAllAsync(cancellationToken))
+        // A fresh channel per call, mirroring PlatformNearby.shared.cs's Interlocked.Exchange: a
+        // restart after a prior FaultAdvertiseStream must reach a channel that isn't already faulted.
+        var requests = Channel.CreateUnbounded<NearbyConnectionRequest>();
+        _requests = requests;
+
+        started.TrySetResult();
+
+        await foreach (var request in requests.Reader.ReadAllAsync(cancellationToken))
         {
             yield return request;
         }
     }
 
     public async IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(
+        TaskCompletionSource started,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         DiscoverCallCount++;
 
         if (DiscoverFault is not null)
         {
-            _discoverPumpFaulted.TrySetResult();
+            started.SetException(DiscoverFault);
             throw DiscoverFault;
         }
 
-        await foreach (var deviceEvent in _deviceEvents.Reader.ReadAllAsync(cancellationToken))
+        var deviceEvents = Channel.CreateUnbounded<NearbyDeviceEvent>();
+        _deviceEvents = deviceEvents;
+
+        started.TrySetResult();
+
+        await foreach (var deviceEvent in deviceEvents.Reader.ReadAllAsync(cancellationToken))
         {
             yield return deviceEvent;
         }
     }
+
+    /// <summary>
+    /// Faults the advertise stream after a successful start, simulating a later platform failure
+    /// (e.g. the radio drops mid-session) rather than a start failure.
+    /// </summary>
+    public void FaultAdvertiseStream(Exception exception) => _requests.Writer.TryComplete(exception);
+
+    /// <summary>Faults the discover stream after a successful start. See <see cref="FaultAdvertiseStream"/>.</summary>
+    public void FaultDiscoverStream(Exception exception) => _deviceEvents.Writer.TryComplete(exception);
 
     public Task<NearbyConnection> ConnectAsync(NearbyDevice device, CancellationToken cancellationToken = default)
     {
@@ -147,12 +167,6 @@ sealed class FakeNearby : IPlatformNearby
         await DrainAsync();
     }
 
-    /// <summary>Waits for the advertise pump to observe <see cref="AdvertiseFault"/>.</summary>
-    public Task WaitForAdvertisePumpAsync() => WaitWithTimeoutAsync(_advertisePumpFaulted.Task);
-
-    /// <summary>Waits for the discover pump to observe <see cref="DiscoverFault"/>.</summary>
-    public Task WaitForDiscoverPumpAsync() => WaitWithTimeoutAsync(_discoverPumpFaulted.Task);
-
     /// <summary>
     /// Yields until the session's pump has drained what was just written. The pump reads on a
     /// background task, so a test that asserted immediately would race it.
@@ -165,13 +179,5 @@ sealed class FakeNearby : IPlatformNearby
         }
 
         await Task.Delay(10);
-    }
-
-    static async Task WaitWithTimeoutAsync(Task task)
-    {
-        await task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        // The pump sets its toggle after the fault surfaces; let that continuation run.
-        await Task.Delay(20);
     }
 }

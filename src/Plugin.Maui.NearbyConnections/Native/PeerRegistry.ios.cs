@@ -60,9 +60,15 @@ sealed partial class PeerRegistry
     partial void PlatformClear()
         => _handles.Clear();
 
-    [LoggerMessage(Level = LogLevel.Trace, Message = "Tracking remote peer: Key={Key}, DisplayName={DisplayName}")]
+    [LoggerMessage(
+        EventId = 3030,
+        Level = LogLevel.Trace,
+        Message = "Tracking remote peer: Key={Key}, DisplayName={DisplayName}")]
     static partial void LogTrackingRemotePeer(ILogger logger, string key, string displayName);
 
-    [LoggerMessage(Level = LogLevel.Trace, Message = "Removing remote peer: Key={Key}")]
+    [LoggerMessage(
+        EventId = 3031,
+        Level = LogLevel.Trace,
+        Message = "Removing remote peer: Key={Key}")]
     static partial void LogRemovingRemotePeer(ILogger logger, string key);
 }

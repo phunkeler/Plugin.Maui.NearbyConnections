@@ -80,7 +80,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCouldNotResolveContentUriName(ex.Message);
+            LogCouldNotResolveContentUriName(ex);
             return Guid.NewGuid().ToString("N");
         }
     }

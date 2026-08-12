@@ -165,6 +165,18 @@ File-scoped namespaces are convention, not enforced.
 - Nullable enabled — no `!` without a comment explaining why.
 - `CancellationToken` on every public async method that does I/O.
 - Logging via source-generated `ILogger` partial methods in `*.log.cs`, never string interpolation.
+  Give every `[LoggerMessage]` an explicit `EventId`/`EventName` — ranges are reserved per owning
+  type (documented at the top of `NearbyImplementation.log.cs`) so an id is stable across edits and
+  never reused once shipped. Pass the `Exception` object on an `Error`-level method, never
+  `ex.Message` — the trailing-`Exception`-parameter form is what lets a structured sink capture the
+  stack trace and type. Use the instance form (`partial void LogXxx(...)` against a captured
+  `_logger`) when the type constructs with an injected logger; use the static form
+  (`static partial void LogXxx(ILogger logger, ...)`) when the logger instead arrives via an
+  injected property/parameter on a type that does not own it (e.g. `PeerRegistry`) — both are
+  correct, the choice follows who owns the logger.
+- Device display names and file paths appear in log messages at `Error`/`Debug` levels by default —
+  this is standard `ILogger` behaviour, not a defect; configure a minimum log level per category in
+  the host app if that identity data should not reach a sink.
 - Errors surface as typed exceptions (`NearbyException` and subclasses) at the public
   boundary. Never return `null` to signal failure.
 - `ChannelWriter.TryComplete` returns `bool` — a `false` return means the fault was dropped and the

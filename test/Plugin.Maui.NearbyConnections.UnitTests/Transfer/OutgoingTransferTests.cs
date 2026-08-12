@@ -2,15 +2,6 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
-/// <summary>
-/// Covers <see cref="OutgoingTransfer"/>: the inactivity deadline and the terminal-state
-/// transitions that end a <c>SendAsync</c> call.
-/// </summary>
-/// <remarks>
-/// <see cref="OutgoingTransfer"/> takes a <see cref="TimeProvider"/> specifically so these can be
-/// driven with <see cref="FakeTimeProvider"/> rather than a real ten-second wait. That seam existed
-/// before these tests did and went unused.
-/// </remarks>
 [TestCategory("Connections")]
 public class OutgoingTransferTests
 {
@@ -34,9 +25,6 @@ public class OutgoingTransferTests
         [TestMethod]
         public void AtTheDeadline_TokenIsCancelled()
         {
-            // This is what turns a silently stalled transfer into a NearbyTransferTimeoutException
-            // instead of a SendAsync that never returns.
-
             // Arrange
             var time = new FakeTimeProvider();
             using var transfer = Create.Transfer(time);
@@ -51,9 +39,6 @@ public class OutgoingTransferTests
         [TestMethod]
         public void ProgressUpdate_ResetsTheDeadline()
         {
-            // The timeout measures inactivity, not total duration: a transfer making steady progress
-            // must never time out, however long it runs.
-
             // Arrange
             var time = new FakeTimeProvider();
             using var transfer = Create.Transfer(time);
@@ -76,8 +61,6 @@ public class OutgoingTransferTests
         [TestMethod]
         public void InfiniteTimeout_NeverCancels()
         {
-            // Documented escape hatch on TransferInactivityTimeout.
-
             // Arrange
             var time = new FakeTimeProvider();
             using var transfer = Create.Transfer(time, timeout: System.Threading.Timeout.InfiniteTimeSpan);
@@ -107,7 +90,6 @@ public class OutgoingTransferTests
             // Arrange
             var time = new FakeTimeProvider();
             using var transfer = Create.Transfer(time);
-
             var capturedEarly = transfer.InactivityToken;
 
             // Act
@@ -154,7 +136,7 @@ public class OutgoingTransferTests
             transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Failure));
 
             // Assert
-            var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => transfer.Completion);
+            var ex = await Assert.ThrowsExactlyAsync<NearbyTransferException>(() => transfer.Completion);
             Assert.Contains("1", ex.Message, StringComparison.Ordinal);
         }
 
@@ -189,9 +171,6 @@ public class OutgoingTransferTests
         [TestMethod]
         public async Task FirstTerminalStatusWins()
         {
-            // TrySet* rather than Set*: a platform that reports Success then Failure must not throw
-            // InvalidOperationException from inside a native callback.
-
             // Arrange
             var time = new FakeTimeProvider();
             using var transfer = Create.Transfer(time);
@@ -233,8 +212,6 @@ public class OutgoingTransferTests
         [TestMethod]
         public void NullProgress_IsTolerated()
         {
-            // progress is optional on every SendAsync overload.
-
             // Arrange
             var time = new FakeTimeProvider();
             using var transfer = Create.Transfer(time, progress: null);
@@ -265,8 +242,6 @@ public class OutgoingTransferTests
         [TestMethod]
         public void DisposeAfterTimeout_DoesNotThrow()
         {
-            // The finally block in PlatformSendFileAsync disposes on the timeout path too.
-
             // Arrange
             var time = new FakeTimeProvider();
             var transfer = Create.Transfer(time);

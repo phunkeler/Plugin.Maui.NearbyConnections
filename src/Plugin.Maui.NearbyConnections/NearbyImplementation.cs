@@ -72,11 +72,11 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         _timeProvider = timeProvider ?? TimeProvider.System;
 
         _advertise = new PumpState(
-            start: ct => PumpAdvertiseAsync(_connections.AdvertiseAsync(ct), ct),
+            start: (started, ct) => PumpAdvertiseAsync(_connections.AdvertiseAsync(started, ct), started, ct),
             setFlag: value => IsAdvertising = value);
 
         _discover = new PumpState(
-            start: ct => PumpDiscoverAsync(_connections.DiscoverAsync(ct), ct),
+            start: (started, ct) => PumpDiscoverAsync(_connections.DiscoverAsync(started, ct), started, ct),
             setFlag: value => IsDiscovering = value);
 
         PlatformInitializeLifecycleObserver(logger);
@@ -130,7 +130,19 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         {
             if (!IsAdvertising)
             {
-                StartPump(_advertise);
+                var started = StartPump(_advertise);
+
+                try
+                {
+                    await started.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Clean up the failed pump so a retry starts fresh rather than reusing a dead
+                    // task/cts pair.
+                    await StopPumpAsync(_advertise).ConfigureAwait(false);
+                    throw;
+                }
             }
         }
         finally
@@ -166,7 +178,18 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         {
             if (!IsDiscovering)
             {
-                StartPump(_discover);
+                var started = StartPump(_discover);
+
+                try
+                {
+                    await started.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    await StopPumpAsync(_discover).ConfigureAwait(false);
+                    throw;
+                }
+
                 StartRefreshLoop();
             }
         }

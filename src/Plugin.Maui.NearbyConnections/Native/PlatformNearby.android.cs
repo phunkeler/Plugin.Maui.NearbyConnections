@@ -39,10 +39,7 @@ sealed partial class PlatformNearby
         {
             LogStartAdvertisingFailed(ex);
 
-            if (!_advertiseChannel.Writer.TryComplete(new NearbyAdvertisingException("Failed to start advertising.", ex)))
-            {
-                LogStartAdvertisingFaultDropped();
-            }
+            throw new NearbyAdvertisingException("Failed to start advertising.", ex);
         }
     }
 
@@ -210,10 +207,7 @@ sealed partial class PlatformNearby
         {
             LogStartDiscoveringFailed(ex);
 
-            if (!_discoverChannel.Writer.TryComplete(new NearbyDiscoveryException("Failed to start discovery.", ex)))
-            {
-                LogStartDiscoveringFaultDropped();
-            }
+            throw new NearbyDiscoveryException("Failed to start discovery.", ex);
         }
     }
 
@@ -379,7 +373,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogFileCopyFailed(sourceUri.ToString()!, destinationPath, ex.Message);
+            LogFileCopyFailed(sourceUri.ToString()!, destinationPath, ex);
             return null;
         }
         finally
@@ -390,7 +384,7 @@ sealed partial class PlatformNearby
             }
             catch (Exception ex)
             {
-                LogFileDeleteFailed(sourceUri.ToString()!, ex.Message);
+                LogFileDeleteFailed(sourceUri.ToString()!, ex);
             }
         }
 
@@ -554,10 +548,10 @@ sealed partial class PlatformNearby
         if (androidUri is null)
         {
             LogInvalidFileUri(uri);
-            throw new InvalidOperationException($"Cannot send file: the URI is not a valid or supported scheme. Use a file:// or content:// URI.");
+            throw new NearbyTransferException("Cannot send file: the URI is not a valid or supported scheme. Use a file:// or content:// URI.");
         }
 
-        var filePayload = BuildFilePayload(androidUri) ?? throw new InvalidOperationException($"Cannot send file: failed to open the file descriptor for the given URI.");
+        var filePayload = BuildFilePayload(androidUri) ?? throw new NearbyTransferException("Cannot send file: failed to open the file descriptor for the given URI.");
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
         var transfer = new OutgoingTransfer(progress, _options.TransferInactivityTimeout, TimeProvider);
 
@@ -616,7 +610,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogBuildFilePayloadFailed(ex.Message);
+            LogBuildFilePayloadFailed(ex);
         }
 
         return null;

@@ -35,6 +35,8 @@ Plugin.Maui.NearbyConnections.NearbyAppleOptions
 Plugin.Maui.NearbyConnections.NearbyAppleOptions.EncryptionPreference.get -> Plugin.Maui.NearbyConnections.NearbyEncryptionPreference
 Plugin.Maui.NearbyConnections.NearbyAppleOptions.EncryptionPreference.set -> void
 Plugin.Maui.NearbyConnections.NearbyAppleOptions.NearbyAppleOptions() -> void
+Plugin.Maui.NearbyConnections.NearbyAppleOptions.StartFailureGraceWindow.get -> System.TimeSpan
+Plugin.Maui.NearbyConnections.NearbyAppleOptions.StartFailureGraceWindow.set -> void
 Plugin.Maui.NearbyConnections.NearbyAvailability
 Plugin.Maui.NearbyConnections.NearbyAvailability.BluetoothDisabled = 2 -> Plugin.Maui.NearbyConnections.NearbyAvailability
 Plugin.Maui.NearbyConnections.NearbyAvailability.InvalidConfiguration = 32 -> Plugin.Maui.NearbyConnections.NearbyAvailability
@@ -158,6 +160,9 @@ Plugin.Maui.NearbyConnections.NearbyTransferStatus.Canceled = 3 -> Plugin.Maui.N
 Plugin.Maui.NearbyConnections.NearbyTransferStatus.Failure = 2 -> Plugin.Maui.NearbyConnections.NearbyTransferStatus
 Plugin.Maui.NearbyConnections.NearbyTransferStatus.InProgress = 0 -> Plugin.Maui.NearbyConnections.NearbyTransferStatus
 Plugin.Maui.NearbyConnections.NearbyTransferStatus.Success = 1 -> Plugin.Maui.NearbyConnections.NearbyTransferStatus
+Plugin.Maui.NearbyConnections.NearbyTransferException
+Plugin.Maui.NearbyConnections.NearbyTransferException.NearbyTransferException(string! message) -> void
+Plugin.Maui.NearbyConnections.NearbyTransferException.NearbyTransferException(string! message, System.Exception! innerException) -> void
 Plugin.Maui.NearbyConnections.NearbyTransferTimeoutException
 Plugin.Maui.NearbyConnections.NearbyTransferTimeoutException.NearbyTransferTimeoutException(string! message) -> void
 Plugin.Maui.NearbyConnections.Resource

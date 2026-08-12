@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Maui.Hosting;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
@@ -52,52 +51,20 @@ public class ServiceCollectionExtensionsTests
             var services = new ServiceCollection();
 
             // Act
-            services.AddNearby();
+            services.AddNearby(options => options.ServiceId = "test-service");
 
             // Assert
             Assert.DoesNotContain(d => d.ServiceType == typeof(ILoggerFactory), services);
         }
 
         [TestMethod]
-        public async Task Initializer_ConstructsTheSession_BeforeAnyoneResolvesIt()
-        {
-            // Devices.Changes does not replay, and the container builds singletons lazily. If the
-            // initializer stops forcing construction, a connection established before the first
-            // resolution is a transition nobody observed, and its payloads are silently lost.
-            //
-            // Asserting ordering, not identity: a test that only compares two resolutions passes
-            // whether or not the initializer ran at all.
-
-            // Arrange
-            var services = new ServiceCollection();
-            services.AddNearby(options => options.ServiceId = "test-service");
-
-            // A TimeProvider the session resolves during construction, so observing it tells us
-            // exactly when construction happened.
-            var clock = new ConstructionWitness();
-            services.AddSingleton<TimeProvider>(clock.Resolve);
-
-            await using var provider = services.BuildServiceProvider();
-            var initializer = provider.GetServices<IMauiInitializeService>()
-                .Single(s => s.GetType().Name == "NearbySessionInitializer");
-
-            Assert.IsFalse(clock.WasResolved, "Nothing may construct the session before startup runs.");
-
-            // Act — this is what MauiAppBuilder.Build() does
-            initializer.Initialize(provider);
-
-            // Assert
-            Assert.IsTrue(
-                clock.WasResolved,
-                "The initializer must construct the session at startup, not leave it to the first consumer.");
-        }
-
-        [TestMethod]
-        public async Task EmptyServiceId_FailsValidationThroughTheContainer()
+        public void EmptyServiceId_FailsValidationImmediately()
         {
             // NearbyOptionsValidator is covered in isolation elsewhere; this covers that AddNearby
-            // actually registers it. Without the registration an unusable ServiceId would surface as
-            // a confusing failure on the first advertise instead of at startup.
+            // actually calls it. Validation runs synchronously inside AddNearby itself — not through
+            // the Microsoft.Extensions.Options pipeline, which MAUI apps never trigger (there is no
+            // IHost.StartAsync) — so the failure must surface from this call, not from a later
+            // resolution.
             //
             // Empty rather than malformed: the character rules live in ServiceIdRules and are
             // applied by NearbyOptionsValidator.ios.cs, so on net10.0 the null/empty check is the
@@ -105,14 +72,29 @@ public class ServiceCollectionExtensionsTests
 
             // Arrange
             var services = new ServiceCollection();
-            services.AddNearby(options => options.ServiceId = "");
-            await using var provider = services.BuildServiceProvider();
 
-            // Act + Assert
+            // Act
             var failure = Assert.ThrowsExactly<OptionsValidationException>(
-                () => provider.GetRequiredService<IOptions<NearbyOptions>>().Value);
+                () => services.AddNearby(options => options.ServiceId = ""));
 
+            // Assert
             Assert.IsNotEmpty(failure.Failures);
+        }
+
+        [TestMethod]
+        public void NoConfigureDelegate_StillValidates_RatherThanShippingAnUnusableServiceId()
+        {
+            // AddNearby() with no delegate never sets a ServiceId. That must fail immediately rather
+            // than reach the radio: an app cannot advertise under a default identifier, and silently
+            // doing so would make every install discoverable to every other app built on this plugin.
+
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act & Assert
+            Assert.ThrowsExactly<OptionsValidationException>(
+                () => services.AddNearby(),
+                "ServiceId has no usable default; omitting it must be caught, not tolerated.");
         }
 
         [TestMethod]
@@ -157,64 +139,18 @@ public class ServiceCollectionExtensionsTests
         }
 
         [TestMethod]
-        public async Task NoConfigureDelegate_StillValidates_RatherThanShippingAnUnusableServiceId()
+        public void CalledTwice_DoesNotThrow()
         {
-            // AddNearby() with no delegate skips services.Configure entirely, so nothing supplies a
-            // ServiceId. That must fail at startup rather than reach the radio: an app cannot
-            // advertise under a default identifier, and silently doing so would make every install
-            // discoverable to every other app built on this plugin.
+            // AddNearby has no MAUI-lifecycle registration left to duplicate: it registers only
+            // INearby itself, via TryAddSingleton, so calling it twice is a harmless no-op on the
+            // second call rather than a duplicate-registration error.
 
             // Arrange
             var services = new ServiceCollection();
 
-            // Act
-            services.AddNearby();
-            await using var provider = services.BuildServiceProvider();
-
-            // Assert
-            Assert.ThrowsExactly<OptionsValidationException>(
-                () => provider.GetRequiredService<IOptions<NearbyOptions>>().Value,
-                "ServiceId has no usable default; omitting it must be caught, not tolerated.");
-        }
-
-        [TestMethod]
-        public async Task ConfigureDelegate_LeavesUnsetOptionsAtTheirDefaults()
-        {
-            // Configuring one option must not zero the rest: the delegate mutates the options
-            // instance the pipeline built, it does not replace it.
-
-            // Arrange
-            var services = new ServiceCollection();
-            var expectedTimeout = new NearbyOptions().InvitationTimeout;
-
-            // Act
+            // Act & Assert
             services.AddNearby(options => options.ServiceId = "test-service");
-            await using var provider = services.BuildServiceProvider();
-            var options = provider.GetRequiredService<IOptions<NearbyOptions>>().Value;
-
-            // Assert
-            Assert.AreEqual("test-service", options.ServiceId);
-            Assert.AreEqual(expectedTimeout, options.InvitationTimeout);
-            Assert.AreEqual(NearbyTopology.Cluster, options.Android.Topology);
-        }
-
-        [TestMethod]
-        public void CalledTwice_RegistersOnlyOneInitializer()
-        {
-            // MAUI runs these via GetServices<T>(), so a duplicate would construct the session twice
-            // and — in a consuming app — double every startup subscription hung off it.
-
-            // Arrange
-            var services = new ServiceCollection();
-
-            // Act
-            services.AddNearby();
-            services.AddNearby();
-
-            // Assert
-            Assert.HasCount(
-                1,
-                services.Where(d => d.ServiceType == typeof(IMauiInitializeService)).ToList());
+            services.AddNearby(options => options.ServiceId = "test-service");
         }
     }
 }

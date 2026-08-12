@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Microsoft.Maui.Hosting;
 
 namespace Plugin.Maui.NearbyConnections;
@@ -32,6 +33,11 @@ public static class MauiAppBuilderExtensions
     /// </remarks>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="builder"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="OptionsValidationException">
+    /// The configured <see cref="NearbyOptions"/> is unusable — for example,
+    /// <see cref="NearbyOptions.ServiceId"/> is null, empty, or not valid for Multipeer
+    /// Connectivity.
     /// </exception>
     /// <example>
     /// The following example registers the plugin and sets the service identifier.

@@ -33,7 +33,6 @@ public class NearbyConnectionTests
             byte[]? captured = null;
             var connection = Create.Connection(
                 sendBytes: (data, _) => { captured = data; return Task.CompletedTask; });
-
             var payload = new byte[] { 10, 20, 30 };
 
             // Act
@@ -51,7 +50,6 @@ public class NearbyConnectionTests
             CancellationToken capturedToken = default;
             var connection = Create.Connection(
                 sendBytes: (_, ct) => { capturedToken = ct; return Task.CompletedTask; });
-
             using var cts = new CancellationTokenSource();
 
             // Act
@@ -102,7 +100,6 @@ public class NearbyConnectionTests
             IProgress<NearbyTransferProgress>? capturedProgress = null;
             var connection = Create.Connection(
                 sendFile: (_, progress, _) => { capturedProgress = progress; return Task.CompletedTask; });
-
             var progress = new Progress<NearbyTransferProgress>();
 
             // Act
@@ -119,7 +116,7 @@ public class NearbyConnectionTests
             var connection = Create.Connection();
 
             // Act
-            Func<Task> act = async () => await connection.SendAsync((string)null!, cancellationToken: TestContext.CancellationToken);
+            async Task act() => await connection.SendAsync((string)null!, cancellationToken: TestContext.CancellationToken);
 
             // Assert
             await Assert.ThrowsExactlyAsync<ArgumentNullException>(act);
@@ -139,15 +136,12 @@ public class NearbyConnectionTests
             var receiveChannel = Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
             var connection = Create.Connection(receiveChannel: receiveChannel);
-
             var payload = new NearbyBytesPayload([1, 2, 3]);
-
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
             // Act — write payload then complete channel so the enumeration terminates
             receiveChannel.Writer.TryWrite(payload);
             receiveChannel.Writer.TryComplete();
-
             var received = new List<NearbyPayload>();
             await foreach (var item in connection.ReceiveAsync(cts.Token))
             {

@@ -36,11 +36,14 @@ sealed partial class PeerKeyProvider
         }
         catch (Exception ex)
         {
-            LogFailedToDerivePeerKey(peerID.DisplayName, ex.Message);
+            LogFailedToDerivePeerKey(peerID.DisplayName, ex);
             return peerID.DisplayName;
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to derive peer key for '{DisplayName}', falling back to DisplayName: {Error}")]
-    partial void LogFailedToDerivePeerKey(string displayName, string error);
+    [LoggerMessage(
+        EventId = 3000,
+        Level = LogLevel.Error,
+        Message = "Failed to derive peer key for '{DisplayName}', falling back to DisplayName.")]
+    partial void LogFailedToDerivePeerKey(string displayName, Exception error);
 }

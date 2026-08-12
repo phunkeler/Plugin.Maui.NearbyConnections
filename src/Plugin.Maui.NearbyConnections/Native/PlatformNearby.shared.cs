@@ -102,11 +102,29 @@ sealed partial class PlatformNearby : IPlatformNearby
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(
+        TaskCompletionSource started,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var newAdvertiseChannel = NewChannel<NearbyConnectionRequest>();
         Interlocked.Exchange(ref _advertiseChannel, newAdvertiseChannel);
-        await PlatformStartAdvertisingAsync(cancellationToken);
+
+        try
+        {
+            await PlatformStartAdvertisingAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            // Thrown before the first yield: the loop's own finally never runs for this attempt,
+            // so the same cleanup it would have done is repeated here.
+            PlatformStopAdvertising();
+            newAdvertiseChannel.Writer.TryComplete();
+            started.TrySetException(ex);
+            throw;
+        }
+
+        // A late fault (the channel faults after this point, e.g. the radio drops mid-session) must
+        // not retroactively fault an already-resolved started — TrySetResult, not SetResult.
+        started.TrySetResult();
 
         try
         {
@@ -124,13 +142,25 @@ sealed partial class PlatformNearby : IPlatformNearby
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(
+        TaskCompletionSource started,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var newDiscoverChannel = NewChannel<NearbyDeviceEvent>();
         Interlocked.Exchange(ref _discoverChannel, newDiscoverChannel);
-        await PlatformStartDiscoveryAsync(cancellationToken);
 
-        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            await PlatformStartDiscoveryAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            PlatformStopDiscovering();
+            newDiscoverChannel.Writer.TryComplete();
+            started.TrySetException(ex);
+            throw;
+        }
+
+        started.TrySetResult();
 
         try
         {
