@@ -20,15 +20,16 @@ would be shaped by the API we're abandoning.
 
 ## 2. What needs your input
 
-Only one thing right now:
+Nothing right now. One decision was already made here:
 
-**The issue tracker.** Every GitHub issue (#45–#58 at least) was closed in one ~11-second sweep on
-2026-08-12, with no comments — including issues for work that plainly isn't done (#45, the
-Network.framework migration; #56, the ControlMessage version byte). This looks accidental. You need
-to either **mass-reopen them** or **declare the work list in §3 the tracking home**. Until you
-pick, open work is invisible.
+**The issue tracker is not the tracking home for this work.** Every GitHub issue (#45–#58 at
+least) was closed in one ~11-second sweep on 2026-08-12 with no comments, including issues for
+work that plainly isn't done (#45, the Network.framework migration; #56, the ControlMessage
+version byte). Decided 2026-08-13: the issues stay closed, and **the work list in §3 is the
+tracking home** for the items this review produced. Historical issue numbers below are references,
+not live trackers. (If GitHub tracking is revived later, cut issues from §3 at that point.)
 
-Two more decisions will come to you later, and are noted here so they don't surprise you:
+Two decisions will come to you later, and are noted here so they don't surprise you:
 
 - When someone picks up the `#if IOS` cleanup (§3, step 4), it needs a short written plan first —
   it touches shared code and both platforms at once, which is this repo's escalation trigger.
@@ -142,8 +143,9 @@ Open questions this review touches but does not settle (each already has a home)
 - The `net10.0` target's inability to enumerate streams, and what "platform-unsupported" means
   (`DEVICE-LIFECYCLE.md`).
 - Renaming `InvitationTimeout`; lifecycle gaps 1 & 4; the package rename.
-- New, from this review: the issue-tracker decision (§2), and whether the iOS state-change
-  handler's three-jobs-in-one-branch gets split during the migration.
+- New, from this review: whether the iOS state-change handler's three-jobs-in-one-branch gets
+  split during the migration. (The issue-tracker question was open here briefly and is now settled
+  — see §2.)
 
 ## 6. Evidence
 
