@@ -40,10 +40,12 @@ Two decisions will come to you later, and are noted here so they don't surprise 
 
 The work list, in order. Each step is small; the order matters.
 
-1. **Run the Android device tests on an emulator once.** They have never run on a device. They are
-   the safety net for every step below, so nothing else starts until this is green.
-   (`./eng/device-tests.ps1 -Platform android`; needs its own attention — likely an infra session,
-   not a code change.)
+1. ~~**Run the Android device tests on an emulator once.**~~ **Done 2026-08-13 — 17/17 green**
+   (commit `0707bb6`). The suite's 43 tests span both platforms; 17 are the Android-compiled share.
+   One fix was needed: DeviceRunners launches `<package>/.MainActivity`, but without an explicit
+   `Name` on `[Activity]` the Java binding generator emits `crc64<hash>.MainActivity`, so the
+   launch was rejected and the run died at "Starting the application..." with an empty logcat —
+   which reads as a hang. The safety net for steps 2–4 now exists.
 2. **Fix the cancellation-token bug (PA-2).** Android registers a pending connection handshake with
    a blank `CancellationToken.None`; iOS registers with the caller's real token. When the plugin is
    disposed mid-handshake, iOS callers can tell *their* operation was cancelled — Android callers
