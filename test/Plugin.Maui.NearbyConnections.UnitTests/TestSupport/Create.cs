@@ -61,7 +61,8 @@ static class Create
         => new(
             timeProvider ?? new FakeTimeProvider(),
             options ?? new NearbyOptions(),
-            NullLogger.Instance);
+            NullLogger.Instance,
+            new PeerRegistry());
 
     /// <summary>
     /// The inactivity timeout <see cref="Transfer"/> uses unless a test overrides it. Exposed so a

@@ -19,9 +19,11 @@ static partial class Create
             TimeProvider.System,
             options ?? DefaultOptions(),
             NullLogger.Instance,
-            new PeerRegistry { PeerKeyProvider = peerKeyProvider, Logger = NullLogger.Instance },
-            peerKeyProvider,
-            LocalPeerIdentityStore());
+            new PeerRegistry { PeerKeyProvider = peerKeyProvider, Logger = NullLogger.Instance })
+        {
+            PeerKeyProvider = peerKeyProvider,
+            LocalPeerIdentityStore = LocalPeerIdentityStore(),
+        };
     }
 
     /// <summary>A local <c>MCPeerID</c> standing in for a remote peer in a callback's arguments.</summary>

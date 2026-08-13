@@ -8,7 +8,7 @@ static partial class Create
     /// <param name="options">Options to wire the platform with, or <see langword="null"/> for the suite defaults.</param>
     /// <returns>The platform under test.</returns>
     public static PlatformNearby PlatformNearby(NearbyOptions? options = null)
-        => new(TimeProvider.System, options ?? DefaultOptions(), NullLogger.Instance);
+        => new(TimeProvider.System, options ?? DefaultOptions(), NullLogger.Instance, new PeerRegistry());
 
     /// <summary>A transfer update built via the SDK's Builder, the only construction path GMS exposes.</summary>
     /// <param name="payloadId">The payload the update refers to.</param>

@@ -7,5 +7,5 @@ public static partial class ServiceCollectionExtensions
         TimeProvider timeProvider,
         NearbyOptions options,
         ILogger logger)
-        => new(timeProvider, options, logger);
+        => new(timeProvider, options, logger, new PeerRegistry());
 }

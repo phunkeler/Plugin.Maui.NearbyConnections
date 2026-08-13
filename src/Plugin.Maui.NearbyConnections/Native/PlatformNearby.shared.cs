@@ -27,16 +27,11 @@ sealed partial class PlatformNearby : IPlatformNearby
     /// <see cref="NearbyDeviceRegistry"/>.
     /// </summary>
     /// <remarks>
-    /// Constructed by the registration code on iOS, where the registry also holds each device's
-    /// native <c>MCPeerID</c> and needs a <c>PeerKeyProvider</c> to derive its keys. Android's
-    /// endpoint id is already the handle, so there it needs nothing and is created here.
+    /// Constructed by the registration code on every platform. On iOS the registry also holds each
+    /// device's native <c>MCPeerID</c> and is wired with a <c>PeerKeyProvider</c> to derive its
+    /// keys; Android's endpoint id is already the handle, so there it needs nothing further.
     /// </remarks>
     internal PeerRegistry Peers { get; }
-
-#if IOS
-    internal PeerKeyProvider PeerKeyProvider { get; init; }
-    internal LocalPeerIdentityStore LocalPeerIdentityStore { get; init; }
-#endif
 
     int _disposeGuard;
 
@@ -44,33 +39,27 @@ sealed partial class PlatformNearby : IPlatformNearby
 
     readonly NearbyOptions _options;
 
+    /// <summary>
+    /// Constructs the platform layer. Platform-specific collaborators are not parameters here:
+    /// the iOS partial declares them as <c>required init</c> properties, so the compiler enforces
+    /// they are supplied at every iOS construction site and this signature stays uniform across
+    /// all three targets.
+    /// </summary>
     internal PlatformNearby(
         TimeProvider timeProvider,
         NearbyOptions options,
-        ILogger logger
-#if IOS
-        , PeerRegistry peers
-        , PeerKeyProvider peerKeyProvider
-        , LocalPeerIdentityStore localPeerIdentityStore
-#endif
-        )
+        ILogger logger,
+        PeerRegistry peers)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(peers);
 
         TimeProvider = timeProvider;
         _options = options;
         _logger = logger;
-#if IOS
-        ArgumentNullException.ThrowIfNull(peers);
-
         Peers = peers;
-        PeerKeyProvider = peerKeyProvider;
-        LocalPeerIdentityStore = localPeerIdentityStore;
-#else
-        Peers = new PeerRegistry();
-#endif
 
         _advertiseChannel = NewChannel<NearbyConnectionRequest>();
         _discoverChannel = NewChannel<NearbyDeviceEvent>();

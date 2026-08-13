@@ -13,6 +13,12 @@ sealed partial class PlatformNearby
     MCNearbyServiceBrowser? _mcBrowser;
     MCSession? _session;
 
+    /// <summary>Derives the stable string key this layer identifies an <c>MCPeerID</c> by.</summary>
+    internal required PeerKeyProvider PeerKeyProvider { get; init; }
+
+    /// <summary>Memoizes the local <c>MCPeerID</c> for the process lifetime.</summary>
+    internal required LocalPeerIdentityStore LocalPeerIdentityStore { get; init; }
+
     #region Advertising
 
     async Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)

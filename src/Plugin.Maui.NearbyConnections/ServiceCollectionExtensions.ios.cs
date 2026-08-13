@@ -16,12 +16,10 @@ public static partial class ServiceCollectionExtensions
         var localPeerIdentityStore = new LocalPeerIdentityStore(
             services.GetService<ILogger<LocalPeerIdentityStore>>() ?? NullLogger<LocalPeerIdentityStore>.Instance);
 
-        return new PlatformNearby(
-            timeProvider,
-            options,
-            logger,
-            peers,
-            peerKeyProvider,
-            localPeerIdentityStore);
+        return new PlatformNearby(timeProvider, options, logger, peers)
+        {
+            PeerKeyProvider = peerKeyProvider,
+            LocalPeerIdentityStore = localPeerIdentityStore,
+        };
     }
 }
