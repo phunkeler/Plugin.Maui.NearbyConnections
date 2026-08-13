@@ -30,6 +30,7 @@
     </PackageReference>
 
     <InternalsVisibleTo Include="Plugin.Maui.NearbyConnections.UnitTests" />
+    <InternalsVisibleTo Include="Plugin.Maui.NearbyConnections.DeviceTests" />
   </ItemGroup>
 
   <!-- Public API baseline wiring (per-TFM files, mode selection). See src/PublicAPI.targets. -->

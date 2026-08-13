@@ -55,7 +55,7 @@ sealed partial class PlatformNearby
     /// Both sides are now asked if they wish to accept or reject the connection before any data can be sent over this channel."
     /// -- <see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback#public-abstract-void-onconnectioninitiated-string-endpointid,-connectioninfo-connectioninfo">developers.google.com</see>
     /// </summary>
-    async Task OnConnectionInitiatedAsync(string endpointId, ConnectionInfo connectionInfo)
+    internal async Task OnConnectionInitiatedAsync(string endpointId, ConnectionInfo connectionInfo)
     {
         try
         {
@@ -117,7 +117,7 @@ sealed partial class PlatformNearby
     /// accepted the connection and may now send Payloads to each other. Otherwise, the connection was rejected."
     /// -- <see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback#public-abstract-void-onconnectionresult-string-endpointid,-connectionresolution-resolution">developers.google.com</see>
     /// </summary>
-    public void OnConnectionResult(string endpointId, ConnectionResolution resolution)
+    internal void OnConnectionResult(string endpointId, ConnectionResolution resolution)
     {
         try
         {
@@ -163,7 +163,7 @@ sealed partial class PlatformNearby
     /// "Called when a remote endpoint is disconnected or has become unreachable."
     /// -- <see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback#public-abstract-void-ondisconnected-string-endpointid">developers.google.com</see>
     /// </summary>
-    public void OnDisconnected(string endpointId)
+    internal void OnDisconnected(string endpointId)
     {
         try
         {
@@ -218,7 +218,7 @@ sealed partial class PlatformNearby
         _discoverClient = null;
     }
 
-    public void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
+    internal void OnEndpointFound(string endpointId, DiscoveredEndpointInfo info)
     {
         try
         {
@@ -234,7 +234,7 @@ sealed partial class PlatformNearby
         }
     }
 
-    public void OnEndpointLost(string endpointId)
+    internal void OnEndpointLost(string endpointId)
     {
         try
         {
@@ -264,7 +264,7 @@ sealed partial class PlatformNearby
 
     #endregion Discovery
 
-    void OnPayloadReceived(string endpointId, Payload payload)
+    internal void OnPayloadReceived(string endpointId, Payload payload)
     {
         try
         {
@@ -278,7 +278,7 @@ sealed partial class PlatformNearby
         }
     }
 
-    async Task OnPayloadTransferUpdate(string endpointId, PayloadTransferUpdate update)
+    internal async Task OnPayloadTransferUpdate(string endpointId, PayloadTransferUpdate update)
     {
         try
         {

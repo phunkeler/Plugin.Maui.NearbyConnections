@@ -475,7 +475,7 @@ sealed partial class PlatformNearby
 
     #region Session Callbacks
 
-    public void OnPeerStateChanged(MCPeerID peerID, MCSessionState state)
+    internal void OnPeerStateChanged(MCPeerID peerID, MCSessionState state)
     {
         try
         {
@@ -604,7 +604,7 @@ sealed partial class PlatformNearby
         }
     }
 
-    void OnDataReceived(NSData data, MCPeerID peerID)
+    internal void OnDataReceived(NSData data, MCPeerID peerID)
     {
         try
         {
@@ -650,7 +650,7 @@ sealed partial class PlatformNearby
         }
     }
 
-    void OnResourceStarted(string resourceName, MCPeerID fromPeer, NSProgress progress)
+    internal void OnResourceStarted(string resourceName, MCPeerID fromPeer, NSProgress progress)
     {
         var id = PeerKeyProvider.PeerKey(fromPeer);
 
@@ -709,7 +709,7 @@ sealed partial class PlatformNearby
         }
     }
 
-    void OnResourceFinished(
+    internal void OnResourceFinished(
         string resourceName,
         MCPeerID fromPeer,
         NSUrl? localUrl,
