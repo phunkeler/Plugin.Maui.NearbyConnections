@@ -38,10 +38,14 @@ Two decisions will come to you later, and are noted here so they don't surprise 
 
 ## 3. Where we're headed
 
+**Status: steps 1–4 are complete as of 2026-08-13.** What remains is step 5 — the items this
+review deliberately deferred to the Network.framework migration.
+
 The work list, in order. Each step is small; the order matters.
 
 1. ~~**Run the Android device tests on an emulator once.**~~ **Done 2026-08-13 — 17/17 green**
-   (commit `0707bb6`). The suite's 43 tests span both platforms; 17 are the Android-compiled share.
+   (commit `0707bb6`). The suite's 45 tests span both platforms: 17 compile into the Android build,
+   28 into the iOS one.
    One fix was needed: DeviceRunners launches `<package>/.MainActivity`, but without an explicit
    `Name` on `[Activity]` the Java binding generator emits `crc64<hash>.MainActivity`, so the
    launch was rejected and the run died at "Starting the application..." with an empty logcat —
@@ -53,13 +57,11 @@ The work list, in order. Each step is small; the order matters.
 3. ~~**Deduplicate the connection-teardown ritual (PA-3).**~~ **Done 2026-08-13** (commit
    `8b0dc19`). `ReleaseConnection` is the single copy; the iOS-only KVO cleanup hangs off a
    `PlatformReleaseConnection` partial — the platform hook pair, not an `#if`.
-4. **Remove the `#if IOS` from shared code (PA-1).** `PlatformNearby.shared.cs` carries `#if IOS`
-   around constructor parameters and two fields — the one place the repo's own rule ("platform code
-   lives in platform partials, never `#if` in shared logic") is broken, ironically right next to a
-   comment in `ServiceCollectionExtensions.cs` explaining why the rule matters. Fixing it means
-   reshaping the constructor across shared + both platforms, so it gets a short plan of its own and
-   goes last. Doing it before the migration means the migration later edits one platform file
-   instead of shared code.
+4. ~~**Remove the `#if IOS` from shared code (PA-1).**~~ **Done 2026-08-13** (commit `136326c`).
+   The constructor is uniform across all three targets; the iOS-only collaborators moved to the iOS
+   partial as `required init` properties. The runtime null-check became a compile-time guarantee
+   (CS9035), verified by deliberately omitting one. `PlatformNearby.shared.cs` now contains zero
+   `#if`.
 5. **Everything else waits for the Network.framework migration.** See §5 for what was deliberately
    dropped and why.
 
