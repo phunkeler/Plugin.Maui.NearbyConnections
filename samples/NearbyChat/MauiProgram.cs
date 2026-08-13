@@ -32,15 +32,12 @@ public static class MauiProgram
 
         builder.UseNearby(opts =>
         {
-            // AutoAcceptConnectionRequests is deliberately left off. This sample prompts, because
-            // that is the flow worth demonstrating: AdvertisingPageViewModel surfaces the request
-            // and AdvertisedDeviceViewModel answers it. Setting it to true would accept every
-            // inbound request from any device that knows the service id, skip
-            // NearbyDeviceStatus.RequestReceived entirely, and make both of those types dead code.
-#if IOS
+            // AutoAcceptConnectionRequests stays off deliberately: this sample demonstrates the
+            // prompt flow, and setting it true would accept every inbound request from any device
+            // that knows the service id, skip NearbyDeviceStatus.RequestReceived entirely, and make
+            // AdvertisingPageViewModel and AdvertisedDeviceViewModel dead code.
             opts.ServiceId = "nearbychat";
             opts.InvitationTimeout = TimeSpan.FromSeconds(10);
-#endif
         });
 
 #if DEBUG
