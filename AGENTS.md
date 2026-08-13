@@ -124,7 +124,11 @@ thread they arrived on. Nothing in the library marshals to a UI thread except
 A pending handshake is a `TaskCompletionSource` in `_connectionTcs`. **Every failure path must
 resolve or fault that TCS** or `AcceptAsync`/`ConnectAsync` hang forever.
 
-Platform code lives in platform partials, never `#if` in shared logic.
+Platform code lives in platform partials, never `#if` in shared logic. When shared code needs a
+platform-specific step, the sanctioned mechanism is the **platform hook pair**: shared code declares
+a `partial void` (e.g. `PlatformInitializeLifecycleObserver` in `NearbyImplementation.cs`), exactly
+one platform file implements it, and on every other platform the call compiles to nothing — no
+`#if`, no stub file, no unused parameter. See `docs/PLATFORM-ABSTRACTION-REVIEW.md` §3.5.
 
 ### Folder layout
 
@@ -269,6 +273,13 @@ unit suite, deliberately:
 - **Pass the device explicitly.** DeviceRunners' booted-simulator auto-detection is unreliable;
   `eng/device-tests.ps1` always passes `-p:DeviceRunnersDevice=<id>`. Do the same in any manual
   `dotnet test` invocation.
+
+The device tests deliberately do **not** test through `IPlatformNearby` — they drive the internal
+callbacks and assert on the internal channels/TCS map/registry. That surface (SDK callbacks in →
+channel/TCS/registry effects out) is a deliberate second contract, *the platform event surface*:
+it is what any new platform backend must satisfy, and the device tests are its executable
+specification. It is declared in prose, not as a type, on purpose — see
+`docs/PLATFORM-ABSTRACTION-REVIEW.md` §5 for the reasoning and the reversal trigger.
 
 ## Further reading
 
