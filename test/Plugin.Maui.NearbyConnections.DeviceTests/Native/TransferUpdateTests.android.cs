@@ -11,7 +11,7 @@ public class TransferUpdateTests
     public async Task InProgressUpdate_ForInboundPayload_ReachesInboundProgress()
     {
         // Arrange — live connection with a pending inbound payload.
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
@@ -38,7 +38,7 @@ public class TransferUpdateTests
     {
         // Arrange — live connection and a real file behind a real Java file handle.
         var receivedDir = Directory.CreateTempSubdirectory("devtest-received").FullName;
-        var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest", ReceivedFilesDirectory = receivedDir });
+        await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest", ReceivedFilesDirectory = receivedDir });
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 

@@ -11,7 +11,7 @@ public class ControlMessageDataTests
     public async Task DisconnectControlFrame_IsNotSurfacedAsPayload()
     {
         // Arrange — live connection, then a control frame instead of app data.
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, _) = await Create.ConnectedAsync(platform, peerId, cts.Token);
@@ -22,15 +22,14 @@ public class ControlMessageDataTests
         platform.OnDataReceived(controlData, peerId);
 
         // Assert — bounded negative read: nothing arrives on the receive stream.
-        var received = await Receive.FirstOrNullAsync(connection, TimeSpan.FromMilliseconds(250));
-        Assert.Null(received);
+        await Receive.AssertNothingReceivedAsync(connection);
     }
 
     [Fact]
     public async Task UnknownControlType_IsSwallowedWithoutThrowing()
     {
         // Arrange
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, _) = await Create.ConnectedAsync(platform, peerId, cts.Token);
@@ -43,7 +42,6 @@ public class ControlMessageDataTests
         platform.OnDataReceived(controlData, peerId);
 
         // Assert
-        var received = await Receive.FirstOrNullAsync(connection, TimeSpan.FromMilliseconds(250));
-        Assert.Null(received);
+        await Receive.AssertNothingReceivedAsync(connection);
     }
 }

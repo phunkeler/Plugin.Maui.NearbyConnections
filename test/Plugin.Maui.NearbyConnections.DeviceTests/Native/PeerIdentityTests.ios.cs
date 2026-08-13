@@ -56,10 +56,10 @@ public class PeerIdentityTests
     }
 
     [Fact]
-    public void Registry_TracksAndReleasesNativeHandle()
+    public async Task Registry_TracksAndReleasesNativeHandle()
     {
         // Arrange
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
 
         // Act

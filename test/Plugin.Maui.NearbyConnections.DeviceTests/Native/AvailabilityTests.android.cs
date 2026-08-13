@@ -11,7 +11,7 @@ public class AvailabilityTests
     public async Task CheckAvailability_CompletesWithoutThrowing()
     {
         // Arrange
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
         // Act

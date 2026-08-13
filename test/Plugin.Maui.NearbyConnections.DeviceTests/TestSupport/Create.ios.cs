@@ -38,6 +38,41 @@ static partial class Create
     public static LocalPeerIdentityStore LocalPeerIdentityStore() => new(NullLogger<LocalPeerIdentityStore>.Instance);
 
     /// <summary>
+    /// Waits until <paramref name="platform"/> has registered a pending handshake. Needed after
+    /// <c>AcceptAsync</c>, which registers its <c>_connectionTcs</c> entry asynchronously, so there
+    /// is no signal to await — only the entry's appearance.
+    /// </summary>
+    /// <param name="platform">The platform to observe.</param>
+    /// <param name="cancellationToken">Token to cancel the wait.</param>
+    public static async Task WaitForPendingHandshakeAsync(
+        PlatformNearby platform, CancellationToken cancellationToken)
+    {
+        while (platform._connectionTcs.IsEmpty)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Delay(10, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// A handshake pending on the advertise channel: the platform has a registered
+    /// <c>_connectionTcs</c> entry for <paramref name="peerId"/> awaiting a session-state change.
+    /// </summary>
+    /// <param name="platform">The platform to register the pending handshake on.</param>
+    /// <param name="peerId">The remote peer the handshake is keyed by.</param>
+    /// <returns>The source the platform will resolve or fault, and the peer key it is stored under.</returns>
+    public static (TaskCompletionSource<NearbyConnection> Tcs, string Id) PendingHandshake(
+        PlatformNearby platform, MCPeerID peerId)
+    {
+        var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var id = platform.Peers.PeerKeyProvider.PeerKey(peerId);
+
+        platform._connectionTcs[id] = (tcs, CancellationToken.None);
+
+        return (tcs, id);
+    }
+
+    /// <summary>
     /// A live connection, established by driving the real platform success callback rather than by
     /// reaching into the connection's own state.
     /// </summary>

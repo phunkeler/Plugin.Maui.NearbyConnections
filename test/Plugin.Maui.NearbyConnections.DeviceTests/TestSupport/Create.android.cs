@@ -60,6 +60,25 @@ static partial class Create
 #pragma warning restore CS0618
 
     /// <summary>
+    /// A handshake pending on the advertise channel: the platform has a registered
+    /// <c>_connectionTcs</c> entry for <paramref name="id"/> awaiting a connection result.
+    /// </summary>
+    /// <param name="platform">The platform to register the pending handshake on.</param>
+    /// <param name="id">The endpoint id the handshake is keyed by.</param>
+    /// <param name="displayName">The remote device's display name, as GMS reports it.</param>
+    /// <returns>The source the platform will resolve or fault.</returns>
+    public static TaskCompletionSource<NearbyConnection> PendingHandshake(
+        PlatformNearby platform, string id = "endpoint-1", string displayName = "Alice")
+    {
+        var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        platform.Peers.Record(id, displayName);
+        platform._connectionTcs[id] = (tcs, CancellationToken.None);
+
+        return tcs;
+    }
+
+    /// <summary>
     /// A live connection, established by driving the real platform success callback rather than by
     /// reaching into the connection's own state.
     /// </summary>

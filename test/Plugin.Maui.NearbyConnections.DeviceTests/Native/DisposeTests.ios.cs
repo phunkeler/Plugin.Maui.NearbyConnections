@@ -10,43 +10,24 @@ public class DisposeTests
     [Fact]
     public async Task DisposeMidHandshake_CancelsPendingAccept()
     {
-        // Arrange — a real inbound handshake, paused between "request surfaced" and "peer accepted".
-        var platform = Create.PlatformNearby();
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-
-#if ANDROID
-        const string id = "endpoint-1";
-        await platform.OnConnectionInitiatedAsync(id, Create.ConnectionInfo());
-        _ = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
-        var (tcs, _) = platform._connectionTcs[id];
-
-        // Act
-        await platform.DisposeAsync();
-
-        // Assert
-        Assert.True(tcs.Task.IsCanceled);
-#elif IOS
+        // Arrange — a real inbound invitation accepted, so AcceptAsync is awaiting a handshake that
+        // will never complete: it registers the TCS and constructs the real MCSession.
+        await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         platform.DidReceiveInvitationFromPeer(
             advertiser: null!,
             peerID: peerId,
             context: null,
             invitationHandler: (_, _) => { });
         var request = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
-
-        // AcceptAsync registers the TCS, constructs the real MCSession, and awaits the handshake
-        // that will now never complete.
         var acceptTask = request.AcceptAsync(cts.Token);
-        while (platform._connectionTcs.IsEmpty && !cts.IsCancellationRequested)
-        {
-            await Task.Delay(10, cts.Token);
-        }
+        await Create.WaitForPendingHandshakeAsync(platform, cts.Token);
 
         // Act
         await platform.DisposeAsync();
 
         // Assert
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => acceptTask);
-#endif
     }
 }

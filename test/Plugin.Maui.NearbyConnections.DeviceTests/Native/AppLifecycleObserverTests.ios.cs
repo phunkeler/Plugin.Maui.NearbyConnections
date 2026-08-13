@@ -19,15 +19,14 @@ public class AppLifecycleObserverTests
     public async Task BackgroundNotification_DeliveredToLiveObserver_NoThrow()
     {
         // Arrange
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         var session = new NearbyImplementation(platform, new NearbyOptions { ServiceId = "devtest" }, NullLogger.Instance);
         using var observer = new AppLifecycleObserver(session, NullLogger.Instance);
 
-        // Act — the real notification the OS posts on backgrounding.
+        // Act — the real notification the OS posts on backgrounding, plus a beat for the
+        // fire-and-forget teardown it triggers: StopAsync is not awaitable from here.
         NSNotificationCenter.DefaultCenter.PostNotificationName(
             UIApplication.DidEnterBackgroundNotification, null);
-
-        // Give the fire-and-forget teardown a beat to run on this runtime.
         await Task.Delay(100, TestContext.Current.CancellationToken);
 
         // Assert — the session reports stopped states (it was never started; the point is the
@@ -37,10 +36,10 @@ public class AppLifecycleObserverTests
     }
 
     [Fact]
-    public void Dispose_IsIdempotentAndUnregisters()
+    public async Task Dispose_IsIdempotentAndUnregisters()
     {
         // Arrange
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         var session = new NearbyImplementation(platform, new NearbyOptions { ServiceId = "devtest" }, NullLogger.Instance);
         var observer = new AppLifecycleObserver(session, NullLogger.Instance);
 

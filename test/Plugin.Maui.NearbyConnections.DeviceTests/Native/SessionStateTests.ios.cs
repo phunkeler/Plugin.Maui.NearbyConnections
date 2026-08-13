@@ -8,10 +8,10 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 public class SessionStateTests
 {
     [Fact]
-    public void Connecting_LeavesHandshakePending()
+    public async Task Connecting_LeavesHandshakePending()
     {
         // Arrange
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
         var id = platform.Peers.PeerKeyProvider.PeerKey(peerId);
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -28,7 +28,7 @@ public class SessionStateTests
     public async Task ConnectingThenNotConnected_FaultsHandshake()
     {
         // Arrange — the invitation-declined shape: Connecting arrives, then NotConnected.
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
         var id = platform.Peers.PeerKeyProvider.PeerKey(peerId);
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);

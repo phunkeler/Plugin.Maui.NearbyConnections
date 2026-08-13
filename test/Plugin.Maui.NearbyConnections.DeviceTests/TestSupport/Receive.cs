@@ -22,25 +22,24 @@ static class Receive
     }
 
     /// <summary>
-    /// The first payload the connection yields within <paramref name="window"/>, or
-    /// <see langword="null"/> if none arrives — the negative-assertion form.
+    /// Asserts nothing reaches the connection's receive stream. Proving absence costs the full
+    /// window, so it is deliberately short.
     /// </summary>
-    public static async Task<NearbyPayload?> FirstOrNullAsync(NearbyConnection connection, TimeSpan window)
+    /// <param name="connection">The connection whose receive stream must stay empty.</param>
+    public static async Task AssertNothingReceivedAsync(NearbyConnection connection)
     {
-        using var cts = new CancellationTokenSource(window);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
 
         try
         {
             await foreach (var payload in connection.ReceiveAsync(cts.Token))
             {
-                return payload;
+                Assert.Fail($"Expected nothing to be routed, but received {payload.GetType().Name}.");
             }
         }
         catch (OperationCanceledException)
         {
-            // The window elapsed with nothing routed.
+            // The window elapsed with nothing routed — the expected outcome.
         }
-
-        return null;
     }
 }

@@ -13,7 +13,7 @@ public class ResourceTransferTests
     {
         // Arrange — a live connection and a real source file where MPC would have staged it.
         var receivedDir = Directory.CreateTempSubdirectory("devtest-received").FullName;
-        var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest", ReceivedFilesDirectory = receivedDir });
+        await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest", ReceivedFilesDirectory = receivedDir });
         using var peerId = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, _) = await Create.ConnectedAsync(platform, peerId, cts.Token);
@@ -39,7 +39,7 @@ public class ResourceTransferTests
     public async Task ResourceFinishedWithError_RoutesNothing()
     {
         // Arrange
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, _) = await Create.ConnectedAsync(platform, peerId, cts.Token);
@@ -49,15 +49,14 @@ public class ResourceTransferTests
         platform.OnResourceFinished("photo.bin", peerId, localUrl: null, error);
 
         // Assert
-        var received = await Receive.FirstOrNullAsync(connection, TimeSpan.FromMilliseconds(250));
-        Assert.Null(received);
+        await Receive.AssertNothingReceivedAsync(connection);
     }
 
     [Fact]
     public async Task ResourceStarted_RealKvoProgressReachesInboundProgress()
     {
         // Arrange — a live connection with an inbound-progress observer attached.
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, _) = await Create.ConnectedAsync(platform, peerId, cts.Token);
@@ -71,14 +70,10 @@ public class ResourceTransferTests
         platform.OnResourceStarted("photo.bin", peerId, progress);
         progress.CompletedUnitCount = 50;
 
-        var update = await reported.Task.WaitAsync(cts.Token);
-
         // Assert
+        var update = await reported.Task.WaitAsync(cts.Token);
         Assert.Equal(NearbyTransferStatus.InProgress, update.Status);
         Assert.Equal(100, update.TotalBytes);
         Assert.Equal(50, update.BytesTransferred);
-
-        // Cleanup the KVO registration through the path a dropped peer takes.
-        platform.OnPeerStateChanged(peerId, MCSessionState.NotConnected);
     }
 }

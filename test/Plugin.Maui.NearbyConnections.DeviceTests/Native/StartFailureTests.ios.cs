@@ -12,7 +12,7 @@ public class StartFailureTests
     public async Task DidNotStartAdvertising_FaultsAdvertiseChannel()
     {
         // Arrange
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         using var error = new NSError((NSString)"devtest", code: 42);
 
         // Act
@@ -28,7 +28,7 @@ public class StartFailureTests
     public async Task DidNotStartBrowsing_FaultsDiscoverChannel()
     {
         // Arrange
-        var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformNearby();
         using var error = new NSError((NSString)"devtest", code: 42);
 
         // Act
