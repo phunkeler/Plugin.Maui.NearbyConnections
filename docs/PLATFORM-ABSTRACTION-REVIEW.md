@@ -46,17 +46,13 @@ The work list, in order. Each step is small; the order matters.
    `Name` on `[Activity]` the Java binding generator emits `crc64<hash>.MainActivity`, so the
    launch was rejected and the run died at "Starting the application..." with an empty logcat —
    which reads as a hang. The safety net for steps 2–4 now exists.
-2. **Fix the cancellation-token bug (PA-2).** Android registers a pending connection handshake with
-   a blank `CancellationToken.None`; iOS registers with the caller's real token. When the plugin is
-   disposed mid-handshake, iOS callers can tell *their* operation was cancelled — Android callers
-   get a cancellation with no provenance. Fix: one small shared helper (`RegisterConnectionTcs`)
-   next to the existing resolve/fault helpers in `PlatformNearby.events.cs`, and Android updates
-   the entry with the real token once it has one. This is a behavior fix; its commit message
-   should say so.
-3. **Deduplicate the connection-teardown ritual (PA-3).** The same remove-connection /
-   complete-receive / clear-warning sequence is copy-pasted at four sites (two per platform). Make
-   it one helper. The future iOS rewrite then inherits the helper instead of re-inventing the
-   ritual.
+2. ~~**Fix the cancellation-token bug (PA-2).**~~ **Done 2026-08-13** (commit `06c9a77`).
+   `RegisterConnectionTcs` now sits beside the resolve/fault helpers, with
+   `AttachConnectionTcsToken` for Android's late-arriving token; all three registration sites route
+   through it.
+3. ~~**Deduplicate the connection-teardown ritual (PA-3).**~~ **Done 2026-08-13** (commit
+   `8b0dc19`). `ReleaseConnection` is the single copy; the iOS-only KVO cleanup hangs off a
+   `PlatformReleaseConnection` partial — the platform hook pair, not an `#if`.
 4. **Remove the `#if IOS` from shared code (PA-1).** `PlatformNearby.shared.cs` carries `#if IOS`
    around constructor parameters and two fields — the one place the repo's own rule ("platform code
    lives in platform partials, never `#if` in shared logic") is broken, ironically right next to a
