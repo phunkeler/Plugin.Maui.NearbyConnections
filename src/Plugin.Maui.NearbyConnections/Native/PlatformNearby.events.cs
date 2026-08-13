@@ -11,12 +11,12 @@ sealed partial class PlatformNearby
 
             if (!written)
             {
-                LogWriteDeviceFoundChannelCompleted(device.Id);
+                LogWriteChannelCompleted(nameof(WriteDeviceFound), device.Id);
             }
         }
         catch (Exception ex)
         {
-            LogWriteDeviceFoundError(device.Id, ex);
+            LogWriteError(nameof(WriteDeviceFound), device.Id, ex);
         }
     }
 
@@ -29,12 +29,12 @@ sealed partial class PlatformNearby
 
             if (!written)
             {
-                LogWriteDeviceLostChannelCompleted(device.Id);
+                LogWriteChannelCompleted(nameof(WriteDeviceLost), device.Id);
             }
         }
         catch (Exception ex)
         {
-            LogWriteDeviceLostError(device.Id, ex);
+            LogWriteError(nameof(WriteDeviceLost), device.Id, ex);
         }
     }
 
@@ -47,13 +47,52 @@ sealed partial class PlatformNearby
 
             if (!written)
             {
-                LogWriteConnectionRequestChannelCompleted(request.RemoteDevice.Id);
+                LogWriteChannelCompleted(nameof(WriteConnectionRequest), request.RemoteDevice.Id);
                 _ = request.RejectAsync();
             }
         }
         catch (Exception ex)
         {
-            LogWriteConnectionRequestError(request.RemoteDevice.Id, ex);
+            LogWriteError(nameof(WriteConnectionRequest), request.RemoteDevice.Id, ex);
+        }
+    }
+
+    /// <summary>
+    /// Registers a pending handshake for <paramref name="peerId"/> and returns the source the
+    /// platform's terminal callback will resolve or fault.
+    /// </summary>
+    /// <remarks>
+    /// The completion side of the handshake lifecycle has <see cref="ResolveConnectionTcs"/> and
+    /// <see cref="FaultConnectionTcs"/>; this is the registration side, so all three sit together.
+    /// <para>
+    /// <paramref name="cancellationToken"/> is the token <c>DisposeAsync</c> attributes its
+    /// cancellation to. Pass the caller's token whenever one exists — a handshake registered with
+    /// <see cref="CancellationToken.None"/> produces an <see cref="OperationCanceledException"/>
+    /// the awaiter cannot correlate to its own operation. Android registers before any caller
+    /// token exists (the request arrives on a platform callback), so it re-registers via
+    /// <see cref="AttachConnectionTcsToken"/> once <c>AcceptAsync</c> supplies one.
+    /// </para>
+    /// </remarks>
+    internal TaskCompletionSource<NearbyConnection> RegisterConnectionTcs(
+        string peerId, CancellationToken cancellationToken)
+    {
+        var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _connectionTcs[peerId] = (tcs, cancellationToken);
+
+        return tcs;
+    }
+
+    /// <summary>
+    /// Re-points an already-registered handshake at <paramref name="cancellationToken"/>, for the
+    /// platform that learns the caller's token only after the request has been surfaced. Leaves a
+    /// handshake that has already completed alone.
+    /// </summary>
+    internal void AttachConnectionTcsToken(string peerId, CancellationToken cancellationToken)
+    {
+        if (_connectionTcs.TryGetValue(peerId, out var entry))
+        {
+            _connectionTcs.TryUpdate(peerId, (entry.Tcs, cancellationToken), entry);
         }
     }
 
@@ -69,7 +108,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogResolveConnectionTcsError(peerId, ex);
+            LogWriteError(nameof(ResolveConnectionTcs), peerId, ex);
         }
     }
 
@@ -84,9 +123,36 @@ sealed partial class PlatformNearby
         }
         catch (Exception innerEx)
         {
-            LogFaultConnectionTcsError(peerId, innerEx);
+            LogWriteError(nameof(FaultConnectionTcs), peerId, innerEx);
         }
     }
+
+    /// <summary>
+    /// Releases the platform's bookkeeping for a connection that has ended: removes it from
+    /// <c>_activeConnections</c>, ends its receive stream, and clears the unobserved-payload
+    /// warning latch. Platform-specific cleanup hangs off <see cref="PlatformReleaseConnection"/>.
+    /// </summary>
+    /// <remarks>
+    /// Safe to call for a peer with no active connection, and safe to call twice: the
+    /// <c>TryRemove</c> guard means <c>CompleteReceive</c> runs at most once per connection.
+    /// </remarks>
+    internal void ReleaseConnection(string peerId)
+    {
+        if (_activeConnections.TryRemove(peerId, out var connection))
+        {
+            connection.CompleteReceive();
+        }
+
+        _unobservedWarned.TryRemove(peerId, out _);
+
+        PlatformReleaseConnection(peerId);
+    }
+
+    /// <summary>
+    /// Platform-specific half of <see cref="ReleaseConnection"/>. Implemented on iOS to drop the
+    /// peer's KVO progress observers; on other platforms the call compiles away.
+    /// </summary>
+    partial void PlatformReleaseConnection(string peerId);
 
     internal void WritePayload(string peerId, NearbyPayload payload)
     {
@@ -107,7 +173,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogWritePayloadError(peerId, ex);
+            LogWriteError(nameof(WritePayload), peerId, ex);
         }
     }
 

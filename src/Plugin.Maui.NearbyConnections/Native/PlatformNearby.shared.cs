@@ -171,8 +171,7 @@ sealed partial class PlatformNearby : IPlatformNearby
         // uniform across all three targets.
         cancellationToken.ThrowIfCancellationRequested();
 
-        var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _connectionTcs[device.Id] = (tcs, cancellationToken);
+        var tcs = RegisterConnectionTcs(device.Id, cancellationToken);
 
         // A plugin-owned deadline, not a platform one. iOS has a native invitation timeout, but
         // Google's Nearby Connections has none at all: requestConnection's Task completes when the
