@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>$(MobileTargetFrameworks)</TargetFrameworks>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <RootNamespace>Plugin.Maui.NearbyConnections.DeviceTests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.extensibility.core" PrivateAssets="compile" />
+    <PackageReference Include="xunit.v3.assert" PrivateAssets="compile" />
+    <!-- The à-la-carte xunit.v3.* packages carry no analyzers (only the xunit.v3 metapackage pulls
+         them in), so reference them explicitly. PrivateAssets="all", not "compile" — "compile"
+         strips the analyzer assets and the rules silently stop running. -->
+    <PackageReference Include="xunit.analyzers" PrivateAssets="all" />
+    <ProjectReference Include="../../src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj" />
+  </ItemGroup>
+
+  <!-- Same filename-suffix multi-targeting the plugin uses (src/Directory.Build.targets is scoped
+       to src/, so the rules are restated here). -->
+  <ItemGroup Condition="'$(IsTargetPlatformAndroid)' == 'false'">
+    <Compile Remove="**\*.android.cs" />
+    <None Include="**\*.android.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(IsTargetPlatformIos)' == 'false'">
+    <Compile Remove="**\*.ios.cs" />
+    <None Include="**\*.ios.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="Plugin.Maui.NearbyConnections" />
+    <Using Include="Android.Gms.Common.Apis" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
+    <Using Include="Android.Gms.Nearby.Connection" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
+    <Using Include="MultipeerConnectivity" Condition="'$(IsTargetPlatformIos)' == 'true'" />
+  </ItemGroup>
+
+</Project>

@@ -17,6 +17,11 @@ dotnet build src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csp
 # Unit tests — `dotnet run`, NOT `dotnet test` (VSTest is unsupported on the .NET 10 SDK)
 dotnet run --project test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj
 
+# Device tests — the platform partials on a real Android emulator / iOS simulator, no radio.
+# Boots a device if none is running; TRX results land in artifacts/. iOS leg needs macOS + Xcode.
+# (This is the one place `dotnet test` DOES work: DeviceRunners.Testing.Targets replaces VSTest.)
+./eng/device-tests.ps1 -Platform all      # or: android | ios
+
 # Coverage — dotnet-coverage is pinned in .config/dotnet-tools.json, not globally installed.
 # `dotnet tool restore` once per clone; the tool then runs as `dotnet dotnet-coverage`, not bare.
 # test/coverage.runsettings scopes collection to the plugin DLL, excluding test/sample code.
@@ -33,7 +38,8 @@ open coveragereport/index.html   # macOS; use `start` on Windows, `xdg-open` on 
 
 ## The things people get wrong
 
-- **`dotnet test` does not work here.** Use `dotnet run --project`.
+- **`dotnet test` does not work for the unit suite.** Use `dotnet run --project`. (The device-test
+  runner is the one exception — `DeviceRunners.Testing.Targets` replaces VSTest for it.)
 - **The public API surface is build-enforced.** Anything newly `public` fails the build until
   recorded in `src/Plugin.Maui.NearbyConnections/PublicAPI/{tfm}/PublicAPI.Unshipped.txt`. Build,
   read the RS0016 errors, add the listed lines. Never suppress the analyzer to go green.
@@ -241,8 +247,28 @@ not `AccessibilityId` — MAUI clears `content-desc`. Never change an `x:Name` o
 without updating that suite. It is historically flaky for environment reasons; triage a red run
 against known flakes before blaming a code change.
 
-Platform partials have **no automated unit coverage** — they need real SDKs. The UI suite is the
-only automated check on that code.
+**Device tests** (`test/Plugin.Maui.NearbyConnections.DeviceTests{,.Runner}/`) are the automated
+check on the platform partials — xUnit v3 hosted in a MAUI runner app via DeviceRunners, driven by
+`eng/device-tests.ps1` on an Android emulator / iOS simulator (locally and in `device-tests.yml`).
+No radio, no multi-device: tests invoke the internal callbacks (`OnConnectionResult`,
+`OnPeerStateChanged`, …) with directly-constructed SDK argument objects — the same pattern
+dotnet/maui's Essentials device tests use — and assert through the channels/TCS/registry the
+callbacks feed. Multi-device flows remain the UI suite's job. Conventions that differ from the
+unit suite, deliberately:
+
+- **xUnit (`[Fact]`), not MSTest.** MSTest has no maintained on-device runner (MSTestX predates
+  modern `net*-android` and fails `XA1039`); DeviceRunners supports xUnit v3 with `dotnet test`
+  TRX collection. AAA structure and TestSupport rules still apply.
+- **Some GMS argument types only construct through deprecated-but-shipped ctors**
+  (`ConnectionResolution`, `ConnectionInfo`, `DiscoveredEndpointInfo`). Each such call site wraps
+  exactly one line in `#pragma warning disable CS0618` — if a binding bump removes the ctor, the
+  suite fails loudly at compile time, which is the failure mode we want. Never widen the pragma.
+- **No on-device code coverage.** `dotnet-coverage`/coverlet cannot instrument the Android/iOS app
+  runtimes; the deliverable is TRX results (in `artifacts/`, surfaced as CI checks), not a
+  coverage delta. Do not add a coverage step to the device jobs — it will not work.
+- **Pass the device explicitly.** DeviceRunners' booted-simulator auto-detection is unreliable;
+  `eng/device-tests.ps1` always passes `-p:DeviceRunnersDevice=<id>`. Do the same in any manual
+  `dotnet test` invocation.
 
 ## Further reading
 

@@ -74,6 +74,9 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
+# DeviceRunners `dotnet test` output (TRX + device logs)
+test-results/
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 
