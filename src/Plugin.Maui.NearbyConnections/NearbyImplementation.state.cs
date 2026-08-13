@@ -1,23 +1,7 @@
 namespace Plugin.Maui.NearbyConnections;
 
-/// <summary>
-/// Device-state projection for <see cref="NearbyImplementation"/>. Everything that records what a
-/// platform callback reported lives here.
-/// </summary>
-/// <remarks>
-/// Nothing in this file marshals to a UI thread. <see cref="NearbyDeviceRegistry"/> is thread-safe
-/// by construction, so a platform callback records what it saw on whatever thread it arrived on and
-/// the change is fanned out from there. Consumers that need a UI thread apply that themselves —
-/// see <see cref="NearbyDeviceCollection"/>.
-/// </remarks>
 sealed partial class NearbyImplementation
 {
-    /// <summary>
-    /// Maps a handshake failure to the reason it is reported as. The exception type already carries
-    /// the distinction, so nothing needs to be plumbed up from the platform layer:
-    /// <see cref="NearbyConnectionTimeoutException"/> is thrown only when the plugin's own
-    /// invitation deadline fired and the caller's token was not cancelled.
-    /// </summary>
     static EndReason ReasonFor(Exception exception) => exception switch
     {
         OperationCanceledException => EndReason.Cancelled,
@@ -25,14 +9,6 @@ sealed partial class NearbyImplementation
         _ => EndReason.Failed,
     };
 
-    /// <summary>
-    /// The one place a device's state changes. Every transition goes through here so there is a
-    /// single site to log, break on, or extend.
-    /// </summary>
-    /// <remarks>
-    /// A no-op when the device is unknown to the session: a transition for a device that was never
-    /// added, or has since been removed, has nothing to update.
-    /// </remarks>
     void Transition(NearbyDevice device, NearbyDeviceStatus status, ConnectionRole? role)
         => _registry.Update(
             device.Id,
@@ -52,22 +28,16 @@ sealed partial class NearbyImplementation
                 await OnRequestReceivedAsync(request).ConfigureAwait(false);
             }
 
-            // The stream ended cleanly without ever resolving started (e.g. immediately cancelled
-            // before the platform reported anything) — resolve it so the caller never hangs.
             started.TrySetResult();
         }
         catch (OperationCanceledException)
         {
-            // Normal exit — StopAdvertisingAsync cancelled the pump.
             started.TrySetCanceled(cancellationToken);
         }
         catch (Exception ex)
         {
             IsAdvertising = false;
 
-            // A fault that started already resolved successfully is a later, post-start failure —
-            // today's logged path. A fault that wins the race is the start failure itself, and the
-            // caller awaiting started observes it directly instead.
             if (!started.TrySetException(ex))
             {
                 LogAdvertisePumpFailed(ex);
@@ -91,7 +61,6 @@ sealed partial class NearbyImplementation
         }
         catch (OperationCanceledException)
         {
-            // Normal exit — StopDiscoveryAsync cancelled the pump.
             started.TrySetCanceled(cancellationToken);
         }
         catch (Exception ex)
@@ -105,9 +74,6 @@ sealed partial class NearbyImplementation
         }
     }
 
-    /// <summary>
-    /// A device came into view, or went out of it.
-    /// </summary>
     void OnDeviceEvent(NearbyDeviceEvent deviceEvent)
     {
         var device = deviceEvent.Device;
@@ -119,9 +85,6 @@ sealed partial class NearbyImplementation
                 break;
 
             case NearbyDeviceEventType.Lost:
-                // A connected device that goes out of discovery range is still connected — dropping
-                // it here would delete a live conversation from the UI. Only remove devices that
-                // are merely visible.
                 if (_registry.TryGet(device.Id, out var known)
                     && known.Status is NearbyDeviceStatus.Visible)
                 {
@@ -135,11 +98,6 @@ sealed partial class NearbyImplementation
         }
     }
 
-    /// <summary>
-    /// An inbound request arrived. The device is surfaced before its status changes, so a consumer
-    /// watching <see cref="INearbyDevices.Changes"/> sees the device appear and then transition
-    /// rather than a status change for a device it has never heard of.
-    /// </summary>
     async Task OnRequestReceivedAsync(NearbyConnectionRequest request)
     {
         var device = request.RemoteDevice;
@@ -157,25 +115,6 @@ sealed partial class NearbyImplementation
         Transition(device, NearbyDeviceStatus.RequestReceived, role: null);
     }
 
-    /// <summary>
-    /// Answers an inbound request on the application's behalf when
-    /// <see cref="NearbyOptions.AutoAcceptConnectionRequests"/> is set.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The request is never published to <c>_pendingRequests</c>, so
-    /// <see cref="NearbyDeviceStatus.RequestReceived"/> is not observable in this mode. The device
-    /// is surfaced and moved to <see cref="NearbyDeviceStatus.Connecting"/> before the platform
-    /// call, so a consumer watching device changes sees the same progression as an outbound
-    /// connection rather than a row that appears already connected.
-    /// </para>
-    /// <para>
-    /// A failure here resets the device to <see cref="NearbyDeviceStatus.Visible"/> exactly as the
-    /// manual <see cref="AcceptAsync"/> path does. There is no caller to rethrow to — no application
-    /// code asked for this accept — so the exception is logged and swallowed rather than escaping
-    /// into the advertise pump, where it would tear down advertising for one failed handshake.
-    /// </para>
-    /// </remarks>
     async Task AutoAcceptAsync(NearbyConnectionRequest request, NearbyDevice device)
     {
         _registry.AddIfAbsent(device);
@@ -195,10 +134,6 @@ sealed partial class NearbyImplementation
         }
     }
 
-    /// <summary>
-    /// A connection was established, from either side. Publishes the connection, moves the device to
-    /// <see cref="NearbyDeviceStatus.Connected"/>, and arms the drop notification.
-    /// </summary>
     void OnConnected(NearbyDevice device, NearbyConnection connection, ConnectionRole role)
     {
         _activeConnections[device.Id] = connection;
@@ -207,9 +142,6 @@ sealed partial class NearbyImplementation
         _ = WatchDisconnectAsync(device, connection);
     }
 
-    /// <summary>
-    /// Awaits the connection's own disconnect signal and projects it into device state.
-    /// </summary>
     async Task WatchDisconnectAsync(NearbyDevice device, NearbyConnection connection)
     {
         try
@@ -230,17 +162,9 @@ sealed partial class NearbyImplementation
         }
     }
 
-    /// <summary>
-    /// Returns a device to <see cref="NearbyDeviceStatus.Visible"/> after a dropped connection, or a
-    /// failed, cancelled, or rejected handshake.
-    /// </summary>
     void ResetToVisible(NearbyDevice device)
         => Transition(device, NearbyDeviceStatus.Visible, role: null);
 
-    /// <summary>
-    /// Starts the discovery refresh loop, if the options ask for one. Caller must hold
-    /// <c>_stateGate</c>.
-    /// </summary>
     void StartRefreshLoop()
     {
         if (_options.DiscoveryRefreshInterval is not { } interval)
@@ -401,10 +325,6 @@ sealed partial class NearbyImplementation
         return started;
     }
 
-    /// <summary>
-    /// Cancels <paramref name="pump"/>, waits for it to drain, and clears its flag. Caller must
-    /// hold <c>_stateGate</c>.
-    /// </summary>
     static async Task StopPumpAsync(PumpState pump)
     {
         var cts = pump.Cts;
@@ -420,27 +340,13 @@ sealed partial class NearbyImplementation
 
         if (task is not null)
         {
-            // The pump swallows cancellation, so this completes rather than throwing. Awaiting it
-            // means the platform has actually stopped by the time this returns.
             await task.ConfigureAwait(false);
         }
 
         cts?.Dispose();
-
         pump.SetFlag(false);
     }
 
-    /// <summary>
-    /// One of the session's two background pumps: the stream-draining task, the source that stops
-    /// it, and the flag it publishes.
-    /// </summary>
-    /// <param name="start">
-    /// Starts the pump task for the supplied <see cref="TaskCompletionSource"/> and cancellation
-    /// token. The task completion source resolves once the platform start phase is known.
-    /// </param>
-    /// <param name="setFlag">
-    /// Publishes <see cref="INearby.IsAdvertising"/> or <see cref="INearby.IsDiscovering"/>.
-    /// </param>
     sealed class PumpState(Func<TaskCompletionSource, CancellationToken, Task> start, Action<bool> setFlag)
     {
         public Func<TaskCompletionSource, CancellationToken, Task> Start { get; } = start;

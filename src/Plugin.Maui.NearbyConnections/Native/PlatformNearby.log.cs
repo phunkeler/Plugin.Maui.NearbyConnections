@@ -1,7 +1,39 @@
 namespace Plugin.Maui.NearbyConnections;
 
+// The level contract for this library is documented for consumers in docs/LOGGING.md. In short:
+// Trace = per-payload, Debug = per-device, Information = state changes the app cannot otherwise
+// observe, Warning = recovered, Error = an operation is degraded. Keep new messages consistent
+// with that table, and update the doc when adding a message a consumer would filter on.
 sealed partial class PlatformNearby
 {
+    // -------------------------------------------------------------------------
+    // Shared failure shapes
+    //
+    // These three replace what were 25 near-identical declarations differing only in a hardcoded
+    // method name. The name is now a {Callback}/{Writer} property, so a consumer alerting on
+    // "a platform callback threw" writes one EventId filter instead of thirteen, and structured
+    // sinks can still group by name. Pass the name with nameof() — it is a compile-time constant,
+    // so this costs nothing at runtime and cannot drift from the method it names.
+    // -------------------------------------------------------------------------
+
+    [LoggerMessage(
+        EventId = 2027,
+        Level = LogLevel.Error,
+        Message = "Platform callback {Callback} failed for device {DeviceId}. The event it carried was lost.")]
+    partial void LogCallbackError(string callback, string deviceId, Exception ex);
+
+    [LoggerMessage(
+        EventId = 2070,
+        Level = LogLevel.Debug,
+        Message = "{Writer}: the stream was already completed, so the event for device {DeviceId} was dropped.")]
+    partial void LogWriteChannelCompleted(string writer, string deviceId);
+
+    [LoggerMessage(
+        EventId = 2071,
+        Level = LogLevel.Error,
+        Message = "{Writer}: unexpected error handling the event for device {DeviceId}.")]
+    partial void LogWriteError(string writer, string deviceId, Exception ex);
+
     // -------------------------------------------------------------------------
     // Devices
     // -------------------------------------------------------------------------
@@ -59,29 +91,8 @@ sealed partial class PlatformNearby
     [LoggerMessage(EventId = 2026, Level = LogLevel.Error, Message = "Failed to process incoming payload: EndpointId={EndpointId}, PayloadId={PayloadId}")]
     partial void LogIncomingPayloadProcessingFailed(string endpointId, long payloadId);
 
-    [LoggerMessage(EventId = 2027, Level = LogLevel.Error, Message = "OnConnectionInitiated callback error: EndpointId={EndpointId}")]
-    partial void LogOnConnectionInitiatedError(string endpointId, Exception ex);
-
-    [LoggerMessage(EventId = 2028, Level = LogLevel.Error, Message = "OnConnectionResult callback error: EndpointId={EndpointId}")]
-    partial void LogOnConnectionResultError(string endpointId, Exception ex);
-
     [LoggerMessage(EventId = 2029, Level = LogLevel.Warning, Message = "Failed to clear stale connection state for endpoint: EndpointId={EndpointId}")]
     partial void LogFailedToClearStaleConnectionState(string endpointId, Exception ex);
-
-    [LoggerMessage(EventId = 2030, Level = LogLevel.Error, Message = "OnDisconnected callback error: EndpointId={EndpointId}")]
-    partial void LogOnDisconnectedError(string endpointId, Exception ex);
-
-    [LoggerMessage(EventId = 2031, Level = LogLevel.Error, Message = "OnEndpointFound callback error: EndpointId={EndpointId}")]
-    partial void LogOnEndpointFoundError(string endpointId, Exception ex);
-
-    [LoggerMessage(EventId = 2032, Level = LogLevel.Error, Message = "OnEndpointLost callback error: EndpointId={EndpointId}")]
-    partial void LogOnEndpointLostError(string endpointId, Exception ex);
-
-    [LoggerMessage(EventId = 2033, Level = LogLevel.Error, Message = "OnPayloadReceived callback error: EndpointId={EndpointId}")]
-    partial void LogOnPayloadReceivedError(string endpointId, Exception ex);
-
-    [LoggerMessage(EventId = 2034, Level = LogLevel.Error, Message = "OnPayloadTransferUpdate callback error: EndpointId={EndpointId}")]
-    partial void LogOnPayloadTransferUpdateError(string endpointId, Exception ex);
 
     // -------------------------------------------------------------------------
     // iOS-specific
@@ -92,24 +103,6 @@ sealed partial class PlatformNearby
 
     [LoggerMessage(EventId = 2041, Level = LogLevel.Error, Message = "Discovery failed to start.")]
     partial void LogDidNotStartBrowsing(Exception error);
-
-    [LoggerMessage(EventId = 2042, Level = LogLevel.Error, Message = "DidReceiveInvitationFromPeer callback error: DisplayName={DisplayName}")]
-    partial void LogDidReceiveInvitationError(string displayName, Exception ex);
-
-    [LoggerMessage(EventId = 2043, Level = LogLevel.Error, Message = "FoundPeer callback error: DisplayName={DisplayName}")]
-    partial void LogFoundPeerError(string displayName, Exception ex);
-
-    [LoggerMessage(EventId = 2044, Level = LogLevel.Error, Message = "LostPeer callback error: DisplayName={DisplayName}")]
-    partial void LogLostPeerError(string displayName, Exception ex);
-
-    [LoggerMessage(EventId = 2045, Level = LogLevel.Error, Message = "OnPeerStateChanged callback error: DisplayName={DisplayName}")]
-    partial void LogOnPeerStateChangedError(string displayName, Exception ex);
-
-    [LoggerMessage(EventId = 2046, Level = LogLevel.Error, Message = "OnDataReceived callback error: DisplayName={DisplayName}")]
-    partial void LogOnDataReceivedError(string displayName, Exception ex);
-
-    [LoggerMessage(EventId = 2047, Level = LogLevel.Error, Message = "OnResourceFinished callback error: DisplayName={DisplayName}")]
-    partial void LogOnResourceFinishedError(string displayName, Exception ex);
 
     [LoggerMessage(EventId = 2048, Level = LogLevel.Error, Message = "Failed to send bytes to peer: DisplayName={DisplayName}")]
     partial void LogSendBytesFailed(string displayName, Exception error);
@@ -123,14 +116,11 @@ sealed partial class PlatformNearby
     [LoggerMessage(EventId = 2051, Level = LogLevel.Debug, Message = "Last peer disconnected, session disposed.")]
     partial void LogSessionDisposed();
 
-    [LoggerMessage(EventId = 2052, Level = LogLevel.Debug, Message = "Peer state changed: Id={DeviceId}, DisplayName={DisplayName}, State={State}")]
-    partial void LogPeerStateChanged(string deviceId, string displayName, string? state);
+    // 2052 (LogPeerStateChanged) and 2054 (LogControlMessageReceived) are declared in
+    // PlatformNearby.log.ios.cs — they take iOS-only/internal enum parameters. Ids stay reserved here.
 
     [LoggerMessage(EventId = 2053, Level = LogLevel.Trace, Message = "Data received from peer: Id={DeviceId}, DisplayName={DisplayName}, Length={Length} bytes")]
     partial void LogDataReceived(string deviceId, string displayName, long length);
-
-    [LoggerMessage(EventId = 2054, Level = LogLevel.Trace, Message = "Control message received from peer: Id={DeviceId}, DisplayName={DisplayName}, Type={Type}")]
-    partial void LogControlMessageReceived(string deviceId, string displayName, string? type);
 
     [LoggerMessage(EventId = 2055, Level = LogLevel.Debug, Message = "Disconnecting from session due to control message.")]
     partial void LogDisconnectingFromSession();
@@ -154,32 +144,8 @@ sealed partial class PlatformNearby
     // Channel bridge helpers
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(EventId = 2070, Level = LogLevel.Debug, Message = "WriteDeviceFound: discover channel already completed, dropping event for device {DeviceId}.")]
-    partial void LogWriteDeviceFoundChannelCompleted(string deviceId);
-
-    [LoggerMessage(EventId = 2071, Level = LogLevel.Error, Message = "WriteDeviceFound: unexpected error writing device-found event for device {DeviceId}.")]
-    partial void LogWriteDeviceFoundError(string deviceId, Exception ex);
-
-    [LoggerMessage(EventId = 2072, Level = LogLevel.Debug, Message = "WriteDeviceLost: discover channel already completed, dropping event for device {DeviceId}.")]
-    partial void LogWriteDeviceLostChannelCompleted(string deviceId);
-
-    [LoggerMessage(EventId = 2073, Level = LogLevel.Error, Message = "WriteDeviceLost: unexpected error writing device-lost event for device {DeviceId}.")]
-    partial void LogWriteDeviceLostError(string deviceId, Exception ex);
-
-    [LoggerMessage(EventId = 2074, Level = LogLevel.Debug, Message = "WriteConnectionRequest: advertise channel already completed, rejecting incoming connection from device {DeviceId}.")]
-    partial void LogWriteConnectionRequestChannelCompleted(string deviceId);
-
-    [LoggerMessage(EventId = 2075, Level = LogLevel.Error, Message = "WriteConnectionRequest: unexpected error writing connection request for device {DeviceId}.")]
-    partial void LogWriteConnectionRequestError(string deviceId, Exception ex);
-
-    [LoggerMessage(EventId = 2076, Level = LogLevel.Error, Message = "ResolveConnectionTcs: unexpected error resolving TCS for peer {PeerId}.")]
-    partial void LogResolveConnectionTcsError(string peerId, Exception ex);
-
-    [LoggerMessage(EventId = 2077, Level = LogLevel.Error, Message = "FaultConnectionTcs: unexpected error faulting TCS for peer {PeerId}.")]
-    partial void LogFaultConnectionTcsError(string peerId, Exception ex);
-
-    [LoggerMessage(EventId = 2078, Level = LogLevel.Error, Message = "WritePayload: unexpected error writing payload for peer {PeerId}.")]
-    partial void LogWritePayloadError(string peerId, Exception ex);
+    // 2070 (LogWriteChannelCompleted) and 2071 (LogWriteError) are declared at the top of this
+    // file as shared failure shapes. Ids stay reserved here.
 
     // Logged once per connection, not once per payload: this fires on a hot path, and a consumer
     // that never called ReceiveAsync would otherwise produce one warning for every message received.

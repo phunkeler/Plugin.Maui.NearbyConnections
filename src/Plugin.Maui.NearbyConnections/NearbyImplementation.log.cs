@@ -43,9 +43,12 @@ sealed partial class NearbyImplementation
     // Handshake outcomes
     // -------------------------------------------------------------------------
 
+    // Debug, not Information: a handshake ending without a connection is an ordinary outcome —
+    // the remote side rejected, or the attempt was abandoned. Information is on by default in a
+    // consumer's app, and this fires per attempt, so it belongs below the default threshold.
     [LoggerMessage(
         EventId = 1010,
-        Level = LogLevel.Information,
+        Level = LogLevel.Debug,
         Message = "The handshake with device {DeviceId} ended before a connection was established: {Reason}.")]
     partial void LogHandshakeEnded(string deviceId, EndReason reason);
 

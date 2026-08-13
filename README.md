@@ -333,6 +333,22 @@ All `NearbyOptions` values are read once at startup — set them in the `UseNear
 
 One member changes the walkthrough's behavior directly: `TransferInactivityTimeout` aborts the file sends in step 4 after a 10-second stall by default.
 
+# Logging
+
+The plugin logs through `Microsoft.Extensions.Logging`, using whatever providers your app has already configured. It installs no provider of its own and sends nothing off the device.
+
+On a healthy session it is silent at default levels: routine events (discovery, connections, payloads) are `Debug` and `Trace`, so the framework's default `Information` threshold filters them out. What you see by default is `Warning` and `Error` — plus one `Information` message, the iOS background teardown.
+
+To troubleshoot, turn the library up:
+
+```csharp
+builder.Logging.AddFilter("Plugin.Maui.NearbyConnections", LogLevel.Debug);
+```
+
+`Debug` is the right level for devices not appearing or connections not forming; `Trace` adds one entry per payload for transfer problems.
+
+Note that device display names appear in messages at `Debug` — they are user-chosen and often personal. See [`docs/LOGGING.md`](docs/LOGGING.md) for the full level contract, per-category filters, EventIDs worth alerting on, and privacy guidance.
+
 # Acknowledgements
 
 -   https://github.com/jfversluis/Plugin.Maui.Feature
