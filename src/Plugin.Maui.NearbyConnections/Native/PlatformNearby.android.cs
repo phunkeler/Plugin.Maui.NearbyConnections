@@ -1,6 +1,5 @@
 using Android.Content;
 using AndroidUri = Android.Net.Uri;
-using Path = System.IO.Path;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -11,8 +10,6 @@ sealed partial class PlatformNearby
 
     readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
     readonly ConcurrentDictionary<long, OutgoingTransfer> _outgoingTransfers = [];
-
-    #region Advertising
 
     async Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
     {
@@ -28,7 +25,7 @@ sealed partial class PlatformNearby
                     OnConnectionInitiatedAsync,
                     OnConnectionResult,
                     OnDisconnected,
-                    LogOnConnectionInitiatedError),
+                    (endpointId, ex) => LogCallbackError(nameof(ConnectionLifecycleCallback.OnConnectionInitiated), endpointId, ex)),
                 new AdvertisingOptions.Builder()
                     .SetStrategy(_options.ToPlatformStrategy())
                     .SetLowPower(_options.Android.UseLowPower)
@@ -50,11 +47,6 @@ sealed partial class PlatformNearby
         _advertiseClient = null;
     }
 
-    /// <summary>
-    /// "A basic encrypted channel has been created between you and the endpoint.
-    /// Both sides are now asked if they wish to accept or reject the connection before any data can be sent over this channel."
-    /// -- <see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback#public-abstract-void-onconnectioninitiated-string-endpointid,-connectioninfo-connectioninfo">developers.google.com</see>
-    /// </summary>
     internal async Task OnConnectionInitiatedAsync(string endpointId, ConnectionInfo connectionInfo)
     {
         try
@@ -65,14 +57,18 @@ sealed partial class PlatformNearby
             {
                 LogConnectionRequestReceived(device.Id, device.DisplayName);
 
-                // Register a TCS so that AcceptAsync can await the connection result.
-                var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-                _connectionTcs[endpointId] = (tcs, CancellationToken.None);
+                // No caller token exists yet — the request arrives on a GMS callback, not from a
+                // consumer call. AcceptAsync attaches the real one below.
+                var tcs = RegisterConnectionTcs(endpointId, CancellationToken.None);
 
                 var request = new NearbyConnectionRequest(
                     device,
                     accept: async ct =>
                     {
+                        // Now a caller token exists. Attach it so a DisposeAsync mid-handshake
+                        // cancels with the token the awaiter can correlate to its own operation.
+                        AttachConnectionTcsToken(endpointId, ct);
+
                         await PlatformRespondToConnectionAsync(device, accept: true);
 
                         try
@@ -81,11 +77,6 @@ sealed partial class PlatformNearby
                         }
                         catch
                         {
-                            // Remove the pending entry on cancellation/failure. Without this the
-                            // stale entry survived, so a later OnConnectionResult for this endpoint
-                            // resolved a TCS nobody awaited — leaking the resulting NearbyConnection
-                            // — and DisposeAsync cancelled it with CancellationToken.None rather
-                            // than the caller's token. Mirrors the iOS accept path.
                             _connectionTcs.TryRemove(endpointId, out _);
                             throw;
                         }
@@ -100,28 +91,25 @@ sealed partial class PlatformNearby
             }
             else
             {
-                // Outbound (discoverer side): auto-accept at the protocol level.
                 await PlatformRespondToConnectionAsync(device, accept: true);
             }
         }
         catch (Exception ex)
         {
-            LogOnConnectionInitiatedError(endpointId, ex);
+            LogCallbackError(nameof(OnConnectionInitiatedAsync), endpointId, ex);
             FaultConnectionTcs(endpointId, ex);
         }
     }
 
-    /// <summary>
-    /// "Called after both sides have either accepted or rejected the connection.
-    /// If the ConnectionResolution's status is CommonStatusCodes.SUCCESS, both sides have
-    /// accepted the connection and may now send Payloads to each other. Otherwise, the connection was rejected."
-    /// -- <see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback#public-abstract-void-onconnectionresult-string-endpointid,-connectionresolution-resolution">developers.google.com</see>
-    /// </summary>
     internal void OnConnectionResult(string endpointId, ConnectionResolution resolution)
     {
         try
         {
-            LogConnectionResult(endpointId, resolution.Status.StatusCode, resolution.Status.StatusMessage ?? string.Empty, resolution.Status.IsSuccess);
+            LogConnectionResult(
+                endpointId,
+                resolution.Status.StatusCode,
+                resolution.Status.StatusMessage ?? string.Empty,
+                resolution.Status.IsSuccess);
 
             if (resolution.Status.IsSuccess)
             {
@@ -155,36 +143,25 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogOnConnectionResultError(endpointId, ex);
+            LogCallbackError(nameof(OnConnectionResult), endpointId, ex);
         }
     }
 
-    /// <summary>
-    /// "Called when a remote endpoint is disconnected or has become unreachable."
-    /// -- <see href="https://developers.google.com/android/reference/com/google/android/gms/nearby/connection/ConnectionLifecycleCallback#public-abstract-void-ondisconnected-string-endpointid">developers.google.com</see>
-    /// </summary>
     internal void OnDisconnected(string endpointId)
     {
         try
         {
             LogDeviceDisconnected(endpointId);
 
-            if (_activeConnections.TryRemove(endpointId, out var connection))
-            {
-                connection.CompleteReceive();
-            }
-
-            _unobservedWarned.TryRemove(endpointId, out _);
+            ReleaseConnection(endpointId);
 
             Peers.Remove(endpointId);
         }
         catch (Exception ex)
         {
-            LogOnDisconnectedError(endpointId, ex);
+            LogCallbackError(nameof(OnDisconnected), endpointId, ex);
         }
     }
-
-    #endregion Advertising
 
     #region Discovery
 
@@ -230,7 +207,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogOnEndpointFoundError(endpointId, ex);
+            LogCallbackError(nameof(OnEndpointFound), endpointId, ex);
         }
     }
 
@@ -258,7 +235,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogOnEndpointLostError(endpointId, ex);
+            LogCallbackError(nameof(OnEndpointLost), endpointId, ex);
         }
     }
 
@@ -274,7 +251,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogOnPayloadReceivedError(endpointId, ex);
+            LogCallbackError(nameof(OnPayloadReceived), endpointId, ex);
         }
     }
 
@@ -314,7 +291,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogOnPayloadTransferUpdateError(endpointId, ex);
+            LogCallbackError(nameof(OnPayloadTransferUpdate), endpointId, ex);
         }
     }
 
@@ -415,7 +392,7 @@ sealed partial class PlatformNearby
                         OnConnectionInitiatedAsync,
                         OnConnectionResult,
                         OnDisconnected,
-                        LogOnConnectionInitiatedError));
+                        (endpointId, ex) => LogCallbackError(nameof(ConnectionLifecycleCallback.OnConnectionInitiated), endpointId, ex)));
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -463,7 +440,10 @@ sealed partial class PlatformNearby
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
         return accept
-            ? client.AcceptConnectionAsync(device.Id, new ConnectionCallback(OnPayloadReceived, OnPayloadTransferUpdate, LogOnPayloadTransferUpdateError))
+            ? client.AcceptConnectionAsync(device.Id, new ConnectionCallback(
+                OnPayloadReceived,
+                OnPayloadTransferUpdate,
+                (endpointId, ex) => LogCallbackError(nameof(PayloadCallback.OnPayloadTransferUpdate), endpointId, ex)))
             : client.RejectConnectionAsync(device.Id);
     }
 
@@ -500,12 +480,7 @@ sealed partial class PlatformNearby
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
         client.DisconnectFromEndpoint(endpointId);
 
-        if (_activeConnections.TryRemove(endpointId, out var conn))
-        {
-            conn.CompleteReceive();
-        }
-
-        _unobservedWarned.TryRemove(endpointId, out _);
+        ReleaseConnection(endpointId);
 
         Peers.Remove(endpointId);
     }

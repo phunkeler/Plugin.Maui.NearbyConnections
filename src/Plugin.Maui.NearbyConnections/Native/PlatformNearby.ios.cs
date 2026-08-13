@@ -118,8 +118,7 @@ sealed partial class PlatformNearby
                     // Register the TCS before handing the session to MPC - OnPeerStateChanged(Connected)
                     // can fire on another thread as soon as invitationHandler is called, and it only
                     // resolves a TCS that is already present in _connectionTcs.
-                    var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-                    _connectionTcs[id] = (tcs, ct);
+                    var tcs = RegisterConnectionTcs(id, ct);
 
                     invitationHandler(true, session);
 
@@ -145,7 +144,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogDidReceiveInvitationError(peerID.DisplayName, ex);
+            LogCallbackError(nameof(DidReceiveInvitationFromPeer), peerID.DisplayName, ex);
         }
     }
 
@@ -191,7 +190,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogFoundPeerError(peerID.DisplayName, ex);
+            LogCallbackError(nameof(FoundPeer), peerID.DisplayName, ex);
         }
     }
 
@@ -221,7 +220,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogLostPeerError(peerID.DisplayName, ex);
+            LogCallbackError(nameof(LostPeer), peerID.DisplayName, ex);
         }
     }
 
@@ -480,9 +479,8 @@ sealed partial class PlatformNearby
         try
         {
             var id = PeerKeyProvider.PeerKey(peerID);
-            var st = Enum.GetName(state);
 
-            LogPeerStateChanged(id, peerID.DisplayName, st);
+            LogPeerStateChanged(id, peerID.DisplayName, state);
 
             switch (state)
             {
@@ -510,13 +508,7 @@ sealed partial class PlatformNearby
                             }
 
                             Peers.Remove(id);
-                            if (_activeConnections.TryRemove(id, out var removed))
-                            {
-                                removed.CompleteReceive();
-                            }
-
-                            _unobservedWarned.TryRemove(id, out _);
-                            RemoveProgressObserversFor(id);
+                            ReleaseConnection(id);
                         });
 
                     ResolveConnectionTcs(id, connection);
@@ -524,17 +516,11 @@ sealed partial class PlatformNearby
 
                 case MCSessionState.NotConnected:
                     // CompleteReceive() is also called by the dispose if the consumer calls DisposeAsync() first.
-                    // TryRemove returns false in that case, so CompleteReceive() is never called twice.
-                    if (_activeConnections.TryRemove(id, out var disconnectedConnection))
-                    {
-                        disconnectedConnection.CompleteReceive();
-                    }
-
-                    _unobservedWarned.TryRemove(id, out _);
-
-                    // An inbound transfer in flight when the peer dropped gets no
-                    // DidFinishReceivingResource, so its KVO observer is only released here.
-                    RemoveProgressObserversFor(id);
+                    // TryRemove inside ReleaseConnection returns false in that case, so CompleteReceive()
+                    // is never called twice. Its platform half releases the KVO observers of an inbound
+                    // transfer that was in flight when the peer dropped — that transfer gets no
+                    // DidFinishReceivingResource, so this is the only place its observer is released.
+                    ReleaseConnection(id);
 
                     // A pending _connectionTcs entry means this peer never reached Connected -
                     // the handshake itself failed or was rejected by the native layer. Without
@@ -600,7 +586,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogOnPeerStateChangedError(peerID.DisplayName, ex);
+            LogCallbackError(nameof(OnPeerStateChanged), peerID.DisplayName, ex);
         }
     }
 
@@ -616,8 +602,7 @@ sealed partial class PlatformNearby
 
             if (ControlMessage.TryDecode(bytes, out var controlType))
             {
-                var c = Enum.GetName(controlType);
-                LogControlMessageReceived(id, peerID.DisplayName, c);
+                LogControlMessageReceived(id, peerID.DisplayName, controlType);
                 HandleControlMessage(controlType);
                 return;
             }
@@ -627,7 +612,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogOnDataReceivedError(peerID.DisplayName, ex);
+            LogCallbackError(nameof(OnDataReceived), peerID.DisplayName, ex);
         }
     }
 
@@ -691,6 +676,8 @@ sealed partial class PlatformNearby
     /// Matching on the key prefix is safe because <see cref="ObserverKey"/> separates the two halves
     /// with a character that cannot occur in a peer key.
     /// </remarks>
+    partial void PlatformReleaseConnection(string peerId) => RemoveProgressObserversFor(peerId);
+
     void RemoveProgressObserversFor(string peerId)
     {
         var prefix = ObserverKey(peerId, string.Empty);
@@ -767,7 +754,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogOnResourceFinishedError(fromPeer.DisplayName, ex);
+            LogCallbackError(nameof(OnResourceFinished), fromPeer.DisplayName, ex);
         }
     }
 
