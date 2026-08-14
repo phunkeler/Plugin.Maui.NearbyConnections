@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Maui.ApplicationModel;
 
 namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 
@@ -25,8 +26,12 @@ public class AppLifecycleObserverTests
 
         // Act — the real notification the OS posts on backgrounding, plus a beat for the
         // fire-and-forget teardown it triggers: StopAsync is not awaitable from here.
-        NSNotificationCenter.DefaultCenter.PostNotificationName(
-            UIApplication.DidEnterBackgroundNotification, null);
+        // Posted on the main thread because that is where iOS posts it: UIKit's own observers
+        // (keyboard, view layout) are subscribed to this notification and assume main-thread
+        // delivery, so posting from the xUnit worker thread makes them log main-thread violations.
+        await MainThread.InvokeOnMainThreadAsync(() =>
+            NSNotificationCenter.DefaultCenter.PostNotificationName(
+                UIApplication.DidEnterBackgroundNotification, null));
         await Task.Delay(100, TestContext.Current.CancellationToken);
 
         // Assert — the session reports stopped states (it was never started; the point is the
@@ -44,10 +49,12 @@ public class AppLifecycleObserverTests
         var observer = new AppLifecycleObserver(session, NullLogger.Instance);
 
         // Act — dispose twice, then post: a stale registration would invoke a disposed observer.
+        // Main thread for the same reason as above.
         observer.Dispose();
         observer.Dispose();
-        NSNotificationCenter.DefaultCenter.PostNotificationName(
-            UIApplication.DidEnterBackgroundNotification, null);
+        await MainThread.InvokeOnMainThreadAsync(() =>
+            NSNotificationCenter.DefaultCenter.PostNotificationName(
+                UIApplication.DidEnterBackgroundNotification, null));
 
         // Assert
         Assert.False(session.IsAdvertising);

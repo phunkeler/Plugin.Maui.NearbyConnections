@@ -7,7 +7,7 @@ enum ControlMessageType : byte
 
 static class ControlMessage
 {
-    const uint SIGNATURE = 0x504D4E43; // = "PMNC" (Plugin.Maui.NearbyConnections)
+    const uint SIGNATURE = 0x504D4E43; // "PMNC" (Plugin.Maui.NearbyConnections)
     const int SIZE = sizeof(uint) + sizeof(byte);
 
     internal static byte[] Encode(ControlMessageType type)

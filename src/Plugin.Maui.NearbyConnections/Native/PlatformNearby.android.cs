@@ -617,8 +617,6 @@ sealed partial class PlatformNearby
             result |= NearbyAvailability.MissingPermissions;
         }
 
-        // A radio the device does not have is not a fixable problem, so only a present-but-off
-        // radio is reported. GetSystemService returning null means no such radio exists.
         try
         {
             using var bluetoothManager = (Android.Bluetooth.BluetoothManager?)context.GetSystemService(Context.BluetoothService);
@@ -630,9 +628,6 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            // Querying radio state must never throw out of a preflight check: a caller that cannot
-            // check availability would be worse off than one that assumes it is fine and fails at
-            // start, which is the pre-existing behaviour.
             LogAvailabilityCheckPartiallyFailed(nameof(NearbyAvailability.BluetoothDisabled), ex);
         }
 

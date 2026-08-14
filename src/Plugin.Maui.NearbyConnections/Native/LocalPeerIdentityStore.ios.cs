@@ -9,9 +9,9 @@ namespace Plugin.Maui.NearbyConnections;
 sealed partial class LocalPeerIdentityStore
 {
     readonly ILogger<LocalPeerIdentityStore> _logger;
+    readonly Lock _localPeerIdLock = new();
 
     MCPeerID? _localPeerId;
-    readonly Lock _localPeerIdLock = new();
 
     public LocalPeerIdentityStore(ILogger<LocalPeerIdentityStore> logger)
     {

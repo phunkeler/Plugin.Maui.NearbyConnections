@@ -12,25 +12,8 @@ sealed partial class PlatformNearby : IPlatformNearby
     internal readonly ConcurrentDictionary<string, (TaskCompletionSource<NearbyConnection> Tcs, CancellationToken Ct)> _connectionTcs;
     internal readonly ConcurrentDictionary<string, NearbyConnection> _activeConnections;
 
-    /// <summary>
-    /// Peers already warned about payloads arriving with no <c>ReceiveAsync</c> consumer, so the
-    /// warning is emitted once per connection rather than once per payload. Used as a set; the value
-    /// is ignored. Entries are removed when the connection ends, so a later reconnect warns again.
-    /// </summary>
     readonly ConcurrentDictionary<string, byte> _unobservedWarned = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// This layer's own record of the remote peers it has seen — <b>not</b> the session's device
-    /// set. Callbacks record a peer here so a later native callback can recover the
-    /// <see cref="NearbyDevice"/> already minted for it; what a consumer observes is
-    /// <c>INearby.Devices</c>, which the session maintains separately in
-    /// <see cref="NearbyDeviceRegistry"/>.
-    /// </summary>
-    /// <remarks>
-    /// Constructed by the registration code on every platform. On iOS the registry also holds each
-    /// device's native <c>MCPeerID</c> and is wired with a <c>PeerKeyProvider</c> to derive its
-    /// keys; Android's endpoint id is already the handle, so there it needs nothing further.
-    /// </remarks>
     internal PeerRegistry Peers { get; }
 
     int _disposeGuard;
@@ -39,12 +22,6 @@ sealed partial class PlatformNearby : IPlatformNearby
 
     readonly NearbyOptions _options;
 
-    /// <summary>
-    /// Constructs the platform layer. Platform-specific collaborators are not parameters here:
-    /// the iOS partial declares them as <c>required init</c> properties, so the compiler enforces
-    /// they are supplied at every iOS construction site and this signature stays uniform across
-    /// all three targets.
-    /// </summary>
     internal PlatformNearby(
         TimeProvider timeProvider,
         NearbyOptions options,
