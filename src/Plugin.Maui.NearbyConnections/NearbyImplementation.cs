@@ -274,7 +274,8 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         if (!_pendingRequests.TryRemove(device.Id, out var request))
         {
             throw new InvalidOperationException(
-                $"No connection request is outstanding for device '{device.Id}'. A request can only be accepted once, and only before it expires.");
+                $"No connection request is outstanding for device '{device.Id}'. " +
+                $"A request can only be accepted once, and only before it expires.");
         }
 
         Transition(device, NearbyDeviceStatus.Connecting, ConnectionRole.Acceptor);

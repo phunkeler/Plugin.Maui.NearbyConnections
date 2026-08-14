@@ -64,8 +64,6 @@ static class ServiceIdRules
             return;
         }
 
-        // A null/empty ServiceId is already reported by the shared validator. Re-reporting it here
-        // as four more rule violations would bury the actual problem.
         if (string.IsNullOrEmpty(serviceId))
         {
             return;
