@@ -521,43 +521,10 @@ sealed partial class PlatformNearby
                     break;
 
                 case MCSessionState.NotConnected:
-                    // CompleteReceive() is also called by the dispose if the consumer calls DisposeAsync() first.
-                    // TryRemove inside ReleaseConnection returns false in that case, so CompleteReceive()
-                    // is never called twice. Its platform half releases the KVO observers of an inbound
-                    // transfer that was in flight when the peer dropped — that transfer gets no
-                    // DidFinishReceivingResource, so this is the only place its observer is released.
                     ReleaseConnection(id);
-
-                    // A pending _connectionTcs entry means this peer never reached Connected -
-                    // the handshake itself failed or was rejected by the native layer. Without
-                    // this, both AcceptAsync (advertiser) and ConnectAsync (discoverer) hang
-                    // forever awaiting a TCS that nothing will ever resolve or fault, since only
-                    // the Connected case above calls ResolveConnectionTcs.
                     FaultConnectionTcs(id, new NearbyException(
                         $"Connection to peer '{peerID.DisplayName}' failed: session state changed to NotConnected before the connection was established."));
 
-                    // MPC fires NotConnected for the departing peer before removing it from
-                    // ConnectedPeers, so check whether this peer was the only remaining one
-                    // while it is still present in the session's list.
-                    // The session is torn down once nothing is using it any more — whether this
-                    // peer was the last connected one, or the handshake failed before anyone
-                    // connected at all. Both cases must be covered:
-                    //
-                    // - Peers still in ConnectedPeers: keep the session. MPC fires NotConnected for
-                    //   the departing peer *before* removing it from ConnectedPeers, so "every
-                    //   remaining entry is this peer" is what identifies the last one. An earlier
-                    //   fix guarded this with Length > 0, because Enumerable.All is true for an
-                    //   empty sequence and a failed handshake would otherwise dispose the session
-                    //   out from under live peers.
-                    // - Nobody connected and nothing pending: tear down. This is the case that
-                    //   Length > 0 excluded, and it leaked the MCSession and its SessionDelegate.
-                    //   Worse than the leak, _session stayed non-null, so every `_session ??=` site
-                    //   reused a session belonging to a dead handshake.
-                    //
-                    // _connectionTcs is what separates the second case from a handshake still in
-                    // flight: FaultConnectionTcs above has already removed this peer's own entry, so
-                    // a remaining entry means another peer is mid-handshake and still needs the
-                    // session it was handed.
                     MCSession? sessionToDisposePeer;
                     lock (_sessionLock)
                     {

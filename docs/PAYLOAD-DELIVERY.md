@@ -177,7 +177,7 @@ Stated plainly, because these are real:
 `Devices.Changes` does not replay. A consumer that starts watching after a connection is already
 established never sees the transition, so it never starts a loop for it: inbound payloads are
 written to a channel nobody reads and the peer's messages **silently never arrive** — no exception,
-no log, just nothing. (A late starter *can* recover by reading `session.Devices` and opening a loop
+no log, just nothing. (A late starter *can* recover by reading `nearby.Devices` and opening a loop
 for anything already `Connected` — but it has to know to do that.)
 
 This bites hardest with DI. Registering the consumer as a singleton is not enough: the container
@@ -190,7 +190,7 @@ have started its loop.
 effect of who happens to inject it:
 
 ```csharp
-public sealed class NearbyIngestionService(INearby session, /* … */) : IMauiInitializeService
+public sealed class NearbyIngestionService(INearby nearby, /* … */) : IMauiInitializeService
 {
     public void Initialize(IServiceProvider services) => _ = WatchAsync();
 
@@ -201,7 +201,7 @@ public sealed class NearbyIngestionService(INearby session, /* … */) : IMauiIn
         // second consumer and every payload is handled twice.
         var consuming = new HashSet<string>(StringComparer.Ordinal);
 
-        await foreach (var change in session.Devices.Changes)
+        await foreach (var change in nearby.Devices.Changes)
         {
             var device = change.Device;
 
@@ -209,7 +209,7 @@ public sealed class NearbyIngestionService(INearby session, /* … */) : IMauiIn
                 && device.Status is NearbyDeviceStatus.Connected)
             {
                 if (consuming.Add(device.Id)
-                    && session.TryGetConnection(device.Id, out var connection))
+                    && nearby.TryGetConnection(device.Id, out var connection))
                 {
                     _ = ConsumePayloadsAsync(connection);
                 }

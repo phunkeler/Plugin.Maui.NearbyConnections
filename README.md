@@ -1,57 +1,62 @@
 # Plugin.Maui.NearbyConnections
 
-A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices — discover, connect, and exchange data — by unifying Google's [Nearby Connections](https://developers.google.com/nearby/connections/overview) and Apple's [Multipeer Connectivity](https://developer.apple.com/documentation/multipeerconnectivity).
+A .NET MAUI plugin for peer-to-peer (P2P) connectivity with nearby devices: discover, connect, and
+exchange data. It unifies Google's [Nearby Connections](https://developers.google.com/nearby/connections/overview)
+and Apple's [Multipeer Connectivity](https://developer.apple.com/documentation/multipeerconnectivity).
 
 [![NuGet Version](https://img.shields.io/nuget/v/Plugin.Maui.NearbyConnections)](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
 [![GitHub License](https://img.shields.io/github/license/phunkeler/Plugin.Maui.NearbyConnections)](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/LICENSE)
 
-Peer-to-peer communication happens in two phases: **finding peers** (advertise/discover nearby devices) and **talking to them** (send/receive payloads over an established connection).
+Peer-to-peer communication happens in two phases: finding peers (advertise and discover nearby
+devices), then talking to them (send and receive payloads over an established connection).
 
 # What this is for
 
-This plugin targets **foreground, both-devices-present interactions** — the two people are looking at their phones doing the thing together. It is built for:
+This plugin targets foreground, both-devices-present interactions. Two people looking at their
+phones, doing the thing together:
 
 - **File and media transfer** — send photos, documents, or data to the device next to you
-- **Pairing and handoff** — device setup, account linking, transferring a session between devices
-- **Bounded local exchange** — sharing between crew devices in the field, point-of-sale handoff, local data sync with no internet
+- **Pairing and handoff** — device setup, account linking, moving a session between devices
+- **Bounded local exchange** — sharing between crew devices in the field, point-of-sale handoff,
+  local data sync with no internet
 
-**It is not built for connections that survive backgrounding.** When an app is backgrounded on iOS, the connection ends — and the plugin reports that honestly rather than pretending otherwise. This is a platform constraint, not a plugin limitation:
+## What it is not for
 
-- **iOS.** Multipeer Connectivity has no background mode. Apple's Developer Technical Support is explicit that operating in the background is unsupported ([forum 11964](https://developer.apple.com/forums/thread/11964)); a normal app is suspended within seconds of backgrounding and the session dies silently. The plugin therefore tears the session down on `DidEnterBackground`, returning every device to `Visible` through `Devices.Changes`, so your app is told rather than left holding a dead connection.
-- **Android.** No framework prohibition, but the connection dies with the process, and Doze independently suspends networking. Surviving backgrounding requires a foreground service, which is app-level work the plugin does not impose on you.
+**Connections do not survive backgrounding.**
 
-**There is no auto-reconnect, by design.** Neither platform offers a reconnect primitive — recovery means advertising and inviting again — and retry policy (how often, how long, whether to prompt) is app-specific. The plugin gives you the device state to re-initiate from; your app decides whether and when.
+**iOS.** Multipeer Connectivity has no background mode. Apple's Developer Technical Support states
+that operating in the background is unsupported ([forum 11964](https://developer.apple.com/forums/thread/11964)).
+A backgrounded app is suspended within seconds and the session dies silently. The plugin tears it
+down on `DidEnterBackground` and reports every device back to `Visible` through `Devices.Changes`,
+rather than leaving you holding a dead connection.
 
-If you need a long-lived connection that survives backgrounding, this is not the right library, and on iOS no library can give you that with Multipeer Connectivity.
+**Android.** No framework prohibition, but the connection dies with the process, and Doze
+independently suspends networking. Surviving backgrounding requires a foreground service. That is
+app-level work the plugin does not impose on you.
 
-# Supported Platforms
+**There is no auto-reconnect.** Neither platform offers a reconnect primitive; recovery means
+advertising and inviting again, and retry policy is app-specific. The plugin gives you device state
+to re-initiate from. Your app decides whether and when.
 
-| Platform | Minimum Version |
+If you need a connection that survives backgrounding, this is the wrong library. On iOS, no library
+can give you that with Multipeer Connectivity.
+
+# Supported platforms
+
+| Platform | Minimum version |
 | --- | --- |
 | Android | API 24 (_Android 7.0_) |
 | iOS | iOS 13.0 |
 
-# How connections work
-
-Neither platform gives you direct control over which radio carries your data — both automatically negotiate between Bluetooth and Wi-Fi per connection, so you don't manage radios directly.
-
-- **Android** ([Nearby Connections](https://developers.google.com/nearby/connections/overview)) picks between Bluetooth Classic, BLE, and Wi-Fi based on the [topology](https://developers.google.com/nearby/connections/strategies) you configure via `NearbyOptions.Android.Topology`: `Cluster` (default) allows many-to-many mesh connections at the cost of lower bandwidth, `Star` allows one-to-many with higher bandwidth, and `PointToPoint` is one-to-one at the highest throughput. Choose based on your topology and data size — `Cluster` for small messages across a cluster of devices, `PointToPoint` for large file transfers between two devices.
-- **iOS** (Multipeer Connectivity) auto-selects Bluetooth vs. peer-to-peer Wi-Fi vs. infrastructure Wi-Fi per link with no app-level topology control — there is no iOS equivalent to `Topology`.
-
-# Dependencies
-
-Package versions are managed centrally in
-[`Directory.Packages.props`](Directory.Packages.props); the plugin's own references are declared in
-[`Plugin.Maui.NearbyConnections.csproj`](src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj).
-
 # Installation
-`Plugin.Maui.NearbyConnections` is available on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections)
+
+`Plugin.Maui.NearbyConnections` is available on [nuget.org](https://www.nuget.org/packages/Plugin.Maui.NearbyConnections).
 
 ```bash
 dotnet add package Plugin.Maui.NearbyConnections
 ```
 
-# Getting Started
+# Getting started
 
 ## 1. Register the plugin
 
@@ -73,9 +78,11 @@ public static MauiApp CreateMauiApp()
 }
 ```
 
-`UseNearby()` registers `INearby` as a singleton — one radio, one native session. Inject it wherever you need nearby connectivity.
+`UseNearby()` registers `INearby` as a singleton: one radio, one native session. Inject it wherever
+you need nearby connectivity.
 
-Nothing starts on its own: advertising and discovery begin only when you call them, so permission prompts happen when your app decides.
+Nothing starts on its own. Advertising and discovery begin only when you call them, so permission
+prompts happen when your app decides.
 
 ## 2. Platform configuration
 
@@ -109,7 +116,7 @@ location access:
 | `BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` | Runtime, API 31+ |
 | `NEARBY_WIFI_DEVICES` | Runtime, API 33+ |
 
-Media permissions are **not** declared — reading a file you choose to send is your app's concern.
+Media permissions are **not** declared. Reading a file you choose to send is your app's concern.
 
 To override any of them, redeclare the permission in your own `AndroidManifest.xml`; your version
 wins. Two caveats:
@@ -121,7 +128,10 @@ wins. Two caveats:
 
 #### Android runtime permissions
 
-Declaring the manifest entries above is not enough on its own — several of them are *dangerous* permissions that Android only grants after an explicit runtime request: `BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT`, and `BLUETOOTH_SCAN` (API 31+), `NEARBY_WIFI_DEVICES` (API 33+), and `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` (below API 33). Request them before starting advertising or discovery:
+The manifest entries above are not enough. Several are *dangerous* permissions that Android grants
+only after an explicit runtime request: `BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT`, and
+`BLUETOOTH_SCAN` (API 31+), `NEARBY_WIFI_DEVICES` (API 33+), and `ACCESS_FINE_LOCATION` /
+`ACCESS_COARSE_LOCATION` (below API 33). Request them before starting advertising or discovery:
 
 ```csharp
 public async Task<bool> EnsureNearbyPermissionsAsync()
@@ -139,9 +149,14 @@ public async Task<bool> EnsureNearbyPermissionsAsync()
 }
 ```
 
-`Permissions.Bluetooth` covers the three `BLUETOOTH_*` runtime permissions; `Permissions.NearbyWifiDevices` covers `NEARBY_WIFI_DEVICES` on API 33+, and `Permissions.LocationWhenInUse` covers the location permissions required below API 33. See [`samples/NearbyChat/Platforms/Android/NearbyPermissions.cs`](samples/NearbyChat/Platforms/Android/NearbyPermissions.cs) for this pattern in the sample app.
+`Permissions.Bluetooth` covers the three `BLUETOOTH_*` runtime permissions,
+`Permissions.NearbyWifiDevices` covers `NEARBY_WIFI_DEVICES` on API 33+, and
+`Permissions.LocationWhenInUse` covers the location permissions required below API 33. See
+[`samples/NearbyChat/Platforms/Android/NearbyPermissions.cs`](samples/NearbyChat/Platforms/Android/NearbyPermissions.cs)
+for this pattern in the sample app.
 
-On iOS there is no equivalent code step — the sample app performs no runtime permission request there; the OS itself shows the local-network prompt (backed by `NSLocalNetworkUsageDescription`) the first time the app uses the local network.
+iOS needs no equivalent code. The OS shows the local-network prompt (backed by
+`NSLocalNetworkUsageDescription`) the first time the app uses the local network.
 
 ### iOS
 
@@ -157,27 +172,40 @@ Add to `Info.plist`:
 <string>Used to discover and connect to nearby devices.</string>
 ```
 
-`NearbyOptions.ServiceId` is a **separate, shorter value** from the `NSBonjourServices` entries above — on iOS it's passed directly as `MCNearbyServiceAdvertiser`/`MCNearbyServiceBrowser`'s `serviceType`, which Apple requires to be a bare string 1–15 characters long (e.g. `"nearbychat"`), not the `_name._tcp` Bonjour form. There is no default; it must be set explicitly or startup validation throws.
+`NearbyOptions.ServiceId` is a **separate, shorter value** from the `NSBonjourServices` entries
+above. On iOS it is passed directly as the `serviceType` for `MCNearbyServiceAdvertiser` and
+`MCNearbyServiceBrowser`, which Apple requires to be a bare string 1–15 characters long (for
+example `"nearbychat"`), not the `_name._tcp` Bonjour form. There is no default; set it explicitly
+or startup validation throws.
 
 ## 3. Advertise and discover
 
-One device advertises while the other discovers, or both do both simultaneously. The two are independent — starting or stopping one never affects the other.
+One device advertises while the other discovers, or both do both simultaneously. The two are
+independent: starting or stopping one never affects the other.
 
 ```csharp
-await session.StartAdvertisingAsync();   // let others find me
-await session.StartDiscoveryAsync();   // find others
+await nearby.StartAdvertisingAsync();   // let others find me
+await nearby.StartDiscoveryAsync();     // find others
 ```
 
-**Device state.** Every device the session knows about lives in `session.Devices`, from first discovery until it goes out of range. Devices do not move between collections as they connect: `NearbyDevice.Status` changes instead, and the device raises `PropertyChanged`, so a bound row updates in place.
+**Device state.** Every device the plugin knows about lives in `nearby.Devices`, from first
+discovery until it goes out of range. Devices do not move between collections as they connect.
+`NearbyDevice.Status` changes instead, and the device raises `PropertyChanged`, so a bound row
+updates in place.
 
 ```csharp
 Visible → RequestReceived → Connecting → Connected
 ```
 
-`Devices` implements `INotifyCollectionChanged`, so you can bind it straight to a `CollectionView`. To show only connected devices, filter on `Status`:
+Any rejection, timeout, or disconnect returns a device to `Visible` rather than to a separate
+failure state. See the [full lifecycle diagram](docs/DEVICE-LIFECYCLE.md#consumer-facing-summary)
+for every transition, including the iOS caveat that `Connecting` is optional.
+
+`Devices` implements `INotifyCollectionChanged`, so you can bind it straight to a `CollectionView`.
+To show only connected devices, filter on `Status`:
 
 ```csharp
-var connected = session.Devices.Where(d => d.Status is NearbyDeviceStatus.Connected);
+var connected = nearby.Devices.Where(d => d.Status is NearbyDeviceStatus.Connected);
 ```
 
 ### Accept inbound connection requests
@@ -185,60 +213,77 @@ var connected = session.Devices.Where(d => d.Status is NearbyDeviceStatus.Connec
 A device asking to connect appears with `Status == RequestReceived`:
 
 ```csharp
-await foreach (var change in session.Devices.Changes.WithCancellation(cancellationToken))
+await foreach (var change in nearby.Devices.Changes.WithCancellation(cancellationToken))
 {
     if (change.Device.Status is NearbyDeviceStatus.RequestReceived)
     {
         // Accept to establish the connection, or RejectAsync to decline.
-        NearbyConnection connection = await session.AcceptAsync(change.Device);
+        NearbyConnection connection = await nearby.AcceptAsync(change.Device);
     }
 }
 ```
 
 ### Find devices and initiate a connection
 
-Discovered devices appear in `session.Devices` with `Status == Visible`:
+Discovered devices appear in `nearby.Devices` with `Status == Visible`:
 
 ```csharp
-NearbyConnection connection = await session.ConnectAsync(device);
+NearbyConnection connection = await nearby.ConnectAsync(device);
 ```
 
-`ConnectAsync` completes when the remote device accepts. If it rejects, or the device goes away, the call throws and the device returns to `Visible` — it never gets stuck mid-handshake.
+`ConnectAsync` completes when the remote device accepts. If it rejects, or the device goes away,
+the call throws and the device returns to `Visible`. It never gets stuck mid-handshake.
 
 ### Know when a connection opens or closes
 
 Every lifecycle transition arrives on one stream, as a change to the device's `Status`:
 
 ```csharp
-await foreach (var change in session.Devices.Changes.WithCancellation(cancellationToken))
+await foreach (var change in nearby.Devices.Changes.WithCancellation(cancellationToken))
 {
     var device = change.Device;
 
     if (change.Action is not NearbyDeviceChangeAction.Removed
         && device.Status is NearbyDeviceStatus.Connected
-        && session.TryGetConnection(device.Id, out var connection))
+        && nearby.TryGetConnection(device.Id, out var connection))
     {
         StartConsuming(connection);
     }
 }
 ```
 
-> **Changes arrive on a background thread.** `INearby` has no UI thread affinity — nothing is marshalled for you. Marshal in the loop body (`await Dispatcher.DispatchAsync(...)`), or bind to a `NearbyDeviceCollection`, which does it for you:
->
-> ```csharp
-> // ItemsSource="{Binding Devices}"
-> public NearbyDeviceCollection Devices { get; } = new(session, Dispatcher.Dispatch);
-> ```
->
-> Because the loop body is `async`, you can await inside it — an event handler could not.
+Three things to know about this loop:
 
-> **Ending the loop is the only cleanup.** There is nothing to unsubscribe from: cancel the token, or `break`, and the watcher is gone. A page that watches with its navigation token cannot leak the way an undetached `+=` handler could.
+**Changes do not arrive on the UI thread.** `INearby` has no UI thread affinity and marshals
+nothing for you. Platform callbacks are drained by an internal pump, so changes reach your loop on
+a thread-pool thread, never the dispatcher. Marshal in the loop body with
+`await Dispatcher.DispatchAsync(...)`, or bind to a `NearbyDeviceCollection`, which does it for
+you:
 
-> **Start watching before the first connection exists.** `Changes` does not replay. A consumer that starts a receive loop must already be running by the time a connection opens, or it never starts one for that connection and the peer's messages silently never arrive. Registering it as a DI singleton is *not* sufficient — singletons are constructed on first resolution, so a consumer resolved only by a page opened after connecting is built too late. Register it as an `IMauiInitializeService`, which MAUI constructs during `Build()`. (A late starter can recover the current state by reading `session.Devices` before it begins watching.) See [`docs/PAYLOAD-DELIVERY.md`](docs/PAYLOAD-DELIVERY.md#your-consumer-must-be-constructed-before-the-first-connection).
+```csharp
+// ItemsSource="{Binding Devices}"
+public NearbyDeviceCollection Devices { get; } = new(nearby, Dispatcher.Dispatch);
+```
+
+Because the loop body is `async`, you can await inside it. An event handler could not.
+
+**Ending the loop is the only cleanup.** There is nothing to unsubscribe from. Cancel the token, or
+`break`, and the watcher is gone. A page that watches with its navigation token cannot leak the way
+an undetached `+=` handler could.
+
+> **Start watching before the first connection exists.** `Changes` does not replay. A consumer that
+> starts a receive loop must already be running by the time a connection opens, or it never starts
+> one for that connection and the peer's messages silently never arrive. Registering it as a DI
+> singleton is *not* sufficient, because singletons are constructed on first resolution, so a
+> consumer resolved only by a page opened after connecting is built too late. Register it as an
+> `IMauiInitializeService`, which MAUI constructs during `Build()`. A late starter can recover the
+> current state by reading `nearby.Devices` before it begins watching. See
+> [`docs/PAYLOAD-DELIVERY.md`](docs/PAYLOAD-DELIVERY.md#your-consumer-must-be-constructed-before-the-first-connection).
 
 ## 4. Send and receive data
 
-`NearbyConnection` is obtained from `AcceptAsync`, from `ConnectAsync`, or by looking one up with `session.TryGetConnection(device.Id, out var connection)` while the device is connected.
+Get a `NearbyConnection` from `AcceptAsync`, from `ConnectAsync`, or by looking one up with
+`nearby.TryGetConnection(device.Id, out var connection)` while the device is connected.
 
 ### Send bytes
 
@@ -265,7 +310,8 @@ await connection.SendAsync("file:///path/to/file.bin", progress, cancellationTok
 
 ### Receive data
 
-Payloads are a stream, not an event: the loop body is the seam where your own async work goes, and it is awaited before the next payload is taken.
+Payloads are a stream, not an event. The loop body is the seam where your own async work goes, and
+it is awaited before the next payload is taken.
 
 ```csharp
 await foreach (var payload in connection.ReceiveAsync())
@@ -283,61 +329,102 @@ await foreach (var payload in connection.ReceiveAsync())
 }
 ```
 
-**One consumer per connection.** The stream can only be enumerated once. If several parts of your app need inbound data, consume it in one place and fan out from there (the sample publishes a domain message via `IMessenger`).
+**One consumer per connection.** The stream can only be enumerated once. If several parts of your
+app need inbound data, consume it in one place and fan out from there. The sample publishes a
+domain message via `IMessenger`.
 
-**Do not pass `DisconnectedToken` to `ReceiveAsync`.** It is unnecessary — the loop already ends by itself on disconnect — and harmful: cancellation is observed on every iteration, so an already-cancelled token discards payloads that arrived just before the peer went away.
+**Do not pass `DisconnectedToken` to `ReceiveAsync`.** It is unnecessary, because the loop already
+ends by itself on disconnect. It is also harmful: cancellation is observed on every iteration, so
+an already-cancelled token discards payloads that arrived just before the peer went away.
 
-Received files are saved to `NearbyOptions.ReceivedFilesDirectory`. The default differs per platform: on Android it is `FileSystem.CacheDirectory` (the OS may purge it to reclaim space); on iOS it is `FileSystem.AppDataDirectory` (persistent). If received files must persist on Android, set the option explicitly or move the files somewhere durable after receipt — see the [Configuration](#configuration) table.
+Received files are saved to `NearbyOptions.ReceivedFilesDirectory`. The default differs per
+platform. On Android it is `FileSystem.CacheDirectory`, which the OS may purge to reclaim space; on
+iOS it is `FileSystem.AppDataDirectory`, which persists. If received files must persist on Android,
+set the option explicitly, or move the files somewhere durable after receipt. See the
+[Configuration](#configuration) table.
 
 ### Error handling
 
 All plugin-specific failures derive from `NearbyException`:
 
-- `NearbyAdvertisingException` / `NearbyDiscoveryException` — the platform failed to start advertising or discovery, most often because permissions were denied or the radio is off.
-- `NearbyConnectionTimeoutException` — thrown from `ConnectAsync` when the remote device does not answer within `NearbyOptions.InvitationTimeout` (default 30 seconds), typically because it moved out of range mid-handshake or nobody answered the prompt. The device returns to `Visible`, so retrying is reasonable.
-- `NearbyTransferTimeoutException` — thrown from a file-transfer `SendAsync` call when no transfer progress is observed for `NearbyOptions.TransferInactivityTimeout` (default 10 seconds — see the [Configuration](#configuration) table).
-- `NearbyException` — the non-sealed base type. Catch it to handle all of the above; deriving from it in your own code is a supported extension contract (useful when faking `INearby` in tests).
+- `NearbyAdvertisingException` / `NearbyDiscoveryException` — the platform failed to start
+  advertising or discovery, most often because permissions were denied or the radio is off.
+- `NearbyConnectionTimeoutException` — thrown from `ConnectAsync` when the remote device does not
+  answer within `NearbyOptions.InvitationTimeout` (default 30 seconds), typically because it moved
+  out of range mid-handshake or nobody answered the prompt. The device returns to `Visible`, so
+  retrying is reasonable.
+- `NearbyTransferTimeoutException` — thrown from a file-transfer `SendAsync` call when no transfer
+  progress is observed for `NearbyOptions.TransferInactivityTimeout` (default 10 seconds; see the
+  [Configuration](#configuration) table).
+- `NearbyException` — the non-sealed base type. Catch it to handle all of the above. Deriving from
+  it in your own code is a supported extension contract, useful when faking `INearby` in tests.
 
 ## 5. Disconnect and clean up
 
 ```csharp
 // Disconnect from one peer, leaving every other connection intact
-await session.DisconnectAsync(device);
+await nearby.DisconnectAsync(device);
 
 // Stop one activity without affecting the other
-await session.StopAdvertisingAsync();
-await session.StopDiscoveryAsync();
+await nearby.StopAdvertisingAsync();
+await nearby.StopDiscoveryAsync();
 
 // Stop everything and disconnect every peer
-await session.StopAsync();
+await nearby.StopAsync();
 ```
 
-`StopAsync()` is the consumer-facing teardown: it stops advertising and discovery and disconnects everything, but leaves the session usable — start again whenever you like. The session itself is a DI singleton owned by the container; app code never disposes it, so no single page can shut down connectivity for the whole app.
+`StopAsync()` is the consumer-facing teardown. It stops advertising and discovery and disconnects
+everything, but leaves the plugin usable, so you can start again whenever you like. `INearby` is a
+DI singleton owned by the container. App code never disposes it, so no single page can shut down
+connectivity for the whole app.
+
+# How connections work
+
+Neither platform gives you direct control over which radio carries your data. Both negotiate
+between Bluetooth and Wi-Fi automatically, per connection.
+
+**Android** ([Nearby Connections](https://developers.google.com/nearby/connections/overview)) picks
+between Bluetooth Classic, BLE, and Wi-Fi based on the
+[topology](https://developers.google.com/nearby/connections/strategies) you set via
+`NearbyOptions.Android.Topology`. `Cluster` (the default) allows many-to-many mesh at lower
+bandwidth, `Star` allows one-to-many at higher bandwidth, and `PointToPoint` is one-to-one at the
+highest throughput. Use `Cluster` for small messages across a group of devices, `PointToPoint` for
+large file transfers between two.
+
+**iOS** (Multipeer Connectivity) auto-selects Bluetooth, peer-to-peer Wi-Fi, or infrastructure
+Wi-Fi per link, with no app-level topology control. There is no iOS equivalent to `Topology`.
 
 # Configuration
 
-All `NearbyOptions` values are read once at startup — set them in the `UseNearby(...)` (or `AddNearby(...)`) configure delegate shown in [step 1](#1-register-the-plugin). Changing them after startup has no effect.
+All `NearbyOptions` values are read once at startup. Set them in the `UseNearby(...)` or
+`AddNearby(...)` configure delegate shown in [step 1](#1-register-the-plugin). Changing them after
+startup has no effect.
 
 | Member | Platform | Default | Description |
 | --- | --- | --- | --- |
-| `DisplayName` | Both | `DeviceInfo.Name` | The name shown to other devices when advertising/discovering. |
-| `ServiceId` | Both | Android: `AppInfo.Name`; iOS: none — **must be set** | Identifier that advertisers and discoverers match on. On iOS it is the `serviceType` (bare string, 1–15 chars — see [step 2](#2-platform-configuration)); startup validation throws if unset or invalid. |
-| `ReceivedFilesDirectory` | Both | Android: `FileSystem.CacheDirectory` (OS-purgeable); iOS: `FileSystem.AppDataDirectory` (persistent) | Directory where received files are saved (see [step 4](#4-send-and-receive-data)). |
+| `DisplayName` | Both | `DeviceInfo.Name` | The name shown to other devices when advertising or discovering. |
+| `ServiceId` | Both | Android: `AppInfo.Name`; iOS: none, **must be set** | Identifier that advertisers and discoverers match on. On iOS it is the `serviceType` (bare string, 1–15 chars; see [step 2](#2-platform-configuration)). Startup validation throws if unset or invalid. |
+| `ReceivedFilesDirectory` | Both | Android: `FileSystem.CacheDirectory` (OS-purgeable); iOS: `FileSystem.AppDataDirectory` (persistent) | Directory where received files are saved. See [step 4](#4-send-and-receive-data). |
 | `TransferInactivityTimeout` | Both | 10 seconds | Maximum time without a transfer progress update before an outgoing file send is aborted with `NearbyTransferTimeoutException`. Set to `Timeout.InfiniteTimeSpan` to disable. |
-| `AllowSynchronousContinuations` | Both | `false` | Advanced: lets stream continuations run synchronously on the SDK's callback thread instead of hopping to the thread pool. Only enable if your consumer loop bodies are trivially fast. |
-| `Topology` | Android | `NearbyTopology.Cluster` | How devices may connect — `Cluster` (many-to-many), `Star` (one-to-many), or `PointToPoint` (one-to-one, highest bandwidth). See [How connections work](#how-connections-work). Must match between the advertising and discovering devices. |
-| `UseLowPower` | Android | `false` | When `true`, only low-power mediums (like BLE) are used for advertising and discovery. |
-| `ConnectionType` | Android | `NearbyConnectionType.Balanced` | How aggressively a connection may use the radio — `Balanced`, `HighBandwidth`, or `NonDisruptive` (trade-off between throughput and disruption to other connections). |
+| `AllowSynchronousContinuations` | Both | `false` | Advanced. Lets **payload** stream continuations run synchronously on the writer's thread instead of hopping to the thread pool. Does not affect `Devices.Changes`, which always schedules to the thread pool. Only enable if your consumer loop bodies are trivially fast. |
+| `Topology` | Android | `NearbyTopology.Cluster` | How devices may connect: `Cluster` (many-to-many), `Star` (one-to-many), or `PointToPoint` (one-to-one, highest bandwidth). See [How connections work](#how-connections-work). Must match between the advertising and discovering devices. |
+| `UseLowPower` | Android | `false` | When `true`, only low-power mediums such as BLE are used for advertising and discovery. |
+| `ConnectionType` | Android | `NearbyConnectionType.Balanced` | How aggressively a connection may use the radio: `Balanced`, `HighBandwidth`, or `NonDisruptive`. Trades throughput against disruption to other connections. |
 | `EncryptionPreference` | iOS | `NearbyEncryptionPreference.Required` | Whether the link must be encrypted. Android always encrypts and ignores this. |
-| `InvitationTimeout` | **Both** | 30 seconds | How long `ConnectAsync` waits for the remote device to answer before throwing `NearbyConnectionTimeoutException`. Set to `Timeout.InfiniteTimeSpan` to wait indefinitely. |
+| `InvitationTimeout` | Both | 30 seconds | How long `ConnectAsync` waits for the remote device to answer before throwing `NearbyConnectionTimeoutException`. Set to `Timeout.InfiniteTimeSpan` to wait indefinitely. |
 
-One member changes the walkthrough's behavior directly: `TransferInactivityTimeout` aborts the file sends in step 4 after a 10-second stall by default.
+`TransferInactivityTimeout` is the one that shows up in the walkthrough directly. By default it
+aborts file sends in step 4 after a 10-second stall.
 
 # Logging
 
-The plugin logs through `Microsoft.Extensions.Logging`, using whatever providers your app has already configured. It installs no provider of its own and sends nothing off the device.
+The plugin logs through `Microsoft.Extensions.Logging`, using whatever providers your app has
+already configured. It installs no provider of its own and sends nothing off the device.
 
-On a healthy session it is silent at default levels: routine events (discovery, connections, payloads) are `Debug` and `Trace`, so the framework's default `Information` threshold filters them out. What you see by default is `Warning` and `Error` — plus one `Information` message, the iOS background teardown.
+On a healthy session it is silent at default levels. Routine events (discovery, connections,
+payloads) are `Debug` and `Trace`, so the framework's default `Information` threshold filters them
+out. What you see by default is `Warning` and `Error`, plus one `Information` message: the iOS
+background teardown.
 
 To troubleshoot, turn the library up:
 
@@ -345,9 +432,18 @@ To troubleshoot, turn the library up:
 builder.Logging.AddFilter("Plugin.Maui.NearbyConnections", LogLevel.Debug);
 ```
 
-`Debug` is the right level for devices not appearing or connections not forming; `Trace` adds one entry per payload for transfer problems.
+`Debug` is the right level for devices not appearing or connections not forming. `Trace` adds one
+entry per payload, for transfer problems.
 
-Note that device display names appear in messages at `Debug` — they are user-chosen and often personal. See [`docs/LOGGING.md`](docs/LOGGING.md) for the full level contract, per-category filters, EventIDs worth alerting on, and privacy guidance.
+Device display names appear in messages at `Debug`. They are user-chosen and often personal. See
+[`docs/LOGGING.md`](docs/LOGGING.md) for the full level contract, per-category filters, EventIDs
+worth alerting on, and privacy guidance.
+
+# Dependencies
+
+Package versions are managed centrally in
+[`Directory.Packages.props`](Directory.Packages.props). The plugin's own references are declared in
+[`Plugin.Maui.NearbyConnections.csproj`](src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj).
 
 # Acknowledgements
 

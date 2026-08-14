@@ -13,6 +13,50 @@ guarantees, where they diverge, and which behaviour the plugin supplies itself.
 
 ---
 
+## Consumer-facing summary
+
+A device has one of four states: `Visible`, `RequestReceived`, `Connecting`, `Connected`. That's
+the whole model — no platform internals needed to use it.
+
+```mermaid
+flowchart LR
+    classDef stateBox fill:#e8f0fe,stroke:#4285f4,stroke-width:2px,rx:10,ry:10,color:#1a1a1a,font-weight:bold
+    classDef pending fill:#fef7e0,stroke:#f9ab00,stroke-width:2px,rx:10,ry:10,color:#1a1a1a,font-weight:bold
+    classDef live fill:#e6f4ea,stroke:#34a853,stroke-width:2px,rx:10,ry:10,color:#1a1a1a,font-weight:bold
+    classDef ghost fill:#f1f3f4,stroke:#9aa0a6,stroke-width:1px,stroke-dasharray:4 3
+    classDef note fill:#ffffff,stroke:#9aa0a6,stroke-width:1px,color:#5f6368,font-style:italic
+
+    Start(( )):::ghost -->|discovered| Visible["Visible"]:::stateBox
+    Visible -->|inbound request| RequestReceived["RequestReceived"]:::stateBox
+    Visible -->|"ConnectAsync()"| Connecting["Connecting"]:::pending
+    RequestReceived -->|"AcceptAsync()"| Connecting
+    RequestReceived -->|"RejectAsync()"| Visible
+    Connecting -->|handshake succeeded| Connected["Connected"]:::live
+    Connecting -->|"rejected / timed out / failed"| Visible
+    Connected -->|"DisconnectAsync() or peer disconnected"| Visible
+    Visible -->|out of range| Gone(( )):::ghost
+
+    ConnectingNote["Advisory, not guaranteed:<br/>on iOS a peer can skip straight<br/>to Visible without ever<br/>appearing here. Role tells<br/>you the direction."]:::note -.- Connecting
+    ConnectedNote["TryGetConnection() returns a<br/>NearbyConnection only while a<br/>device is in this state."]:::note -.- Connected
+    GoneNote["Removed from nearby.Devices<br/>entirely — not a status value."]:::note -.- Gone
+```
+
+There's no `Failed` or `Rejected` or `Disconnected` state. Reject a request, miss a timeout, lose
+the connection — it all lands back on `Visible`. Same bucket as a device you just found.
+
+Devices only disappear from `nearby.Devices` when they walk out of range while `Visible`. A device
+mid-handshake doesn't get evicted mid-flight — a failed handshake drops it back to `Visible` first,
+then it can be lost normally from there.
+
+One thing to watch: `Connecting` isn't guaranteed on iOS. A peer can jump straight from a request
+back to `Visible` without you ever seeing `Connecting` in between. Don't build logic that assumes
+you'll see it.
+
+The per-platform detail — what each SDK actually calls, and the two sequence diagrams for Android
+vs. iOS — is below.
+
+---
+
 ## Naming constraint — vendor-neutral public vocabulary
 
 **No public type or member borrows vocabulary from either platform SDK.** This extends the

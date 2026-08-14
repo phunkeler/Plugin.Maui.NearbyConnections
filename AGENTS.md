@@ -105,8 +105,25 @@ handlers N times after N page visits.
 so navigating away ends the loop. Payload loops need no equivalent — they self-terminate when the
 connection drops.
 
-**Changes arrive on the platform's callback thread.** Consumers that bind marshal for themselves, or
-construct a `NearbyDeviceCollection` — the one type in the library that knows a UI thread exists.
+**Changes arrive on a thread-pool thread, not the platform's callback thread and never the UI
+thread.** The SDK callback writes into a `PlatformNearby` channel; the pumps in
+`NearbyImplementation.state.cs` drain it with `await foreach … ConfigureAwait(false)`, and every
+registry write plus `Publish` happens on the reading side of that boundary. The `Changes` channel
+itself is built without `AllowSynchronousContinuations` (`NearbyDeviceRegistry.Subscribe`), so a
+consumer's continuation is queued rather than run inline on the publisher. Do not document or rely
+on the SDK's callback thread reaching consumers: it does not. Consumers that bind marshal for
+themselves, or construct a `NearbyDeviceCollection` — the one type in the library that knows a UI
+thread exists.
+
+The platform-callback threads themselves differ, and only one is documented. iOS `MCSessionDelegate`
+calls arrive on "a private serial queue"
+([Apple](https://developer.apple.com/documentation/multipeerconnectivity/mcsessiondelegate)); the
+browser/advertiser delegates carry no equivalent Apple statement. Android GMS Nearby documents no
+threading contract at all — Google's own samples touch UI directly inside
+`onConnectionInitiated`, which implies main-thread delivery, but that is inference from sample code,
+not a contract. Because of the pump, none of this is observable to consumers, which is why the
+plugin's own invariant is thread-agnostic: the registry is thread-safe by construction and records
+what a callback saw on whatever thread it arrived on.
 
 ### Lifecycle wiring is the app's responsibility
 
