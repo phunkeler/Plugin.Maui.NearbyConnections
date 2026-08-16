@@ -223,6 +223,28 @@ await foreach (var change in nearby.Devices.Changes.WithCancellation(cancellatio
 }
 ```
 
+**Requests expire.** If nobody answers within `NearbyOptions.InboundRequestTimeout` (default 30
+seconds), the library rejects the request and the device returns to `Visible`. Nothing throws — no
+one is awaiting an unanswered request — but a later `AcceptAsync` for it throws
+`InvalidOperationException`, so handle that if your UI can be slow to respond.
+
+The expiry exists because neither platform withdraws a stale request, and on iOS the *asking* device
+gives up on its own schedule. Without it, a prompt can outlive the attempt behind it and accepting
+would connect to nothing.
+
+`NearbyDevice.RequestExpiresAt` carries the deadline, so you can show a countdown:
+
+```csharp
+if (device.RequestExpiresAt is { } expiresAt)
+{
+    var remaining = expiresAt - DateTimeOffset.UtcNow;
+}
+```
+
+It is a deadline rather than a remaining duration because `NearbyDevice` is an immutable snapshot —
+a stored duration would be stale the moment you read it. Drive the countdown from your own UI timer.
+The value is `null` when a request does not expire, and once the device leaves `RequestReceived`.
+
 ### Find devices and initiate a connection
 
 Discovered devices appear in `nearby.Devices` with `Status == Visible`:
@@ -349,10 +371,11 @@ All plugin-specific failures derive from `NearbyException`:
 
 - `NearbyAdvertisingException` / `NearbyDiscoveryException` — the platform failed to start
   advertising or discovery, most often because permissions were denied or the radio is off.
-- `NearbyConnectionTimeoutException` — thrown from `ConnectAsync` when the remote device does not
-  answer within `NearbyOptions.InvitationTimeout` (default 30 seconds), typically because it moved
-  out of range mid-handshake or nobody answered the prompt. The device returns to `Visible`, so
-  retrying is reasonable.
+- `NearbyConnectionTimeoutException` — thrown when no connection is established in time: from
+  `ConnectAsync` after `NearbyOptions.ConnectTimeout` (default 30 seconds), or from `AcceptAsync`
+  after `NearbyOptions.AcceptTimeout` (default 15 seconds). Usually the device moved out of range
+  mid-handshake, or nobody answered the prompt. The device returns to `Visible`, so retrying is
+  reasonable.
 - `NearbyTransferTimeoutException` — thrown from a file-transfer `SendAsync` call when no transfer
   progress is observed for `NearbyOptions.TransferInactivityTimeout` (default 10 seconds; see the
   [Configuration](#configuration) table).
@@ -411,7 +434,9 @@ startup has no effect.
 | `UseLowPower` | Android | `false` | When `true`, only low-power mediums such as BLE are used for advertising and discovery. |
 | `ConnectionType` | Android | `NearbyConnectionType.Balanced` | How aggressively a connection may use the radio: `Balanced`, `HighBandwidth`, or `NonDisruptive`. Trades throughput against disruption to other connections. |
 | `EncryptionPreference` | iOS | `NearbyEncryptionPreference.Required` | Whether the link must be encrypted. Android always encrypts and ignores this. |
-| `InvitationTimeout` | Both | 30 seconds | How long `ConnectAsync` waits for the remote device to answer before throwing `NearbyConnectionTimeoutException`. Set to `Timeout.InfiniteTimeSpan` to wait indefinitely. |
+| `ConnectTimeout` | Both | 30 seconds | How long `ConnectAsync` waits before throwing `NearbyConnectionTimeoutException`. Covers the remote user deciding, so it is the more generous of the two. Set to `Timeout.InfiniteTimeSpan` to wait indefinitely. |
+| `AcceptTimeout` | Both | 15 seconds | How long `AcceptAsync` waits before throwing `NearbyConnectionTimeoutException`. Shorter by default because the decision is already made and only the handshake remains. Set to `Timeout.InfiniteTimeSpan` to wait indefinitely. |
+| `InboundRequestTimeout` | Both | 30 seconds | How long an unanswered inbound request stays outstanding before the library rejects it and the device returns to `Visible`. Read `NearbyDevice.RequestExpiresAt` to show a countdown. Set to `Timeout.InfiniteTimeSpan` to leave requests outstanding. |
 
 `TransferInactivityTimeout` is the one that shows up in the walkthrough directly. By default it
 aborts file sends in step 4 after a 10-second stall.

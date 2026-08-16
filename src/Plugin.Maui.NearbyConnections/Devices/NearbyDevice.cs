@@ -88,6 +88,28 @@ public sealed record NearbyDevice
     public ConnectionRole? Role { get; init; }
 
     /// <summary>
+    /// Gets the moment this device's outstanding connection request expires.
+    /// </summary>
+    /// <value>
+    /// The expiry instant while <see cref="Status"/> is
+    /// <see cref="NearbyDeviceStatus.RequestReceived"/>; otherwise <see langword="null"/>. Also
+    /// <see langword="null"/> when <see cref="NearbyOptions.InboundRequestTimeout"/> is
+    /// <see cref="Timeout.InfiniteTimeSpan"/>, because the request does not expire.
+    /// </value>
+    /// <remarks>
+    /// <para>
+    /// A deadline rather than a remaining duration, because this snapshot is immutable: a remaining
+    /// <see cref="TimeSpan"/> would be stale the moment it was read, and a countdown built on it
+    /// would drift. Subtract the current time to display one.
+    /// </para>
+    /// <para>
+    /// This is when <em>this</em> device withdraws the offer. It does not report when the requesting
+    /// device gives up waiting — neither platform transmits that.
+    /// </para>
+    /// </remarks>
+    public DateTimeOffset? RequestExpiresAt { get; init; }
+
+    /// <summary>
     /// Determines whether the specified device is the same device as this one.
     /// </summary>
     /// <param name="other">The device to compare with the current device.</param>

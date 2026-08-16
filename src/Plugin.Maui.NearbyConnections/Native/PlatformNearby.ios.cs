@@ -121,20 +121,23 @@ sealed partial class PlatformNearby
                         session = _session;
                     }
 
-                    // Register the TCS before handing the session to MPC - OnPeerStateChanged(Connected)
-                    // can fire on another thread as soon as invitationHandler is called, and it only
-                    // resolves a TCS that is already present in _connectionTcs.
                     var tcs = RegisterConnectionTcs(id, ct);
-
-                    invitationHandler(true, session);
 
                     try
                     {
-                        return await tcs.Task.WaitAsync(ct);
+                        return await AwaitHandshakeAsync(
+                            device,
+                            tcs,
+                            ConnectionRole.Acceptor,
+                            beforeAwait: _ =>
+                            {
+                                invitationHandler(true, session);
+                                return Task.CompletedTask;
+                            },
+                            ct);
                     }
                     catch
                     {
-                        _connectionTcs.TryRemove(id, out _);
                         invitationHandler(false, null);
                         throw;
                     }
@@ -257,21 +260,32 @@ sealed partial class PlatformNearby
             session = _session;
         }
 
-        _mcBrowser?.InvitePeer(peerID, session, context: null, _options.InvitationTimeout.TotalSeconds);
+        _mcBrowser?.InvitePeer(peerID, session, context: null, _options.ConnectTimeout.TotalSeconds);
 
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// Nothing to clean up on iOS: <c>InvitePeer</c> is given the same
-    /// <see cref="NearbyOptions.InvitationTimeout"/>, so MultipeerConnectivity expires
-    /// the invitation itself and reports the peer as <c>NotConnected</c>.
+    /// Nothing to clean up on iOS, on either handshake path.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// Outbound: <c>InvitePeer</c> is given the same
+    /// <see cref="NearbyOptions.ConnectTimeout"/>, so MultipeerConnectivity expires the
+    /// invitation itself and reports the peer as <c>NotConnected</c>.
+    /// </para>
+    /// <para>
+    /// Inbound: the accept path resolves <c>invitationHandler(false, null)</c> in its own catch,
+    /// which is the equivalent release, and there is no browser-side invitation to withdraw.
+    /// Android's counterpart disconnects the endpoint instead, because GMS refuses a later attempt
+    /// to an endpoint left in a half-open state.
+    /// </para>
+    /// <para>
     /// The shared timeout still applies here rather than being Android-only, because MPC's
     /// <c>Connecting</c> state can hang indefinitely with neither terminal callback arriving
     /// (documented on Wi-Fi-enabled-but-unassociated devices). The plugin-owned deadline is the
     /// only thing that rescues that case.
+    /// </para>
     /// </remarks>
 #pragma warning disable CA1822, S2325
     Task PlatformAbandonConnectAsync(NearbyDevice device) => Task.CompletedTask;

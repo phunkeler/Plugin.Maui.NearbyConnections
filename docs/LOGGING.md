@@ -72,13 +72,19 @@ message text. Ranges are allocated per owning type:
 | 2000–2099 | `PlatformNearby` — the platform layer |
 | 3000–3099 | iOS identity and lifecycle helpers |
 
-Three IDs are worth wiring an alert to:
+These IDs are worth wiring an alert to:
 
 | ID | Level | Why it matters |
 |---|---|---|
 | `2027` | `Error` | A platform callback threw. Carries a `{Callback}` property naming which one — one filter covers all of them. |
 | `2079` | `Warning` | A payload arrived but nothing was consuming the connection, so it is being buffered and lost. Almost always a wiring bug in the app; see [PAYLOAD-DELIVERY.md](PAYLOAD-DELIVERY.md). |
 | `2084` / `2085` | `Error` | An advertising or discovery start failure could not be delivered to your code. You will see a normal end-of-stream instead of the error, so this log is the only record. |
+| `1013` | `Warning` | An expired inbound request could not be rejected. The device returns to `Visible` either way, but the platform may still hold the request open. |
+| `1014` | `Error` | The expiry countdown for an inbound request failed. That request can stay outstanding until the session stops, so a stale row is the symptom. |
+
+One ID you will see routinely rather than alert on: `1012` (`Debug`) records an inbound request
+lapsing because the application did not answer it within
+`NearbyOptions.InboundRequestTimeout`. That is an ordinary outcome, not a fault.
 
 IDs are stable across releases and are never reused once shipped.
 

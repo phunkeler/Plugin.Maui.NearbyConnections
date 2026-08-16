@@ -1,5 +1,6 @@
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
@@ -582,6 +583,152 @@ public class NearbyImplementationTests
             // Assert
             Assert.AreEqual(NearbyDeviceStatus.Visible, device.Status);
             Assert.IsTrue(session.IsAdvertising);
+        }
+
+        [TestMethod]
+        public async Task UnansweredRequest_WhenTimeoutElapses_RejectsAndReturnsDeviceToVisible()
+        {
+            // Arrange
+            var time = new FakeTimeProvider();
+            var timeout = TimeSpan.FromSeconds(30);
+            var connections = new FakeNearby();
+            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+
+            await using var recorder = new ChangeRecorder(session);
+            var device = new NearbyDevice("peer-1", "Alice");
+            var rejected = false;
+
+            await connections.EmitRequestAsync(device, () => Create.Connection(device), onReject: () => rejected = true);
+            await recorder.WaitForAsync("peer-1", 2);
+
+            // Act
+            time.Advance(timeout);
+            await recorder.WaitForAsync("peer-1", 3);
+
+            // Assert
+            Assert.IsTrue(rejected, "An expired request must be rejected, to release the platform's handle.");
+            Assert.AreEqual(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
+        }
+
+        [TestMethod]
+        public async Task ExpiredRequest_CannotBeAccepted()
+        {
+            // Arrange
+            var time = new FakeTimeProvider();
+            var timeout = TimeSpan.FromSeconds(30);
+            var connections = new FakeNearby();
+            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+
+            await using var recorder = new ChangeRecorder(session);
+            var device = new NearbyDevice("peer-1", "Alice");
+            await connections.EmitRequestAsync(device, () => Create.Connection(device));
+            await recorder.WaitForAsync("peer-1", 2);
+
+            // Act
+            time.Advance(timeout);
+            await recorder.WaitForAsync("peer-1", 3);
+
+            // Assert
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+                () => session.AcceptAsync(device, TestContext.CancellationToken));
+        }
+
+        [TestMethod]
+        public async Task PendingRequest_PublishesExpiryForAConsumerCountdown()
+        {
+            // Arrange
+            var time = new FakeTimeProvider();
+            var timeout = TimeSpan.FromSeconds(30);
+            var connections = new FakeNearby();
+            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+
+            await using var recorder = new ChangeRecorder(session);
+            var device = new NearbyDevice("peer-1", "Alice");
+            var expected = time.GetUtcNow() + timeout;
+
+            // Act
+            await connections.EmitRequestAsync(device, () => Create.Connection(device));
+            await recorder.WaitForAsync("peer-1", 2);
+
+            // Assert
+            Assert.AreEqual(expected, session.Current("peer-1")?.RequestExpiresAt);
+        }
+
+        [TestMethod]
+        public async Task AcceptedRequest_ClearsTheExpiry()
+        {
+            // Arrange
+            var time = new FakeTimeProvider();
+            var connections = new FakeNearby();
+            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = TimeSpan.FromSeconds(30) }, time);
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+
+            await using var recorder = new ChangeRecorder(session);
+            var device = new NearbyDevice("peer-1", "Alice");
+            await connections.EmitRequestAsync(device, () => Create.Connection(device));
+            await recorder.WaitForAsync("peer-1", 2);
+
+            // Act
+            await session.AcceptAsync(device, TestContext.CancellationToken);
+
+            // Assert
+            Assert.IsNull(session.Current("peer-1")?.RequestExpiresAt);
+        }
+
+        [TestMethod]
+        public async Task AcceptedRequest_IsNotRejectedWhenTheOriginalTimeoutWouldHaveElapsed()
+        {
+            // Arrange
+            var time = new FakeTimeProvider();
+            var timeout = TimeSpan.FromSeconds(30);
+            var connections = new FakeNearby();
+            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+
+            await using var recorder = new ChangeRecorder(session);
+            var device = new NearbyDevice("peer-1", "Alice");
+            var rejected = false;
+
+            await connections.EmitRequestAsync(device, () => Create.Connection(device), onReject: () => rejected = true);
+            await recorder.WaitForAsync("peer-1", 2);
+            await session.AcceptAsync(device, TestContext.CancellationToken);
+
+            // Act
+            time.Advance(timeout * 2);
+
+            // Assert
+            Assert.IsFalse(rejected, "A disarmed countdown must not reject an accepted request.");
+            Assert.AreEqual(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
+        }
+
+        [TestMethod]
+        public async Task InfiniteTimeout_LeavesTheRequestOutstanding()
+        {
+            // Arrange
+            var time = new FakeTimeProvider();
+            var connections = new FakeNearby();
+            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = Timeout.InfiniteTimeSpan }, time);
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+
+            await using var recorder = new ChangeRecorder(session);
+            var device = new NearbyDevice("peer-1", "Alice");
+            var rejected = false;
+
+            await connections.EmitRequestAsync(device, () => Create.Connection(device), onReject: () => rejected = true);
+            await recorder.WaitForAsync("peer-1", 2);
+
+            // Act
+            time.Advance(TimeSpan.FromHours(1));
+
+            // Assert
+            Assert.IsFalse(rejected);
+            Assert.AreEqual(NearbyDeviceStatus.RequestReceived, session.StatusOf("peer-1"));
+            Assert.IsNull(
+                session.Current("peer-1")?.RequestExpiresAt,
+                "A request that does not expire must not publish an expiry instant.");
         }
 
         [TestMethod]

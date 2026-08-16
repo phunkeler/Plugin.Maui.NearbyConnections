@@ -63,23 +63,16 @@ sealed partial class PlatformNearby
 
                 var request = new NearbyConnectionRequest(
                     device,
-                    accept: async ct =>
+                    accept: ct =>
                     {
-                        // Now a caller token exists. Attach it so a DisposeAsync mid-handshake
-                        // cancels with the token the awaiter can correlate to its own operation.
                         AttachConnectionTcsToken(endpointId, ct);
 
-                        await PlatformRespondToConnectionAsync(device, accept: true);
-
-                        try
-                        {
-                            return await tcs.Task.WaitAsync(ct);
-                        }
-                        catch
-                        {
-                            _connectionTcs.TryRemove(endpointId, out _);
-                            throw;
-                        }
+                        return AwaitHandshakeAsync(
+                            device,
+                            tcs,
+                            ConnectionRole.Acceptor,
+                            beforeAwait: _ => PlatformRespondToConnectionAsync(device, accept: true),
+                            ct);
                     },
                     reject: ct =>
                     {

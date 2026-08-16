@@ -15,6 +15,8 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     readonly SemaphoreSlim _stateGate = new(1, 1);
     readonly ConcurrentDictionary<string, NearbyConnectionRequest> _pendingRequests
         = new(StringComparer.Ordinal);
+    readonly ConcurrentDictionary<string, CancellationTokenSource> _requestExpiries
+        = new(StringComparer.Ordinal);
     readonly ConcurrentDictionary<string, NearbyConnection> _activeConnections
         = new(StringComparer.Ordinal);
 
@@ -220,6 +222,11 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
                 }
             }
 
+            foreach (var (deviceId, _) in _requestExpiries.ToArray())
+            {
+                DisarmRequestExpiry(deviceId);
+            }
+
             foreach (var (_, request) in _pendingRequests.ToArray())
             {
                 try
@@ -278,6 +285,10 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
                 $"A request can only be accepted once, and only before it expires.");
         }
 
+        // Won the race against the expiry countdown by removing the entry above; disarm it before
+        // the handshake starts, so it cannot reject a request that is now being accepted.
+        DisarmRequestExpiry(device.Id);
+
         Transition(device, NearbyDeviceStatus.Connecting, ConnectionRole.Acceptor);
 
         try
@@ -305,6 +316,8 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
             throw new InvalidOperationException(
                 $"No connection request is outstanding for device '{device.Id}'. A request can only be rejected once, and only before it expires.");
         }
+
+        DisarmRequestExpiry(device.Id);
 
         await request.RejectAsync(cancellationToken).ConfigureAwait(false);
         LogHandshakeEnded(device.Id, EndReason.LocalRejected);

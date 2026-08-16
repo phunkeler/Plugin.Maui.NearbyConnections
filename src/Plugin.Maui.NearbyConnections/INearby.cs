@@ -283,7 +283,7 @@ public interface INearby
     /// </exception>
     /// <exception cref="NearbyConnectionTimeoutException">
     /// The remote device did not answer within
-    /// <see cref="NearbyOptions.InvitationTimeout"/>.
+    /// <see cref="NearbyOptions.ConnectTimeout"/>.
     /// </exception>
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was canceled before the connection was established.
@@ -317,6 +317,12 @@ public interface INearby
     /// </exception>
     /// <exception cref="NearbyException">
     /// The platform failed to complete the connection.
+    /// </exception>
+    /// <exception cref="NearbyConnectionTimeoutException">
+    /// The connection was not established within <see cref="NearbyOptions.AcceptTimeout"/> of this
+    /// call. That interval is shorter than <see cref="NearbyOptions.ConnectTimeout"/> by default,
+    /// because the decision to accept is already made and only the handshake remains — a remote
+    /// device that leaves range mid-handshake reports no terminal result on either platform.
     /// </exception>
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was canceled before the connection was established.

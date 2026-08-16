@@ -138,8 +138,53 @@ snapshot, writes are serialised by a lock — so platform callbacks record what 
 thread they arrived on. Nothing in the library marshals to a UI thread except
 `NearbyDeviceCollection`.
 
+### Two termination guarantees
+
+Both platforms are callback-shaped. A callback API cannot hang: if the callback never arrives,
+nothing was promised. This plugin converts those callbacks into awaitable operations and into
+observable device state, and both conversions create a promise the platform does not make. These
+two guarantees are what make that safe, and they are the reason the timeout options exist.
+
+**1. Every public async operation terminates.** It returns, throws, or observes cancellation, within
+a bounded time, on both platforms, whatever the radio does.
+
 A pending handshake is a `TaskCompletionSource` in `_connectionTcs`. **Every failure path must
-resolve or fault that TCS** or `AcceptAsync`/`ConnectAsync` hang forever.
+resolve or fault that TCS** or `AcceptAsync`/`ConnectAsync` hang forever. Resolving the TCS is the
+mechanism, but it is not sufficient on its own — the platform may simply never call back. Google
+documents `requestConnection` as completing when the request is *sent*, with no guarantee a callback
+follows. So every await on a TCS is also bounded by a deadline the plugin owns:
+
+| Operation | Bounded by |
+|---|---|
+| `ConnectAsync` | `ConnectTimeout` (30s), via `PlatformNearby.AwaitHandshakeAsync` |
+| `AcceptAsync` | `AcceptTimeout` (15s), via the same helper — the window excludes the remote user's decision, so it is shorter by default |
+| `SendAsync` (file) | `TransferInactivityTimeout`, via `OutgoingTransfer.InactivityToken` |
+| `StartAdvertisingAsync` / `StartDiscoveryAsync` | `started` resolves on both branches; iOS adds `Apple.StartFailureGraceWindow` |
+
+`AwaitHandshakeAsync` is shared, not per-platform, on purpose: the accept path once awaited the
+caller's token alone on both platforms, so an accepted handshake whose peer left range never
+returned at all. One helper is what stops that from recurring in one partial and not its sibling.
+**A new await on a platform callback belongs in that helper, or needs its own documented deadline.**
+
+`Timeout.InfiniteTimeSpan` opts out of this guarantee, deliberately. An operation configured that
+way waits forever by the consumer's own choice.
+
+**A cancelled handshake has three possible sources, and only one of them is a timeout.** The caller's
+token, the deadline, and `DisposeAsync` settling the pending TCS all surface as
+`OperationCanceledException`. `AwaitHandshakeAsync` therefore tests `deadlineCts` directly rather
+than inferring "not the caller's token", which would report a teardown as an elapsed deadline that
+never elapsed. `DisposeTests.DisposeMidHandshake_CancelsPendingAccept` is the device test that
+catches this, and it caught it once already.
+
+`NearbyConnection.Disconnected` and `ReceiveAsync` are outside the guarantee and do not need a
+deadline: neither promises completion, so neither can hang. A connection that never drops simply
+never completes `Disconnected`.
+
+**2. Every device state is transient or terminal.** No device sits indefinitely in a state it cannot
+leave. This is the state-shaped counterpart, and it is not the same as guarantee 1 — no caller is
+awaiting anything, so nothing hangs. What breaks instead is the device set: a row stuck in a state
+whose underlying platform handle is already dead. `RequestReceived` is bounded by
+`InboundRequestTimeout` for exactly this reason.
 
 Platform code lives in platform partials, never `#if` in shared logic. When shared code needs a
 platform-specific step, the sanctioned mechanism is the **platform hook pair**: shared code declares

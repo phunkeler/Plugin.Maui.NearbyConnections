@@ -16,7 +16,7 @@ One call registers everything; there are no opt-in tiers.
 builder.UseNearby(opts =>
 {
 #if IOS
-    opts.InvitationTimeout = TimeSpan.FromSeconds(10);
+    opts.ConnectTimeout = TimeSpan.FromSeconds(10);
 #endif
 });
 ```

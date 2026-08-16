@@ -60,6 +60,26 @@ sealed partial class NearbyImplementation
             "failure: it is reported here only.")]
     partial void LogAutoAcceptFailed(string deviceId, Exception exception);
 
+    [LoggerMessage(
+        EventId = 1012,
+        Level = LogLevel.Debug,
+        Message = "The inbound connection request from device {DeviceId} was not answered within {TimeoutSeconds}s and was rejected.")]
+    partial void LogInboundRequestExpired(string deviceId, double timeoutSeconds);
+
+    [LoggerMessage(
+        EventId = 1013,
+        Level = LogLevel.Warning,
+        Message = "Failed to reject the expired connection request from device {DeviceId}. " +
+            "The device was returned to Visible regardless, but the platform may still hold the request open.")]
+    partial void LogInboundRequestExpiryRejectFailed(string deviceId, Exception exception);
+
+    [LoggerMessage(
+        EventId = 1014,
+        Level = LogLevel.Error,
+        Message = "The expiry countdown for the connection request from device {DeviceId} failed. " +
+            "The request may be left outstanding until the session stops.")]
+    partial void LogInboundRequestExpiryFailed(string deviceId, Exception exception);
+
     // -------------------------------------------------------------------------
     // Teardown
     // -------------------------------------------------------------------------

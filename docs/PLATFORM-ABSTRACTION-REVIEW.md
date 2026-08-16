@@ -142,7 +142,8 @@ Open questions this review touches but does not settle (each already has a home)
 - The iOS start-failure grace window (`DESIGN-PRINCIPLES.md`).
 - The `net10.0` target's inability to enumerate streams, and what "platform-unsupported" means
   (`DEVICE-LIFECYCLE.md`).
-- Renaming `InvitationTimeout`; lifecycle gaps 1 & 4; the package rename.
+- Lifecycle gaps 1 & 4; the package rename. (Renaming `InvitationTimeout` is done — it is now
+  `ConnectTimeout`.)
 - New, from this review: whether the iOS state-change handler's three-jobs-in-one-branch gets
   split during the migration. (The issue-tracker question was open here briefly and is now settled
   — see §2.)

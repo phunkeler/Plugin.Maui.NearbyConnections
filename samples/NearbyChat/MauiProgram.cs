@@ -37,7 +37,17 @@ public static class MauiProgram
             // that knows the service id, skip NearbyDeviceStatus.RequestReceived entirely, and make
             // AdvertisingPageViewModel and AdvertisedDeviceViewModel dead code.
             opts.ServiceId = "nearbychat";
-            opts.InvitationTimeout = TimeSpan.FromSeconds(10);
+
+            // Shortened from the 30s default so a failed handshake surfaces quickly in a demo. The
+            // accept window is shortened with it: leaving AcceptTimeout at its default would make
+            // accepting wait longer than connecting, inverting the relationship the defaults
+            // express — a connect includes the remote user's decision, an accept does not.
+            opts.ConnectTimeout = TimeSpan.FromSeconds(10);
+            opts.AcceptTimeout = TimeSpan.FromSeconds(5);
+
+            // An unanswered prompt is withdrawn after this, and the row disappears.
+            // NearbyDevice.RequestExpiresAt carries the deadline for a countdown display.
+            opts.InboundRequestTimeout = TimeSpan.FromSeconds(30);
         });
 
 #if DEBUG

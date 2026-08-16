@@ -128,27 +128,86 @@ public sealed partial class NearbyOptions
     private static partial string GetDefaultReceivedFilesDirectory();
 
     /// <summary>
-    /// Gets or sets how long to wait for a remote device to answer a connection request before the
-    /// attempt is abandoned.
+    /// Gets or sets how long <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/>
+    /// waits for a connection before the attempt is abandoned.
     /// </summary>
     /// <value>
-    /// The interval to wait for a response. The default is 30 seconds. Set this to
+    /// The interval to wait, measured from the call. The default is 30 seconds. Set this to
     /// <see cref="Timeout.InfiniteTimeSpan"/> to wait indefinitely.
     /// </value>
     /// <remarks>
     /// <para>
-    /// This timeout applies on both platforms but is enforced differently: iOS has a native
-    /// invitation timeout, while Android has none at the platform level, so the library maintains
-    /// its own timer there instead. Without it, connecting to a device that never answers, or that
-    /// moves out of range during the handshake, would wait indefinitely.
+    /// This window covers the request reaching the remote device, <b>the remote user deciding</b>,
+    /// and the handshake completing. The human step is usually the largest part, which is why the
+    /// default is generous and why this is a separate setting from
+    /// <see cref="AcceptTimeout"/>.
     /// </para>
     /// <para>
-    /// When this interval elapses,
-    /// <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/> throws
-    /// <see cref="NearbyConnectionTimeoutException"/>.
+    /// <see cref="NearbyConnectionTimeoutException"/> is thrown when the interval elapses, and the
+    /// device returns to <see cref="NearbyDeviceStatus.Visible"/>.
+    /// </para>
+    /// <para>
+    /// The library enforces this itself on both platforms. Google Nearby Connections has no
+    /// equivalent — <c>requestConnection</c> completes when the request is sent, and nothing
+    /// guarantees a callback follows. MultipeerConnectivity has a native invitation timeout, but it
+    /// bounds the inviting side only. Without this option, a device that moves out of range
+    /// mid-handshake would leave the caller waiting without end.
     /// </para>
     /// </remarks>
-    public TimeSpan InvitationTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Gets or sets how long <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>
+    /// waits for a connection before the attempt is abandoned.
+    /// </summary>
+    /// <value>
+    /// The interval to wait, measured from the call. The default is 15 seconds. Set this to
+    /// <see cref="Timeout.InfiniteTimeSpan"/> to wait indefinitely.
+    /// </value>
+    /// <remarks>
+    /// <para>
+    /// Shorter than <see cref="ConnectTimeout"/> by default: the decision to accept is already made,
+    /// so only the handshake remains. A device that leaves range mid-handshake reports no terminal
+    /// result on either platform, so this deadline is the only thing that ends the attempt.
+    /// <see cref="NearbyConnectionTimeoutException"/> is thrown when the interval elapses, and the
+    /// device returns to <see cref="NearbyDeviceStatus.Visible"/>.
+    /// </para>
+    /// <para>
+    /// This bounds the accept, not the offer. To bound how long an unanswered inbound request stays
+    /// outstanding before the library withdraws it, set <see cref="InboundRequestTimeout"/>.
+    /// </para>
+    /// </remarks>
+    public TimeSpan AcceptTimeout { get; set; } = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// Gets or sets how long an unanswered inbound connection request stays outstanding before the
+    /// library rejects it on the application's behalf.
+    /// </summary>
+    /// <value>
+    /// The interval to leave a request outstanding. The default is 30 seconds. Set this to
+    /// <see cref="Timeout.InfiniteTimeSpan"/> to leave requests outstanding until the application
+    /// answers them or the session stops.
+    /// </value>
+    /// <remarks>
+    /// <para>
+    /// Alone among the three timeouts, this one bounds state rather than an operation. Nothing
+    /// throws when it elapses, because no caller is waiting: the library rejects the request and the
+    /// device returns to <see cref="NearbyDeviceStatus.Visible"/>. A later
+    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> for that device throws
+    /// <see cref="InvalidOperationException"/>, as it does for any request no longer outstanding.
+    /// </para>
+    /// <para>
+    /// The remote device's own timeout is not observable: neither platform transmits it. So this
+    /// value states when <em>this</em> device withdraws the offer, and never predicts when the
+    /// asking device gives up. Without an expiry the request would outlive the remote device's own
+    /// attempt — on iOS, MultipeerConnectivity expires the invitation on the inviting side, so a
+    /// request left outstanding past that point can never be accepted successfully.
+    /// </para>
+    /// <para>
+    /// Read <see cref="NearbyDevice.RequestExpiresAt"/> to show a countdown.
+    /// </para>
+    /// </remarks>
+    public TimeSpan InboundRequestTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Gets or sets how long a file transfer may report no progress before it is considered stalled
@@ -180,7 +239,7 @@ public sealed partial class NearbyOptions
     /// <see cref="INearbyDevices.Changes"/>, and the application must answer it with
     /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> or
     /// <see cref="INearby.RejectAsync(NearbyDevice, CancellationToken)"/> before
-    /// <see cref="InvitationTimeout"/> elapses.
+    /// <see cref="ConnectTimeout"/> elapses.
     /// </para>
     /// <para>
     /// When it is <see langword="true"/>, the session answers on the application's behalf, so

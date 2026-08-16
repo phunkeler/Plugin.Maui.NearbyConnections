@@ -75,6 +75,8 @@ Plugin.Maui.NearbyConnections.NearbyDevice.DisplayName.init -> void
 Plugin.Maui.NearbyConnections.NearbyDevice.Equals(Plugin.Maui.NearbyConnections.NearbyDevice? other) -> bool
 Plugin.Maui.NearbyConnections.NearbyDevice.Id.get -> string!
 Plugin.Maui.NearbyConnections.NearbyDevice.NearbyDevice(string! id, string? displayName) -> void
+Plugin.Maui.NearbyConnections.NearbyDevice.RequestExpiresAt.get -> System.DateTimeOffset?
+Plugin.Maui.NearbyConnections.NearbyDevice.RequestExpiresAt.init -> void
 Plugin.Maui.NearbyConnections.NearbyDevice.Role.get -> Plugin.Maui.NearbyConnections.ConnectionRole?
 Plugin.Maui.NearbyConnections.NearbyDevice.Role.init -> void
 Plugin.Maui.NearbyConnections.NearbyDevice.Status.get -> Plugin.Maui.NearbyConnections.NearbyDeviceStatus
@@ -121,18 +123,22 @@ Plugin.Maui.NearbyConnections.NearbyFilePayload.FileResult.get -> Microsoft.Maui
 Plugin.Maui.NearbyConnections.NearbyFilePayload.FileResult.init -> void
 Plugin.Maui.NearbyConnections.NearbyFilePayload.NearbyFilePayload(Microsoft.Maui.Storage.FileResult! FileResult) -> void
 Plugin.Maui.NearbyConnections.NearbyOptions
+Plugin.Maui.NearbyConnections.NearbyOptions.AcceptTimeout.get -> System.TimeSpan
+Plugin.Maui.NearbyConnections.NearbyOptions.AcceptTimeout.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.AllowSynchronousContinuations.get -> bool
 Plugin.Maui.NearbyConnections.NearbyOptions.AllowSynchronousContinuations.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.Android.get -> Plugin.Maui.NearbyConnections.NearbyAndroidOptions!
 Plugin.Maui.NearbyConnections.NearbyOptions.Apple.get -> Plugin.Maui.NearbyConnections.NearbyAppleOptions!
 Plugin.Maui.NearbyConnections.NearbyOptions.AutoAcceptConnectionRequests.get -> bool
 Plugin.Maui.NearbyConnections.NearbyOptions.AutoAcceptConnectionRequests.set -> void
-Plugin.Maui.NearbyConnections.NearbyOptions.DisplayName.get -> string!
-Plugin.Maui.NearbyConnections.NearbyOptions.DisplayName.set -> void
+Plugin.Maui.NearbyConnections.NearbyOptions.ConnectTimeout.get -> System.TimeSpan
+Plugin.Maui.NearbyConnections.NearbyOptions.ConnectTimeout.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.DiscoveryRefreshInterval.get -> System.TimeSpan?
 Plugin.Maui.NearbyConnections.NearbyOptions.DiscoveryRefreshInterval.set -> void
-Plugin.Maui.NearbyConnections.NearbyOptions.InvitationTimeout.get -> System.TimeSpan
-Plugin.Maui.NearbyConnections.NearbyOptions.InvitationTimeout.set -> void
+Plugin.Maui.NearbyConnections.NearbyOptions.DisplayName.get -> string!
+Plugin.Maui.NearbyConnections.NearbyOptions.DisplayName.set -> void
+Plugin.Maui.NearbyConnections.NearbyOptions.InboundRequestTimeout.get -> System.TimeSpan
+Plugin.Maui.NearbyConnections.NearbyOptions.InboundRequestTimeout.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.NearbyOptions() -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.ReceivedFilesDirectory.get -> string!
 Plugin.Maui.NearbyConnections.NearbyOptions.ReceivedFilesDirectory.set -> void
@@ -147,6 +153,9 @@ Plugin.Maui.NearbyConnections.NearbyTopology
 Plugin.Maui.NearbyConnections.NearbyTopology.Cluster = 0 -> Plugin.Maui.NearbyConnections.NearbyTopology
 Plugin.Maui.NearbyConnections.NearbyTopology.PointToPoint = 2 -> Plugin.Maui.NearbyConnections.NearbyTopology
 Plugin.Maui.NearbyConnections.NearbyTopology.Star = 1 -> Plugin.Maui.NearbyConnections.NearbyTopology
+Plugin.Maui.NearbyConnections.NearbyTransferException
+Plugin.Maui.NearbyConnections.NearbyTransferException.NearbyTransferException(string! message) -> void
+Plugin.Maui.NearbyConnections.NearbyTransferException.NearbyTransferException(string! message, System.Exception! innerException) -> void
 Plugin.Maui.NearbyConnections.NearbyTransferProgress
 Plugin.Maui.NearbyConnections.NearbyTransferProgress.BytesTransferred.get -> long
 Plugin.Maui.NearbyConnections.NearbyTransferProgress.Fraction.get -> double?
@@ -159,9 +168,6 @@ Plugin.Maui.NearbyConnections.NearbyTransferStatus.Canceled = 3 -> Plugin.Maui.N
 Plugin.Maui.NearbyConnections.NearbyTransferStatus.Failure = 2 -> Plugin.Maui.NearbyConnections.NearbyTransferStatus
 Plugin.Maui.NearbyConnections.NearbyTransferStatus.InProgress = 0 -> Plugin.Maui.NearbyConnections.NearbyTransferStatus
 Plugin.Maui.NearbyConnections.NearbyTransferStatus.Success = 1 -> Plugin.Maui.NearbyConnections.NearbyTransferStatus
-Plugin.Maui.NearbyConnections.NearbyTransferException
-Plugin.Maui.NearbyConnections.NearbyTransferException.NearbyTransferException(string! message) -> void
-Plugin.Maui.NearbyConnections.NearbyTransferException.NearbyTransferException(string! message, System.Exception! innerException) -> void
 Plugin.Maui.NearbyConnections.NearbyTransferTimeoutException
 Plugin.Maui.NearbyConnections.NearbyTransferTimeoutException.NearbyTransferTimeoutException(string! message) -> void
 Plugin.Maui.NearbyConnections.ServiceCollectionExtensions

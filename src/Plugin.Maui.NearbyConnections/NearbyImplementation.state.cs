@@ -9,12 +9,34 @@ sealed partial class NearbyImplementation
         _ => EndReason.Failed,
     };
 
-    void Transition(NearbyDevice device, NearbyDeviceStatus status, ConnectionRole? role)
+    /// <summary>
+    /// Moves a device to <paramref name="status"/>, clearing
+    /// <see cref="NearbyDevice.RequestExpiresAt"/> unless <paramref name="requestExpiresAt"/> carries
+    /// a new one.
+    /// </summary>
+    /// <remarks>
+    /// The expiry is cleared by default rather than carried forward: it describes an outstanding
+    /// request, so every transition away from
+    /// <see cref="NearbyDeviceStatus.RequestReceived"/> — accepted, rejected, expired, or torn down —
+    /// invalidates it. Only <see cref="OnRequestReceivedAsync"/> passes one.
+    /// </remarks>
+    void Transition(
+        NearbyDevice device,
+        NearbyDeviceStatus status,
+        ConnectionRole? role,
+        DateTimeOffset? requestExpiresAt = null)
         => _registry.Update(
             device.Id,
-            current => current.Status == status && current.Role == role
+            current => current.Status == status
+                    && current.Role == role
+                    && current.RequestExpiresAt == requestExpiresAt
                 ? current
-                : current with { Status = status, Role = role });
+                : current with
+                {
+                    Status = status,
+                    Role = role,
+                    RequestExpiresAt = requestExpiresAt,
+                });
 
     async Task PumpAdvertiseAsync(
         IAsyncEnumerable<NearbyConnectionRequest> stream,
@@ -108,11 +130,112 @@ sealed partial class NearbyImplementation
             return;
         }
 
+        var expiresAt = ArmRequestExpiry(device);
+
         _pendingRequests[device.Id] = request;
 
         _registry.AddIfAbsent(device);
 
-        Transition(device, NearbyDeviceStatus.RequestReceived, role: null);
+        Transition(device, NearbyDeviceStatus.RequestReceived, role: null, expiresAt);
+    }
+
+    /// <summary>
+    /// Starts the countdown that withdraws an unanswered request, and returns the instant it
+    /// expires, or <see langword="null"/> when expiry is disabled.
+    /// </summary>
+    /// <remarks>
+    /// The returned instant is what <see cref="NearbyDevice.RequestExpiresAt"/> publishes, so a
+    /// consumer's countdown and this timer are derived from one value rather than computed twice.
+    /// </remarks>
+    DateTimeOffset? ArmRequestExpiry(NearbyDevice device)
+    {
+        var timeout = _options.InboundRequestTimeout;
+
+        if (timeout == Timeout.InfiniteTimeSpan)
+        {
+            return null;
+        }
+
+        var cts = new CancellationTokenSource();
+
+        _requestExpiries[device.Id] = cts;
+        _ = ExpireRequestAfterAsync(device, timeout, cts.Token);
+
+        return _timeProvider.GetUtcNow() + timeout;
+    }
+
+    /// <summary>
+    /// Stops the countdown for <paramref name="deviceId"/>, if one is armed. Safe to call more than
+    /// once, and when none is armed.
+    /// </summary>
+    void DisarmRequestExpiry(string deviceId)
+    {
+        if (!_requestExpiries.TryRemove(deviceId, out var cts))
+        {
+            return;
+        }
+
+        cts.Cancel();
+        cts.Dispose();
+    }
+
+    /// <summary>
+    /// Rejects an inbound request that the application did not answer within
+    /// <see cref="NearbyOptions.InboundRequestTimeout"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Ends as a rejection, not as a fault: no caller is awaiting an outstanding request, so there
+    /// is nothing to throw to. Rejecting rather than dropping the entry locally is what releases the
+    /// platform's own handle — MultipeerConnectivity holds the invitation open until its handler is
+    /// resolved, and Google Nearby Connections refuses a later attempt to an endpoint left
+    /// half-open.
+    /// </para>
+    /// <para>
+    /// The <see cref="_pendingRequests"/> removal is the race arbiter. A concurrent
+    /// <c>AcceptAsync</c> or <c>RejectAsync</c> removes the same entry, so whichever removes it wins
+    /// and the loser returns without touching the device — this is why the status transition happens
+    /// only inside the successful branch.
+    /// </para>
+    /// </remarks>
+    async Task ExpireRequestAfterAsync(NearbyDevice device, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(timeout, _timeProvider, cancellationToken).ConfigureAwait(false);
+
+            if (!_pendingRequests.TryRemove(device.Id, out var request))
+            {
+                return;
+            }
+
+            LogHandshakeEnded(device.Id, EndReason.RequestExpired);
+            LogInboundRequestExpired(device.Id, timeout.TotalSeconds);
+
+            try
+            {
+                await request.RejectAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogInboundRequestExpiryRejectFailed(device.Id, ex);
+            }
+
+            ResetToVisible(device);
+
+            if (_requestExpiries.TryRemove(device.Id, out var spent))
+            {
+                spent.Dispose();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Answered, or the session stopped. Whoever cancelled owns the disposal.
+        }
+        catch (Exception ex)
+        {
+            LogInboundRequestExpiryFailed(device.Id, ex);
+        }
     }
 
     async Task AutoAcceptAsync(NearbyConnectionRequest request, NearbyDevice device)

@@ -131,43 +131,104 @@ sealed partial class PlatformNearby : IPlatformNearby
     {
         ArgumentNullException.ThrowIfNull(device);
 
-        // Before anything else, including registering the TCS: an already-cancelled token must
-        // surface as OperationCanceledException, not as whatever the platform happens to throw
-        // first. Each platform checks internally too, but honouring it here keeps the contract
-        // uniform across all three targets.
         cancellationToken.ThrowIfCancellationRequested();
 
         var tcs = RegisterConnectionTcs(device.Id, cancellationToken);
 
-        // A plugin-owned deadline, not a platform one. iOS has a native invitation timeout, but
-        // Google's Nearby Connections has none at all: requestConnection's Task completes when the
-        // request is *sent*, and nothing guarantees a callback ever follows. Without this, a peer
-        // that walks out of range mid-handshake leaves ConnectAsync awaiting forever and strands
-        // its _connectionTcs entry. Applied on both platforms so the observable behaviour matches.
-        var hasTimeout = _options.InvitationTimeout != Timeout.InfiniteTimeSpan;
+        return await AwaitHandshakeAsync(
+            device,
+            tcs,
+            ConnectionRole.Initiator,
+            beforeAwait: token => PlatformInitiateConnectAsync(device, token),
+            cancellationToken);
+    }
 
-        // Timed through the injected TimeProvider so this is testable with FakeTimeProvider rather
-        // than requiring a real 30-second wait — the same pattern as OutgoingTransfer.
-        // Timeout.InfiniteTimeSpan is a valid never-firing delay, so the infinite case needs no
-        // separate construction.
-        using var deadlineCts = new CancellationTokenSource(_options.InvitationTimeout, TimeProvider);
+    /// <summary>
+    /// Awaits a registered handshake under the plugin's own deadline, converting an elapsed deadline
+    /// into <see cref="NearbyConnectionTimeoutException"/> and removing the
+    /// <c>_connectionTcs</c> entry on every exit path.
+    /// </summary>
+    /// <param name="device">The remote device the handshake is with.</param>
+    /// <param name="tcs">
+    /// The already-registered source the platform's terminal callback resolves or faults. Registered
+    /// by the caller rather than here, because both platforms must register before the step that can
+    /// make a callback fire.
+    /// </param>
+    /// <param name="role">
+    /// Which side of the handshake this caller is on. Selects both the deadline and the message:
+    /// <see cref="NearbyOptions.ConnectTimeout"/> for an initiator,
+    /// <see cref="NearbyOptions.AcceptTimeout"/> for an acceptor. The two are separate settings
+    /// because the windows measure different spans — an initiator's covers the remote user
+    /// deciding, while an acceptor's starts once that decision is made.
+    /// </param>
+    /// <param name="beforeAwait">
+    /// The platform step that starts the handshake, run under the linked token. Runs inside the
+    /// <c>try</c> so a synchronous throw still clears the registration.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// The caller's token. Cancellation attributable to it surfaces as
+    /// <see cref="OperationCanceledException"/>, never as a timeout.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// A plugin-owned deadline, not a platform one. iOS has a native invitation timeout, but
+    /// Google's Nearby Connections has none at all: <c>requestConnection</c>'s Task completes when
+    /// the request is <em>sent</em>, and nothing guarantees a callback ever follows. Without this, a
+    /// peer that walks out of range mid-handshake leaves the awaiter suspended forever and strands
+    /// its <c>_connectionTcs</c> entry. Applied on both platforms so the observable behaviour
+    /// matches.
+    /// </para>
+    /// <para>
+    /// <b>Shared by the connect path and both accept paths.</b> The accept lambdas in
+    /// <c>PlatformNearby.android.cs</c> and <c>PlatformNearby.ios.cs</c> previously awaited the
+    /// caller's token alone, so an accepted handshake that then stalled — the remote device leaving
+    /// range between the request arriving and the connection completing — never returned at all.
+    /// Keeping the rule in one shared method is what stops that divergence from recurring in one
+    /// partial and not its sibling.
+    /// </para>
+    /// <para>
+    /// Timed through the injected <see cref="TimeProvider"/> so this is testable with
+    /// <c>FakeTimeProvider</c> rather than requiring a real 30-second wait — the same pattern as
+    /// <c>OutgoingTransfer</c>. <see cref="Timeout.InfiniteTimeSpan"/> is a valid never-firing delay,
+    /// so the infinite case needs no separate construction.
+    /// </para>
+    /// </remarks>
+    internal async Task<NearbyConnection> AwaitHandshakeAsync(
+        NearbyDevice device,
+        TaskCompletionSource<NearbyConnection> tcs,
+        ConnectionRole role,
+        Func<CancellationToken, Task> beforeAwait,
+        CancellationToken cancellationToken)
+    {
+        var isInitiator = role is ConnectionRole.Initiator;
+        var timeout = isInitiator ? _options.ConnectTimeout : _options.AcceptTimeout;
+        var hasTimeout = timeout != Timeout.InfiniteTimeSpan;
+
+        using var deadlineCts = new CancellationTokenSource(timeout, TimeProvider);
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken, deadlineCts.Token);
 
         try
         {
-            await PlatformInitiateConnectAsync(device, timeoutCts.Token);
+            await beforeAwait(timeoutCts.Token);
 
             return await tcs.Task.WaitAsync(timeoutCts.Token);
         }
-        catch (OperationCanceledException) when (hasTimeout && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
+            when (hasTimeout
+                && deadlineCts.IsCancellationRequested
+                && !cancellationToken.IsCancellationRequested)
         {
             _connectionTcs.TryRemove(device.Id, out _);
             await PlatformAbandonConnectAsync(device);
 
-            throw new NearbyConnectionTimeoutException(
-                $"The connection request to '{device.DisplayName ?? device.Id}' was not answered within {_options.InvitationTimeout.TotalSeconds:0.#}s.");
+            var name = device.DisplayName ?? device.Id;
+            var seconds = timeout.TotalSeconds;
+
+            throw new NearbyConnectionTimeoutException(isInitiator
+                ? $"The connection request to '{name}' was not answered within {seconds:0.#}s."
+                : $"The connection with '{name}' was not established within {seconds:0.#}s of accepting the request.");
         }
         catch
         {

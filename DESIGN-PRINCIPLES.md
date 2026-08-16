@@ -169,7 +169,7 @@ Deliberately undecided. **Raise them; do not resolve them silently.**
 | Question | Status |
 |---|---|
 | Final package name, and whether a new repo/package is created | Gated by the rename guard — issue #52 |
-| `InvitationTimeout` → `ConnectionRequestTimeout` | Open. "Invitation" is MPC vocabulary and the option is now cross-platform, which makes the leak more visible. Deferred so the whole public vocabulary settles in one pass. |
+| `InvitationTimeout` → `ConnectTimeout` | **Resolved.** Split, not just renamed. "Invitation" was MPC vocabulary, banned from the public contract. The one option became three, each named for what it bounds: `ConnectTimeout` for `ConnectAsync`, `AcceptTimeout` for `AcceptAsync`, and `InboundRequestTimeout` for a request nobody answered. The first two are named for their operations because their windows genuinely differ — a connect covers the remote user deciding, an accept does not, so one shared value would have been wrong for one of them. The third sits on the axis that separates it from both: an operation a caller awaits, against a request left outstanding. |
 | iOS `StartFailureGraceWindow` (`Native/PlatformNearby.ios.cs`) | Open. MultipeerConnectivity has no start-success callback, only a delegate that fires on failure — so a fixed 250ms window is used to decide whether `StartAdvertisingAsync`/`StartDiscoveryAsync` should fault or return successfully. A device slow enough to blow past the window gets a false "started successfully," with the real failure only surfacing later as a stream fault plus a log line. No better signal exists in the MPC API to key off instead; raised here rather than resolved silently. |
 
 Everything previously listed here has been resolved and moved into the rules file: the primary

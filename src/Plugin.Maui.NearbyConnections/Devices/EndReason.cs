@@ -35,8 +35,8 @@ enum EndReason
     Cancelled,
 
     /// <summary>
-    /// The handshake was not answered within
-    /// <see cref="NearbyOptions.InvitationTimeout"/>.
+    /// The handshake did not complete within <see cref="NearbyOptions.ConnectTimeout"/> when this
+    /// device initiated it, or <see cref="NearbyOptions.AcceptTimeout"/> when it accepted.
     /// </summary>
     /// <remarks>
     /// This is distinct from <see cref="Failed"/> because the platforms differ: iOS has a native
@@ -44,6 +44,17 @@ enum EndReason
     /// two would hide that asymmetry.
     /// </remarks>
     TimedOut,
+
+    /// <summary>
+    /// An inbound request was not answered within
+    /// <see cref="NearbyOptions.InboundRequestTimeout"/>, so the library rejected it.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="TimedOut"/>, which is an operation the caller was awaiting. Nothing
+    /// awaits an outstanding request, so this reason reports a withdrawn offer rather than a failed
+    /// call.
+    /// </remarks>
+    RequestExpired,
 
     /// <summary>
     /// The handshake failed for any other reason.
