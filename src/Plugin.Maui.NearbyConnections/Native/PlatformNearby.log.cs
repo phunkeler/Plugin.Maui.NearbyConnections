@@ -122,8 +122,12 @@ sealed partial class PlatformNearby
     [LoggerMessage(EventId = 2053, Level = LogLevel.Trace, Message = "Data received from peer: Id={DeviceId}, DisplayName={DisplayName}, Length={Length} bytes")]
     partial void LogDataReceived(string deviceId, string displayName, long length);
 
-    [LoggerMessage(EventId = 2055, Level = LogLevel.Debug, Message = "Disconnecting from session due to control message.")]
-    partial void LogDisconnectingFromSession();
+    // 2055 (LogDisconnectingFromSession) is retired. It reported a session-wide teardown on an
+    // inbound Disconnect frame, which was the bug: departure is now per-peer (EventId 2092).
+    // The id stays reserved and is never reused.
+
+    [LoggerMessage(EventId = 2092, Level = LogLevel.Debug, Message = "Peer announced disconnect via control message: Id={PeerId}")]
+    partial void LogPeerDisconnectRequested(string peerId);
 
     [LoggerMessage(EventId = 2056, Level = LogLevel.Warning, Message = "Unknown control message type: {Type}")]
     partial void LogUnknownControlMessageType(object type);

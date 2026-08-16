@@ -539,31 +539,8 @@ sealed partial class PlatformNearby
                     FaultConnectionTcs(id, new NearbyException(
                         $"Connection to peer '{peerID.DisplayName}' failed: session state changed to NotConnected before the connection was established."));
 
-                    MCSession? sessionToDisposePeer;
-                    lock (_sessionLock)
-                    {
-                        var connectedPeers = _session?.ConnectedPeers ?? [];
-                        var isLastPeer = connectedPeers.Length > 0
-                            && connectedPeers.All(p => PeerKeyProvider.PeerKey(p) == id);
-                        var isUnused = connectedPeers.Length == 0 && _connectionTcs.IsEmpty;
-
-                        sessionToDisposePeer = _session is not null && (isLastPeer || isUnused)
-                            ? _session
-                            : null;
-
-                        if (sessionToDisposePeer is not null)
-                        {
-                            _session = null;
-                        }
-                    }
-
                     Peers.Remove(id);
-
-                    if (sessionToDisposePeer is not null)
-                    {
-                        LogSessionDisposed();
-                        sessionToDisposePeer.Dispose();
-                    }
+                    DisposeSessionIfLastPeer();
                     break;
 
                 case MCSessionState.Connecting:
@@ -590,7 +567,7 @@ sealed partial class PlatformNearby
             if (ControlMessage.TryDecode(bytes, out var controlType))
             {
                 LogControlMessageReceived(id, peerID.DisplayName, controlType);
-                HandleControlMessage(controlType);
+                HandleControlMessage(id, controlType);
                 return;
             }
 
@@ -603,22 +580,43 @@ sealed partial class PlatformNearby
         }
     }
 
-    void HandleControlMessage(ControlMessageType type)
+    void HandleControlMessage(string peerId, ControlMessageType type)
     {
         switch (type)
         {
             case ControlMessageType.Disconnect:
-                LogDisconnectingFromSession();
-                MCSession? sessionToDisconnect;
-                lock (_sessionLock)
-                {
-                    sessionToDisconnect = _session;
-                }
-                sessionToDisconnect?.Disconnect();
+                LogPeerDisconnectRequested(peerId);
+                ReleaseConnection(peerId);
+                Peers.Remove(peerId);
+                DisposeSessionIfLastPeer();
                 break;
             default:
                 LogUnknownControlMessageType(type);
                 break;
+        }
+    }
+
+    void DisposeSessionIfLastPeer()
+    {
+        MCSession? sessionToDispose;
+
+        lock (_sessionLock)
+        {
+            sessionToDispose = _session is not null && Peers.IsEmpty && _connectionTcs.IsEmpty
+                ? _session
+                : null;
+
+            if (sessionToDispose is not null)
+            {
+                _session = null;
+            }
+        }
+
+        if (sessionToDispose is not null)
+        {
+            LogSessionDisposed();
+            sessionToDispose.Disconnect();
+            sessionToDispose.Dispose();
         }
     }
 

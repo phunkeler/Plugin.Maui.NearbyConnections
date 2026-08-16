@@ -10,6 +10,8 @@ sealed partial class PeerRegistry
     public bool TryGetDevice(string key, [NotNullWhen(true)] out NearbyDevice? device)
         => _peers.TryGetValue(key, out device);
 
+    public bool IsEmpty => _peers.IsEmpty;
+
     public NearbyDevice? Remove(string key)
     {
         PlatformRemove(key);

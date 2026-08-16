@@ -406,11 +406,26 @@ where `Connecting` hangs forever with neither terminal callback arriving.
 
 ### Gap 3 — per-peer disconnect: ✅ **CLOSED**
 
-`ControlMessage.Disconnect` is sent to the departing peer, and `MCSession` is torn down only when
-the last peer leaves (`NearbyConnections.ios.cs`, the `NotConnected` case — note the
-`connectedPeers.Length > 0` guard, which exists because `Enumerable.All` returns `true` for an empty
-sequence and without it a failed handshake disposed the session out from under still-connected
-peers). `INearby.DisconnectAsync(device)` is the public verb on both platforms.
+`ControlMessage.Disconnect` is sent to the departing peer, and both halves are now implemented in
+`PlatformNearby.ios.cs`:
+
+- **Sending** — the connection's `dispose` callback sends the frame before teardown.
+- **Receiving** — `HandleControlMessage` takes the sender's peer id and ends only that peer:
+  `ReleaseConnection` plus `Peers.Remove`. It never calls `MCSession.Disconnect()` directly.
+
+`MCSession` is torn down by `DisposeSessionIfLastPeer`, shared by the `NotConnected` callback and
+the control frame — the two ways a peer departs. Emptiness is read from `Peers`, not
+`MCSession.ConnectedPeers`: a peer that announced its departure by control frame remains in
+`ConnectedPeers` until MPC notices the drop, so reading that property would report the session as
+still busy and leak it. Callers remove the departing peer before calling.
+
+`INearby.DisconnectAsync(device)` is the public verb on both platforms.
+
+> **Regression note.** Until 2026-08-16 the receiving half called `MCSession.Disconnect()`, which is
+> all-or-nothing: one peer's departure ended every other peer's connection. The bug needed 3+ peers
+> to show, and the device tests were single-peer. Two multi-peer tests in
+> `ControlMessageDataTests.ios.cs` now cover it. The superseded `connectedPeers.Length > 0` guard
+> described below is gone with the code it guarded.
 
 Original analysis, retained for context:
 
