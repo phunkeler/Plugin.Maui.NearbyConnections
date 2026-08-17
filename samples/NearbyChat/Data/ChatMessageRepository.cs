@@ -8,10 +8,10 @@ namespace NearbyChat.Data;
 /// The process-lifetime store behind <see cref="ChatMessageRepository"/>.
 /// </summary>
 /// <remarks>
-/// Registered as a singleton and injected into the scoped repository, this plays the role a database
-/// plays in a real app: the durable thing that outlives any one unit of work. Without it the store
-/// would live in the repository itself, and making the repository scoped would silently discard
-/// history the moment a scope ended.
+/// Registered as a singleton and injected into the repository, this plays the role a database plays
+/// in a real app: the durable thing that outlives any one operation. Keeping it separate is what
+/// lets the repository become <c>Scoped</c> — as a database-backed one must be — without history
+/// being discarded the moment a scope ends.
 /// </remarks>
 public sealed class ChatMessageStore
 {
@@ -50,10 +50,10 @@ public sealed class ChatMessageStore
 /// In-memory <see cref="IChatMessageRepository"/>, standing in for a database-backed implementation.
 /// </summary>
 /// <remarks>
-/// Registered <c>Scoped</c> and resolved through <see cref="IChatMessageRepositoryFactory"/>, so it
-/// occupies exactly the position an EF Core repository would: created per unit of work, disposed
-/// with its scope. The methods complete synchronously and return completed tasks — the async
-/// signature exists for the implementations that replace this one, not for this one's benefit.
+/// Registered as a singleton, because it holds no per-operation state of its own — everything
+/// durable lives in <see cref="ChatMessageStore"/>. The methods complete synchronously and return
+/// completed tasks; the async signature exists for the implementations that replace this one, not
+/// for this one's benefit.
 /// </remarks>
 public sealed class ChatMessageRepository(ChatMessageStore store) : IChatMessageRepository
 {

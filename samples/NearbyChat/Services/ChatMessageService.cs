@@ -40,11 +40,11 @@ public interface IChatMessageService
 /// </para>
 /// </remarks>
 public sealed class ChatMessageService(
-    IChatMessageRepositoryFactory repositoryFactory,
+    IChatMessageRepository repository,
     INearby session) : IChatMessageService
 {
-    readonly IChatMessageRepositoryFactory _repositoryFactory = repositoryFactory
-        ?? throw new ArgumentNullException(nameof(repositoryFactory));
+    readonly IChatMessageRepository _repository = repository
+        ?? throw new ArgumentNullException(nameof(repository));
 
     readonly INearby _session = session ?? throw new ArgumentNullException(nameof(session));
 
@@ -57,10 +57,7 @@ public sealed class ChatMessageService(
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(message);
 
-        await using (var handle = _repositoryFactory.Create())
-        {
-            await handle.Repository.SaveAsync(device, message, cancellationToken).ConfigureAwait(false);
-        }
+        await _repository.SaveAsync(device, message, cancellationToken).ConfigureAwait(false);
 
         if (!_session.TryGetConnection(device.Id, out var connection))
         {
@@ -83,8 +80,6 @@ public sealed class ChatMessageService(
     {
         ArgumentNullException.ThrowIfNull(device);
 
-        await using var handle = _repositoryFactory.Create();
-
-        return await handle.Repository.GetAllAsync(device, cancellationToken).ConfigureAwait(false);
+        return await _repository.GetAllAsync(device, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -33,11 +33,7 @@ sealed partial class PeerRegistry
     public NearbyDevice Track(MCPeerID peerID)
     {
         var key = PeerKeyProvider.PeerKey(peerID);
-
-        // The handle is written before the device so a concurrent TryGetHandle for a key that
-        // Record has just published cannot miss it.
         _handles[key] = peerID;
-
         var device = Record(key, peerID.DisplayName);
 
         LogTrackingRemotePeer(Logger, key, peerID.DisplayName);

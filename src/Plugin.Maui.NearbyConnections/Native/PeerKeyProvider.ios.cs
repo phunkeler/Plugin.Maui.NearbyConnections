@@ -30,7 +30,16 @@ sealed partial class PeerKeyProvider
 
         try
         {
-            using var data = PeerIdArchive.Archive(peerID);
+            var archived = NSKeyedArchiver.GetArchivedData(peerID, true, out var error);
+
+            if (error is not null)
+            {
+                throw new NSErrorException(error);
+            }
+
+            using var data = archived
+                ?? throw new InvalidOperationException("Failed to archive MCPeerID: Result is null");
+
             var hash = SHA256.HashData([.. data]);
             return Convert.ToHexString(hash[..8]);
         }

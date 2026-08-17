@@ -251,13 +251,15 @@ since the next payload is not dequeued until it completes:
 ```csharp
 await foreach (var payload in connection.ReceiveAsync())
 {
-    await using var handle = _repositoryFactory.Create();   // one unit of work
-    await handle.Repository.SaveAsync(device, message);     // stream waits for the write
+    await _repository.SaveAsync(device, message);   // stream waits for the write
 }
 ```
 
-Injecting a small factory abstraction, rather than `IServiceProvider`, keeps service location out of
-the consumer — see `IChatMessageRepositoryFactory` in [`samples/NearbyChat`](../samples/NearbyChat).
+A repository that owns per-operation state — an EF Core `DbContext`, say — must not be held in a
+long-lived consumer like this. Register it `Scoped` and open one scope per payload inside the loop,
+injecting a small factory abstraction rather than `IServiceProvider` so that service location stays
+out of the consumer. See `NearbyIngestionService` in [`samples/NearbyChat`](../samples/NearbyChat),
+whose repository is a singleton only because the sample's store is stateless and thread-safe.
 
 ### The plugin warns you
 

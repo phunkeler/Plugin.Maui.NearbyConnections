@@ -4,7 +4,7 @@ using Plugin.Maui.NearbyConnections;
 namespace NearbyChat.Data;
 
 /// <summary>
-/// Persistence for chat history, scoped to a single unit of work.
+/// Persistence for chat history.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -14,10 +14,12 @@ namespace NearbyChat.Data;
 /// needs, so swapping the implementation requires no consumer changes.
 /// </para>
 /// <para>
-/// <strong>Registered scoped, never singleton.</strong> A real implementation wraps a unit of work
-/// (an EF Core <c>DbContext</c>) that is not thread-safe and must not be shared across concurrent
-/// operations. Resolve one per unit of work through <see cref="IChatMessageRepositoryFactory"/>
-/// rather than holding an instance in a long-lived service.
+/// <strong>Registered as a singleton here, which a real implementation cannot be.</strong> The
+/// sample's store is a thread-safe in-memory dictionary with no per-operation state. An EF Core
+/// <c>DbContext</c> is neither: it is a unit of work that is not thread-safe and must not be shared
+/// across concurrent operations. Backing this with a database means registering the repository
+/// <c>Scoped</c> and resolving one scope per operation, so that no long-lived service captures an
+/// instance.
 /// </para>
 /// </remarks>
 public interface IChatMessageRepository

@@ -3,38 +3,25 @@ namespace Plugin.Maui.NearbyConnections;
 sealed partial class PlatformNearby
 {
     internal void WriteDeviceFound(NearbyDevice device)
-    {
-        try
-        {
-            var channel = _discoverChannel;
-            var written = channel.Writer.TryWrite(new NearbyDeviceEvent(device, NearbyDeviceEventType.Found));
-
-            if (!written)
-            {
-                LogWriteChannelCompleted(nameof(WriteDeviceFound), device.Id);
-            }
-        }
-        catch (Exception ex)
-        {
-            LogWriteError(nameof(WriteDeviceFound), device.Id, ex);
-        }
-    }
+        => WriteDeviceEvent(device, NearbyDeviceEventType.Found, nameof(WriteDeviceFound));
 
     internal void WriteDeviceLost(NearbyDevice device)
+        => WriteDeviceEvent(device, NearbyDeviceEventType.Lost, nameof(WriteDeviceLost));
+
+    void WriteDeviceEvent(NearbyDevice device, NearbyDeviceEventType type, string writer)
     {
         try
         {
             var channel = _discoverChannel;
-            var written = channel.Writer.TryWrite(new NearbyDeviceEvent(device, NearbyDeviceEventType.Lost));
 
-            if (!written)
+            if (!channel.Writer.TryWrite(new NearbyDeviceEvent(device, type)))
             {
-                LogWriteChannelCompleted(nameof(WriteDeviceLost), device.Id);
+                LogWriteChannelCompleted(writer, device.Id);
             }
         }
         catch (Exception ex)
         {
-            LogWriteError(nameof(WriteDeviceLost), device.Id, ex);
+            LogWriteError(writer, device.Id, ex);
         }
     }
 

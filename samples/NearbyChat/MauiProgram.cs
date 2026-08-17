@@ -58,24 +58,12 @@ public static class MauiProgram
         builder.Services.AddSingleton(MediaPicker.Default);
         builder.Services.AddSingleton(Launcher.Default);
         builder.Services.AddSingleton<AppShell>();
-
-        // IDispatcher is deliberately NOT registered here. MAUI already registers it, and the
-        // previous `Application.Current?.Dispatcher ?? throw` factory made resolution depend on
-        // *when* it ran: Application.Current is still null during MauiAppBuilder.Build(), so
-        // anything resolved at startup — such as an IMauiInitializeService — crashed the app with
-        // "Dispatcher is not available." rather than getting the perfectly good dispatcher MAUI
-        // provides.
         builder.Services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
         builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<IThumbnailService, ThumbnailService>();
         builder.Services.AddSingleton<INearbyPermissions, NearbyPermissions>();
-        // Persistence. The store is the singleton that outlives any unit of work (a database, in a
-        // real app); the repository is Scoped and reached only through the factory, so no long-lived
-        // service can capture one. See IChatMessageRepositoryFactory.
         builder.Services.AddSingleton<ChatMessageStore>();
-        builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
-        builder.Services.AddSingleton<IChatMessageRepositoryFactory, ChatMessageRepositoryFactory>();
-
+        builder.Services.AddSingleton<IChatMessageRepository, ChatMessageRepository>();
         builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
         builder.Services.AddSingleton<IConnectionTracker, ConnectionTracker>();
 

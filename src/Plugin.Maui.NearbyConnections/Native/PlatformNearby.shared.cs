@@ -53,21 +53,68 @@ sealed partial class PlatformNearby : IPlatformNearby
         });
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(
+    public IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(
         TaskCompletionSource started,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
+        => StreamAsync(
+            () => NewChannel<NearbyConnectionRequest>(),
+            channel => Interlocked.Exchange(ref _advertiseChannel, channel),
+            PlatformStartAdvertisingAsync,
+            PlatformStopAdvertising,
+            started,
+            cancellationToken);
+
+    /// <inheritdoc/>
+    public IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(
+        TaskCompletionSource started,
+        CancellationToken cancellationToken = default)
+        => StreamAsync(
+            () => NewChannel<NearbyDeviceEvent>(),
+            channel => Interlocked.Exchange(ref _discoverChannel, channel),
+            PlatformStartDiscoveryAsync,
+            PlatformStopDiscovering,
+            started,
+            cancellationToken);
+
+    /// <summary>
+    /// Publishes a fresh channel as the live one, starts the platform, resolves
+    /// <paramref name="started"/>, then yields everything written to that channel until the
+    /// enumeration ends. Stops the platform and completes the channel on every exit path.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Shared by <see cref="AdvertiseAsync"/> and <see cref="DiscoverAsync"/>, which differ only in
+    /// element type and in which pair of platform hooks they drive. The two bodies were otherwise
+    /// identical, and this is the same reasoning that keeps <see cref="AwaitHandshakeAsync"/> shared:
+    /// a fix applied to one and not its sibling is this codebase's dominant defect class.
+    /// </para>
+    /// <para>
+    /// <paramref name="publish"/> is a delegate rather than a <c>ref</c> parameter to the channel
+    /// field, because C# forbids <c>ref</c> parameters in an iterator. Channel construction stays
+    /// inside the iterator body so that nothing happens until enumeration begins, which is the
+    /// contract <see cref="IPlatformNearby.AdvertiseAsync"/> documents — building the enumerable and
+    /// never enumerating it must not swap the live channel.
+    /// </para>
+    /// </remarks>
+    static async IAsyncEnumerable<T> StreamAsync<T>(
+        Func<Channel<T>> createChannel,
+        Action<Channel<T>> publish,
+        Func<CancellationToken, Task> start,
+        Action stop,
+        TaskCompletionSource started,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var newAdvertiseChannel = NewChannel<NearbyConnectionRequest>();
-        Interlocked.Exchange(ref _advertiseChannel, newAdvertiseChannel);
+        var channel = createChannel();
+        publish(channel);
 
         try
         {
-            await PlatformStartAdvertisingAsync(cancellationToken);
+            await start(cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            PlatformStopAdvertising();
-            newAdvertiseChannel.Writer.TryComplete();
+            stop();
+            channel.Writer.TryComplete();
             started.TrySetException(ex);
             throw;
         }
@@ -78,51 +125,15 @@ sealed partial class PlatformNearby : IPlatformNearby
 
         try
         {
-            await foreach (var request in newAdvertiseChannel.Reader.ReadAllAsync(cancellationToken))
+            await foreach (var item in channel.Reader.ReadAllAsync(cancellationToken))
             {
-                yield return request;
+                yield return item;
             }
         }
         finally
         {
-            PlatformStopAdvertising();
-            newAdvertiseChannel.Writer.TryComplete();
-        }
-    }
-
-    /// <inheritdoc/>
-    public async IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(
-        TaskCompletionSource started,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        var newDiscoverChannel = NewChannel<NearbyDeviceEvent>();
-        Interlocked.Exchange(ref _discoverChannel, newDiscoverChannel);
-
-        try
-        {
-            await PlatformStartDiscoveryAsync(cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
-        {
-            PlatformStopDiscovering();
-            newDiscoverChannel.Writer.TryComplete();
-            started.TrySetException(ex);
-            throw;
-        }
-
-        started.TrySetResult();
-
-        try
-        {
-            await foreach (var deviceEvent in newDiscoverChannel.Reader.ReadAllAsync(cancellationToken))
-            {
-                yield return deviceEvent;
-            }
-        }
-        finally
-        {
-            PlatformStopDiscovering();
-            newDiscoverChannel.Writer.TryComplete();
+            stop();
+            channel.Writer.TryComplete();
         }
     }
 
@@ -276,12 +287,6 @@ sealed partial class PlatformNearby : IPlatformNearby
 
         _connectionTcs.Clear();
 
-        // Dispose every established connection before tearing down the platform. Without this,
-        // each live NearbyConnection kept its receive channel open and its Disconnected task
-        // unresolved, so any consumer awaiting Disconnected hung forever and the native endpoint
-        // was never disconnected. Tier 2's ConnectionLifecycle.DisposeAsync already did this for
-        // connections it owned; consumers using IPlatformNearby directly got no cleanup at all.
-        // Snapshot first: NearbyConnection.DisposeAsync removes itself from _activeConnections.
         var connections = _activeConnections.Values.ToArray();
         _activeConnections.Clear();
         _unobservedWarned.Clear();
@@ -294,7 +299,6 @@ sealed partial class PlatformNearby : IPlatformNearby
             }
             catch (Exception ex)
             {
-                // A single failing disconnect must not abort teardown of the rest.
                 LogDisposeConnectionError(connection.RemoteDevice.Id, ex);
             }
         }

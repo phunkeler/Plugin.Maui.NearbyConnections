@@ -30,23 +30,24 @@ namespace NearbyChat.Services;
 /// carries a load-bearing dependency it does not otherwise use.
 /// </para>
 /// <para>
-/// <strong>Scoped persistence.</strong> This is a singleton, so it must never hold an
-/// <see cref="IChatMessageRepository"/>. It opens one unit of work per payload through
-/// <see cref="IChatMessageRepositoryFactory"/> — the lifetime an EF Core <c>DbContext</c> requires.
-/// Awaiting that write inside the loop is safe by design: <c>ReceiveAsync</c> does not dequeue the
-/// next payload until the body completes, so persistence backpressures the stream instead of racing
-/// it.
+/// <strong>Persistence.</strong> This singleton holds the singleton
+/// <see cref="IChatMessageRepository"/> directly, which is safe only because the sample's
+/// implementation is a stateless wrapper over a thread-safe store. Backing it with an EF Core
+/// <c>DbContext</c> would make that a captive dependency, and this class would then have to resolve
+/// one scope per payload instead. Awaiting the write inside the loop is safe by design either way:
+/// <c>ReceiveAsync</c> does not dequeue the next payload until the body completes, so persistence
+/// backpressures the stream instead of racing it.
 /// </para>
 /// </remarks>
 public sealed partial class NearbyIngestionService(
     INearby session,
-    IChatMessageRepositoryFactory repositoryFactory,
+    IChatMessageRepository repository,
     IMessenger messenger,
     IThumbnailService thumbnailService,
     ILogger<NearbyIngestionService> logger) : IMauiInitializeService
 {
     readonly INearby _session = session ?? throw new ArgumentNullException(nameof(session));
-    readonly IChatMessageRepositoryFactory _repositoryFactory = repositoryFactory ?? throw new ArgumentNullException(nameof(repositoryFactory));
+    readonly IChatMessageRepository _repository = repository ?? throw new ArgumentNullException(nameof(repository));
     readonly IMessenger _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
     readonly IThumbnailService _thumbnailService = thumbnailService ?? throw new ArgumentNullException(nameof(thumbnailService));
     readonly ILogger<NearbyIngestionService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -163,8 +164,7 @@ public sealed partial class NearbyIngestionService(
         {
             // One unit of work per payload. Awaited inside the loop, so the next payload is not
             // dequeued until this one is durably stored.
-            await using var handle = _repositoryFactory.Create();
-            await handle.Repository.SaveAsync(device, message).ConfigureAwait(false);
+            await _repository.SaveAsync(device, message).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -226,8 +226,7 @@ public sealed partial class NearbyIngestionService(
     {
         try
         {
-            await using var handle = _repositoryFactory.Create();
-            await handle.Repository.ClearSessionAsync(device).ConfigureAwait(false);
+            await _repository.ClearSessionAsync(device).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
