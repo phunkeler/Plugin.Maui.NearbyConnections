@@ -1,5 +1,3 @@
-using System.Threading.Channels;
-
 namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class PlatformNearby
@@ -264,28 +262,6 @@ sealed partial class PlatformNearby
             ? TimeSpan.FromDays(1).TotalSeconds
             : connectTimeout.TotalSeconds;
 
-    /// <summary>
-    /// Nothing to clean up on iOS, on either handshake path.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Outbound: <c>InvitePeer</c> is given the same
-    /// <see cref="NearbyOptions.ConnectTimeout"/>, so MultipeerConnectivity expires the
-    /// invitation itself and reports the peer as <c>NotConnected</c>.
-    /// </para>
-    /// <para>
-    /// Inbound: the accept path resolves <c>invitationHandler(false, null)</c> in its own catch,
-    /// which is the equivalent release, and there is no browser-side invitation to withdraw.
-    /// Android's counterpart disconnects the endpoint instead, because GMS refuses a later attempt
-    /// to an endpoint left in a half-open state.
-    /// </para>
-    /// <para>
-    /// The shared timeout still applies here rather than being Android-only, because MPC's
-    /// <c>Connecting</c> state can hang indefinitely with neither terminal callback arriving
-    /// (documented on Wi-Fi-enabled-but-unassociated devices). The plugin-owned deadline is the
-    /// only thing that rescues that case.
-    /// </para>
-    /// </remarks>
 #pragma warning disable CA1822, S2325
     Task PlatformAbandonConnectAsync(NearbyDevice device) => Task.CompletedTask;
 #pragma warning restore CA1822, S2325
@@ -424,26 +400,6 @@ sealed partial class PlatformNearby
         }
     }
 
-    /// <summary>
-    /// Reports what would stop advertising or discovery from working right now.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The condition worth catching on iOS is an invalid <see cref="NearbyOptions.ServiceId"/>,
-    /// because <c>MCNearbyServiceAdvertiser</c>'s native initializer raises an
-    /// <c>NSInvalidArgumentException</c> for one — a fatal native crash that no <c>try</c>/<c>catch</c>
-    /// can intercept. Options validation already rejects this at startup; repeating the check here
-    /// means a consumer who bypasses the options pipeline still gets a value they can branch on
-    /// rather than a crash.
-    /// </para>
-    /// <para>
-    /// Two conditions are deliberately not reported. Multipeer Connectivity needs no Play-services
-    /// equivalent, so <see cref="NearbyAvailability.PlayServicesUnavailable"/> never applies. And
-    /// Bluetooth power state cannot be read without instantiating a <c>CBCentralManager</c>, which
-    /// triggers the system Bluetooth permission prompt — a preflight check that prompts defeats its
-    /// own purpose, so <see cref="NearbyAvailability.BluetoothDisabled"/> is never reported here.
-    /// </para>
-    /// </remarks>
     Task<NearbyAvailability> PlatformCheckAvailabilityAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -533,11 +489,6 @@ sealed partial class PlatformNearby
                     FaultConnectionTcs(id, new NearbyException(
                         $"Connection to peer '{peerID.DisplayName}' failed: session state changed to NotConnected before the connection was established."));
 
-                    // Report the loss, not just the local removal: dropping the peer here without
-                    // it would leave the session showing a Visible device whose native handle is
-                    // already gone, so the row stays on screen and can never be connected to.
-                    // The session ignores this for a device it still considers Connected, which is
-                    // what keeps a live connection from being evicted by its own state change.
                     if (Peers.Remove(id) is { } lostDevice)
                     {
                         WriteDeviceLost(lostDevice);
@@ -624,45 +575,45 @@ sealed partial class PlatformNearby
 
     internal void OnResourceStarted(string resourceName, MCPeerID fromPeer, NSProgress progress)
     {
-        var id = Peers.PeerKey(fromPeer);
+        try
+        {
+            var id = Peers.PeerKey(fromPeer);
 
-        LogResourceReceiveStarted(id, fromPeer.DisplayName, resourceName);
+            LogResourceReceiveStarted(id, fromPeer.DisplayName, resourceName);
 
-        var observer = progress.AddObserver(
-            "fractionCompleted",
-            NSKeyValueObservingOptions.New,
-            _ =>
-            {
-                if (_activeConnections.TryGetValue(id, out var conn) && conn.InboundProgress is { } inboundProgress)
+            var observer = progress.AddObserver(
+                "fractionCompleted",
+                NSKeyValueObservingOptions.New,
+                _ =>
                 {
-                    var transferred = (long)(progress.FractionCompleted * progress.TotalUnitCount);
-                    inboundProgress.Report(new NearbyTransferProgress(
-                        payloadId: 0,
-                        bytesTransferred: transferred,
-                        totalBytes: progress.TotalUnitCount,
-                        NearbyTransferStatus.InProgress));
-                }
-            });
+                    try
+                    {
+                        if (_activeConnections.TryGetValue(id, out var conn) && conn.InboundProgress is { } inboundProgress)
+                        {
+                            var transferred = (long)(progress.FractionCompleted * progress.TotalUnitCount);
+                            inboundProgress.Report(new NearbyTransferProgress(
+                                payloadId: 0,
+                                bytesTransferred: transferred,
+                                totalBytes: progress.TotalUnitCount,
+                                NearbyTransferStatus.InProgress));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogCallbackError(nameof(OnResourceStarted), fromPeer.DisplayName, ex);
+                    }
+                });
 
-        // Key by peer + resource name. Keying by resourceName alone meant two peers sending the
-        // same filename concurrently overwrote each other's entry: the first observer was orphaned
-        // (a leaked KVO registration on a native NSProgress, never disposed) and the first
-        // OnResourceFinished disposed the second transfer's observer, silently ending its progress.
-        _progressObservers[ObserverKey(id, resourceName)] = observer;
+            _progressObservers[ObserverKey(id, resourceName)] = observer;
+        }
+        catch (Exception ex)
+        {
+            LogCallbackError(nameof(OnResourceStarted), fromPeer.DisplayName, ex);
+        }
     }
 
     static string ObserverKey(string peerId, string resourceName) => $"{peerId}{resourceName}";
 
-    /// <summary>
-    /// Disposes every inbound-progress observer still registered for a peer.
-    /// </summary>
-    /// <remarks>
-    /// <c>OnResourceFinished</c> is the normal removal path, but it is not guaranteed to arrive: a
-    /// peer that drops mid-transfer goes to <c>NotConnected</c> with no finish callback, which left
-    /// a KVO registration live on the native <c>NSProgress</c> until the whole session was disposed.
-    /// Matching on the key prefix is safe because <see cref="ObserverKey"/> separates the two halves
-    /// with a character that cannot occur in a peer key.
-    /// </remarks>
     partial void PlatformReleaseConnection(string peerId) => RemoveProgressObserversFor(peerId);
 
     void RemoveProgressObserversFor(string peerId)
