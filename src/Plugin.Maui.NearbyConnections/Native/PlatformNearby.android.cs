@@ -501,7 +501,16 @@ sealed partial class PlatformNearby
         using var payload = Payload.FromBytes(data);
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
-        await client.SendPayloadAsync(endpointId, payload);
+        try
+        {
+            await client.SendPayloadAsync(endpointId, payload);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogSendBytesFailed(endpointId, ex);
+            throw new NearbyTransferException(
+                $"Failed to send bytes to endpoint '{endpointId}'.", ex);
+        }
     }
 
     async Task PlatformSendFileAsync(
@@ -559,6 +568,18 @@ sealed partial class PlatformNearby
                 NearbyTransferStatus.Failure));
 
             throw TransferInactivityTimeoutException(endpointId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not NearbyException)
+        {
+            progress?.Report(new NearbyTransferProgress(
+                payloadId: filePayload.Id,
+                bytesTransferred: 0,
+                totalBytes: 0,
+                NearbyTransferStatus.Failure));
+
+            LogSendFileFailed(endpointId, null, ex);
+            throw new NearbyTransferException(
+                $"Failed to send file to endpoint '{endpointId}'.", ex);
         }
         finally
         {

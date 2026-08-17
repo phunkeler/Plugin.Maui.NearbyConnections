@@ -139,7 +139,7 @@ sealed partial class PlatformNearby
                 reject: ct =>
                 {
                     invitationHandler(false, null);
-                    Peers.Remove(id);
+                    DisposeSessionIfIdle();
                     return Task.CompletedTask;
                 });
 
@@ -254,10 +254,15 @@ sealed partial class PlatformNearby
             session = _session;
         }
 
-        _mcBrowser?.InvitePeer(peerID, session, context: null, _options.ConnectTimeout.TotalSeconds);
+        _mcBrowser?.InvitePeer(peerID, session, context: null, ToInvitationTimeout(_options.ConnectTimeout));
 
         return Task.CompletedTask;
     }
+
+    static double ToInvitationTimeout(TimeSpan connectTimeout)
+        => connectTimeout == Timeout.InfiniteTimeSpan
+            ? TimeSpan.FromDays(1).TotalSeconds
+            : connectTimeout.TotalSeconds;
 
     /// <summary>
     /// Nothing to clean up on iOS, on either handshake path.
@@ -390,12 +395,6 @@ sealed partial class PlatformNearby
                 cancellationToken, transfer.InactivityToken);
             using var ctr = linkedCts.Token.Register(() => nsProgress?.Cancel());
 
-            // WaitAsync(linkedCts.Token), not a bare await: MPC's SendResourceAsync completes only
-            // when the transfer finishes, so awaiting it directly meant neither the caller's token
-            // nor the inactivity token could ever interrupt it. The inactivity catch below was
-            // therefore unreachable and a stalled transfer hung forever — contradicting
-            // NearbyConnection.SendAsync's documented NearbyTransferTimeoutException. Android
-            // already enforces this via transfer.Completion.WaitAsync(linkedCts.Token).
             await sendTask.WaitAsync(linkedCts.Token);
 
             Report(NearbyTransferStatus.Success);
@@ -408,19 +407,20 @@ sealed partial class PlatformNearby
         catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
         {
             Report(NearbyTransferStatus.Failure);
-
             throw TransferInactivityTimeoutException(peerId);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not NearbyException)
         {
             Report(NearbyTransferStatus.Failure);
-
             LogSendFileFailed(peerId, null, ex);
-            throw;
+
+            throw new NearbyTransferException(
+                $"Failed to send file to '{peerId}'.", ex);
         }
         finally
         {
             observer?.Dispose();
+            _ = transfer.Completion.Exception;
         }
     }
 
@@ -521,8 +521,8 @@ sealed partial class PlatformNearby
                                 disposeSession.SendData(controlData, [peer], MCSessionSendDataMode.Reliable, out _);
                             }
 
-                            Peers.Remove(id);
                             ReleaseConnection(id);
+                            DisposeSessionIfIdle();
                         });
 
                     ResolveConnectionTcs(id, connection);
@@ -543,7 +543,7 @@ sealed partial class PlatformNearby
                         WriteDeviceLost(lostDevice);
                     }
 
-                    DisposeSessionIfLastPeer();
+                    DisposeSessionIfIdle();
                     break;
 
                 case MCSessionState.Connecting:
@@ -590,8 +590,7 @@ sealed partial class PlatformNearby
             case ControlMessageType.Disconnect:
                 LogPeerDisconnectRequested(peerId);
                 ReleaseConnection(peerId);
-                Peers.Remove(peerId);
-                DisposeSessionIfLastPeer();
+                DisposeSessionIfIdle();
                 break;
             default:
                 LogUnknownControlMessageType(type);
@@ -599,13 +598,13 @@ sealed partial class PlatformNearby
         }
     }
 
-    void DisposeSessionIfLastPeer()
+    void DisposeSessionIfIdle()
     {
         MCSession? sessionToDispose;
 
         lock (_sessionLock)
         {
-            sessionToDispose = _session is not null && Peers.IsEmpty && _connectionTcs.IsEmpty
+            sessionToDispose = _session is not null && _activeConnections.IsEmpty && _connectionTcs.IsEmpty
                 ? _session
                 : null;
 

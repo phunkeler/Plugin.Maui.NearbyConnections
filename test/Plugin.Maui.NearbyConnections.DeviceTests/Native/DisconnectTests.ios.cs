@@ -24,4 +24,22 @@ public class DisconnectTests
         Assert.False(platform._activeConnections.ContainsKey(id));
         Assert.False(platform.Peers.TryGetDevice(id, out _));
     }
+
+    [Fact]
+    public async Task LocalDisconnect_ReleasesTheConnectionButKeepsThePeerReconnectable()
+    {
+        // Arrange
+        await using var platform = Create.PlatformNearby();
+        using var peerId = Create.PeerId("Alice");
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var (connection, id) = await Create.ConnectedAsync(platform, peerId, cts.Token);
+
+        // Act
+        await connection.DisposeAsync();
+
+        // Assert
+        Assert.False(platform._activeConnections.ContainsKey(id));
+        Assert.True(platform.Peers.TryGetDevice(id, out _));
+        Assert.True(platform.Peers.TryGetHandle(id, out _));
+    }
 }

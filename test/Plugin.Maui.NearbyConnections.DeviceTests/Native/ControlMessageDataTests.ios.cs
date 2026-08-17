@@ -42,7 +42,7 @@ public class ControlMessageDataTests
     }
 
     [Fact]
-    public async Task DisconnectControlFrame_ReleasesTheSendingPeer()
+    public async Task DisconnectControlFrame_ReleasesTheConnectionButKeepsThePeer()
     {
         // Arrange
         await using var platform = Create.PlatformNearby();
@@ -55,7 +55,8 @@ public class ControlMessageDataTests
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(aliceId));
-        Assert.False(platform.Peers.TryGetDevice(aliceId, out _));
+        Assert.True(platform.Peers.TryGetDevice(aliceId, out _));
+        Assert.True(platform.Peers.TryGetHandle(aliceId, out _));
     }
 
     [Fact]
@@ -100,9 +101,9 @@ public class ControlMessageDataTests
     }
 
     [Fact]
-    public async Task DisconnectControlFrame_FromTheLastPeer_EmptiesTheRegistry()
+    public async Task DisconnectControlFrame_FromTheLastPeer_KeepsThePeerVisible()
     {
-        // Arrange — one peer, so its departure is the last one and the session may be torn down.
+        // Arrange
         await using var platform = Create.PlatformNearby();
         using var alice = Create.PeerId("Alice");
         using var timeout = Timeout();
@@ -112,6 +113,6 @@ public class ControlMessageDataTests
         Deliver.ControlFrame(platform, alice, ControlMessageType.Disconnect);
 
         // Assert
-        Assert.True(platform.Peers.IsEmpty);
+        Assert.False(platform.Peers.IsEmpty);
     }
 }

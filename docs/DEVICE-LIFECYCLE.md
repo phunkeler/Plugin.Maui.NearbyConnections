@@ -411,13 +411,23 @@ where `Connecting` hangs forever with neither terminal callback arriving.
 
 - **Sending** — the connection's `dispose` callback sends the frame before teardown.
 - **Receiving** — `HandleControlMessage` takes the sender's peer id and ends only that peer:
-  `ReleaseConnection` plus `Peers.Remove`. It never calls `MCSession.Disconnect()` directly.
+  `ReleaseConnection`. It never calls `MCSession.Disconnect()` directly.
 
-`MCSession` is torn down by `DisposeSessionIfLastPeer`, shared by the `NotConnected` callback and
-the control frame — the two ways a peer departs. Emptiness is read from `Peers`, not
-`MCSession.ConnectedPeers`: a peer that announced its departure by control frame remains in
-`ConnectedPeers` until MPC notices the drop, so reading that property would report the session as
-still busy and leak it. Callers remove the departing peer before calling.
+`MCSession` is torn down by `DisposeSessionIfIdle`, shared by the `NotConnected` callback and the
+control frame — the two ways a peer departs. Idleness is read from `_activeConnections` and
+`_connectionTcs`, not from `Peers` and not from `MCSession.ConnectedPeers`. Not `ConnectedPeers`,
+because a peer that announced its departure by control frame remains there until MPC notices the
+drop, so reading it would report the session as still busy and leak it. Not `Peers`, because a
+disconnected peer deliberately stays tracked so the session can show it as `Visible` and reconnect
+to it — waiting for that registry to empty would keep an unused session alive.
+
+> **Regression note (2026-08-17).** The graceful-departure paths — the connection's `dispose`
+> callback, the received `Disconnect` control frame, and rejecting an inbound request — used to call
+> `Peers.Remove`, dropping the peer's `MCPeerID` handle while the session kept the row `Visible`.
+> A later `ConnectAsync` then failed with "not currently visible" until discovery re-found the peer,
+> and never at all when `DiscoveryRefreshInterval` was `null`. Android was unaffected because it
+> invites by endpoint id. Only the `NotConnected` branch, which also reports the loss through
+> `WriteDeviceLost`, removes the peer now.
 
 `INearby.DisconnectAsync(device)` is the public verb on both platforms.
 
