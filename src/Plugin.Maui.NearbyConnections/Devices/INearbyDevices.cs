@@ -8,9 +8,9 @@ namespace Plugin.Maui.NearbyConnections;
 /// <para>
 /// <b>Callable from any thread.</b> Enumerating the list itself reads an immutable snapshot taken
 /// at the moment of the call, so it never throws for concurrent modification. <see cref="Changes"/>
-/// is delivered on whatever thread the underlying platform callback arrived on — a consumer binding
-/// to a user interface marshals it itself, or constructs a <see cref="NearbyDeviceCollection"/>,
-/// which does that on its behalf.
+/// is delivered on a thread-pool thread — never the UI thread, and never the platform SDK's own
+/// callback thread — so a consumer binding to a user interface marshals it itself, or constructs a
+/// <see cref="NearbyDeviceCollection"/>, which does that on its behalf.
 /// </para>
 /// <para>
 /// This is a noun-phrase interface, which the Framework Design Guidelines discourage in general —

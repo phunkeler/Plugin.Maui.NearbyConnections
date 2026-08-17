@@ -43,6 +43,10 @@ can give you that with Multipeer Connectivity.
 
 # Supported platforms
 
+Requires **.NET 10** and .NET MAUI 10. The package ships `net10.0-android`, `net10.0-ios`, and a
+`net10.0` reference target; there is no .NET 8 or .NET 9 build, so installing into an earlier
+project fails to restore with NU1202.
+
 | Platform | Minimum version |
 | --- | --- |
 | Android | API 24 (_Android 7.0_) |
@@ -152,7 +156,7 @@ public async Task<bool> EnsureNearbyPermissionsAsync()
 `Permissions.Bluetooth` covers the three `BLUETOOTH_*` runtime permissions,
 `Permissions.NearbyWifiDevices` covers `NEARBY_WIFI_DEVICES` on API 33+, and
 `Permissions.LocationWhenInUse` covers the location permissions required below API 33. See
-[`samples/NearbyChat/Platforms/Android/NearbyPermissions.cs`](samples/NearbyChat/Platforms/Android/NearbyPermissions.cs)
+[`samples/NearbyChat/Platforms/Android/NearbyPermissions.cs`](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/samples/NearbyChat/Platforms/Android/NearbyPermissions.cs)
 for this pattern in the sample app.
 
 iOS needs no equivalent code. The OS shows the local-network prompt (backed by
@@ -190,19 +194,23 @@ await nearby.StartDiscoveryAsync();     // find others
 
 **Device state.** Every device the plugin knows about lives in `nearby.Devices`, from first
 discovery until it goes out of range. Devices do not move between collections as they connect.
-`NearbyDevice.Status` changes instead, and the device raises `PropertyChanged`, so a bound row
-updates in place.
+`NearbyDevice.Status` changes instead. A `NearbyDevice` is an immutable snapshot rather than a
+bindable object, so a status change arrives as an `Updated` entry on `Devices.Changes` carrying a
+new snapshot — see [step 3](#know-when-a-connection-opens-or-closes).
 
-```csharp
+```text
 Visible → RequestReceived → Connecting → Connected
 ```
 
 Any rejection, timeout, or disconnect returns a device to `Visible` rather than to a separate
-failure state. See the [full lifecycle diagram](docs/DEVICE-LIFECYCLE.md#consumer-facing-summary)
+failure state. See the [full lifecycle diagram](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/docs/DEVICE-LIFECYCLE.md#consumer-facing-summary)
 for every transition, including the iOS caveat that `Connecting` is optional.
 
-`Devices` implements `INotifyCollectionChanged`, so you can bind it straight to a `CollectionView`.
-To show only connected devices, filter on `Status`:
+`nearby.Devices` is a read-only snapshot list, **not** an observable collection: it raises no
+change notification, so binding it directly to a `CollectionView` renders once and never updates.
+To bind, construct a [`NearbyDeviceCollection`](#know-when-a-connection-opens-or-closes), which
+watches `Devices.Changes` for you and does raise `INotifyCollectionChanged`. To show only connected
+devices, filter on `Status`:
 
 ```csharp
 var connected = nearby.Devices.Where(d => d.Status is NearbyDeviceStatus.Connected);
@@ -314,7 +322,7 @@ an undetached `+=` handler could.
 > consumer resolved only by a page opened after connecting is built too late. Register it as an
 > `IMauiInitializeService`, which MAUI constructs during `Build()`. A late starter can recover the
 > current state by reading `nearby.Devices` before it begins watching. See
-> [`docs/PAYLOAD-DELIVERY.md`](docs/PAYLOAD-DELIVERY.md#your-consumer-must-be-constructed-before-the-first-connection).
+> [`docs/PAYLOAD-DELIVERY.md`](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/docs/PAYLOAD-DELIVERY.md#your-consumer-must-be-constructed-before-the-first-connection).
 
 ## 4. Send and receive data
 
@@ -443,14 +451,16 @@ startup has no effect.
 | `ServiceId` | Both | Android: `AppInfo.Name`; iOS: none, **must be set** | Identifier that advertisers and discoverers match on. On iOS it is the `serviceType` (bare string, 1–15 chars; see [step 2](#2-platform-configuration)). Startup validation throws if unset or invalid. |
 | `ReceivedFilesDirectory` | Both | Android: `FileSystem.CacheDirectory` (OS-purgeable); iOS: `FileSystem.AppDataDirectory` (persistent) | Directory where received files are saved. See [step 4](#4-send-and-receive-data). |
 | `TransferInactivityTimeout` | Both | 10 seconds | Maximum time without a transfer progress update before an outgoing file send is aborted with `NearbyTransferTimeoutException`. Set to `Timeout.InfiniteTimeSpan` to disable. |
-| `AllowSynchronousContinuations` | Both | `false` | Advanced. Lets **payload** stream continuations run synchronously on the writer's thread instead of hopping to the thread pool. Does not affect `Devices.Changes`, which always schedules to the thread pool. Only enable if your consumer loop bodies are trivially fast. |
-| `Topology` | Android | `NearbyTopology.Cluster` | How devices may connect: `Cluster` (many-to-many), `Star` (one-to-many), or `PointToPoint` (one-to-one, highest bandwidth). See [How connections work](#how-connections-work). Must match between the advertising and discovering devices. |
-| `UseLowPower` | Android | `false` | When `true`, only low-power mediums such as BLE are used for advertising and discovery. |
-| `ConnectionType` | Android | `NearbyConnectionType.Balanced` | How aggressively a connection may use the radio: `Balanced`, `HighBandwidth`, or `NonDisruptive`. Trades throughput against disruption to other connections. |
-| `EncryptionPreference` | iOS | `NearbyEncryptionPreference.Required` | Whether the link must be encrypted. Android always encrypts and ignores this. |
+| `DiscoveryRefreshInterval` | Both | 30 seconds | How often discovery restarts to re-check what is in range. Devices a new pass does not re-report are removed; a connected or mid-handshake device is never removed. Set to `null` to never restart, and drive `StopDiscoveryAsync`/`StartDiscoveryAsync` yourself. |
+| `AutoAcceptConnectionRequests` | Both | `false` | When `true`, every inbound request is accepted as it arrives and `RequestReceived` is never observed. **This accepts any device that knows the service identifier** — neither platform authenticates the remote device, so enable it only for a kiosk, paired appliance, or trusted network. |
 | `ConnectTimeout` | Both | 30 seconds | How long `ConnectAsync` waits before throwing `NearbyConnectionTimeoutException`. Covers the remote user deciding, so it is the more generous of the two. Set to `Timeout.InfiniteTimeSpan` to wait indefinitely. |
 | `AcceptTimeout` | Both | 15 seconds | How long `AcceptAsync` waits before throwing `NearbyConnectionTimeoutException`. Shorter by default because the decision is already made and only the handshake remains. Set to `Timeout.InfiniteTimeSpan` to wait indefinitely. |
 | `InboundRequestTimeout` | Both | 30 seconds | How long an unanswered inbound request stays outstanding before the library rejects it and the device returns to `Visible`. Read `NearbyDevice.RequestExpiresAt` to show a countdown. Set to `Timeout.InfiniteTimeSpan` to leave requests outstanding. |
+| `Android.Topology` | Android | `NearbyTopology.Cluster` | How devices may connect: `Cluster` (many-to-many), `Star` (one-to-many), or `PointToPoint` (one-to-one, highest bandwidth). See [How connections work](#how-connections-work). Must match between the advertising and discovering devices. |
+| `Android.UseLowPower` | Android | `false` | When `true`, only low-power mediums such as BLE are used for advertising and discovery. |
+| `Android.ConnectionType` | Android | `NearbyConnectionType.Balanced` | How aggressively a connection may use the radio: `Balanced`, `HighBandwidth`, or `NonDisruptive`. Trades throughput against disruption to other connections. |
+| `Apple.EncryptionPreference` | iOS | `NearbyEncryptionPreference.Required` | Whether the link must be encrypted. Android always encrypts and ignores this. |
+| `Apple.StartFailureGraceWindow` | iOS | 250 ms | Advanced. How long `StartAdvertisingAsync`/`StartDiscoveryAsync` wait for a start failure before reporting success. Multipeer Connectivity has no start-success callback, so a failure arriving after this window surfaces as a stream fault and a log entry instead. |
 
 `TransferInactivityTimeout` is the one that shows up in the walkthrough directly. By default it
 aborts file sends in step 4 after a 10-second stall.
@@ -475,14 +485,14 @@ builder.Logging.AddFilter("Plugin.Maui.NearbyConnections", LogLevel.Debug);
 entry per payload, for transfer problems.
 
 Device display names appear in messages at `Debug`. They are user-chosen and often personal. See
-[`docs/LOGGING.md`](docs/LOGGING.md) for the full level contract, per-category filters, EventIDs
+[`docs/LOGGING.md`](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/docs/LOGGING.md) for the full level contract, per-category filters, EventIDs
 worth alerting on, and privacy guidance.
 
 # Dependencies
 
 Package versions are managed centrally in
-[`Directory.Packages.props`](Directory.Packages.props). The plugin's own references are declared in
-[`Plugin.Maui.NearbyConnections.csproj`](src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj).
+[`Directory.Packages.props`](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/Directory.Packages.props). The plugin's own references are declared in
+[`Plugin.Maui.NearbyConnections.csproj`](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csproj).
 
 # Acknowledgements
 

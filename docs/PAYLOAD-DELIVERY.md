@@ -12,15 +12,19 @@ resolve/fault contract — is a separate mechanism and is unaffected by anything
 
 ## The rule
 
-> **Lifecycle notifications are C# events. Payloads are an async stream, consumed one connection at
-> a time with `await foreach`.**
+> **Lifecycle notifications are state plus a broadcast delta stream. Payloads are a single-consumer
+> async stream, consumed one connection at a time with `await foreach`.**
 
 Two kinds of thing with two different shapes, because they have genuinely different requirements.
 
 | | Shape | Why |
 | --- | --- | --- |
-| Device found/lost, connection requested/established/dropped | `event EventHandler<T>` | Multi-consumer, handlers are fast and synchronous, no I/O |
+| Device found/lost, connection requested/established/dropped | `Devices` (snapshot) + `Devices.Changes` (`IAsyncEnumerable<NearbyDeviceChange>`) | Presence is state, readable at any time; every enumeration gets every change, so a late starter reads the list rather than replaying history |
 | Inbound payloads | `IAsyncEnumerable<NearbyPayload>` | Single consumer, handlers do real async work, order matters |
+
+**There are no C# events on `INearby`.** Both shapes are `IAsyncEnumerable`; the difference is
+broadcast-with-state versus single-consumer pipe. Events were considered and rejected — see
+[Where events would still be wrong](#where-events-would-still-be-wrong).
 
 ```csharp
 await foreach (var payload in connection.ReceiveAsync())
@@ -190,7 +194,7 @@ have started its loop.
 effect of who happens to inject it:
 
 ```csharp
-public sealed class NearbyIngestionService(INearby nearby, /* … */) : IMauiInitializeService
+public sealed class NearbyIngestionService(INearby nearby /* , … */) : IMauiInitializeService
 {
     public void Initialize(IServiceProvider services) => _ = WatchAsync();
 
@@ -279,9 +283,29 @@ message has already been lost. Enable plugin logging while developing:
 builder.Logging.AddFilter("Plugin.Maui.NearbyConnections", LogLevel.Warning);
 ```
 
-## Where events are still the right answer
+## Where events would still be wrong
 
-Everything that is a *notification of state* rather than a *sequence of data*: devices appearing and
-disappearing, connection requests arriving, connections establishing and dropping. Those have many
-interested consumers, need no ordering guarantee beyond "eventually", and their handlers do no I/O.
-They are plain C# events on `INearby`, raised on the dispatcher.
+Everything that is a *notification of state* rather than a *sequence of data* — devices appearing and
+disappearing, connection requests arriving, connections establishing and dropping — has many
+interested consumers and needs no ordering guarantee beyond "eventually". That shape argues for
+events, and the plugin still does not use them. It exposes `Devices` plus `Devices.Changes` instead,
+for two reasons events cannot satisfy:
+
+- **Lifetime.** An event needs a matching `-=`. A missing one kept the subscriber alive for the life
+  of the app and fired handlers N times after N page visits. Ending an enumeration — cancelling the
+  token or breaking the loop — unregisters the watcher in a `finally`, so the cleanup cannot be
+  forgotten.
+- **State.** An event delivers only what happens next. `Devices` is readable at any time, so a
+  consumer that starts late reads the current set rather than reconstructing it from history.
+
+**Threading.** Changes are delivered on a **thread-pool thread — never the dispatcher and never the
+platform SDK's callback thread.** The SDK callback writes into a channel and a pump republishes from
+the reading side. Marshal inside your loop body, or bind a `NearbyDeviceCollection`, which is the one
+type in the library that knows a UI thread exists:
+
+```csharp
+await foreach (var change in nearby.Devices.Changes.WithCancellation(token))
+{
+    await Dispatcher.DispatchAsync(() => Apply(change));
+}
+```

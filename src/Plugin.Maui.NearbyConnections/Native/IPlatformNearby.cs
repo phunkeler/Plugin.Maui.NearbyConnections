@@ -13,9 +13,17 @@ namespace Plugin.Maui.NearbyConnections;
 /// </para>
 /// <para>
 /// Platform callbacks (connection requests, device-found/lost notifications, payload events) are
-/// delivered on SDK-owned background threads on both Android and iOS. Consumers must marshal to
-/// the UI thread when updating UI from any event yielded by <see cref="AdvertiseAsync"/> or
-/// <see cref="DiscoverAsync"/>.
+/// delivered on SDK-owned threads, and this interface makes no guarantee about which. iOS documents
+/// its <c>MCSessionDelegate</c> calls as arriving on a private serial queue; Android's GMS Nearby
+/// documents no threading contract at all. The implementation therefore records what a callback saw
+/// on whatever thread it arrived on, and writes it into a channel.
+/// </para>
+/// <para>
+/// This thread never reaches an application. <see cref="NearbyImplementation"/> drains those
+/// channels and republishes on a thread-pool thread, which is what the public
+/// <see cref="INearbyDevices.Changes"/> and
+/// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/> contracts promise. Do not
+/// document the SDK's callback thread as observable to a consumer.
 /// </para>
 /// <para>
 /// <strong>Error delivery.</strong> <see cref="AdvertiseAsync"/> and <see cref="DiscoverAsync"/>

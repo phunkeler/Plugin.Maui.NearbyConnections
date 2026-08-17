@@ -20,11 +20,12 @@ namespace Plugin.Maui.NearbyConnections;
 /// </para>
 /// <para>
 /// <b>Thread safety.</b> Every member of this interface is callable from any thread, and nothing
-/// here has UI thread affinity. Platform callbacks arrive on background threads owned by the
-/// platform SDK, and that is the thread <see cref="INearbyDevices.Changes"/> delivers on. A
-/// consumer that binds to a user interface marshals for itself — or constructs a
-/// <see cref="NearbyDeviceCollection"/>, which is the supported way to get a bindable
-/// <c>ObservableCollection</c> back.
+/// here has UI thread affinity. <see cref="INearbyDevices.Changes"/> is delivered on a thread-pool
+/// thread, never the UI thread and never the platform SDK's own callback thread: the SDK callback
+/// writes into an internal channel, and the pump that drains it publishes the change. Do not rely
+/// on the SDK's callback thread or its ordering reaching this stream. A consumer that binds to a
+/// user interface marshals for itself — or constructs a <see cref="NearbyDeviceCollection"/>, which
+/// is the supported way to get a bindable <c>ObservableCollection</c> back.
 /// </para>
 /// <para>
 /// <b>Subscription lifetime.</b> There is nothing to unsubscribe from. An enumeration of

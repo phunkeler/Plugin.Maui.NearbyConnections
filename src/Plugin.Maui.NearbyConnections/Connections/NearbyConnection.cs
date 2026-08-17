@@ -239,8 +239,12 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// connection is established, ahead of any payload arriving.
     /// </para>
     /// <para>
-    /// <see cref="IProgress{T}.Report(T)"/> is invoked on a platform callback thread — marshal to
-    /// the UI thread inside the handler if it updates the user interface.
+    /// <see cref="IProgress{T}.Report(T)"/> is invoked directly on the platform SDK's callback
+    /// thread — marshal to the UI thread inside the handler if it updates the user interface, and
+    /// keep the handler short, because it runs inline on the SDK's own dispatch. This differs from
+    /// <see cref="ReceiveAsync(CancellationToken)"/> and
+    /// <see cref="INearbyDevices.Changes"/>, which are pumped through a channel and therefore arrive
+    /// on a thread-pool thread.
     /// </para>
     /// </remarks>
     public IProgress<NearbyTransferProgress>? InboundProgress { get; set; }
@@ -271,8 +275,10 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// from inside the loop.
     /// </para>
     /// <para>
-    /// Payloads are delivered on a platform background thread — marshal to the UI thread inside the
-    /// loop if it updates the user interface.
+    /// Payloads are delivered on a thread-pool thread, never the UI thread — marshal to the UI
+    /// thread inside the loop if it updates the user interface. This is not the platform SDK's own
+    /// callback thread: the callback writes the payload into a channel, and the enumeration resumes
+    /// on the reading side of that boundary.
     /// </para>
     /// <para>
     /// <b>Never faults.</b> A disconnect — local, remote, or platform-initiated — ends the
