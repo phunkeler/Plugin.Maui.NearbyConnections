@@ -75,7 +75,7 @@ NearbyDevice device;          // GOOD
 NearbyDevice nearbyDevice;    // BAD, unless it genuinely disambiguates
 ```
 
-Internal names need not be branded — `PeerRegistry`, `LocalPeerIdentityStore` describe real
+Internal names need not be branded — `PeerRegistry`, `PlatformNearby` describe real
 responsibilities. Do not churn internals for aesthetic symmetry.
 
 ## Payload ≠ transfer
