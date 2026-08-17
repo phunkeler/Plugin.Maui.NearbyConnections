@@ -15,6 +15,18 @@ end_of_line = lf
 [*{_AssemblyInfo.cs,.notsupported.cs,AsmOffsets.cs}]
 generated_code = true
 
+# The Android resource designer is emitted into obj/ by the MAUI SDK, not authored here. It
+# declares a public `Resource` class in the project namespace, which the public API analyzers
+# then demand a baseline entry for. Recording it is not an option: the file exists only after a
+# build has generated it, so a baseline listing it fails with RS0017 ("declared but not found")
+# on a clean tree, while omitting it fails with RS0016 ("not part of the declared API") once the
+# file appears. The type is SDK scaffolding the plugin never references, so it is excluded from
+# the hand-authored API surface rather than tracked in it.
+[**/obj/**/*.Designer.cs]
+generated_code = true
+dotnet_diagnostic.RS0016.severity = none
+dotnet_diagnostic.RS0017.severity = none
+
 # C# files
 [*.cs]
 max_line_length = 120

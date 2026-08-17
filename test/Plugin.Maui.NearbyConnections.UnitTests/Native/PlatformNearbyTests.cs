@@ -188,7 +188,7 @@ public class PlatformNearbyTests
             var evt = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
 
             // Assert
-            Assert.AreEqual(NearbyDeviceEventType.Found, evt.Type);
+            Assert.IsTrue(evt.Found);
             Assert.AreSame(device, evt.Device);
         }
 
@@ -206,7 +206,7 @@ public class PlatformNearbyTests
             var evt = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
 
             // Assert
-            Assert.AreEqual(NearbyDeviceEventType.Lost, evt.Type);
+            Assert.IsFalse(evt.Found);
             Assert.AreSame(device, evt.Device);
         }
 
@@ -227,8 +227,8 @@ public class PlatformNearbyTests
             var second = await reader.ReadAsync(cts.Token);
 
             // Assert
-            Assert.AreEqual(NearbyDeviceEventType.Found, first.Type);
-            Assert.AreEqual(NearbyDeviceEventType.Lost, second.Type);
+            Assert.IsTrue(first.Found);
+            Assert.IsFalse(second.Found);
         }
     }
 

@@ -84,9 +84,9 @@ interface IPlatformNearby : IAsyncDisposable
     /// <remarks>
     /// Discovery begins when enumeration starts and stops when the enumerable is disposed.
     /// Each yielded <see cref="NearbyDeviceEvent"/> carries a <see cref="NearbyDevice"/> and a
-    /// <see cref="NearbyDeviceEventType"/> indicating whether the device was found or lost.
-    /// Events for the same device are ordered: a <see cref="NearbyDeviceEventType.Lost"/> event
-    /// is always preceded by a corresponding <see cref="NearbyDeviceEventType.Found"/> event.
+    /// <see cref="NearbyDeviceEvent.Found"/> flag indicating whether the device was found or lost.
+    /// Events for the same device are ordered: a lost event is always preceded by a corresponding
+    /// found event.
     /// <para>
     /// Items are delivered on a thread-pool thread via an internal channel; marshal to the UI
     /// thread if needed — in .NET MAUI, an injected <see cref="IDispatcher"/>

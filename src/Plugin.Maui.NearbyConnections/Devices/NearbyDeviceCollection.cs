@@ -186,7 +186,7 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     void Apply(NearbyDeviceChange change)
     {
         var device = change.Device;
-        var index = IndexOf(device);
+        var index = _devices.IndexOf(device);
 
         switch (change.Action)
         {
@@ -215,6 +215,4 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
                 break;
         }
     }
-
-    int IndexOf(NearbyDevice device) => _devices.IndexOf(device);
 }

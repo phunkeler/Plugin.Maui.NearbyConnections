@@ -18,7 +18,7 @@ public class DeviceDiscoveryTests
 
         // Assert
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
-        Assert.Equal(NearbyDeviceEventType.Found, found.Type);
+        Assert.True(found.Found);
         Assert.True(platform.Peers.TryGetDevice("endpoint-1", out var tracked));
         Assert.Equal("Alice", tracked.DisplayName);
     }
@@ -37,7 +37,7 @@ public class DeviceDiscoveryTests
 
         // Assert
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
-        Assert.Equal(NearbyDeviceEventType.Lost, lost.Type);
+        Assert.False(lost.Found);
         Assert.Equal(found.Device.Id, lost.Device.Id);
         Assert.False(platform.Peers.TryGetDevice("endpoint-1", out _));
     }

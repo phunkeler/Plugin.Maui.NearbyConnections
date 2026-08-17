@@ -3,18 +3,18 @@ namespace Plugin.Maui.NearbyConnections;
 sealed partial class PlatformNearby
 {
     internal void WriteDeviceFound(NearbyDevice device)
-        => WriteDeviceEvent(device, NearbyDeviceEventType.Found, nameof(WriteDeviceFound));
+        => WriteDeviceEvent(device, found: true, nameof(WriteDeviceFound));
 
     internal void WriteDeviceLost(NearbyDevice device)
-        => WriteDeviceEvent(device, NearbyDeviceEventType.Lost, nameof(WriteDeviceLost));
+        => WriteDeviceEvent(device, found: false, nameof(WriteDeviceLost));
 
-    void WriteDeviceEvent(NearbyDevice device, NearbyDeviceEventType type, string writer)
+    void WriteDeviceEvent(NearbyDevice device, bool found, string writer)
     {
         try
         {
             var channel = _discoverChannel;
 
-            if (!channel.Writer.TryWrite(new NearbyDeviceEvent(device, type)))
+            if (!channel.Writer.TryWrite(new NearbyDeviceEvent(device, found)))
             {
                 LogWriteChannelCompleted(writer, device.Id);
             }
@@ -189,7 +189,7 @@ sealed partial class PlatformNearby
         var stem = Path.GetFileNameWithoutExtension(fileName);
         var extension = Path.GetExtension(fileName);
 
-        for (var i = 1; i < int.MaxValue; i++)
+        for (var i = 1; ; i++)
         {
             candidate = Path.Combine(directory, $"{stem} ({i}){extension}");
 
@@ -198,8 +198,5 @@ sealed partial class PlatformNearby
                 return candidate;
             }
         }
-
-        // Unreachable in practice; keeps the compiler happy about definite return.
-        return Path.Combine(directory, $"{stem} ({Guid.NewGuid():N}){extension}");
     }
 }

@@ -100,23 +100,16 @@ sealed partial class NearbyImplementation
     {
         var device = deviceEvent.Device;
 
-        switch (deviceEvent.Type)
+        if (deviceEvent.Found)
         {
-            case NearbyDeviceEventType.Found:
-                _registry.AddIfAbsent(device);
-                break;
+            _registry.AddIfAbsent(device);
+            return;
+        }
 
-            case NearbyDeviceEventType.Lost:
-                if (_registry.TryGet(device.Id, out var known)
-                    && known.Status is NearbyDeviceStatus.Visible)
-                {
-                    _registry.Remove(device.Id);
-                }
-
-                break;
-
-            default:
-                break;
+        if (_registry.TryGet(device.Id, out var known)
+            && known.Status is NearbyDeviceStatus.Visible)
+        {
+            _registry.Remove(device.Id);
         }
     }
 

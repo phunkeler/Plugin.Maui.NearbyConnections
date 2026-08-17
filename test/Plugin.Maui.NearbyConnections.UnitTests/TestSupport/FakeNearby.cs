@@ -123,14 +123,14 @@ sealed class FakeNearby : IPlatformNearby
     /// <summary>Emits a device-found event and waits for the session to apply it.</summary>
     public async Task EmitDeviceFoundAsync(NearbyDevice device)
     {
-        _deviceEvents.Writer.TryWrite(new NearbyDeviceEvent(device, NearbyDeviceEventType.Found));
+        _deviceEvents.Writer.TryWrite(new NearbyDeviceEvent(device, Found: true));
         await DrainAsync();
     }
 
     /// <summary>Emits a device-lost event and waits for the session to apply it.</summary>
     public async Task EmitDeviceLostAsync(NearbyDevice device)
     {
-        _deviceEvents.Writer.TryWrite(new NearbyDeviceEvent(device, NearbyDeviceEventType.Lost));
+        _deviceEvents.Writer.TryWrite(new NearbyDeviceEvent(device, Found: false));
         await DrainAsync();
     }
 
