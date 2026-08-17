@@ -1,10 +1,8 @@
 namespace NearbyChat.Services;
 
 /// <summary>
-/// Wraps an <see cref="IDispatcherTimer"/> that periodically invokes a callback
-/// while active, idempotently. Extracted from the byte-identical relative-time
-/// refresh timer duplicated across AdvertisingPageViewModel and
-/// DiscoveryPageViewModel.
+/// Wraps an <see cref="IDispatcherTimer"/> that periodically invokes a callback while active,
+/// idempotently. Driven by <c>BasePageViewModel.TrackRelativeTime</c>, which is the only caller.
 /// </summary>
 public sealed class RelativeTimeTicker(
     IDispatcher dispatcher,

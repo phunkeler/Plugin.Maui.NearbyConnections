@@ -108,9 +108,12 @@ connection drops.
 **Changes arrive on a thread-pool thread, not the platform's callback thread and never the UI
 thread.** The SDK callback writes into a `PlatformNearby` channel; the pumps in
 `NearbyImplementation.state.cs` drain it with `await foreach … ConfigureAwait(false)`, and every
-registry write plus `Publish` happens on the reading side of that boundary. The `Changes` channel
-itself is built without `AllowSynchronousContinuations` (`NearbyDeviceRegistry.Subscribe`), so a
-consumer's continuation is queued rather than run inline on the publisher. Do not document or rely
+registry write plus `Publish` happens on the reading side of that boundary. Every channel here is
+built without `AllowSynchronousContinuations` — the registry's in `NearbyDeviceRegistry.Subscribe`,
+the platform's in `PlatformNearby.NewChannel` — so a consumer's continuation is queued rather than
+run inline on the publisher. That is fixed, not configurable: it was briefly a `NearbyOptions` knob,
+and exposing it only offered consumers a way to stall the SDK's own callback dispatch with a slow
+loop body. Do not reintroduce it. Do not document or rely
 on the SDK's callback thread reaching consumers: it does not. Consumers that bind marshal for
 themselves, or construct a `NearbyDeviceCollection` — the one type in the library that knows a UI
 thread exists.
@@ -207,7 +210,7 @@ src/Plugin.Maui.NearbyConnections/
 ├── ServiceCollectionExtensions.cs
 ├── Connections/   NearbyConnection, request, role, ControlMessage, connect timeout
 ├── Devices/       NearbyDevice (immutable record), INearbyDevices + NearbyDeviceRegistry,
-│                  NearbyDeviceChange(+Action), NearbyDeviceCollection, status,
+│                  NearbyDeviceChange(+Action), NearbyDeviceCollection{,<TRow>}, status,
 │                  EndReason (internal — log-only)
 ├── Discovery/     availability + advertising/discovery failures
 ├── Payload/       NearbyPayload + NearbyBytesPayload/NearbyFilePayload — the data
@@ -215,7 +218,8 @@ src/Plugin.Maui.NearbyConnections/
 ├── Options/       NearbyOptions + platform scopes + validator (iOS-only rules) + the enums
 ├── Native/        IPlatformNearby, PlatformNearby.*, PeerRegistry{,.ios} — this layer's own
 │                  peer bookkeeping, NOT the session's device set (the .ios half adds the
-│                  MCPeerID handle), iOS peer identity, AppLifecycleObserver.ios
+│                  MCPeerID handle plus peer-key derivation and local peer identity),
+│                  AppLifecycleObserver.ios
 └── Platforms/     MAUI SDK convention folder (Android permissions) — NOT the same as Native/
 ```
 

@@ -95,12 +95,14 @@ Plugin.Maui.NearbyConnections.NearbyDeviceChangeAction.Added = 0 -> Plugin.Maui.
 Plugin.Maui.NearbyConnections.NearbyDeviceChangeAction.Removed = 2 -> Plugin.Maui.NearbyConnections.NearbyDeviceChangeAction
 Plugin.Maui.NearbyConnections.NearbyDeviceChangeAction.Updated = 1 -> Plugin.Maui.NearbyConnections.NearbyDeviceChangeAction
 Plugin.Maui.NearbyConnections.NearbyDeviceCollection
-Plugin.Maui.NearbyConnections.NearbyDeviceCollection.CollectionChanged -> System.Collections.Specialized.NotifyCollectionChangedEventHandler?
-Plugin.Maui.NearbyConnections.NearbyDeviceCollection.Count.get -> int
-Plugin.Maui.NearbyConnections.NearbyDeviceCollection.Dispose() -> void
-Plugin.Maui.NearbyConnections.NearbyDeviceCollection.GetEnumerator() -> System.Collections.Generic.IEnumerator<Plugin.Maui.NearbyConnections.NearbyDevice!>!
-Plugin.Maui.NearbyConnections.NearbyDeviceCollection.NearbyDeviceCollection(Plugin.Maui.NearbyConnections.INearby! nearby, System.Action<System.Action!>! marshal) -> void
-Plugin.Maui.NearbyConnections.NearbyDeviceCollection.this[int index].get -> Plugin.Maui.NearbyConnections.NearbyDevice!
+Plugin.Maui.NearbyConnections.NearbyDeviceCollection.NearbyDeviceCollection(Plugin.Maui.NearbyConnections.INearby! nearby, System.Action<System.Action!>! marshal, System.Func<Plugin.Maui.NearbyConnections.NearbyDevice!, bool>? filter = null) -> void
+Plugin.Maui.NearbyConnections.NearbyDeviceCollection<TRow>
+Plugin.Maui.NearbyConnections.NearbyDeviceCollection<TRow>.CollectionChanged -> System.Collections.Specialized.NotifyCollectionChangedEventHandler?
+Plugin.Maui.NearbyConnections.NearbyDeviceCollection<TRow>.Count.get -> int
+Plugin.Maui.NearbyConnections.NearbyDeviceCollection<TRow>.Dispose() -> void
+Plugin.Maui.NearbyConnections.NearbyDeviceCollection<TRow>.GetEnumerator() -> System.Collections.Generic.IEnumerator<TRow>!
+Plugin.Maui.NearbyConnections.NearbyDeviceCollection<TRow>.NearbyDeviceCollection(Plugin.Maui.NearbyConnections.INearby! nearby, System.Action<System.Action!>! marshal, System.Func<Plugin.Maui.NearbyConnections.NearbyDevice!, TRow>! project, System.Func<Plugin.Maui.NearbyConnections.NearbyDevice!, bool>? filter = null, System.Action<TRow, Plugin.Maui.NearbyConnections.NearbyDevice!>? update = null) -> void
+Plugin.Maui.NearbyConnections.NearbyDeviceCollection<TRow>.this[int index].get -> TRow
 Plugin.Maui.NearbyConnections.NearbyDeviceStatus
 Plugin.Maui.NearbyConnections.NearbyDeviceStatus.Connected = 3 -> Plugin.Maui.NearbyConnections.NearbyDeviceStatus
 Plugin.Maui.NearbyConnections.NearbyDeviceStatus.Connecting = 2 -> Plugin.Maui.NearbyConnections.NearbyDeviceStatus
@@ -125,8 +127,6 @@ Plugin.Maui.NearbyConnections.NearbyFilePayload.NearbyFilePayload(Microsoft.Maui
 Plugin.Maui.NearbyConnections.NearbyOptions
 Plugin.Maui.NearbyConnections.NearbyOptions.AcceptTimeout.get -> System.TimeSpan
 Plugin.Maui.NearbyConnections.NearbyOptions.AcceptTimeout.set -> void
-Plugin.Maui.NearbyConnections.NearbyOptions.AllowSynchronousContinuations.get -> bool
-Plugin.Maui.NearbyConnections.NearbyOptions.AllowSynchronousContinuations.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.Android.get -> Plugin.Maui.NearbyConnections.NearbyAndroidOptions!
 Plugin.Maui.NearbyConnections.NearbyOptions.Apple.get -> Plugin.Maui.NearbyConnections.NearbyAppleOptions!
 Plugin.Maui.NearbyConnections.NearbyOptions.AutoAcceptConnectionRequests.get -> bool

@@ -155,4 +155,137 @@ public class NearbyDeviceCollectionTests
 
         public TestContext TestContext { get; set; }
     }
+
+    [TestClass]
+    public sealed class Filtering : NearbyDeviceCollectionTests
+    {
+        [TestMethod]
+        public async Task NonMatchingDevice_IsNotShown()
+        {
+            // Arrange
+            var platform = new FakeNearby();
+            var session = Create.Session(platform);
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+
+            using var devices = new NearbyDeviceCollection(
+                session, a => a(), filter: static d => d.Status is NearbyDeviceStatus.Connected);
+
+            // Act
+            await platform.EmitDeviceFoundAsync(Create.Device("a", "Alice"));
+            await Task.Delay(50, TestContext.CancellationToken);
+
+            // Assert
+            Assert.IsEmpty(devices, "A device that fails the filter must never enter the collection.");
+        }
+
+        // The filter is re-evaluated per change, so leaving the filtered set is a removal even
+        // though the session reported an update.
+        [TestMethod]
+        public async Task DeviceLeavingTheFilteredSet_IsRemoved()
+        {
+            // Arrange
+            var platform = new FakeNearby();
+            var session = Create.Session(platform);
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+
+            var device = Create.Device("a", "Alice");
+            await platform.EmitDeviceFoundAsync(device);
+
+            using var devices = new NearbyDeviceCollection(
+                session, a => a(), filter: static d => d.Status is NearbyDeviceStatus.Visible);
+
+            platform.ConnectResult = Create.Connection(device: device);
+
+            // Act
+            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await Wait.UntilAsync(() => devices.Count == 0);
+
+            // Assert
+            Assert.IsEmpty(devices);
+        }
+
+        public TestContext TestContext { get; set; }
+    }
+
+    [TestClass]
+    public sealed class Projecting : NearbyDeviceCollectionTests
+    {
+        [TestMethod]
+        public async Task Device_IsProjectedOntoARow()
+        {
+            // Arrange
+            var platform = new FakeNearby();
+            var session = Create.Session(platform);
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+
+            using var rows = new NearbyDeviceCollection<Row>(
+                session, a => a(), project: static d => new Row(d));
+
+            // Act
+            await platform.EmitDeviceFoundAsync(Create.Device("a", "Alice"));
+            await Wait.UntilAsync(() => rows.Count == 1);
+
+            // Assert
+            Assert.AreEqual("a", rows[0].Id);
+        }
+
+        // The whole reason the generic form takes an updater: a row that carries its own state must
+        // survive its device's transitions rather than being rebuilt and losing it.
+        [TestMethod]
+        public async Task ChangedDevice_ReusesTheExistingRow()
+        {
+            // Arrange
+            var platform = new FakeNearby();
+            var session = Create.Session(platform);
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+
+            var device = Create.Device("a", "Alice");
+            await platform.EmitDeviceFoundAsync(device);
+
+            using var rows = new NearbyDeviceCollection<Row>(
+                session,
+                a => a(),
+                project: static d => new Row(d),
+                update: static (row, d) => row.Update(d));
+
+            var original = rows[0];
+            platform.ConnectResult = Create.Connection(device: device);
+
+            // Act
+            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await Wait.UntilAsync(() => rows[0].Status is NearbyDeviceStatus.Connected);
+
+            // Assert — connecting reports Connecting then Connected, so the one row took both.
+            Assert.AreSame(original, rows[0], "A changed device must update its row, not replace it.");
+            Assert.AreEqual(2, original.UpdateCount);
+        }
+
+        [TestMethod]
+        public async Task WithoutAnUpdater_ChangedDeviceReplacesTheRow()
+        {
+            // Arrange
+            var platform = new FakeNearby();
+            var session = Create.Session(platform);
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+
+            var device = Create.Device("a", "Alice");
+            await platform.EmitDeviceFoundAsync(device);
+
+            using var rows = new NearbyDeviceCollection<Row>(
+                session, a => a(), project: static d => new Row(d));
+
+            var original = rows[0];
+            platform.ConnectResult = Create.Connection(device: device);
+
+            // Act
+            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await Wait.UntilAsync(() => rows[0].Status is NearbyDeviceStatus.Connected);
+
+            // Assert
+            Assert.AreNotSame(original, rows[0]);
+            Assert.HasCount(1, rows);
+        }
+
+        public TestContext TestContext { get; set; }
+    }
 }

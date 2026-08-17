@@ -12,7 +12,7 @@ public class DeviceDiscoveryTests
         // Arrange
         await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
-        var id = platform.Peers.PeerKeyProvider.PeerKey(peerId);
+        var id = platform.Peers.PeerKey(peerId);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
@@ -31,7 +31,7 @@ public class DeviceDiscoveryTests
         // Arrange — a peer already discovered, and its Found event drained off the channel.
         await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
-        var id = platform.Peers.PeerKeyProvider.PeerKey(peerId);
+        var id = platform.Peers.PeerKey(peerId);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         platform.FoundPeer(browser: null!, peerID: peerId, info: null);
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);

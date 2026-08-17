@@ -3,9 +3,13 @@ using System.Collections.Specialized;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// A bindable, live collection of nearby devices, kept in sync by consuming
+/// A bindable, live collection of rows projected from nearby devices, kept in sync by consuming
 /// <see cref="INearbyDevices.Changes"/> and applying each change on a caller-supplied thread.
 /// </summary>
+/// <typeparam name="TRow">
+/// The bound row type. Use <see cref="NearbyDevice"/> to bind devices directly — the non-generic
+/// <see cref="NearbyDeviceCollection"/> is that case pre-applied.
+/// </typeparam>
 /// <remarks>
 /// <para>
 /// <b>Optional.</b> <see cref="INearby"/> itself has no thread affinity — it hands out immutable
@@ -23,27 +27,41 @@ namespace Plugin.Maui.NearbyConnections;
 /// <see cref="INotifyCollectionChanged.CollectionChanged"/>, so it binds straight to an
 /// <c>ItemsSource</c>.
 /// </para>
+/// <para>
+/// <b>Rows are reused, not rebuilt.</b> A device that changes is handed to <c>update</c> rather than
+/// re-projected, so a row keeps its own state — a spinner, a selection, a timestamp — across the
+/// device's status transitions. A row is constructed once, when its device first passes
+/// <c>filter</c>, and dropped when the device stops passing it or leaves the session.
+/// </para>
 /// </remarks>
 /// <example>
-/// In a .NET MAUI ViewModel:
+/// Projecting a filtered subset onto row view models:
 /// <code language="csharp">
-/// public NearbyDeviceCollection Devices { get; }
-///     = new(nearby, marshal: Dispatcher.Dispatch);
-///
-/// // then bind straight to it: ItemsSource="{Binding Devices}"
+/// // IDispatcher.Dispatch returns bool, so it is wrapped rather than passed as a method group.
+/// public NearbyDeviceCollection&lt;DeviceRow&gt; Rows { get; }
+///     = new(nearby,
+///           marshal: action => dispatcher.Dispatch(action),
+///           project: device => new DeviceRow(device, nearby),
+///           filter: device => device.Status is NearbyDeviceStatus.Visible,
+///           update: (row, device) => row.Update(device));
 /// </code>
 /// </example>
-public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotifyCollectionChanged, IDisposable
+public class NearbyDeviceCollection<TRow> : IReadOnlyList<TRow>, INotifyCollectionChanged, IDisposable
 {
-    readonly ObservableCollection<NearbyDevice> _devices = [];
+    readonly ObservableCollection<TRow> _rows = [];
+    readonly Dictionary<string, TRow> _byDeviceId = new(StringComparer.Ordinal);
+    readonly List<string> _order = [];
     readonly CancellationTokenSource _cts = new();
     readonly Action<Action> _marshal;
     readonly INearby _nearby;
+    readonly Func<NearbyDevice, bool> _filter;
+    readonly Func<NearbyDevice, TRow> _project;
+    readonly Action<TRow, NearbyDevice>? _update;
 
     int _disposeGuard;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="NearbyDeviceCollection"/> class and begins
+    /// Initializes a new instance of the <see cref="NearbyDeviceCollection{TRow}"/> class and begins
     /// watching for device changes.
     /// </summary>
     /// <param name="nearby">The session to watch.</param>
@@ -56,31 +74,46 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// public API baselines stay identical.
     /// </para>
     /// </param>
+    /// <param name="project">Builds the row for a device that has just entered the collection.</param>
+    /// <param name="filter">
+    /// Selects which devices this collection shows, or <see langword="null"/> to show every device.
+    /// Re-evaluated on every change, so a device that stops matching is removed.
+    /// </param>
+    /// <param name="update">
+    /// Hands an existing row its device's newer snapshot. When <see langword="null"/>, a changed
+    /// device is re-projected into a replacement row instead — correct for an immutable row type
+    /// such as <see cref="NearbyDevice"/> itself, and wrong for a row carrying its own state.
+    /// </param>
     /// <exception cref="ArgumentNullException">
-    /// <paramref name="nearby"/> or <paramref name="marshal"/> is <see langword="null"/>.
+    /// <paramref name="nearby"/>, <paramref name="marshal"/>, or <paramref name="project"/> is
+    /// <see langword="null"/>.
     /// </exception>
-    /// <remarks>
-    /// A device is removed only once the platform reports it lost, never before. Neither platform
-    /// reliably reports every departure, so a device that moved out of range can linger until
-    /// discovery restarts — evicting on a timer instead would need a periodic "still here" signal
-    /// that <see cref="INearbyDevices.Changes"/> does not carry, and would delete devices that are
-    /// still present.
-    /// </remarks>
-    public NearbyDeviceCollection(INearby nearby, Action<Action> marshal)
+    public NearbyDeviceCollection(
+        INearby nearby,
+        Action<Action> marshal,
+        Func<NearbyDevice, TRow> project,
+        Func<NearbyDevice, bool>? filter = null,
+        Action<TRow, NearbyDevice>? update = null)
     {
         ArgumentNullException.ThrowIfNull(nearby);
         ArgumentNullException.ThrowIfNull(marshal);
+        ArgumentNullException.ThrowIfNull(project);
 
         _nearby = nearby;
         _marshal = marshal;
+        _project = project;
+        _filter = filter ?? (static _ => true);
+        _update = update;
 
+        // Subscribe before seeding: the stream carries no history, so a change raised between the
+        // seed and the subscription would be lost outright.
         var changes = _nearby.Devices.Changes.GetAsyncEnumerator(_cts.Token);
 
         _marshal(() =>
         {
             foreach (var device in _nearby.Devices)
             {
-                _devices.Add(device);
+                Apply(new NearbyDeviceChange(NearbyDeviceChangeAction.Added, device));
             }
         });
 
@@ -88,7 +121,7 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     }
 
     /// <summary>
-    /// Occurs when devices are added, replaced, or removed.
+    /// Occurs when rows are added, replaced, or removed.
     /// </summary>
     /// <remarks>
     /// Raised from inside the <c>marshal</c> callback supplied to the constructor, so every handler
@@ -96,25 +129,25 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// </remarks>
     public event NotifyCollectionChangedEventHandler? CollectionChanged
     {
-        add => ((INotifyCollectionChanged)_devices).CollectionChanged += value;
-        remove => ((INotifyCollectionChanged)_devices).CollectionChanged -= value;
+        add => ((INotifyCollectionChanged)_rows).CollectionChanged += value;
+        remove => ((INotifyCollectionChanged)_rows).CollectionChanged -= value;
     }
 
     /// <summary>
-    /// Gets the number of devices currently known.
+    /// Gets the number of rows currently shown.
     /// </summary>
     /// <remarks>
     /// Read only on the thread that the constructor's <c>marshal</c> callback runs actions on.
-    /// Devices are added and removed on that thread, so a count read from elsewhere is already
+    /// Rows are added and removed on that thread, so a count read from elsewhere is already
     /// stale by the time it is returned.
     /// </remarks>
-    public int Count => _devices.Count;
+    public int Count => _rows.Count;
 
     /// <summary>
-    /// Gets the device at the specified index.
+    /// Gets the row at the specified index.
     /// </summary>
-    /// <param name="index">The zero-based index of the device to get.</param>
-    /// <returns>The device at <paramref name="index"/>.</returns>
+    /// <param name="index">The zero-based index of the row to get.</param>
+    /// <returns>The row at <paramref name="index"/>.</returns>
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="index"/> is outside the bounds of the collection.
     /// </exception>
@@ -123,10 +156,10 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// <see cref="Count"/> and <see cref="GetEnumerator"/>. Indexing from another thread can throw
     /// even for an index that was valid when it was chosen, because a removal can land in between.
     /// </remarks>
-    public NearbyDevice this[int index] => _devices[index];
+    public TRow this[int index] => _rows[index];
 
     /// <summary>
-    /// Returns an enumerator that iterates through the devices currently known.
+    /// Returns an enumerator that iterates through the rows currently shown.
     /// </summary>
     /// <returns>An enumerator over the collection.</returns>
     /// <remarks>
@@ -134,10 +167,10 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// to any <see cref="ObservableCollection{T}"/> bound to a user interface — mutations arrive on
     /// that thread, so enumerating elsewhere can observe a torn collection.
     /// </remarks>
-    public IEnumerator<NearbyDevice> GetEnumerator() => _devices.GetEnumerator();
+    public IEnumerator<TRow> GetEnumerator() => _rows.GetEnumerator();
 
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-        => ((System.Collections.IEnumerable)_devices).GetEnumerator();
+        => ((System.Collections.IEnumerable)_rows).GetEnumerator();
 
     /// <summary>
     /// Stops watching the session's change stream and releases the underlying enumeration.
@@ -147,12 +180,15 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// </remarks>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposeGuard, 1) != 0)
+        if (Interlocked.Exchange(ref _disposeGuard, 1) == 0)
         {
-            return;
+            _cts.Cancel();
         }
 
-        _cts.Cancel();
+        // Nothing here holds an unmanaged handle, so this type declares no finalizer. The call is
+        // still required: a derived type that introduces one would otherwise have to re-implement
+        // IDisposable purely to suppress it (CA1816).
+        GC.SuppressFinalize(this);
     }
 
     /// <summary>
@@ -183,36 +219,106 @@ public sealed class NearbyDeviceCollection : IReadOnlyList<NearbyDevice>, INotif
     /// <summary>
     /// Applies one change. Runs inside <c>marshal</c>.
     /// </summary>
+    /// <remarks>
+    /// A device that no longer passes <c>filter</c> is removed whatever the change action says, so
+    /// a status transition out of the filtered set reads as a removal rather than leaving a stale
+    /// row behind.
+    /// </remarks>
     void Apply(NearbyDeviceChange change)
     {
         var device = change.Device;
-        var index = _devices.IndexOf(device);
 
-        switch (change.Action)
+        if (change.Action is NearbyDeviceChangeAction.Removed || !_filter(device))
         {
-            case NearbyDeviceChangeAction.Added:
-            case NearbyDeviceChangeAction.Updated:
-                if (index >= 0)
-                {
-                    _devices[index] = device;
-                }
-                else
-                {
-                    _devices.Add(device);
-                }
-
-                break;
-
-            case NearbyDeviceChangeAction.Removed:
-                if (index >= 0)
-                {
-                    _devices.RemoveAt(index);
-                }
-
-                break;
-
-            default:
-                break;
+            Remove(device.Id);
+            return;
         }
+
+        if (!_byDeviceId.TryGetValue(device.Id, out var existing))
+        {
+            var row = _project(device);
+
+            _byDeviceId[device.Id] = row;
+            _order.Add(device.Id);
+            _rows.Add(row);
+            return;
+        }
+
+        if (_update is not null)
+        {
+            _update(existing, device);
+            return;
+        }
+
+        // No updater: the row carries no state of its own, so a replacement is the update. The
+        // indexer assignment raises Replace, which lets a bound row refresh in place.
+        var replacement = _project(device);
+        var index = _order.IndexOf(device.Id);
+
+        _byDeviceId[device.Id] = replacement;
+        _rows[index] = replacement;
+    }
+
+    void Remove(string deviceId)
+    {
+        if (!_byDeviceId.Remove(deviceId, out var row))
+        {
+            return;
+        }
+
+        _order.Remove(deviceId);
+        _rows.Remove(row);
+    }
+}
+
+/// <summary>
+/// A bindable, live collection of nearby devices — <see cref="NearbyDeviceCollection{TRow}"/> with
+/// <see cref="NearbyDevice"/> bound directly, with no projection.
+/// </summary>
+/// <remarks>
+/// Use this when the view binds device properties straight from XAML. Reach for the generic form
+/// when each row needs its own commands or state, which a <see cref="NearbyDevice"/> snapshot
+/// cannot carry.
+/// </remarks>
+/// <example>
+/// In a .NET MAUI ViewModel:
+/// <code language="csharp">
+/// // IDispatcher.Dispatch returns bool, so it is wrapped rather than passed as a method group.
+/// public NearbyDeviceCollection Devices { get; }
+///     = new(nearby, marshal: action => dispatcher.Dispatch(action));
+///
+/// // then bind straight to it: ItemsSource="{Binding Devices}"
+/// </code>
+/// </example>
+public sealed class NearbyDeviceCollection : NearbyDeviceCollection<NearbyDevice>
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="NearbyDeviceCollection"/> class and begins
+    /// watching for device changes.
+    /// </summary>
+    /// <param name="nearby">The session to watch.</param>
+    /// <param name="marshal">
+    /// Runs an action where collection mutations are safe — in .NET MAUI,
+    /// <see cref="IDispatcher.Dispatch(Action)"/>.
+    /// </param>
+    /// <param name="filter">
+    /// Selects which devices this collection shows, or <see langword="null"/> to show every device.
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="nearby"/> or <paramref name="marshal"/> is <see langword="null"/>.
+    /// </exception>
+    /// <remarks>
+    /// A device is removed only once the platform reports it lost, never before. Neither platform
+    /// reliably reports every departure, so a device that moved out of range can linger until
+    /// discovery restarts — evicting on a timer instead would need a periodic "still here" signal
+    /// that <see cref="INearbyDevices.Changes"/> does not carry, and would delete devices that are
+    /// still present.
+    /// </remarks>
+    public NearbyDeviceCollection(
+        INearby nearby,
+        Action<Action> marshal,
+        Func<NearbyDevice, bool>? filter = null)
+        : base(nearby, marshal, static device => device, filter)
+    {
     }
 }

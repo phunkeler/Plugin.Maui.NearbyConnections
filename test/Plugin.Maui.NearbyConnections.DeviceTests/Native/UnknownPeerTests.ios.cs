@@ -13,7 +13,7 @@ public class UnknownPeerTests
         // Arrange
         await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("never-seen");
-        var id = platform.Peers.PeerKeyProvider.PeerKey(peerId);
+        var id = platform.Peers.PeerKey(peerId);
 
         // Act
         platform.OnPeerStateChanged(peerId, MCSessionState.NotConnected);
@@ -29,7 +29,7 @@ public class UnknownPeerTests
         // Arrange
         await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("never-seen");
-        var id = platform.Peers.PeerKeyProvider.PeerKey(peerId);
+        var id = platform.Peers.PeerKey(peerId);
 
         // Act
         platform.LostPeer(browser: null!, peerID: peerId);
@@ -45,7 +45,7 @@ public class UnknownPeerTests
         // Arrange
         await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("never-seen");
-        var id = platform.Peers.PeerKeyProvider.PeerKey(peerId);
+        var id = platform.Peers.PeerKey(peerId);
         using var data = NSData.FromArray([1, 2, 3]);
 
         // Act

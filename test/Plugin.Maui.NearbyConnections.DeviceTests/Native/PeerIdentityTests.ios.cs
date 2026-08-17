@@ -12,14 +12,14 @@ public class PeerIdentityTests
     {
         // Arrange — two DIFFERENT MCPeerID instances with the SAME display name: MPC identity is
         // per-instance, and the key must follow the identity, not the name.
-        var provider = Create.PeerKeyProvider();
+        var registry = Create.PeerRegistry();
         using var alice1 = new MCPeerID("Alice");
         using var alice2 = new MCPeerID("Alice");
 
         // Act
-        var key1a = provider.PeerKey(alice1);
-        var key1b = provider.PeerKey(alice1);
-        var key2 = provider.PeerKey(alice2);
+        var key1a = registry.PeerKey(alice1);
+        var key1b = registry.PeerKey(alice1);
+        var key2 = registry.PeerKey(alice2);
 
         // Assert
         Assert.Equal(key1a, key1b);
@@ -31,10 +31,10 @@ public class PeerIdentityTests
     public void PeerKey_NullPeer_ReturnsEmpty()
     {
         // Arrange
-        var provider = Create.PeerKeyProvider();
+        var registry = Create.PeerRegistry();
 
         // Act
-        var key = provider.PeerKey(null!);
+        var key = registry.PeerKey(null!);
 
         // Assert
         Assert.Equal(string.Empty, key);
@@ -44,11 +44,11 @@ public class PeerIdentityTests
     public void LocalPeerIdentity_MemoizedForProcessLifetime()
     {
         // Arrange
-        var store = Create.LocalPeerIdentityStore();
+        var registry = Create.PeerRegistry();
 
         // Act — the display name on later calls is documented as ignored once memoized.
-        var first = store.GetLocalPeerId("Alice");
-        var second = store.GetLocalPeerId("Bob");
+        var first = registry.GetLocalPeerId("Alice");
+        var second = registry.GetLocalPeerId("Bob");
 
         // Assert
         Assert.Same(first, second);

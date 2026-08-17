@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NearbyChat.Services;
@@ -11,7 +10,6 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     readonly INavigationService _navigationService;
     readonly INearby _session;
     readonly INearbyPermissions _permissions;
-    readonly RelativeTimeTicker _relativeTimeTicker;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleAdvertisingCommand))]
@@ -25,7 +23,12 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     /// <summary>
     /// Devices awaiting a response to their inbound connection request.
     /// </summary>
-    public ObservableCollection<AdvertisedDeviceViewModel> AdvertisedDevices { get; } = [];
+    /// <remarks>
+    /// The plugin's own bindable projection, so this page keeps no add/remove bookkeeping of its
+    /// own: a device that stops asking — answered, expired, or gone — stops matching the filter and
+    /// its row is dropped.
+    /// </remarks>
+    public NearbyDeviceCollection<AdvertisedDeviceViewModel> AdvertisedDevices { get; }
 
     public AdvertisingPageViewModel(
         IDispatcher dispatcher,
@@ -44,8 +47,16 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
         _session = session;
         Connections = connectionTracker;
         _permissions = permissions;
-        _relativeTimeTicker = new RelativeTimeTicker(dispatcher, TimeSpan.FromSeconds(30), OnRelativeTimeRefreshTimerTick);
         IsAdvertising = session.IsAdvertising;
+
+        AdvertisedDevices = new NearbyDeviceCollection<AdvertisedDeviceViewModel>(
+            session,
+            action => dispatcher.Dispatch(action),
+            project: device => new AdvertisedDeviceViewModel(device, session),
+            filter: static device => device.Status is NearbyDeviceStatus.RequestReceived,
+            update: static (row, device) => row.Update(device));
+
+        AdvertisedDevices.CollectionChanged += (_, _) => TrackRelativeTime(AdvertisedDevices);
     }
 
     [RelayCommand]
@@ -91,97 +102,22 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     {
         base.NavigatedTo();
 
-        AdvertisedDevices.Clear();
+        // The collection tracks the session for this view model's whole lifetime, so requests that
+        // arrived while the page was away are already in it — nothing to seed here.
         IsAdvertising = _session.IsAdvertising;
 
-        // Requests that arrived while the page was away are already in Devices. Seeding first and
-        // then watching is what replaces the old seed-plus-subscribe pair: the stream has no
-        // replay, so the current state has to come from the collection.
-        foreach (var device in _session.Devices.Where(d => d.Status is NearbyDeviceStatus.RequestReceived))
-        {
-            AddDevice(device);
-        }
-
-        _ = WatchDevicesAsync(NavigationToken);
+        TrackRelativeTime(AdvertisedDevices);
     }
 
-    /// <summary>
-    /// Adds a row when a device starts asking for a connection and removes it once it stops —
-    /// answered, expired, or gone. Ends when the page is navigated away from.
-    /// </summary>
-    async Task WatchDevicesAsync(CancellationToken cancellationToken)
+    protected override void Dispose(bool disposing)
     {
-        try
+        if (disposing)
         {
-            await foreach (var change in _session.Devices.Changes.WithCancellation(cancellationToken))
-            {
-                var device = change.Device;
-
-                var isPending = change.Action is not NearbyDeviceChangeAction.Removed
-                    && device.Status is NearbyDeviceStatus.RequestReceived;
-
-                // Changes arrive on a platform background thread; AdvertisedDevices is bound.
-                await Dispatcher.DispatchAsync(() =>
-                {
-                    if (isPending)
-                    {
-                        AddDevice(device);
-                    }
-                    else
-                    {
-                        RemoveDevice(device.Id);
-                    }
-                });
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Navigated away.
-        }
-    }
-
-    protected override void NavigatedFrom()
-    {
-        base.NavigatedFrom();
-
-        _relativeTimeTicker.SetActive(false);
-    }
-
-    void AddDevice(NearbyDevice device)
-    {
-        // A device is a snapshot, so an existing row is handed the newer one rather than left
-        // showing the instance it was created with.
-        if (AdvertisedDevices.FirstOrDefault(d => d.Id == device.Id) is { } existing)
-        {
-            existing.Update(device);
-            return;
+            AdvertisedDevices.Dispose();
         }
 
-        AdvertisedDevices.Add(new AdvertisedDeviceViewModel(device, _session));
-        UpdateRelativeTimeRefreshTimer();
-    }
-
-    void RemoveDevice(string deviceId)
-    {
-        if (AdvertisedDevices.FirstOrDefault(d => d.Id == deviceId) is not { } vm)
-        {
-            return;
-        }
-
-        AdvertisedDevices.Remove(vm);
-        UpdateRelativeTimeRefreshTimer();
+        base.Dispose(disposing);
     }
 
     bool CanToggleAdvertising() => !IsBusy;
-
-    void UpdateRelativeTimeRefreshTimer()
-        => _relativeTimeTicker.SetActive(AdvertisedDevices.Count >= 1);
-
-    void OnRelativeTimeRefreshTimerTick()
-    {
-        foreach (var advertisedDevice in AdvertisedDevices)
-        {
-            advertisedDevice.RefreshRelativeTime();
-        }
-    }
 }

@@ -129,7 +129,14 @@ sealed partial class PlatformNearby
             }
             else
             {
-                Peers.Remove(endpointId);
+                // Report the loss, not just the local removal — see the sibling comment in
+                // PlatformNearby.ios.cs's NotConnected branch. Without this the session keeps a
+                // Visible device whose endpoint the platform has already discarded.
+                if (Peers.Remove(endpointId) is { } lostDevice)
+                {
+                    WriteDeviceLost(lostDevice);
+                }
+
                 FaultConnectionTcs(endpointId, new NearbyException(
                     $"Connection to endpoint '{endpointId}' failed: {resolution.Status.StatusMessage} (code {resolution.Status.StatusCode})."));
             }

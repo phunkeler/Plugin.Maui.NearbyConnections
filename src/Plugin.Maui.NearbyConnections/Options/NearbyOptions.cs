@@ -258,22 +258,4 @@ public sealed partial class NearbyOptions
     /// </para>
     /// </remarks>
     public bool AutoAcceptConnectionRequests { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value that indicates whether payload and device-change delivery may continue
-    /// synchronously on the platform's callback thread instead of being scheduled to the thread
-    /// pool.
-    /// </summary>
-    /// <value>
-    /// <see langword="true"/> to allow synchronous continuations; otherwise,
-    /// <see langword="false"/>. The default is <see langword="false"/>.
-    /// </value>
-    /// <remarks>
-    /// Payloads and device changes are written from background threads owned by the platform SDK.
-    /// Setting this property to <see langword="true"/> lets the body of a consuming
-    /// <c>await foreach</c> loop run directly on that writer thread, avoiding a thread-pool
-    /// transition — but a slow loop body then stalls the platform SDK's own callback dispatch, so
-    /// enable this only when every consuming loop completes very quickly.
-    /// </remarks>
-    public bool AllowSynchronousContinuations { get; set; }
 }

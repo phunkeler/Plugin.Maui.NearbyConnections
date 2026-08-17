@@ -280,57 +280,6 @@ public class PlatformNearbyTests
     }
 
     [TestClass]
-    public sealed class AllowSynchronousContinuations : PlatformNearbyTests
-    {
-        [TestMethod]
-        public void False_WriteReturnsBeforeAwaitingReaderContinuationRuns()
-        {
-            // Arrange — default options: AllowSynchronousContinuations is false, so the
-            // channel schedules the waiting reader's continuation to the thread pool
-            // instead of running it inline on the writer's call stack.
-            var platform = Create.PlatformNearby();
-            var device = Create.Device("peer-1", "Alice");
-            var continuationRan = false;
-
-            var readValueTask = platform._discoverChannel.Reader.ReadAsync(TestContext.CancellationToken);
-            _ = readValueTask.AsTask().ContinueWith(
-                _ => continuationRan = true,
-                TaskContinuationOptions.ExecuteSynchronously);
-
-            // Act
-            platform.WriteDeviceFound(device);
-
-            // Assert — WriteDeviceFound (a synchronous TryWrite) has already returned, but
-            // the continuation was scheduled rather than run inline, so it hasn't run yet.
-            Assert.IsFalse(continuationRan);
-        }
-
-        [TestMethod]
-        public void True_WriteRunsAwaitingReaderContinuationInline()
-        {
-            // Arrange
-            var options = new NearbyOptions { AllowSynchronousContinuations = true };
-            var platform = Create.PlatformNearby(options: options);
-            var device = Create.Device("peer-1", "Alice");
-            var continuationRan = false;
-
-            var readValueTask = platform._discoverChannel.Reader.ReadAsync(TestContext.CancellationToken);
-            _ = readValueTask.AsTask().ContinueWith(
-                _ => continuationRan = true,
-                TaskContinuationOptions.ExecuteSynchronously);
-
-            // Act
-            platform.WriteDeviceFound(device);
-
-            // Assert — the continuation ran synchronously, inline within TryWrite,
-            // before WriteDeviceFound returned.
-            Assert.IsTrue(continuationRan);
-        }
-
-        public TestContext TestContext { get; set; }
-    }
-
-    [TestClass]
     public sealed class DisposeAsync : PlatformNearbyTests
     {
         [TestMethod]

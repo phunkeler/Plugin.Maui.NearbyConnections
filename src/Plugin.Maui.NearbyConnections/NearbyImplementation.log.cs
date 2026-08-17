@@ -4,8 +4,8 @@ namespace Plugin.Maui.NearbyConnections;
 // renumbering; never reuse an id once shipped):
 //   NearbyImplementation (this file)        1000-1099
 //   PlatformNearby                          2000-2099
-//   iOS identity/lifecycle (PeerKeyProvider, AppLifecycleObserver,
-//     LocalPeerIdentityStore, PeerRegistry) 3000-3099
+//   iOS identity/lifecycle (PeerRegistry — peer keys, local peer
+//     identity, handle tracking; AppLifecycleObserver)  3000-3099
 sealed partial class NearbyImplementation
 {
     // -------------------------------------------------------------------------

@@ -13,19 +13,13 @@ sealed partial class PlatformNearby
     MCNearbyServiceBrowser? _mcBrowser;
     MCSession? _session;
 
-    /// <summary>Derives the stable string key this layer identifies an <c>MCPeerID</c> by.</summary>
-    internal required PeerKeyProvider PeerKeyProvider { get; init; }
-
-    /// <summary>Memoizes the local <c>MCPeerID</c> for the process lifetime.</summary>
-    internal required LocalPeerIdentityStore LocalPeerIdentityStore { get; init; }
-
     #region Advertising
 
     async Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var myPeerId = LocalPeerIdentityStore.GetLocalPeerId(_options.DisplayName);
+        var myPeerId = Peers.GetLocalPeerId(_options.DisplayName);
 
         _mcAdvertiser = new MCNearbyServiceAdvertiser(
             myPeerID: myPeerId,
@@ -112,7 +106,7 @@ sealed partial class PlatformNearby
                     lock (_sessionLock)
                     {
                         _session ??= new MCSession(
-                            LocalPeerIdentityStore.GetLocalPeerId(_options.DisplayName),
+                            Peers.GetLocalPeerId(_options.DisplayName),
                             identity: null!,
                             _options.ToPlatformEncryptionPreference())
                         {
@@ -165,7 +159,7 @@ sealed partial class PlatformNearby
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var myPeerId = LocalPeerIdentityStore.GetLocalPeerId(_options.DisplayName);
+        var myPeerId = Peers.GetLocalPeerId(_options.DisplayName);
 
         _mcBrowser = new MCNearbyServiceBrowser(
             myPeerID: myPeerId,
@@ -207,7 +201,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = PeerKeyProvider.PeerKey(peerID);
+            var id = Peers.PeerKey(peerID);
 
             if (_activeConnections.ContainsKey(id))
             {
@@ -251,7 +245,7 @@ sealed partial class PlatformNearby
         lock (_sessionLock)
         {
             _session ??= new MCSession(
-                LocalPeerIdentityStore.GetLocalPeerId(_options.DisplayName),
+                Peers.GetLocalPeerId(_options.DisplayName),
                 identity: null!,
                 _options.ToPlatformEncryptionPreference())
             {
@@ -498,7 +492,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = PeerKeyProvider.PeerKey(peerID);
+            var id = Peers.PeerKey(peerID);
 
             LogPeerStateChanged(id, peerID.DisplayName, state);
 
@@ -539,7 +533,16 @@ sealed partial class PlatformNearby
                     FaultConnectionTcs(id, new NearbyException(
                         $"Connection to peer '{peerID.DisplayName}' failed: session state changed to NotConnected before the connection was established."));
 
-                    Peers.Remove(id);
+                    // Report the loss, not just the local removal: dropping the peer here without
+                    // it would leave the session showing a Visible device whose native handle is
+                    // already gone, so the row stays on screen and can never be connected to.
+                    // The session ignores this for a device it still considers Connected, which is
+                    // what keeps a live connection from being evicted by its own state change.
+                    if (Peers.Remove(id) is { } lostDevice)
+                    {
+                        WriteDeviceLost(lostDevice);
+                    }
+
                     DisposeSessionIfLastPeer();
                     break;
 
@@ -558,7 +561,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = PeerKeyProvider.PeerKey(peerID);
+            var id = Peers.PeerKey(peerID);
 
             LogDataReceived(id, peerID.DisplayName, (long)data.Length);
 
@@ -622,7 +625,7 @@ sealed partial class PlatformNearby
 
     internal void OnResourceStarted(string resourceName, MCPeerID fromPeer, NSProgress progress)
     {
-        var id = PeerKeyProvider.PeerKey(fromPeer);
+        var id = Peers.PeerKey(fromPeer);
 
         LogResourceReceiveStarted(id, fromPeer.DisplayName, resourceName);
 
@@ -689,7 +692,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = PeerKeyProvider.PeerKey(fromPeer);
+            var id = Peers.PeerKey(fromPeer);
             var loc = localUrl?.ToString() ?? "null";
 
             LogResourceReceiveFinished(id, fromPeer.DisplayName, resourceName, loc, error?.LocalizedDescription);

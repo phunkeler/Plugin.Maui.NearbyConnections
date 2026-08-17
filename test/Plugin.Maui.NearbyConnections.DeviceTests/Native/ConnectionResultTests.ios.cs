@@ -41,4 +41,28 @@ public class ConnectionResultTests
         await Assert.ThrowsAsync<NearbyException>(() => tcs.Task.WaitAsync(cts.Token));
         Assert.False(platform._activeConnections.ContainsKey(id));
     }
+
+    // A failed handshake drops the native peer handle, so the device must be reported lost too.
+    // Without the lost event the session keeps showing a Visible row whose handle is already gone,
+    // and tapping it can never connect.
+    [Fact]
+    public async Task NotConnected_PublishesLostEventAndReleasesPeer()
+    {
+        // Arrange — a discovered peer whose Found event is drained, then a failed handshake.
+        await using var platform = Create.PlatformNearby();
+        using var peerId = Create.PeerId("Alice");
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        platform.FoundPeer(browser: null!, peerID: peerId, info: null);
+        var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
+        var (_, id) = Create.PendingHandshake(platform, peerId);
+
+        // Act
+        platform.OnPeerStateChanged(peerId, MCSessionState.NotConnected);
+
+        // Assert
+        var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
+        Assert.False(lost.Found);
+        Assert.Equal(found.Device.Id, lost.Device.Id);
+        Assert.False(platform.Peers.TryGetDevice(id, out _));
+    }
 }

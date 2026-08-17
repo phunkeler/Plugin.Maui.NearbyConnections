@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace Plugin.Maui.NearbyConnections;
 
 public static partial class ServiceCollectionExtensions
@@ -9,17 +7,5 @@ public static partial class ServiceCollectionExtensions
         TimeProvider timeProvider,
         NearbyOptions options,
         ILogger logger)
-    {
-        var peerKeyProvider = new PeerKeyProvider(
-            services.GetService<ILogger<PeerKeyProvider>>() ?? NullLogger<PeerKeyProvider>.Instance);
-        var peers = new PeerRegistry { PeerKeyProvider = peerKeyProvider, Logger = logger };
-        var localPeerIdentityStore = new LocalPeerIdentityStore(
-            services.GetService<ILogger<LocalPeerIdentityStore>>() ?? NullLogger<LocalPeerIdentityStore>.Instance);
-
-        return new PlatformNearby(timeProvider, options, logger, peers)
-        {
-            PeerKeyProvider = peerKeyProvider,
-            LocalPeerIdentityStore = localPeerIdentityStore,
-        };
-    }
+        => new(timeProvider, options, logger, new PeerRegistry { Logger = logger });
 }

@@ -72,10 +72,10 @@ The work list, in order. Each step is small; the order matters.
 The SDKs genuinely differ, and the code differs where they do. Don't "fix" these:
 
 - **Identity.** Google's SDK identifies a peer by a plain string; Apple's uses an `MCPeerID`
-  *object* with no stable string form. That's why iOS needs three extra collaborators
-  (`PeerKeyProvider`, `LocalPeerIdentityStore`, a handle-tracking `PeerRegistry` extension) and
-  Android needs none. The test factories mirror this: a one-liner on Android, a three-object graph
-  on iOS.
+  *object* with no stable string form. That is why the iOS half of `PeerRegistry` carries three
+  jobs Android needs none of: deriving a stable key from an `MCPeerID`, memoizing the local peer,
+  and tracking the native handle behind each key. They were three separate collaborators until they
+  collapsed into `PeerRegistry.ios.cs` — one type, one logger, one construction site.
 - **Connection results.** Google gives a one-shot success/failure callback plus a separate
   disconnect callback. Apple gives a single state-change callback that means "connecting" or
   "connected" or "disconnected" depending on the value. So `ConnectionResultTests` drives different
@@ -131,11 +131,13 @@ Dropped — found, considered, and rejected because they only polish iOS interna
 deletes (repo rule: don't churn internals for symmetry):
 
 - Callback wiring style differs between platforms (delegate lists vs `this`-references). Cosmetic.
-- Three different construction idioms across the four iOS identity collaborators. The actionable
-  sliver (uniform null-checks) folds into step 4.
+- ~~Three different construction idioms across the four iOS identity collaborators.~~ **Resolved.**
+  `PeerKeyProvider` and `LocalPeerIdentityStore` folded into `PeerRegistry.ios.cs`, so there is one
+  construction idiom because there is one type.
 - `s_nextPayloadId` is `static` on iOS for no reason. One-token fix; ride along on some future
   iOS commit, never scheduled alone.
-- `PeerRegistry` logs under `PlatformNearby`'s category. Cosmetic; same treatment.
+- `PeerRegistry` logs under `PlatformNearby`'s category. Deliberate, and now documented in
+  `docs/LOGGING.md`: it is handed the platform layer's logger rather than owning one.
 
 Open questions this review touches but does not settle (each already has a home):
 

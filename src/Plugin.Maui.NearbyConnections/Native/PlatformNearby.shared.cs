@@ -44,12 +44,21 @@ sealed partial class PlatformNearby : IPlatformNearby
         _activeConnections = new ConcurrentDictionary<string, NearbyConnection>(StringComparer.Ordinal);
     }
 
-    internal Channel<T> NewChannel<T>(bool singleReader = false)
+    /// <summary>
+    /// Builds one of this type's unbounded delivery channels.
+    /// </summary>
+    /// <remarks>
+    /// <c>AllowSynchronousContinuations</c> is left at its <see langword="false"/> default, so a
+    /// consumer's continuation is queued rather than run inline on the platform callback thread that
+    /// wrote the item. Running it inline would let a slow <c>await foreach</c> body stall the
+    /// platform SDK's own callback dispatch, and the thread-pool hop it saves is not worth exposing
+    /// that hazard as a knob.
+    /// </remarks>
+    internal static Channel<T> NewChannel<T>(bool singleReader = false)
         => Channel.CreateUnbounded<T>(new UnboundedChannelOptions
         {
             SingleReader = singleReader,
             SingleWriter = false,
-            AllowSynchronousContinuations = _options.AllowSynchronousContinuations,
         });
 
     /// <inheritdoc/>

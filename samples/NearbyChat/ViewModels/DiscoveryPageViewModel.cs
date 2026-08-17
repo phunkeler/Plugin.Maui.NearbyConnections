@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NearbyChat.Services;
@@ -11,7 +10,6 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
     readonly INavigationService _navigationService;
     readonly INearby _session;
     readonly INearbyPermissions _permissions;
-    readonly RelativeTimeTicker _relativeTimeTicker;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleDiscoveryCommand))]
@@ -25,7 +23,12 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
     /// <summary>
     /// Devices in range that are not yet connected — the connectable list.
     /// </summary>
-    public ObservableCollection<DiscoveredDeviceViewModel> DiscoveredDevices { get; } = [];
+    /// <remarks>
+    /// The plugin's own bindable projection, so this page keeps no reconcile loop of its own: the
+    /// filter decides which devices appear, and rows are reused across a device's status changes so
+    /// a row mid-connect keeps its spinner.
+    /// </remarks>
+    public NearbyDeviceCollection<DiscoveredDeviceViewModel> DiscoveredDevices { get; }
 
     public DiscoveryPageViewModel(
         IDispatcher dispatcher,
@@ -44,8 +47,16 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
         _session = session;
         Connections = connectionTracker;
         _permissions = permissions;
-        _relativeTimeTicker = new RelativeTimeTicker(dispatcher, TimeSpan.FromSeconds(30), OnRelativeTimeRefreshTimerTick);
         IsDiscovering = session.IsDiscovering;
+
+        DiscoveredDevices = new NearbyDeviceCollection<DiscoveredDeviceViewModel>(
+            session,
+            action => dispatcher.Dispatch(action),
+            project: device => new DiscoveredDeviceViewModel(device, session),
+            filter: static device => device.Status is NearbyDeviceStatus.Visible or NearbyDeviceStatus.Connecting,
+            update: static (row, device) => row.Update(device));
+
+        DiscoveredDevices.CollectionChanged += (_, _) => TrackRelativeTime(DiscoveredDevices);
     }
 
     [RelayCommand]
@@ -90,89 +101,22 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
     {
         base.NavigatedTo();
 
-        DiscoveredDevices.Clear();
+        // The collection tracks the session for this view model's whole lifetime, so there is
+        // nothing to seed or restart here — devices found while the page was away are already in it.
         IsDiscovering = _session.IsDiscovering;
 
-        // Devices is the state, so this page projects it rather than accumulating its own events.
-        // Devices found while the page was away are therefore already present, and Rebuild picks
-        // them up before the watch loop starts on what happens next.
-        Rebuild();
-
-        _ = WatchDevicesAsync(NavigationToken);
+        TrackRelativeTime(DiscoveredDevices);
     }
 
-    /// <summary>
-    /// Re-projects the list on every device change until the page is navigated away from, which
-    /// cancels <see cref="BasePageViewModel.NavigationToken"/> and ends the loop.
-    /// </summary>
-    async Task WatchDevicesAsync(CancellationToken cancellationToken)
+    protected override void Dispose(bool disposing)
     {
-        try
+        if (disposing)
         {
-            await foreach (var _ in _session.Devices.Changes.WithCancellation(cancellationToken))
-            {
-                // Changes arrive on a platform background thread; DiscoveredDevices is bound.
-                await Dispatcher.DispatchAsync(Rebuild);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Navigated away.
-        }
-    }
-
-    protected override void NavigatedFrom()
-    {
-        base.NavigatedFrom();
-
-        _relativeTimeTicker.SetActive(false);
-    }
-
-    /// <summary>
-    /// Reconciles the list against the session, preserving existing row instances so bindings and
-    /// per-row state survive.
-    /// </summary>
-    void Rebuild()
-    {
-        var connectable = _session.Devices
-            .Where(d => d.Status is NearbyDeviceStatus.Visible or NearbyDeviceStatus.Connecting)
-            .ToList();
-
-        for (var i = DiscoveredDevices.Count - 1; i >= 0; i--)
-        {
-            if (!connectable.Any(d => d.Id == DiscoveredDevices[i].Id))
-            {
-                DiscoveredDevices.RemoveAt(i);
-            }
+            DiscoveredDevices.Dispose();
         }
 
-        foreach (var device in connectable)
-        {
-            // A device is a snapshot, so an existing row is handed the new one rather than left
-            // watching an instance that will never change again.
-            if (DiscoveredDevices.FirstOrDefault(d => d.Id == device.Id) is { } existing)
-            {
-                existing.Update(device);
-            }
-            else
-            {
-                DiscoveredDevices.Add(new DiscoveredDeviceViewModel(device, _session));
-            }
-        }
-
-        UpdateRelativeTimeRefreshTimer();
+        base.Dispose(disposing);
     }
 
     bool CanToggleDiscovery() => !IsBusy;
-
-    void UpdateRelativeTimeRefreshTimer()
-        => _relativeTimeTicker.SetActive(DiscoveredDevices.Count >= 1);
-
-    void OnRelativeTimeRefreshTimerTick()
-    {
-        foreach (var discoveredDevice in DiscoveredDevices)
-        {
-            discoveredDevice.RefreshRelativeTime();
-        }
-    }
 }

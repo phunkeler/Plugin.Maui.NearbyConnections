@@ -82,10 +82,10 @@ it *sounds* generic while being specifically MPC's term.
 3. **Zero rename cost.** `NearbyDevice` is published API since preview.1. Keeping it means the
    rename table shrinks and the `Devices` naming stays consistent rather than flip-flopping.
 
-**Internal code keeps `Peer`.** `PeerRegistry`, `PeerKeyProvider`, `PeerIdArchive` are `internal`,
-never seen by a consumer, and sit at the layer that genuinely talks to `MCPeerID`. Using the
-platform's word there is *correct*, not a leak. The rule is: public
-says `Device`, internal says `Peer`, and the public/internal boundary is the enforcement mechanism.
+**Internal code keeps `Peer`.** `PeerRegistry` and its `PeerKey`/`GetLocalPeerId` members are
+`internal`, never seen by a consumer, and sit at the layer that genuinely talks to `MCPeerID`. Using
+the platform's word there is *correct*, not a leak. The rule is: public says `Device`, internal says
+`Peer`, and the public/internal boundary is the enforcement mechanism.
 
 > Candidates considered and rejected: `NearbyPeer` (Apple's term), `NearbyEndpoint` (Google's term),
 > `NearbyParticipant` (neutral and semantically precise, but long, and `Participants` reads oddly

@@ -53,13 +53,27 @@ sealed partial class PlatformNearby
     /// For <c>content://</c> URIs the following sources are tried in order:
     /// <list type="number">
     ///   <item><description><c>_display_name</c> — already contains the extension for well-behaved providers (MediaStore, SAF, Downloads).</description></item>
-    ///   <item><description><c>_data</c> — the underlying file path; its filename gives a reliable name + extension for MediaStore URIs.</description></item>
-    ///   <item><description><see cref="ContentResolver.GetType"/> — maps the MIME type to an extension via <see cref="Android.Webkit.MimeTypeMap"/>.</description></item>
+    ///   <item><description><c>_data</c> — the underlying file path; its filename gives a reliable name + extension for MediaStore URIs. Queried on API 28 and below only, see the remarks.</description></item>
+    ///   <item><description><see cref="ContentResolver.GetType"/> — maps the MIME type to an extension via <see cref="Android.Webkit.MimeTypeMap"/>, for a provider whose display name carries no extension.</description></item>
     ///   <item><description>Decoded <c>LastPathSegment</c> — opaque but human-readable.</description></item>
     /// </list>
     /// </para>
     /// For <c>file://</c> URIs, the real filesystem path is used directly.
     /// </summary>
+    /// <remarks>
+    /// The <c>_data</c> tier is gated on
+    /// <see cref="OperatingSystem.IsAndroidVersionAtLeast(int, int, int, int)"/> because
+    /// <c>MediaStore.MediaColumns.DATA</c> was deprecated in API 29 and returns <see langword="null"/>
+    /// under scoped storage. Asking for it on API 29+ can only cost a cursor column that never
+    /// yields a value, so those devices do not ask. It is kept for API 24 to 28, where it does
+    /// resolve and is the better answer than the MIME tier below: it carries the provider's real
+    /// filename rather than a stem paired with an extension derived from the content type.
+    /// <para>
+    /// The guard is the <see cref="OperatingSystem"/> form rather than a <c>Build.VERSION.SdkInt</c>
+    /// comparison so the platform-compatibility analyzer recognises it, which is what keeps a
+    /// version-gated call to a since-deprecated column from tripping the build's warnings-as-errors.
+    /// </para>
+    /// </remarks>
     string ResolveResourceName(AndroidUri uri) =>
         ContentResolver.SchemeContent.Equals(uri.Scheme, StringComparison.OrdinalIgnoreCase)
             ? ResolveContentUriName(uri)
@@ -85,61 +99,61 @@ sealed partial class PlatformNearby
         }
     }
 
-    static (string? displayName, string? dataPath) QueryContentColumns(AndroidUri uri)
+    /// <summary>
+    /// Reads <c>_display_name</c>, and <c>_data</c> where the platform still populates it. Returns
+    /// a null <c>dataPath</c> on API 29 and above, where that column is not queried at all.
+    /// </summary>
+    static (string? DisplayName, string? DataPath) QueryContentColumns(AndroidUri uri)
     {
-        string? displayName = null;
-        string? dataPath = null;
+        var queryData = !OperatingSystem.IsAndroidVersionAtLeast(29);
+
+        string[] projection = queryData
+            ? [Android.Provider.IOpenableColumns.DisplayName, Android.Provider.MediaStore.IMediaColumns.Data]
+            : [Android.Provider.IOpenableColumns.DisplayName];
 
         using var cursor = Application.Context.ContentResolver?.Query(
             uri,
-            [Android.Provider.IOpenableColumns.DisplayName, Android.Provider.MediaStore.IMediaColumns.Data],
+            projection,
             selection: null,
             selectionArgs: null,
             sortOrder: null);
 
-        if (cursor is null)
+        if (cursor is null || !cursor.MoveToFirst())
         {
-            return (displayName, dataPath);
-        }
-
-        if (!cursor.MoveToFirst())
-        {
-            return (displayName, dataPath);
+            return (null, null);
         }
 
         var nameIndex = cursor.GetColumnIndex(Android.Provider.IOpenableColumns.DisplayName);
 
-        if (nameIndex >= 0)
+        var displayName = nameIndex >= 0
+            ? cursor.GetString(nameIndex)
+            : null;
+
+        if (!queryData)
         {
-            displayName = cursor.GetString(nameIndex);
+            return (displayName, null);
         }
 
         var dataIndex = cursor.GetColumnIndex(Android.Provider.MediaStore.IMediaColumns.Data);
 
-        if (dataIndex >= 0)
-        {
-            dataPath = cursor.GetString(dataIndex);
-        }
+        var dataPath = dataIndex >= 0
+            ? cursor.GetString(dataIndex)
+            : null;
 
         return (displayName, dataPath);
     }
+
+    static string? NameFromDataPath(string? dataPath)
+        => !string.IsNullOrEmpty(dataPath)
+            && Path.GetFileName(dataPath) is { Length: > 0 } name
+            ? name
+            : null;
 
     static string? NameWithExtension(string? displayName) =>
         !string.IsNullOrWhiteSpace(displayName)
         && Path.GetExtension(displayName).Length > 0
             ? displayName
             : null;
-
-    static string? NameFromDataPath(string? dataPath)
-    {
-        if (!string.IsNullOrEmpty(dataPath)
-            && Path.GetFileName(dataPath) is { Length: > 0 } name)
-        {
-            return name;
-        }
-
-        return null;
-    }
 
     // Derives an extension from the MIME type and pairs it with the display name stem.
     static string? NameFromMimeType(AndroidUri uri, string? displayName)

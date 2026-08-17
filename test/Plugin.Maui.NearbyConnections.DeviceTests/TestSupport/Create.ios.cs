@@ -5,39 +5,30 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests;
 static partial class Create
 {
     /// <summary>
-    /// The real platform type on iOS, wired with real <see cref="PeerRegistry"/>,
-    /// <see cref="PeerKeyProvider"/>, and <see cref="LocalPeerIdentityStore"/> instances — the same
-    /// shape <see cref="NearbyImplementation"/> constructs it with in the shipped app.
+    /// The real platform type on iOS, wired with a real <see cref="PeerRegistry"/> — the same shape
+    /// <see cref="NearbyImplementation"/> constructs it with in the shipped app.
     /// </summary>
     /// <param name="options">Options to wire the platform with, or <see langword="null"/> for the suite defaults.</param>
     /// <returns>The platform under test.</returns>
     public static PlatformNearby PlatformNearby(NearbyOptions? options = null)
-    {
-        var peerKeyProvider = PeerKeyProvider();
-
-        return new PlatformNearby(
+        => new(
             TimeProvider.System,
             options ?? DefaultOptions(),
             NullLogger.Instance,
-            new PeerRegistry { PeerKeyProvider = peerKeyProvider, Logger = NullLogger.Instance })
-        {
-            PeerKeyProvider = peerKeyProvider,
-            LocalPeerIdentityStore = LocalPeerIdentityStore(),
-        };
-    }
+            PeerRegistry());
 
     /// <summary>A local <c>MCPeerID</c> standing in for a remote peer in a callback's arguments.</summary>
     /// <param name="displayName">The peer's display name, as MPC reports it.</param>
     /// <returns>The peer id.</returns>
     public static MCPeerID PeerId(string displayName = "Alice") => new(displayName);
 
-    /// <summary>The real <see cref="PeerKeyProvider"/> the platform is wired with.</summary>
-    /// <returns>The provider.</returns>
-    public static PeerKeyProvider PeerKeyProvider() => new(NullLogger<PeerKeyProvider>.Instance);
-
-    /// <summary>The real <see cref="LocalPeerIdentityStore"/> the platform is wired with.</summary>
-    /// <returns>The store.</returns>
-    public static LocalPeerIdentityStore LocalPeerIdentityStore() => new(NullLogger<LocalPeerIdentityStore>.Instance);
+    /// <summary>
+    /// The real <see cref="Plugin.Maui.NearbyConnections.PeerRegistry"/> the platform is wired
+    /// with. It owns peer-key derivation and local-peer identity, so tests covering either resolve
+    /// one of these rather than a helper type of their own.
+    /// </summary>
+    /// <returns>The registry.</returns>
+    public static PeerRegistry PeerRegistry() => new() { Logger = NullLogger.Instance };
 
     /// <summary>
     /// Waits until <paramref name="platform"/> has registered a pending handshake. Needed after
@@ -67,7 +58,7 @@ static partial class Create
         PlatformNearby platform, MCPeerID peerId)
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var id = platform.Peers.PeerKeyProvider.PeerKey(peerId);
+        var id = platform.Peers.PeerKey(peerId);
 
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
 
@@ -88,7 +79,7 @@ static partial class Create
         CancellationToken cancellationToken)
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var id = platform.Peers.PeerKeyProvider.PeerKey(peerId);
+        var id = platform.Peers.PeerKey(peerId);
 
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
         platform.OnPeerStateChanged(peerId, MCSessionState.Connected);

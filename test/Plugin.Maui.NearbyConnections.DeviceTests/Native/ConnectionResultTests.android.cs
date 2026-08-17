@@ -39,4 +39,27 @@ public class ConnectionResultTests
         await Assert.ThrowsAsync<NearbyException>(() => tcs.Task.WaitAsync(cts.Token));
         Assert.False(platform._activeConnections.ContainsKey("endpoint-1"));
     }
+
+    // A failed handshake drops the native endpoint, so the device must be reported lost too.
+    // Without the lost event the session keeps showing a Visible row whose endpoint is already
+    // gone, and tapping it can never connect.
+    [Fact]
+    public async Task Failure_PublishesLostEventAndReleasesPeer()
+    {
+        // Arrange — a discovered endpoint whose Found event is drained, then a failed handshake.
+        await using var platform = Create.PlatformNearby();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        platform.OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
+        var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
+        Create.PendingHandshake(platform);
+
+        // Act
+        platform.OnConnectionResult("endpoint-1", Create.Resolution(ConnectionsStatusCodes.StatusConnectionRejected));
+
+        // Assert
+        var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
+        Assert.False(lost.Found);
+        Assert.Equal(found.Device.Id, lost.Device.Id);
+        Assert.False(platform.Peers.TryGetDevice("endpoint-1", out _));
+    }
 }

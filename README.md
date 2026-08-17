@@ -284,7 +284,21 @@ you:
 
 ```csharp
 // ItemsSource="{Binding Devices}"
-public NearbyDeviceCollection Devices { get; } = new(nearby, Dispatcher.Dispatch);
+// IDispatcher.Dispatch returns bool, so wrap it rather than passing it as a method group.
+public NearbyDeviceCollection Devices { get; }
+    = new(nearby, marshal: action => dispatcher.Dispatch(action));
+```
+
+To bind rows that carry their own commands or state, project onto a row type instead. Pass
+`update` so a row is reused across its device's status changes rather than rebuilt:
+
+```csharp
+public NearbyDeviceCollection<DeviceRow> Rows { get; }
+    = new(nearby,
+          marshal: action => dispatcher.Dispatch(action),
+          project: device => new DeviceRow(device, nearby),
+          filter: device => device.Status is NearbyDeviceStatus.Visible,
+          update: (row, device) => row.Update(device));
 ```
 
 Because the loop body is `async`, you can await inside it. An event handler could not.

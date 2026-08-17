@@ -1,38 +1,20 @@
+using System.Security.Cryptography;
+
 namespace Plugin.Maui.NearbyConnections;
 
-/// <summary>
-/// The iOS half of <see cref="PeerRegistry"/>: the native <see cref="MCPeerID"/> behind each device
-/// key, which every <c>MCSession</c> call needs and which Android has no equivalent of.
-/// </summary>
-/// <remarks>
-/// A second dictionary rather than a wider value type on the shared one, so Android — where the
-/// endpoint id is already the native handle — allocates nothing for a slot it would only ever fill
-/// with a copy of the key. The two are written under the same public operations, so they cannot
-/// drift: <see cref="PeerRegistry.Remove"/> and <see cref="PeerRegistry.Clear"/> call the partials
-/// implemented here.
-/// </remarks>
+
 sealed partial class PeerRegistry
 {
     readonly ConcurrentDictionary<string, MCPeerID> _handles = new(StringComparer.Ordinal);
+    readonly Lock _localPeerIdLock = new();
 
-    /// <summary>
-    /// The provider that derives a device key from an <see cref="MCPeerID"/>. Required on iOS.
-    /// </summary>
-    internal required PeerKeyProvider PeerKeyProvider { get; init; }
+    MCPeerID? _localPeerId;
 
-    /// <summary>
-    /// Required on iOS, where tracking and removal are traced.
-    /// </summary>
     internal required ILogger Logger { get; init; }
 
-    /// <summary>
-    /// Registers or re-registers a remote peer, deriving its key from <paramref name="peerID"/> and
-    /// storing the handle alongside the device. Returns the <see cref="NearbyDevice"/> projection.
-    /// Safe to call multiple times for the same peer.
-    /// </summary>
     public NearbyDevice Track(MCPeerID peerID)
     {
-        var key = PeerKeyProvider.PeerKey(peerID);
+        var key = PeerKey(peerID);
         _handles[key] = peerID;
         var device = Record(key, peerID.DisplayName);
 
@@ -41,11 +23,52 @@ sealed partial class PeerRegistry
         return device;
     }
 
-    /// <summary>
-    /// Tries to get the native <see cref="MCPeerID"/> registered under <paramref name="key"/>.
-    /// </summary>
     public bool TryGetHandle(string key, [NotNullWhen(true)] out MCPeerID? handle)
         => _handles.TryGetValue(key, out handle);
+
+    public string PeerKey(MCPeerID peerID)
+    {
+        if (peerID is null)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var archived = NSKeyedArchiver.GetArchivedData(peerID, true, out var error);
+
+            if (error is not null)
+            {
+                throw new NSErrorException(error);
+            }
+
+            using var data = archived
+                ?? throw new InvalidOperationException("Failed to archive MCPeerID: Result is null");
+
+            var hash = SHA256.HashData([.. data]);
+            return Convert.ToHexString(hash[..8]);
+        }
+        catch (Exception ex)
+        {
+            LogFailedToDerivePeerKey(Logger, peerID.DisplayName, ex);
+            return peerID.DisplayName;
+        }
+    }
+
+    public MCPeerID GetLocalPeerId(string displayName)
+    {
+        if (_localPeerId is not null)
+        {
+            return _localPeerId;
+        }
+
+        lock (_localPeerIdLock)
+        {
+            _localPeerId ??= new MCPeerID(displayName);
+            LogCreatedLocalPeer(Logger, displayName);
+            return _localPeerId;
+        }
+    }
 
     partial void PlatformRemove(string key)
     {
@@ -55,6 +78,18 @@ sealed partial class PeerRegistry
 
     partial void PlatformClear()
         => _handles.Clear();
+
+    [LoggerMessage(
+        EventId = 3000,
+        Level = LogLevel.Error,
+        Message = "Failed to derive peer key for '{DisplayName}', falling back to DisplayName.")]
+    static partial void LogFailedToDerivePeerKey(ILogger logger, string displayName, Exception error);
+
+    [LoggerMessage(
+        EventId = 3020,
+        Level = LogLevel.Debug,
+        Message = "Created local peer: DisplayName={DisplayName}")]
+    static partial void LogCreatedLocalPeer(ILogger logger, string displayName);
 
     [LoggerMessage(
         EventId = 3030,
