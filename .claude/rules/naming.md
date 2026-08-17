@@ -148,20 +148,29 @@ if (device.Status is NearbyDeviceStatus.Visible)             // filter/display
 if (nearby.TryGetConnection(device.Id, out var connection))  // act
 ```
 
-The reason is threading, not taste. Device state is dispatcher-owned mutable state; a connection
-must be readable from any thread. A keyed lookup on the session is thread-safe by construction,
-where a field on a bindable object is not.
+The reason is threading, not taste. A connection must be readable from any thread, and a keyed
+lookup on the session is thread-safe by construction where a field on a bindable object is not.
+
+`NearbyDevice` is an **immutable `sealed record`**. It raises no `PropertyChanged` and implements no
+`INotifyPropertyChanged`: a status change produces a *new* snapshot, published as an `Updated` entry
+on `Devices.Changes`. Binding goes through `NearbyDeviceCollection`, which is the only type in the
+library that knows a UI thread exists.
 
 Two invariants, both easy to regress:
 
-- **`Status` and `Role` each raise `PropertyChanged` on write.** Consumers filter by property name;
-  a silent write freezes bound UI with no compile error and no test failure.
+- **A device is only ever replaced, never mutated.** Every transition goes through
+  `NearbyImplementation.Transition`, which rewrites the registry entry with `current with { … }` and
+  returns the existing instance unchanged when nothing differs. Adding a settable property to
+  `NearbyDevice` would reintroduce the shared-mutable-state problem the record exists to remove.
 - **The session removes a connection only from the watcher that owns it**, comparing the connection
-  by reference as it removes. Clearing the dictionary anywhere else makes that removal fail its
-  identity check and `ConnectionDropped` is never raised.
+  by reference as it removes (`_activeConnections.TryRemove(new KeyValuePair<…>(id, connection))` in
+  `WatchDisconnectAsync`). Clearing the dictionary anywhere else makes that removal fail its
+  identity check, and the device is never returned to `Visible`.
 
 There was formerly a `DeviceState` hierarchy carrying the connection on a `Connected` case, and a
-`Status` projected from it. Both are gone; do not reintroduce either.
+`Status` projected from it. Both are gone; do not reintroduce either. There were also `PropertyChanged`
+notifications on a mutable `NearbyDevice`, and a `ConnectionDropped` event — also gone, and also not
+to be reintroduced.
 
 ## Vendor-neutral names that mirror real native concepts stay
 

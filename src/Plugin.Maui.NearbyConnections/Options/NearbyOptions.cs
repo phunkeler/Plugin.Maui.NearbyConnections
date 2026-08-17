@@ -239,7 +239,12 @@ public sealed partial class NearbyOptions
     /// <see cref="INearbyDevices.Changes"/>, and the application must answer it with
     /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> or
     /// <see cref="INearby.RejectAsync(NearbyDevice, CancellationToken)"/> before
-    /// <see cref="ConnectTimeout"/> elapses.
+    /// <see cref="InboundRequestTimeout"/> elapses. Once it does, the library rejects the request
+    /// and the device returns to <see cref="NearbyDeviceStatus.Visible"/>. Raise
+    /// <see cref="InboundRequestTimeout"/> to allow a longer answering window —
+    /// <see cref="ConnectTimeout"/> bounds the remote initiator's own
+    /// <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/> call and has no effect
+    /// here.
     /// </para>
     /// <para>
     /// When it is <see langword="true"/>, the session answers on the application's behalf, so

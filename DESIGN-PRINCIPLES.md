@@ -12,10 +12,10 @@ in a commit, rather than working around it.
 |---|---|
 | Know the rule | `.claude/rules/naming.md` |
 | Know why the rule exists | This document |
-| Know what is still undecided | [Open questions](#open-questions), then GitHub issues |
+| Know what is still undecided | [Open questions](#open-questions), then `docs/PLATFORM-ABSTRACTION-REVIEW.md` §3 |
 | Know the architecture | `AGENTS.md` |
-| Know a platform gotcha | `LEARNINGS.md` |
-| Know a settled product decision | `docs/DECISIONS.md` |
+| Know a platform gotcha | `AGENTS.md` → *The things people get wrong*, and `docs/DEVICE-LIFECYCLE.md` |
+| Know the outstanding work list | `docs/PLATFORM-ABSTRACTION-REVIEW.md` §3 (GitHub issues were bulk-closed and left closed) |
 
 ---
 
@@ -71,7 +71,8 @@ vocabulary, and §Vocabulary bans vendor terms from the contract.
 
 **If the project moves to a new repository and a new package**, the orphaning constraint disappears
 and the eventual target (`Plugin.Maui.Nearby`) can be adopted directly. That is the most likely path
-to this section becoming moot. Tracked in issue #52.
+to this section becoming moot. Tracked in issue #52, which is closed — the repo's issue tracker was
+bulk-closed and left closed, so the live work list is `docs/PLATFORM-ABSTRACTION-REVIEW.md` §3.
 
 ---
 
@@ -83,8 +84,9 @@ consumer the wrong mental model — it implies the abstraction is a thin wrapper
 platform, and it ages badly the moment the platform does.
 
 That last risk is not hypothetical: Apple deprecated MultipeerConnectivity, and the iOS
-implementation will migrate to Network.framework (issue #45). Every MPC term on the public surface
-would have become a lie. Vendor-neutral names survive that migration unchanged.
+implementation will migrate to Network.framework (issue #45, closed with the rest of the tracker; the
+work is deferred to post-1.0). Every MPC term on the public surface would have become a lie.
+Vendor-neutral names survive that migration unchanged.
 
 **`Session` gets its own ban** because Apple's `MCSession` makes it tempting. The consumer-facing
 object is a *capability* — one radio, one DI singleton — not a session the consumer opens and
@@ -134,21 +136,27 @@ The machine-checkable form is that **all three PublicAPI baselines stay identica
 rule, `Topology` existed only on `net10.0-android` and `EncryptionPreference` only on `net10.0-ios`,
 so shared code could not set them without `#if`.
 
-## Why `NearbyDevice` exposes both `State` and `Status`
+## Why `NearbyDevice` is an immutable record with a flat `Status`
 
-They serve different jobs and neither replaces the other:
+`NearbyDevice` is a `sealed record` carrying a flat `NearbyDeviceStatus` and a nullable
+`ConnectionRole`. It is a snapshot: a transition publishes a new instance rather than mutating the
+old one, and consumers observe that as an `Updated` entry on `Devices.Changes`.
 
-- `State` is a sealed hierarchy you pattern-match to *reach* data — `Role`, `Connection`.
-- `Status` is a flat enum projection you *display and filter* on.
+Two earlier designs were tried and removed, and the reasoning is kept because both are tempting to
+propose again:
 
-Collapsing to the hierarchy alone would force every XAML binding through a converter. Collapsing to
-the enum alone would lose the payload data the hierarchy carries. The pair is a facade/detail
-relationship, not duplication.
+- **A sealed `DeviceState` hierarchy carrying the connection**, with `Status` projected from it. It
+  forced every XAML binding through a converter, and because C# has no exhaustiveness checking for
+  sealed hierarchies, a missing arm in the projection would report a wrong lifecycle position
+  forever with no compile error. The connection moved to a keyed lookup on the session instead —
+  see [the rules file](.claude/rules/naming.md) — and the hierarchy was deleted.
+- **A mutable device raising `PropertyChanged`.** It made device state shared mutable state readable
+  from any thread, and a silent write froze bound UI with no compile error and no test failure. The
+  record removes the failure mode rather than documenting it: there is nothing to write silently.
 
-Both invariants in the rules file exist because they fail *silently*: raising `PropertyChanged` for
-only `State` freezes bound UI with no compile error and no test failure, and a `default` arm in the
-`Status` projection would report a wrong lifecycle position forever, since C# has no exhaustiveness
-checking for sealed hierarchies.
+The cost is that binding needs a collection that translates the delta stream into
+`INotifyCollectionChanged`. That is `NearbyDeviceCollection`, which is deliberate — it confines UI
+thread knowledge to exactly one type instead of spreading dispatcher affinity across the model.
 
 ## Why some odd-reading names stay
 
@@ -168,9 +176,12 @@ Deliberately undecided. **Raise them; do not resolve them silently.**
 
 | Question | Status |
 |---|---|
-| Final package name, and whether a new repo/package is created | Gated by the rename guard — issue #52 |
-| `InvitationTimeout` → `ConnectTimeout` | **Resolved.** Split, not just renamed. "Invitation" was MPC vocabulary, banned from the public contract. The one option became three, each named for what it bounds: `ConnectTimeout` for `ConnectAsync`, `AcceptTimeout` for `AcceptAsync`, and `InboundRequestTimeout` for a request nobody answered. The first two are named for their operations because their windows genuinely differ — a connect covers the remote user deciding, an accept does not, so one shared value would have been wrong for one of them. The third sits on the axis that separates it from both: an operation a caller awaits, against a request left outstanding. |
+| Final package name, and whether a new repo/package is created | Gated by the rename guard (issue #52, closed with the tracker) |
 | iOS `StartFailureGraceWindow` (`Native/PlatformNearby.ios.cs`) | Open. MultipeerConnectivity has no start-success callback, only a delegate that fires on failure — so a fixed 250ms window is used to decide whether `StartAdvertisingAsync`/`StartDiscoveryAsync` should fault or return successfully. A device slow enough to blow past the window gets a false "started successfully," with the real failure only surfacing later as a stream fault plus a log line. No better signal exists in the MPC API to key off instead; raised here rather than resolved silently. |
+
+### Resolved, kept for the reasoning
+
+**`InvitationTimeout` → `ConnectTimeout`.** Split, not just renamed. "Invitation" was MPC vocabulary, banned from the public contract. The one option became three, each named for what it bounds: `ConnectTimeout` for `ConnectAsync`, `AcceptTimeout` for `AcceptAsync`, and `InboundRequestTimeout` for a request nobody answered. The first two are named for their operations because their windows genuinely differ — a connect covers the remote user deciding, an accept does not, so one shared value would have been wrong for one of them. The third sits on the axis that separates it from both: an operation a caller awaits, against a request left outstanding.
 
 Everything previously listed here has been resolved and moved into the rules file: the primary
 interface is `INearby`, the device noun is `NearbyDevice`, payload types are `Nearby`-prefixed and
@@ -206,8 +217,10 @@ diff src/Plugin.Maui.NearbyConnections/PublicAPI/net10.0/PublicAPI.Unshipped.txt
      src/Plugin.Maui.NearbyConnections/PublicAPI/net10.0-android/PublicAPI.Unshipped.txt
 ```
 
-The last one has one legitimate exception: the Android baseline carries
-`Plugin.Maui.NearbyConnections.Resource`, generated by the Android SDK's resource designer.
+The last one expects no output at all: the three baselines are currently byte-identical. (An earlier
+revision of this document noted a `Plugin.Maui.NearbyConnections.Resource` line in the Android
+baseline, generated by the Android SDK's resource designer. It is no longer present — treat any
+reappearance as a real diff to explain, not a known exception to wave through.)
 
 Full build and test commands are in `AGENTS.md` → Commands.
 
