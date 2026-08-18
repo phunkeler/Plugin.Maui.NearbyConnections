@@ -21,11 +21,11 @@ public partial class ChatViewModel(
     IMediaPicker mediaPicker,
     INavigationService navigationService,
     ChatMessageStore store,
-    INearby session,
+    INearby nearby,
     ILogger<ChatViewModel> logger) : ObservableRecipient(messenger),
-    INavigationAware,
-    IRecipient<ChatMessageReceived>,
-    IRecipient<InboundTransferProgress>
+        INavigationAware,
+        IRecipient<ChatMessageReceived>,
+        IRecipient<InboundTransferProgress>
 {
     readonly ILogger<ChatViewModel> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
@@ -109,9 +109,7 @@ public partial class ChatViewModel(
 
         try
         {
-            // Checked here rather than before the bubble is added: a message the user typed is
-            // never silently dropped, it is shown as failed with a reason they can act on.
-            if (!session.TryGetConnection(Device.Id, out var connection))
+            if (!nearby.TryGetConnection(Device.Id, out var connection))
             {
                 vm.Fail(
                     "Not delivered. The connection to this device has ended.",

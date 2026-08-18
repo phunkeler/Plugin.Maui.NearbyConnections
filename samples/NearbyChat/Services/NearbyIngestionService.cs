@@ -18,7 +18,7 @@ namespace NearbyChat.Services;
 /// <see cref="INearbyDevices.Changes"/> does not replay, so this watcher must be running before
 /// the first connection is established. MAUI calls <see cref="Initialize"/> during
 /// <c>MauiAppBuilder.Build()</c>, which guarantees that. Resolving <see cref="INearby"/> in the
-/// constructor also constructs the session if it is not already alive — DI resolution is
+/// constructor also constructs the plugin's singleton if it is not already alive — DI resolution is
 /// idempotent, so it does not matter whether <c>AddNearby</c> or this initializer runs first;
 /// whichever asks for it first builds it, and every later resolution (from either) gets that same
 /// instance.
@@ -135,14 +135,23 @@ public sealed partial class NearbyIngestionService(
         }
         catch (Exception ex)
         {
-            // Nothing awaits this loop, so an unlogged exception here is invisible.
             LogConsumptionEnded(connection.RemoteDevice.Id, ex);
         }
     }
 
     async Task ProcessPayloadAsync(NearbyDevice device, NearbyPayload payload)
     {
-        var message = await MaterializeAsync(payload).ConfigureAwait(false);
+        ChatMessage? message;
+
+        try
+        {
+            message = await MaterializeAsync(payload).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogMaterializeFailed(device.Id, ex);
+            return;
+        }
 
         if (message is null)
         {
@@ -155,7 +164,6 @@ public sealed partial class NearbyIngestionService(
         }
         catch (Exception ex)
         {
-            // A failed write must not tear down the loop and lose every subsequent payload.
             LogPersistFailed(device.Id, ex);
             return;
         }
@@ -190,8 +198,6 @@ public sealed partial class NearbyIngestionService(
                 }
                 else if (contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
                 {
-                    // The await this loop exists for: thumbnail generation is real work, and the
-                    // stream holds the next payload until it finishes.
                     var thumbnail = await ThumbnailService.GetVideoThumbnailAsync(path).ConfigureAwait(false);
 
                     message.Attachments.Add(new VideoAttachment
@@ -214,6 +220,9 @@ public sealed partial class NearbyIngestionService(
 
     [LoggerMessage(EventId = 2, Level = LogLevel.Error, Message = "Failed to persist an inbound message from {DeviceId}.")]
     partial void LogPersistFailed(string deviceId, Exception exception);
+
+    [LoggerMessage(EventId = 3, Level = LogLevel.Error, Message = "Failed to materialize an inbound payload from {DeviceId}; it was dropped.")]
+    partial void LogMaterializeFailed(string deviceId, Exception exception);
 
     [LoggerMessage(EventId = 4, Level = LogLevel.Error, Message = "Device watching ended; no further inbound payloads will be consumed.")]
     partial void LogWatchEnded(Exception exception);

@@ -8,13 +8,13 @@ namespace NearbyChat.ViewModels;
 /// </summary>
 public partial class AdvertisedDeviceViewModel(
     NearbyDevice device,
-    INearby session) : NearbyDeviceViewModel(device)
+    INearby nearby) : NearbyDeviceViewModel(device)
 {
     [RelayCommand(IncludeCancelCommand = true)]
     Task<NearbyConnection> Accept(CancellationToken cancellationToken)
-        => session.AcceptAsync(Device, cancellationToken);
+        => nearby.AcceptAsync(Device, cancellationToken);
 
     [RelayCommand]
     Task Decline()
-        => session.RejectAsync(Device);
+        => nearby.RejectAsync(Device);
 }

@@ -9,7 +9,7 @@ namespace NearbyChat.ViewModels;
 public partial class AdvertisingPageViewModel : BasePageViewModel
 {
     readonly INavigationService _navigationService;
-    readonly INearby _session;
+    readonly INearby _nearby;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleAdvertisingCommand))]
@@ -41,18 +41,18 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     public AdvertisingPageViewModel(
         IDispatcher dispatcher,
         INavigationService navigationService,
-        INearby session,
+        INearby nearby,
         ConnectionTracker connectionTracker)
         : base(dispatcher)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
-        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(nearby);
         ArgumentNullException.ThrowIfNull(connectionTracker);
 
         _navigationService = navigationService;
-        _session = session;
+        _nearby = nearby;
         Connections = connectionTracker;
-        IsAdvertising = session.IsAdvertising;
+        IsAdvertising = nearby.IsAdvertising;
     }
 
     [RelayCommand]
@@ -77,14 +77,14 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
         {
             if (IsAdvertising)
             {
-                await _session.StopAdvertisingAsync(cancellationToken);
+                await _nearby.StopAdvertisingAsync(cancellationToken);
             }
             else
             {
-                await _session.StartAdvertisingAsync(cancellationToken);
+                await _nearby.StartAdvertisingAsync(cancellationToken);
             }
 
-            IsAdvertising = _session.IsAdvertising;
+            IsAdvertising = _nearby.IsAdvertising;
         }
         finally
         {
@@ -96,12 +96,12 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     {
         base.NavigatedTo();
 
-        IsAdvertising = _session.IsAdvertising;
+        IsAdvertising = _nearby.IsAdvertising;
 
         var devices = new NearbyDeviceCollection<AdvertisedDeviceViewModel>(
-            _session,
+            _nearby,
             action => Dispatcher.Dispatch(action),
-            project: device => new AdvertisedDeviceViewModel(device, _session),
+            project: device => new AdvertisedDeviceViewModel(device, _nearby),
             filter: static device => device.Status is NearbyDeviceStatus.RequestReceived,
             update: static (row, device) => row.Update(device));
 

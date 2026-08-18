@@ -10,6 +10,12 @@ public static class ThumbnailService
     /// Returns a thumbnail for the given video file path, or <see langword="null"/> if the
     /// thumbnail could not be generated.
     /// </summary>
+    /// <remarks>
+    /// <b>Never throws except on cancellation.</b> The caller is the inbound payload loop, and an
+    /// exception escaping here ends that loop for the whole connection — every later payload from
+    /// that peer would be lost. A thumbnail is decoration, so every failure degrades to
+    /// <see langword="null"/> instead.
+    /// </remarks>
     public static Task<ImageSource?> GetVideoThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -32,16 +38,19 @@ public static class ThumbnailService
 
             return Task.FromResult<ImageSource?>(ImageSource.FromFile(tempFilePath));
         }
-        catch (Java.Lang.Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Thumbnail extraction is best-effort: Android media failures
-            // (corrupt file, unsupported codec) degrade to "no thumbnail"
-            // rather than failing the incoming message.
+            // Best-effort, and deliberately broad. Android media failures arrive as
+            // Java.Lang.Exception (corrupt file, unsupported codec), but SaveBitmapToCache does
+            // managed file I/O and throws IOException or UnauthorizedAccessException — a full
+            // cache directory used to escape this catch and kill the receive loop.
+            System.Diagnostics.Debug.WriteLine($"Video thumbnail failed for '{filePath}': {ex}");
+
             return Task.FromResult<ImageSource?>(null);
         }
     }
 
-    public static Bitmap? CreateThumbnail(string filePath)
+    static Bitmap? CreateThumbnail(string filePath)
     {
         if (OperatingSystem.IsAndroidVersionAtLeast(29))
         {
@@ -53,7 +62,7 @@ public static class ThumbnailService
         }
     }
 
-    public static string SaveBitmapToCache(Bitmap bitmap, string extension = ".png")
+    static string SaveBitmapToCache(Bitmap bitmap, string extension = ".png")
     {
         var fileName = $"thumb_{Guid.NewGuid():N}{extension}";
         var filePath = System.IO.Path.Combine(FileSystem.CacheDirectory, fileName);
@@ -63,6 +72,6 @@ public static class ThumbnailService
             bitmap.Compress(Bitmap.CompressFormat.Png!, 90, fileStream);
         }
 
-        return filePath; // Use this path for your PhotoAttachment
+        return filePath;
     }
 }

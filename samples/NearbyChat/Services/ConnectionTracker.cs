@@ -16,26 +16,23 @@ namespace NearbyChat.Services;
 /// </remarks>
 public sealed partial class ConnectionTracker : ObservableObject
 {
-    readonly INearby _session;
+    readonly INearby _nearby;
     readonly IDispatcher _dispatcher;
     readonly ILogger<ConnectionTracker> _logger;
 
     [ObservableProperty]
     public partial int Count { get; private set; }
 
-    public ConnectionTracker(INearby session, IDispatcher dispatcher, ILogger<ConnectionTracker> logger)
+    public ConnectionTracker(INearby nearby, IDispatcher dispatcher, ILogger<ConnectionTracker> logger)
     {
-        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(nearby);
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _session = session;
+        _nearby = nearby;
         _dispatcher = dispatcher;
         _logger = logger;
 
-        // Devices is the state, so the count is derived rather than tracked. Seed from the current
-        // set, then keep it current from the change stream — one loop replaces the collection
-        // subscription plus a per-device PropertyChanged handler this used to maintain.
         Recount();
 
         _ = WatchAsync();
@@ -45,22 +42,19 @@ public sealed partial class ConnectionTracker : ObservableObject
     {
         try
         {
-            await foreach (var _ in _session.Devices.Changes)
+            await foreach (var _ in _nearby.Devices.Changes)
             {
-                // Count is bound to the header chip, so the write has to land on the UI thread.
                 await _dispatcher.DispatchAsync(Recount);
             }
         }
         catch (Exception ex)
         {
-            // Nothing awaits this loop. Without this the chip would silently freeze at its last
-            // value — no exception surfaces anywhere.
             LogWatchEnded(ex);
         }
     }
 
     void Recount()
-        => Count = _session.Devices.Count(d => d.Status is NearbyDeviceStatus.Connected);
+        => Count = _nearby.Devices.Count(d => d.Status is NearbyDeviceStatus.Connected);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection tracking ended; the connected count is now frozen.")]
     partial void LogWatchEnded(Exception exception);
