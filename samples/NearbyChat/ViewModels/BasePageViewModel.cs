@@ -47,6 +47,54 @@ public abstract partial class BasePageViewModel(
 
     protected CancellationToken NavigationToken => _navigationCts?.Token ?? CancellationToken.None;
 
+    /// <summary>
+    /// Why the last start attempt failed, or <see langword="null"/> if none has.
+    /// </summary>
+    /// <remarks>
+    /// Shown on the page rather than as an alert, for the same reason a failed device row keeps its
+    /// reason inline: a modal steals the screen from the toggle the user is about to tap again.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFailed))]
+    public partial string? FailureReason { get; set; }
+
+    /// <summary>
+    /// What the user can do about <see cref="FailureReason"/>, or <see langword="null"/> when there
+    /// is nothing to suggest beyond trying again.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRemedy))]
+    public partial string? FailureRemedy { get; set; }
+
+    /// <summary>
+    /// Whether the last start attempt failed and the page is showing its reason.
+    /// </summary>
+    public bool HasFailed => FailureReason is not null;
+
+    /// <summary>
+    /// Whether there is a remedy to show alongside <see cref="FailureReason"/>.
+    /// </summary>
+    public bool HasRemedy => !string.IsNullOrEmpty(FailureRemedy);
+
+    /// <summary>
+    /// Records why a start attempt failed, for the page to render.
+    /// </summary>
+    protected void Fail(string reason, string? remedy = null)
+    {
+        FailureReason = reason;
+        FailureRemedy = remedy;
+    }
+
+    /// <summary>
+    /// Clears a stale failure, so a fresh attempt shows what is happening now rather than what
+    /// failed last time.
+    /// </summary>
+    protected void ClearFailure()
+    {
+        FailureReason = null;
+        FailureRemedy = null;
+    }
+
     protected void TrackRelativeTime(IReadOnlyList<NearbyDeviceViewModel> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
@@ -103,5 +151,6 @@ public abstract partial class BasePageViewModel(
         old?.Dispose();
 
         StopRelativeTime();
+        ClearFailure();
     }
 }

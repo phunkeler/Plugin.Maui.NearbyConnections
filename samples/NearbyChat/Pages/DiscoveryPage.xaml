@@ -44,6 +44,28 @@
                 FeatureIsActive="{Binding IsDiscovering}"
                 Command="{Binding ToggleDiscoveryCommand}"/>
 
+            <!-- Page-level failure sits under the toggle it belongs to, not in an alert: a modal
+                 steals the screen from the button the user is about to tap again. -->
+            <VerticalStackLayout
+                Grid.Row="1"
+                VerticalOptions="End"
+                Spacing="2"
+                IsVisible="{Binding HasFailed}">
+                <Label
+                    AutomationId="DiscoveryFailure"
+                    LineBreakMode="WordWrap"
+                    FontSize="{StaticResource FontSizeSM}"
+                    FontAttributes="Bold"
+                    TextColor="{StaticResource StatusError}"
+                    Text="{Binding FailureReason}"/>
+                <Label
+                    LineBreakMode="WordWrap"
+                    FontSize="{StaticResource FontSizeSM}"
+                    TextColor="{AppThemeBinding Light={StaticResource LightTextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                    IsVisible="{Binding HasRemedy}"
+                    Text="{Binding FailureRemedy}"/>
+            </VerticalStackLayout>
+
             <CollectionView
                 Margin="0,-8,0,0"
                 Grid.Row="2"
