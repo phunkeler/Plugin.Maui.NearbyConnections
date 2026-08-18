@@ -16,12 +16,12 @@ public class NearbyDeviceCollectionTests
         [TestMethod]
         public void NullSession_Throws()
             => Assert.ThrowsExactly<ArgumentNullException>(
-                () => new NearbyDeviceCollection(null!, _ => { }));
+                () => new NearbyDeviceCollection<NearbyDevice>(null!, _ => { }, static d => d));
 
         [TestMethod]
         public void NullMarshal_Throws()
             => Assert.ThrowsExactly<ArgumentNullException>(
-                () => new NearbyDeviceCollection(Create.Session(new FakeNearby()), null!));
+                () => new NearbyDeviceCollection<NearbyDevice>(Create.Session(new FakeNearby()), null!, static d => d));
 
         // Constructing mid-session must show what is already there: the change stream carries
         // deltas, not history, so a collection built after discovery started would otherwise be
@@ -36,7 +36,7 @@ public class NearbyDeviceCollectionTests
             await platform.EmitDeviceFoundAsync(Create.Device("a", "Alice"));
 
             // Act
-            using var devices = new NearbyDeviceCollection(session, a => a());
+            using var devices = Create.Devices(session);
 
             // Assert
             Assert.HasCount(1, devices);
@@ -57,7 +57,7 @@ public class NearbyDeviceCollectionTests
             var session = Create.Session(platform);
             await session.StartDiscoveryAsync(TestContext.CancellationToken);
 
-            using var devices = new NearbyDeviceCollection(session, a => a());
+            using var devices = Create.Devices(session);
 
             // Act
             await platform.EmitDeviceFoundAsync(Create.Device("a", "Alice"));
@@ -80,7 +80,7 @@ public class NearbyDeviceCollectionTests
             var device = Create.Device("a", "Alice");
             await platform.EmitDeviceFoundAsync(device);
 
-            using var devices = new NearbyDeviceCollection(session, a => a());
+            using var devices = Create.Devices(session);
 
             var actions = new List<NotifyCollectionChangedAction>();
             devices.CollectionChanged += (_, e) => actions.Add(e.Action);
@@ -107,7 +107,7 @@ public class NearbyDeviceCollectionTests
             await session.StartDiscoveryAsync(TestContext.CancellationToken);
 
             var marshal = new InlineMarshal();
-            using var devices = new NearbyDeviceCollection(session, marshal.Run);
+            using var devices = Create.Devices(session, marshal.Run);
 
             // Act
             await platform.EmitDeviceFoundAsync(Create.Device("a", "Alice"));
@@ -125,7 +125,7 @@ public class NearbyDeviceCollectionTests
             var session = Create.Session(platform);
             await session.StartDiscoveryAsync(TestContext.CancellationToken);
 
-            var devices = new NearbyDeviceCollection(session, a => a());
+            var devices = Create.Devices(session);
             devices.Dispose();
 
             // Act
@@ -143,7 +143,7 @@ public class NearbyDeviceCollectionTests
         public void Dispose_IsIdempotent()
         {
             // Arrange
-            var devices = new NearbyDeviceCollection(Create.Session(new FakeNearby()), a => a());
+            var devices = Create.Devices(Create.Session(new FakeNearby()));
 
             // Act
             devices.Dispose();
@@ -167,8 +167,8 @@ public class NearbyDeviceCollectionTests
             var session = Create.Session(platform);
             await session.StartDiscoveryAsync(TestContext.CancellationToken);
 
-            using var devices = new NearbyDeviceCollection(
-                session, a => a(), filter: static d => d.Status is NearbyDeviceStatus.Connected);
+            using var devices = Create.Devices(
+                session, filter: static d => d.Status is NearbyDeviceStatus.Connected);
 
             // Act
             await platform.EmitDeviceFoundAsync(Create.Device("a", "Alice"));
@@ -191,8 +191,8 @@ public class NearbyDeviceCollectionTests
             var device = Create.Device("a", "Alice");
             await platform.EmitDeviceFoundAsync(device);
 
-            using var devices = new NearbyDeviceCollection(
-                session, a => a(), filter: static d => d.Status is NearbyDeviceStatus.Visible);
+            using var devices = Create.Devices(
+                session, filter: static d => d.Status is NearbyDeviceStatus.Visible);
 
             platform.ConnectResult = Create.Connection(device: device);
 

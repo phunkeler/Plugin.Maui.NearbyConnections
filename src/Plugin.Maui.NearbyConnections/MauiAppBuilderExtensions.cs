@@ -13,8 +13,10 @@ public static class MauiAppBuilderExtensions
     /// </summary>
     /// <param name="builder">The <see cref="MauiAppBuilder"/> to register the services with.</param>
     /// <param name="configure">
-    /// An optional delegate that configures <see cref="NearbyOptions"/>. If
-    /// <see langword="null"/>, platform defaults are used.
+    /// A delegate that configures <see cref="NearbyOptions"/>. If <see langword="null"/>, platform
+    /// defaults are used — which is sufficient on Android, but <b>throws on iOS</b>, where
+    /// <see cref="NearbyOptions.ServiceId"/> has no default and must be set. See the
+    /// <see cref="OptionsValidationException"/> below.
     /// </param>
     /// <returns>
     /// The same <see cref="MauiAppBuilder"/> instance, so that calls can be chained.
@@ -35,9 +37,10 @@ public static class MauiAppBuilderExtensions
     /// <paramref name="builder"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="OptionsValidationException">
-    /// The configured <see cref="NearbyOptions"/> is unusable — for example,
-    /// <see cref="NearbyOptions.ServiceId"/> is null, empty, or not valid for Multipeer
-    /// Connectivity.
+    /// The configured <see cref="NearbyOptions"/> is unusable. On iOS, leaving
+    /// <see cref="NearbyOptions.ServiceId"/> unset always throws, because it has no iOS default.
+    /// A value Multipeer Connectivity rejects also throws: null, empty, longer than 15 characters,
+    /// or in the <c>_name._tcp</c> Bonjour form.
     /// </exception>
     /// <example>
     /// The following example registers the plugin and sets the service identifier.

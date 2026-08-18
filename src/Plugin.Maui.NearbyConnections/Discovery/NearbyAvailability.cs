@@ -39,7 +39,7 @@ public enum NearbyAvailability
     /// </summary>
     /// <remarks>
     /// Nearby connectivity uses Bluetooth for discovery on both platforms. Prompt the user to turn
-    /// it on; an app cannot enable it directly.
+    /// it on. An app cannot enable it directly.
     /// </remarks>
     BluetoothDisabled = 1 << 1,
 
@@ -77,7 +77,7 @@ public enum NearbyAvailability
     /// iOS only. Starting with an invalid service identifier raises an exception inside Multipeer
     /// Connectivity that terminates the process and cannot be caught, so this condition must be
     /// resolved rather than handled at run time. Options validation normally rejects an invalid
-    /// <see cref="NearbyOptions.ServiceId"/> during application startup; this flag exists for
+    /// <see cref="NearbyOptions.ServiceId"/> during application startup. This flag exists for
     /// consumers who construct the session outside that pipeline.
     /// </remarks>
     InvalidConfiguration = 1 << 5,

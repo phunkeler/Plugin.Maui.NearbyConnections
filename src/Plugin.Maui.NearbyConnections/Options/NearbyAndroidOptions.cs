@@ -7,7 +7,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <para>
 /// The settings on this type map onto Google Nearby Connections knobs for which Multipeer
 /// Connectivity has no counterpart. They are exposed on every target framework so shared code
-/// compiles without <c>#if ANDROID</c>; running on iOS, nothing reads them and they have no
+/// compiles without <c>#if ANDROID</c>. Running on iOS, nothing reads them and they have no
 /// effect.
 /// </para>
 /// <para>

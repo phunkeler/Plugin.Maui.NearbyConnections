@@ -24,32 +24,21 @@ namespace NearbyChat.Services;
 /// instance.
 /// </para>
 /// <para>
-/// <strong>Separation of concerns.</strong> Ingestion (this class) is deliberately split from the
-/// send/query surface (<see cref="IChatMessageService"/>). Only ingestion has to exist at startup;
-/// keeping them apart means the send path stays an ordinary lazily-resolved service and no consumer
-/// carries a load-bearing dependency it does not otherwise use.
-/// </para>
-/// <para>
 /// <strong>Persistence.</strong> This singleton holds the singleton
-/// <see cref="IChatMessageRepository"/> directly, which is safe only because the sample's
-/// implementation is a stateless wrapper over a thread-safe store. Backing it with an EF Core
-/// <c>DbContext</c> would make that a captive dependency, and this class would then have to resolve
-/// one scope per payload instead. Awaiting the write inside the loop is safe by design either way:
-/// <c>ReceiveAsync</c> does not dequeue the next payload until the body completes, so persistence
-/// backpressures the stream instead of racing it.
+/// <see cref="ChatMessageStore"/> directly, which is safe only because that store is a thread-safe
+/// in-memory dictionary. Backing it with an EF Core <c>DbContext</c> would make it a captive
+/// dependency, and this class would then have to resolve one scope per payload instead.
 /// </para>
 /// </remarks>
 public sealed partial class NearbyIngestionService(
     INearby session,
-    IChatMessageRepository repository,
+    ChatMessageStore store,
     IMessenger messenger,
-    IThumbnailService thumbnailService,
     ILogger<NearbyIngestionService> logger) : IMauiInitializeService
 {
     readonly INearby _session = session ?? throw new ArgumentNullException(nameof(session));
-    readonly IChatMessageRepository _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+    readonly ChatMessageStore _store = store ?? throw new ArgumentNullException(nameof(store));
     readonly IMessenger _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
-    readonly IThumbnailService _thumbnailService = thumbnailService ?? throw new ArgumentNullException(nameof(thumbnailService));
     readonly ILogger<NearbyIngestionService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     int _initialized;
@@ -122,7 +111,7 @@ public sealed partial class NearbyIngestionService(
                 }
                 else if (consuming.Remove(device.Id))
                 {
-                    _ = ClearSessionAsync(device);
+                    _store.Clear(device.Id);
                 }
             }
         }
@@ -162,9 +151,7 @@ public sealed partial class NearbyIngestionService(
 
         try
         {
-            // One unit of work per payload. Awaited inside the loop, so the next payload is not
-            // dequeued until this one is durably stored.
-            await _repository.SaveAsync(device, message).ConfigureAwait(false);
+            _store.Add(device.Id, message);
         }
         catch (Exception ex)
         {
@@ -176,7 +163,7 @@ public sealed partial class NearbyIngestionService(
         _messenger.Send(new ChatMessageReceived(device, message));
     }
 
-    async Task<ChatMessage?> MaterializeAsync(NearbyPayload payload)
+    static async Task<ChatMessage?> MaterializeAsync(NearbyPayload payload)
     {
         switch (payload)
         {
@@ -205,7 +192,7 @@ public sealed partial class NearbyIngestionService(
                 {
                     // The await this loop exists for: thumbnail generation is real work, and the
                     // stream holds the next payload until it finishes.
-                    var thumbnail = await _thumbnailService.GetVideoThumbnailAsync(path).ConfigureAwait(false);
+                    var thumbnail = await ThumbnailService.GetVideoThumbnailAsync(path).ConfigureAwait(false);
 
                     message.Attachments.Add(new VideoAttachment
                     {
@@ -222,26 +209,11 @@ public sealed partial class NearbyIngestionService(
         }
     }
 
-    async Task ClearSessionAsync(NearbyDevice device)
-    {
-        try
-        {
-            await _repository.ClearSessionAsync(device).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            LogClearSessionFailed(device.Id, ex);
-        }
-    }
-
     [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "Payload consumption for {DeviceId} ended.")]
     partial void LogConsumptionEnded(string deviceId, Exception exception);
 
     [LoggerMessage(EventId = 2, Level = LogLevel.Error, Message = "Failed to persist an inbound message from {DeviceId}.")]
     partial void LogPersistFailed(string deviceId, Exception exception);
-
-    [LoggerMessage(EventId = 3, Level = LogLevel.Error, Message = "Failed to clear the chat session for {DeviceId}.")]
-    partial void LogClearSessionFailed(string deviceId, Exception exception);
 
     [LoggerMessage(EventId = 4, Level = LogLevel.Error, Message = "Device watching ended; no further inbound payloads will be consumed.")]
     partial void LogWatchEnded(Exception exception);

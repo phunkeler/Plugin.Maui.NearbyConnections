@@ -48,12 +48,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<AppShell>();
         builder.Services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
         builder.Services.AddSingleton<INavigationService, NavigationService>();
-        builder.Services.AddSingleton<IThumbnailService, ThumbnailService>();
-        builder.Services.AddSingleton<INearbyPermissions, NearbyPermissions>();
         builder.Services.AddSingleton<ChatMessageStore>();
-        builder.Services.AddSingleton<IChatMessageRepository, ChatMessageRepository>();
-        builder.Services.AddSingleton<IChatMessageService, ChatMessageService>();
-        builder.Services.AddSingleton<IConnectionTracker, ConnectionTracker>();
+        builder.Services.AddSingleton<ConnectionTracker>();
 
         // Inbound payload ingestion must be running before the first connection is established,
         // because ConnectionEstablished does not replay. IMauiInitializeService runs during

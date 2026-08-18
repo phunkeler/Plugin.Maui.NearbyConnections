@@ -1,4 +1,3 @@
-using NearbyChat.Extensions;
 using NearbyChat.ViewModels;
 
 namespace NearbyChat.Services;
@@ -17,7 +16,7 @@ public class NavigationService(AppShell appShell) : INavigationService
 {
     public Task GoToAsync<TViewModel>()
         where TViewModel : BasePageViewModel
-        => appShell.GoToAsync<TViewModel>();
+        => appShell.GoToAsync(AppShell.GetPageRoute<TViewModel>());
 
     public Task GoBackAsync()
         => appShell.GoToAsync("..");

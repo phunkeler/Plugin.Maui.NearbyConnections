@@ -7,7 +7,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <para>
 /// The settings on this type map onto Multipeer Connectivity knobs for which Google Nearby
 /// Connections has no counterpart. They are exposed on every target framework so shared code
-/// compiles without <c>#if IOS</c>; running on Android, nothing reads them and they have no
+/// compiles without <c>#if IOS</c>. Running on Android, nothing reads them and they have no
 /// effect.
 /// </para>
 /// <para>
@@ -41,7 +41,7 @@ public sealed class NearbyAppleOptions
     /// <remarks>
     /// <b>Apple platforms only</b> — Android has no equivalent, because its platform start call is
     /// directly awaitable and this value has no effect there. Multipeer Connectivity has no
-    /// start-success callback, only a delegate method that fires on failure; this window is the
+    /// start-success callback, only a delegate method that fires on failure. This window is the
     /// only way to translate that into a success/failure answer for the <c>Task</c> that
     /// <c>StartAdvertisingAsync</c>/<c>StartDiscoveryAsync</c> returns. A slow or
     /// thermally-throttled device can exceed the default window before the platform reports a

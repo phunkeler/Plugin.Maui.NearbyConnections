@@ -63,7 +63,7 @@ interface IPlatformNearby : IAsyncDisposable
     /// Items are delivered on a thread-pool thread via an internal channel; marshal to the UI
     /// thread if needed — in .NET MAUI, an injected <see cref="IDispatcher"/>
     /// (<see cref="IDispatcher.Dispatch(Action)"/>), which is what
-    /// <see cref="NearbyDeviceCollection"/> is given.
+    /// <see cref="NearbyDeviceCollection{TRow}"/> is given.
     /// </para>
     /// <para>
     /// <strong>Progress reporting:</strong> outbound file-transfer progress is supplied per-call
@@ -99,7 +99,7 @@ interface IPlatformNearby : IAsyncDisposable
     /// Items are delivered on a thread-pool thread via an internal channel; marshal to the UI
     /// thread if needed — in .NET MAUI, an injected <see cref="IDispatcher"/>
     /// (<see cref="IDispatcher.Dispatch(Action)"/>), which is what
-    /// <see cref="NearbyDeviceCollection"/> is given.
+    /// <see cref="NearbyDeviceCollection{TRow}"/> is given.
     /// </para>
     /// </remarks>
     /// <param name="started">

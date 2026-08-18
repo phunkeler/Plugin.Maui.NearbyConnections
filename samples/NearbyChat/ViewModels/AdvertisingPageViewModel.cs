@@ -8,8 +8,7 @@ namespace NearbyChat.ViewModels;
 public partial class AdvertisingPageViewModel : BasePageViewModel
 {
     readonly INavigationService _navigationService;
-    readonly INearby _session;
-    readonly INearbyPermissions _permissions;
+    readonly INearby _nearby;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleAdvertisingCommand))]
@@ -18,7 +17,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     [ObservableProperty]
     public partial bool IsAdvertising { get; set; }
 
-    public IConnectionTracker Connections { get; }
+    public ConnectionTracker Connections { get; }
 
     /// <summary>
     /// Devices awaiting a response to their inbound connection request.
@@ -33,26 +32,23 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     public AdvertisingPageViewModel(
         IDispatcher dispatcher,
         INavigationService navigationService,
-        INearby session,
-        IConnectionTracker connectionTracker,
-        INearbyPermissions permissions)
+        INearby nearby,
+        ConnectionTracker connectionTracker)
         : base(dispatcher)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
-        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(nearby);
         ArgumentNullException.ThrowIfNull(connectionTracker);
-        ArgumentNullException.ThrowIfNull(permissions);
 
         _navigationService = navigationService;
-        _session = session;
+        _nearby = nearby;
         Connections = connectionTracker;
-        _permissions = permissions;
-        IsAdvertising = session.IsAdvertising;
+        IsAdvertising = nearby.IsAdvertising;
 
         AdvertisedDevices = new NearbyDeviceCollection<AdvertisedDeviceViewModel>(
-            session,
+            nearby,
             action => dispatcher.Dispatch(action),
-            project: device => new AdvertisedDeviceViewModel(device, session),
+            project: device => new AdvertisedDeviceViewModel(device, nearby),
             filter: static device => device.Status is NearbyDeviceStatus.RequestReceived,
             update: static (row, device) => row.Update(device));
 
@@ -70,7 +66,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     [RelayCommand(CanExecute = nameof(CanToggleAdvertising))]
     async Task ToggleAdvertising(CancellationToken cancellationToken)
     {
-        if (!IsAdvertising && await _permissions.EnsureGrantedAsync() is not PermissionStatus.Granted)
+        if (!IsAdvertising && await NearbyPermissions.EnsureGrantedAsync() is not PermissionStatus.Granted)
         {
             return;
         }
@@ -79,18 +75,16 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
 
         try
         {
-            // Advertising and discovery are independent: this toggles only advertising and leaves
-            // discovery exactly as the user left it on the other page.
             if (IsAdvertising)
             {
-                await _session.StopAdvertisingAsync(cancellationToken);
+                await _nearby.StopAdvertisingAsync(cancellationToken);
             }
             else
             {
-                await _session.StartAdvertisingAsync(cancellationToken);
+                await _nearby.StartAdvertisingAsync(cancellationToken);
             }
 
-            IsAdvertising = _session.IsAdvertising;
+            IsAdvertising = _nearby.IsAdvertising;
         }
         finally
         {
@@ -101,11 +95,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     protected override void NavigatedTo()
     {
         base.NavigatedTo();
-
-        // The collection tracks the session for this view model's whole lifetime, so requests that
-        // arrived while the page was away are already in it — nothing to seed here.
-        IsAdvertising = _session.IsAdvertising;
-
+        IsAdvertising = _nearby.IsAdvertising;
         TrackRelativeTime(AdvertisedDevices);
     }
 

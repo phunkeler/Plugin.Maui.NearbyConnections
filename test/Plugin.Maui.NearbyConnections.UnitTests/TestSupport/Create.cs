@@ -80,4 +80,23 @@ static class Create
     /// <summary>One progress report, as the platform would raise it mid-transfer.</summary>
     public static NearbyTransferProgress ProgressUpdate(NearbyTransferStatus status, long bytes = 0)
         => new(payloadId: 1, bytesTransferred: bytes, totalBytes: 100, status);
+
+    /// <summary>
+    /// A device collection that binds <see cref="NearbyDevice"/> rows directly — the shape a
+    /// consumer writes when the view has no row type of its own.
+    /// </summary>
+    /// <param name="nearby">The session to watch.</param>
+    /// <param name="marshal">
+    /// Where collection mutations run. Defaults to running them inline, on the calling thread.
+    /// </param>
+    /// <param name="filter">Selects which devices the collection shows. Defaults to all of them.</param>
+    public static NearbyDeviceCollection<NearbyDevice> Devices(
+        INearby nearby,
+        Action<Action>? marshal = null,
+        Func<NearbyDevice, bool>? filter = null)
+        => new(
+            nearby,
+            marshal ?? (static a => a()),
+            project: static device => device,
+            filter: filter);
 }

@@ -5,14 +5,16 @@ using Plugin.Maui.NearbyConnections;
 namespace NearbyChat.Services;
 
 /// <summary>
-/// Exposes how many devices are currently connected, for the header chip.
+/// Tracks how many devices are currently connected, for the header chip. Bound as
+/// <see cref="System.ComponentModel.INotifyPropertyChanged"/>, which <see cref="ObservableObject"/>
+/// supplies.
 /// </summary>
 /// <remarks>
 /// A singleton that lives as long as the session, so its watch loop is never cancelled on purpose
 /// — unlike a page ViewModel, which passes its navigation token to
 /// <see cref="INearbyDevices.Changes"/>.
 /// </remarks>
-public sealed partial class ConnectionTracker : ObservableObject, IConnectionTracker
+public sealed partial class ConnectionTracker : ObservableObject
 {
     readonly INearby _session;
     readonly IDispatcher _dispatcher;

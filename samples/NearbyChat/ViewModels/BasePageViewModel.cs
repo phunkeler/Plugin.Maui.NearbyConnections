@@ -1,7 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using NearbyChat.Services;
-using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
@@ -10,39 +8,54 @@ public abstract partial class BasePageViewModel(
     : ObservableObject, IDisposable
 {
     CancellationTokenSource? _navigationCts;
-    RelativeTimeTicker? _relativeTimeTicker;
+    IDispatcherTimer? _relativeTimeTimer;
+    EventHandler? _relativeTimeTick;
     bool _disposed;
 
     protected IDispatcher Dispatcher { get; } = dispatcher;
 
     protected CancellationToken NavigationToken => _navigationCts?.Token ?? CancellationToken.None;
 
-    /// <summary>
-    /// Re-raises <c>PropertyChanged</c> for every row's <c>ReceivedAt</c> on a timer, so a
-    /// "5 min ago" label keeps counting up while the page sits open.
-    /// </summary>
-    /// <remarks>
-    /// A device row is an immutable snapshot, so nothing about it changes as time passes — only the
-    /// converter's output does. The timer is the signal that makes the binding re-evaluate. It runs
-    /// only while the page shows at least one row, and stops on navigation away.
-    /// </remarks>
-    /// <param name="rows">The rows to refresh on each tick.</param>
     protected void TrackRelativeTime(IReadOnlyList<NearbyDeviceViewModel> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
 
-        _relativeTimeTicker ??= new RelativeTimeTicker(
-            Dispatcher,
-            TimeSpan.FromSeconds(30),
-            () =>
-            {
-                foreach (var row in rows)
-                {
-                    row.RefreshRelativeTime();
-                }
-            });
+        if (rows.Count == 0)
+        {
+            StopRelativeTime();
+            return;
+        }
 
-        _relativeTimeTicker.SetActive(rows.Count >= 1);
+        if (_relativeTimeTimer is not null)
+        {
+            return;
+        }
+
+        _relativeTimeTick = (_, _) =>
+        {
+            foreach (var row in rows)
+            {
+                row.RefreshRelativeTime();
+            }
+        };
+
+        _relativeTimeTimer = Dispatcher.CreateTimer();
+        _relativeTimeTimer.Interval = TimeSpan.FromSeconds(30);
+        _relativeTimeTimer.Tick += _relativeTimeTick;
+        _relativeTimeTimer.Start();
+    }
+
+    void StopRelativeTime()
+    {
+        if (_relativeTimeTimer is null)
+        {
+            return;
+        }
+
+        _relativeTimeTimer.Stop();
+        _relativeTimeTimer.Tick -= _relativeTimeTick;
+        _relativeTimeTimer = null;
+        _relativeTimeTick = null;
     }
 
     [RelayCommand]
@@ -57,15 +70,12 @@ public abstract partial class BasePageViewModel(
     [RelayCommand]
     protected virtual void NavigatedFrom()
     {
-        // Cancelling ends every `await foreach` over INearbyDevices.Changes that this page started
-        // with NavigationToken. That is the whole cleanup story: there is nothing to detach, so
-        // there is no unsubscribe to forget.
         var old = _navigationCts;
         _navigationCts = null;
         old?.Cancel();
         old?.Dispose();
 
-        _relativeTimeTicker?.SetActive(false);
+        StopRelativeTime();
     }
 
     public void Dispose()
@@ -88,7 +98,7 @@ public abstract partial class BasePageViewModel(
             old?.Cancel();
             old?.Dispose();
 
-            _relativeTimeTicker?.SetActive(false);
+            StopRelativeTime();
         }
 
         _disposed = true;

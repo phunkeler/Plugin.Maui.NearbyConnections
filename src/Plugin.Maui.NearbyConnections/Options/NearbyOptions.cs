@@ -18,9 +18,9 @@ public sealed partial class NearbyOptions
     /// </summary>
     /// <value>The Android options. Never <see langword="null"/>.</value>
     /// <remarks>
-    /// Exposed on every target framework so shared code compiles without <c>#if ANDROID</c>; on
-    /// other platforms these settings are read by nothing and have no effect, and the nesting under
-    /// this property names that at the call site. The property itself is get-only, so the returned
+    /// Exposed on every target framework so shared code compiles without <c>#if ANDROID</c>. On
+    /// other platforms nothing reads these settings and they have no effect. The nesting under this
+    /// property names that at the call site. The property itself is get-only, so the returned
     /// instance can be configured in place but never replaced or shared with another
     /// <see cref="NearbyOptions"/> instance.
     /// </remarks>
@@ -31,8 +31,8 @@ public sealed partial class NearbyOptions
     /// </summary>
     /// <value>The Apple options. Never <see langword="null"/>.</value>
     /// <remarks>
-    /// Exposed on every target framework so shared code compiles without <c>#if IOS</c>; on other
-    /// platforms these settings are read by nothing and have no effect, and the nesting under this
+    /// Exposed on every target framework so shared code compiles without <c>#if IOS</c>. On other
+    /// platforms nothing reads these settings and they have no effect. The nesting under this
     /// property names that at the call site. The property itself is get-only, so the returned
     /// instance can be configured in place but never replaced or shared with another
     /// <see cref="NearbyOptions"/> instance.
@@ -82,7 +82,7 @@ public sealed partial class NearbyOptions
     /// </summary>
     /// <value>
     /// The full path to the destination directory. On Android, the default is
-    /// <see cref="FileSystem.CacheDirectory"/>; on iOS, it is
+    /// <see cref="FileSystem.CacheDirectory"/>. On iOS, it is
     /// <see cref="FileSystem.AppDataDirectory"/>.
     /// </value>
     /// <remarks>
@@ -104,10 +104,10 @@ public sealed partial class NearbyOptions
     /// <para>
     /// Neither platform reliably reports every departure — a device that is switched off or carried
     /// out of range can simply stop being seen, leaving a row in <see cref="INearby.Devices"/> that
-    /// can never be connected to. Both platforms report discovery on an edge, once when a device
-    /// appears, rather than continuously, so elapsed silence says nothing on its own; restarting
-    /// discovery is the only way to re-establish what is actually in range, because a completed pass
-    /// says everything.
+    /// can never be connected to. Both platforms report discovery on an edge: once when a device
+    /// appears, rather than continuously. Elapsed silence therefore says nothing on its own.
+    /// Restarting discovery is the only way to re-establish what is actually in range, because a
+    /// completed pass reports everything.
     /// </para>
     /// <para>
     /// After each restart, devices the new pass does not re-report are removed. A device that is

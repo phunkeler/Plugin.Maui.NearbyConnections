@@ -115,7 +115,7 @@ run inline on the publisher. That is fixed, not configurable: it was briefly a `
 and exposing it only offered consumers a way to stall the SDK's own callback dispatch with a slow
 loop body. Do not reintroduce it. Do not document or rely
 on the SDK's callback thread reaching consumers: it does not. Consumers that bind marshal for
-themselves, or construct a `NearbyDeviceCollection` — the one type in the library that knows a UI
+themselves, or construct a `NearbyDeviceCollection<TRow>` — the one type in the library that knows a UI
 thread exists.
 
 The platform-callback threads themselves differ, and only one is documented. iOS `MCSessionDelegate`
@@ -139,7 +139,7 @@ the plugin as disconnection events.
 `NearbyDeviceRegistry`. The registry is thread-safe by construction — reads take an immutable
 snapshot, writes are serialised by a lock — so platform callbacks record what they saw on whatever
 thread they arrived on. Nothing in the library marshals to a UI thread except
-`NearbyDeviceCollection`.
+`NearbyDeviceCollection<TRow>`.
 
 ### Two termination guarantees
 
@@ -210,7 +210,7 @@ src/Plugin.Maui.NearbyConnections/
 ├── ServiceCollectionExtensions.cs
 ├── Connections/   NearbyConnection, request, role, ControlMessage, connect timeout
 ├── Devices/       NearbyDevice (immutable record), INearbyDevices + NearbyDeviceRegistry,
-│                  NearbyDeviceChange(+Action), NearbyDeviceCollection{,<TRow>}, status,
+│                  NearbyDeviceChange(+Action), NearbyDeviceCollection<TRow>, status,
 │                  EndReason (internal — log-only)
 ├── Discovery/     availability + advertising/discovery failures
 ├── Payload/       NearbyPayload + NearbyBytesPayload/NearbyFilePayload — the data

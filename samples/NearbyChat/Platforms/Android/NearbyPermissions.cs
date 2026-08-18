@@ -1,8 +1,16 @@
 namespace NearbyChat.Services;
 
-public class NearbyPermissions : INearbyPermissions
+/// <summary>
+/// Requests the runtime permissions Nearby Connections needs for advertising and discovery.
+/// </summary>
+public static class NearbyPermissions
 {
-    public async Task<PermissionStatus> EnsureGrantedAsync()
+    /// <returns>
+    /// <see cref="PermissionStatus.Granted"/> when everything required is held. Any other value
+    /// identifies what stopped it, so callers can distinguish a user who declined this time from
+    /// one who has permanently denied and can only be helped by a trip to system settings.
+    /// </returns>
+    public static async Task<PermissionStatus> EnsureGrantedAsync()
     {
         var bluetooth = await EnsureAsync<Permissions.Bluetooth>();
         if (bluetooth is not PermissionStatus.Granted)

@@ -4,9 +4,13 @@ using Foundation;
 
 namespace NearbyChat.Services;
 
-public class ThumbnailService : IThumbnailService
+public static class ThumbnailService
 {
-    public async Task<ImageSource?> GetVideoThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Returns a thumbnail for the given video file path, or <see langword="null"/> if the
+    /// thumbnail could not be generated.
+    /// </summary>
+    public static async Task<ImageSource?> GetVideoThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
     {
         using var url = NSUrl.FromFilename(filePath);
         using var asset = AVAsset.FromUrl(url);

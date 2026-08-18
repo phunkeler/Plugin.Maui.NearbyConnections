@@ -9,7 +9,7 @@ public partial class MainPageViewModel(
     IDispatcher dispatcher,
     INavigationService navigationService,
     INearby session,
-    IConnectionTracker connectionTracker)
+    ConnectionTracker connectionTracker)
     : BasePageViewModel(dispatcher)
 {
     [ObservableProperty]
@@ -18,7 +18,7 @@ public partial class MainPageViewModel(
     [ObservableProperty]
     public partial bool IsDiscovering { get; set; }
 
-    public IConnectionTracker Connections { get; } = connectionTracker;
+    public ConnectionTracker Connections { get; } = connectionTracker;
 
     protected override void NavigatedTo()
     {

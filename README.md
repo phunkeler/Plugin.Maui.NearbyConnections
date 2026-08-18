@@ -73,9 +73,7 @@ public static MauiApp CreateMauiApp()
 
     builder.UseNearby(opts =>
     {
-#if IOS
         opts.ServiceId = "yourserviceid";
-#endif
     });
 
     return builder.Build();
@@ -208,7 +206,7 @@ for every transition, including the iOS caveat that `Connecting` is optional.
 
 `nearby.Devices` is a read-only snapshot list, **not** an observable collection: it raises no
 change notification, so binding it directly to a `CollectionView` renders once and never updates.
-To bind, construct a [`NearbyDeviceCollection`](#know-when-a-connection-opens-or-closes), which
+To bind, construct a [`NearbyDeviceCollection<TRow>`](#know-when-a-connection-opens-or-closes), which
 watches `Devices.Changes` for you and does raise `INotifyCollectionChanged`. To show only connected
 devices, filter on `Status`:
 
@@ -287,14 +285,16 @@ Three things to know about this loop:
 **Changes do not arrive on the UI thread.** `INearby` has no UI thread affinity and marshals
 nothing for you. Platform callbacks are drained by an internal pump, so changes reach your loop on
 a thread-pool thread, never the dispatcher. Marshal in the loop body with
-`await Dispatcher.DispatchAsync(...)`, or bind to a `NearbyDeviceCollection`, which does it for
-you:
+`await Dispatcher.DispatchAsync(...)`, or bind to a `NearbyDeviceCollection<TRow>`, which does it
+for you. To bind devices straight from XAML, project each one onto itself:
 
 ```csharp
 // ItemsSource="{Binding Devices}"
 // IDispatcher.Dispatch returns bool, so wrap it rather than passing it as a method group.
-public NearbyDeviceCollection Devices { get; }
-    = new(nearby, marshal: action => dispatcher.Dispatch(action));
+public NearbyDeviceCollection<NearbyDevice> Devices { get; }
+    = new(nearby,
+          marshal: action => dispatcher.Dispatch(action),
+          project: static device => device);
 ```
 
 To bind rows that carry their own commands or state, project onto a row type instead. Pass

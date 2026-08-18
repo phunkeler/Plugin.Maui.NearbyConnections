@@ -6,7 +6,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 /// <param name="Action">The kind of change this is.</param>
 /// <param name="Device">
-/// The device as it is after the change. This instance never updates itself; a later change to the
+/// The device as it is after the change. This instance never updates itself. A later change to the
 /// same device is delivered as a new <see cref="NearbyDeviceChange"/> carrying a new instance.
 /// </param>
 /// <remarks>

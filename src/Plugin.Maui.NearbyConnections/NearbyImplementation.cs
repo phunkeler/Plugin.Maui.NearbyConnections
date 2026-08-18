@@ -285,10 +285,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
                 $"A request can only be accepted once, and only before it expires.");
         }
 
-        // Won the race against the expiry countdown by removing the entry above; disarm it before
-        // the handshake starts, so it cannot reject a request that is now being accepted.
         DisarmRequestExpiry(device.Id);
-
         Transition(device, NearbyDeviceStatus.Connecting, ConnectionRole.Acceptor);
 
         try
@@ -318,7 +315,6 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         }
 
         DisarmRequestExpiry(device.Id);
-
         await request.RejectAsync(cancellationToken).ConfigureAwait(false);
         LogHandshakeEnded(device.Id, EndReason.LocalRejected);
         ResetToVisible(device);
@@ -344,11 +340,6 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         await connection.DisposeAsync().ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Tears down the session. Internal by design: the container owns this singleton, and a public
-    /// <c>DisposeAsync</c> would invite <c>await using</c> in a page, killing the session app-wide.
-    /// Consumers use <see cref="StopAsync"/>.
-    /// </summary>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposeGuard, 1) != 0)
@@ -364,7 +355,6 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            // Teardown must not throw out of container disposal.
             LogDisposeError(ex);
         }
 

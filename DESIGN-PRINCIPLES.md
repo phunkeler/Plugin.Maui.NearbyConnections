@@ -155,7 +155,7 @@ propose again:
   record removes the failure mode rather than documenting it: there is nothing to write silently.
 
 The cost is that binding needs a collection that translates the delta stream into
-`INotifyCollectionChanged`. That is `NearbyDeviceCollection`, which is deliberate — it confines UI
+`INotifyCollectionChanged`. That is `NearbyDeviceCollection<TRow>`, which is deliberate — it confines UI
 thread knowledge to exactly one type instead of spreading dispatcher affinity across the model.
 
 ## Why some odd-reading names stay

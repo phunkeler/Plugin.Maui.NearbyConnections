@@ -15,8 +15,10 @@ public static partial class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> to add the services to.</param>
     /// <param name="configure">
-    /// An optional delegate that configures <see cref="NearbyOptions"/>. If
-    /// <see langword="null"/>, platform defaults are used.
+    /// A delegate that configures <see cref="NearbyOptions"/>. If <see langword="null"/>, platform
+    /// defaults are used — which is sufficient on Android, but <b>throws on iOS</b>, where
+    /// <see cref="NearbyOptions.ServiceId"/> has no default and must be set. See the
+    /// <see cref="OptionsValidationException"/> below.
     /// </param>
     /// <returns>
     /// The same <see cref="IServiceCollection"/> instance, so that multiple calls can be chained.
@@ -52,7 +54,7 @@ public static partial class ServiceCollectionExtensions
     /// <para>
     /// The session has no UI thread affinity and takes no dispatcher: every member of
     /// <see cref="INearby"/> is callable from any thread. A consumer that binds device state to a
-    /// user interface constructs a <see cref="NearbyDeviceCollection"/>, which is where the
+    /// user interface constructs a <see cref="NearbyDeviceCollection{TRow}"/>, which is where the
     /// marshalling lives.
     /// </para>
     /// </remarks>
@@ -60,9 +62,10 @@ public static partial class ServiceCollectionExtensions
     /// <paramref name="services"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="OptionsValidationException">
-    /// The configured <see cref="NearbyOptions"/> is unusable — for example,
-    /// <see cref="NearbyOptions.ServiceId"/> is null, empty, or not valid for Multipeer
-    /// Connectivity.
+    /// The configured <see cref="NearbyOptions"/> is unusable. On iOS, leaving
+    /// <see cref="NearbyOptions.ServiceId"/> unset always throws, because it has no iOS default.
+    /// A value Multipeer Connectivity rejects also throws: null, empty, longer than 15 characters,
+    /// or in the <c>_name._tcp</c> Bonjour form.
     /// </exception>
     public static IServiceCollection AddNearby(
         this IServiceCollection services,

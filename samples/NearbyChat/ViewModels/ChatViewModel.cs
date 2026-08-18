@@ -1,9 +1,10 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using NearbyChat.Data;
 using NearbyChat.Messages;
 using NearbyChat.Models;
 using NearbyChat.Services;
@@ -17,9 +18,9 @@ public partial class ChatViewModel(
     IDispatcher dispatcher,
     ILauncher launcher,
     IMediaPicker mediaPicker,
-    IThumbnailService thumbnailService,
     INavigationService navigationService,
-    IChatMessageService chatMessageService) : ObservableRecipient(messenger),
+    ChatMessageStore store,
+    INearby session) : ObservableRecipient(messenger),
     INavigationAware,
     IRecipient<ChatMessageReceived>,
     IRecipient<InboundTransferProgress>
@@ -82,7 +83,19 @@ public partial class ChatViewModel(
 
         try
         {
-            await chatMessageService.SendChatMessageAsync(Device, chatMessage, progress, cancellationToken);
+            store.Add(Device.Id, chatMessage);
+
+            if (session.TryGetConnection(Device.Id, out var connection))
+            {
+                if (chatMessage.Attachments.FirstOrDefault() is MediaAttachment { FilePath: { Length: > 0 } filePath })
+                {
+                    await connection.SendAsync(filePath, progress, cancellationToken);
+                }
+                else if (!string.IsNullOrWhiteSpace(chatMessage.Text))
+                {
+                    await connection.SendAsync(Encoding.UTF8.GetBytes(chatMessage.Text), cancellationToken);
+                }
+            }
         }
         finally
         {
@@ -137,7 +150,7 @@ public partial class ChatViewModel(
                 ? new VideoAttachment
                 {
                     FilePath = fullPath,
-                    Thumbnail = await thumbnailService.GetVideoThumbnailAsync(fullPath)
+                    Thumbnail = await ThumbnailService.GetVideoThumbnailAsync(fullPath)
                 }
                 : new PhotoAttachment
                 {
@@ -164,9 +177,12 @@ public partial class ChatViewModel(
         {
             Device = nearbyDevice;
 
-            // Fire-and-forget: INavigationAware is synchronous, and history load is now a real
-            // async read. Failures are surfaced rather than swallowed.
-            _ = LoadHistoryAsync(nearbyDevice);
+            Messages.Clear();
+
+            foreach (var message in store.GetAll(nearbyDevice.Id))
+            {
+                Messages.Add(ChatMessageViewModel.Create(message, launcher));
+            }
         }
     }
 
@@ -182,35 +198,6 @@ public partial class ChatViewModel(
         return localPath;
     }
 
-    async Task LoadHistoryAsync(NearbyDevice device)
-    {
-        try
-        {
-            var history = await chatMessageService.GetHistoryAsync(device);
-
-            dispatcher.Dispatch(() =>
-            {
-                // Guard against a fast re-navigation to a different device having already
-                // replaced Device while this read was in flight.
-                if (Device?.Id != device.Id)
-                {
-                    return;
-                }
-
-                Messages.Clear();
-
-                foreach (var message in history)
-                {
-                    Messages.Add(ChatMessageViewModel.Create(message, launcher));
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to load chat history for {device.Id}: {ex}");
-        }
-    }
-
     public void Receive(ChatMessageReceived receivedMsg)
     {
         if (receivedMsg.Device.Id != Device?.Id)
@@ -218,8 +205,8 @@ public partial class ChatViewModel(
             return;
         }
 
-        // Published from the ChatMessageService handler thread — marshal before
-        // touching the bound collection.
+        // Published from the ingestion loop's thread — marshal before touching the bound
+        // collection.
         dispatcher.Dispatch(() =>
         {
             IsReceiving = false;

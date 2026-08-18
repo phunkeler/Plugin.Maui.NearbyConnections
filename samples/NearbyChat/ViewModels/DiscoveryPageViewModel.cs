@@ -9,7 +9,6 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
 {
     readonly INavigationService _navigationService;
     readonly INearby _session;
-    readonly INearbyPermissions _permissions;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleDiscoveryCommand))]
@@ -18,7 +17,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
     [ObservableProperty]
     public partial bool IsDiscovering { get; set; }
 
-    public IConnectionTracker Connections { get; }
+    public ConnectionTracker Connections { get; }
 
     /// <summary>
     /// Devices in range that are not yet connected — the connectable list.
@@ -34,19 +33,16 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
         IDispatcher dispatcher,
         INavigationService navigationService,
         INearby session,
-        IConnectionTracker connectionTracker,
-        INearbyPermissions permissions)
+        ConnectionTracker connectionTracker)
         : base(dispatcher)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(connectionTracker);
-        ArgumentNullException.ThrowIfNull(permissions);
 
         _navigationService = navigationService;
         _session = session;
         Connections = connectionTracker;
-        _permissions = permissions;
         IsDiscovering = session.IsDiscovering;
 
         DiscoveredDevices = new NearbyDeviceCollection<DiscoveredDeviceViewModel>(
@@ -70,7 +66,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
     [RelayCommand(CanExecute = nameof(CanToggleDiscovery))]
     async Task ToggleDiscovery(CancellationToken cancellationToken)
     {
-        if (!IsDiscovering && await _permissions.EnsureGrantedAsync() is not PermissionStatus.Granted)
+        if (!IsDiscovering && await NearbyPermissions.EnsureGrantedAsync() is not PermissionStatus.Granted)
         {
             return;
         }

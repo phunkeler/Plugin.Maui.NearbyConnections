@@ -7,8 +7,9 @@ namespace Plugin.Maui.NearbyConnections;
 /// <see cref="INearbyDevices.Changes"/> and applying each change on a caller-supplied thread.
 /// </summary>
 /// <typeparam name="TRow">
-/// The bound row type. Use <see cref="NearbyDevice"/> to bind devices directly — the non-generic
-/// <see cref="NearbyDeviceCollection"/> is that case pre-applied.
+/// The bound row type. Use <see cref="NearbyDevice"/> with <c>project: static device =&gt; device</c>
+/// to bind devices directly, or a row type of your own when each row needs commands or state a
+/// <see cref="NearbyDevice"/> snapshot cannot carry.
 /// </typeparam>
 /// <remarks>
 /// <para>
@@ -19,7 +20,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// </para>
 /// <para>
 /// Construct one per view that needs it, and dispose it when the view goes away. Disposal cancels
-/// the underlying enumeration; there is no event to unsubscribe from and so nothing to leak.
+/// the underlying enumeration. There is no event to unsubscribe from, and so nothing to leak.
 /// </para>
 /// <para>
 /// The collection is read-only to its consumers — it mirrors what the session reports and cannot be
@@ -268,57 +269,5 @@ public class NearbyDeviceCollection<TRow> : IReadOnlyList<TRow>, INotifyCollecti
 
         _order.Remove(deviceId);
         _rows.Remove(row);
-    }
-}
-
-/// <summary>
-/// A bindable, live collection of nearby devices — <see cref="NearbyDeviceCollection{TRow}"/> with
-/// <see cref="NearbyDevice"/> bound directly, with no projection.
-/// </summary>
-/// <remarks>
-/// Use this when the view binds device properties straight from XAML. Reach for the generic form
-/// when each row needs its own commands or state, which a <see cref="NearbyDevice"/> snapshot
-/// cannot carry.
-/// </remarks>
-/// <example>
-/// In a .NET MAUI ViewModel:
-/// <code language="csharp">
-/// // IDispatcher.Dispatch returns bool, so it is wrapped rather than passed as a method group.
-/// public NearbyDeviceCollection Devices { get; }
-///     = new(nearby, marshal: action => dispatcher.Dispatch(action));
-///
-/// // then bind straight to it: ItemsSource="{Binding Devices}"
-/// </code>
-/// </example>
-public sealed class NearbyDeviceCollection : NearbyDeviceCollection<NearbyDevice>
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="NearbyDeviceCollection"/> class and begins
-    /// watching for device changes.
-    /// </summary>
-    /// <param name="nearby">The session to watch.</param>
-    /// <param name="marshal">
-    /// Runs an action where collection mutations are safe — in .NET MAUI,
-    /// <see cref="IDispatcher.Dispatch(Action)"/>.
-    /// </param>
-    /// <param name="filter">
-    /// Selects which devices this collection shows, or <see langword="null"/> to show every device.
-    /// </param>
-    /// <exception cref="ArgumentNullException">
-    /// <paramref name="nearby"/> or <paramref name="marshal"/> is <see langword="null"/>.
-    /// </exception>
-    /// <remarks>
-    /// A device is removed only once the platform reports it lost, never before. Neither platform
-    /// reliably reports every departure, so a device that moved out of range can linger until
-    /// discovery restarts — evicting on a timer instead would need a periodic "still here" signal
-    /// that <see cref="INearbyDevices.Changes"/> does not carry, and would delete devices that are
-    /// still present.
-    /// </remarks>
-    public NearbyDeviceCollection(
-        INearby nearby,
-        Action<Action> marshal,
-        Func<NearbyDevice, bool>? filter = null)
-        : base(nearby, marshal, static device => device, filter)
-    {
     }
 }

@@ -16,7 +16,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <see cref="Devices"/> is the current set, and <see cref="INearbyDevices.Changes"/> the deltas to
 /// it. Inbound payloads are exposed as a stream, consumed for each connection through
 /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/>. A connection supports a single
-/// payload consumer; distribute payloads to multiple components in your own code.
+/// payload consumer. Distribute payloads to multiple components in your own code.
 /// </para>
 /// <para>
 /// <b>Thread safety.</b> Every member of this interface is callable from any thread, and nothing
@@ -24,7 +24,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// thread, never the UI thread and never the platform SDK's own callback thread: the SDK callback
 /// writes into an internal channel, and the pump that drains it publishes the change. Do not rely
 /// on the SDK's callback thread or its ordering reaching this stream. A consumer that binds to a
-/// user interface marshals for itself — or constructs a <see cref="NearbyDeviceCollection"/>, which
+/// user interface marshals for itself — or constructs a <see cref="NearbyDeviceCollection{TRow}"/>, which
 /// is the supported way to get a bindable <c>ObservableCollection</c> back.
 /// </para>
 /// <para>
@@ -55,7 +55,7 @@ public interface INearby
     /// read from any thread.
     /// </value>
     /// <remarks>
-    /// A single collection spans the whole device lifecycle; devices do not move between
+    /// A single collection spans the whole device lifecycle. Devices do not move between
     /// collections as they connect. <see cref="NearbyDevice.Status"/> reports where a device is in
     /// that lifecycle. Read this property for the current state and enumerate
     /// <see cref="INearbyDevices.Changes"/> for what happens next — every connection lifecycle
@@ -100,7 +100,7 @@ public interface INearby
     /// silently on Android, and to succeed but discover nothing on iOS.
     /// </para>
     /// <para>
-    /// This method reports state; it does not change it. It never prompts for permissions and never
+    /// This method reports state. It does not change it, never prompts for permissions, and never
     /// enables a radio. Request permissions with the .NET MAUI <c>Permissions</c> API, and direct
     /// the user to system settings to enable a radio.
     /// </para>
@@ -161,8 +161,8 @@ public interface INearby
     /// An inbound connection request surfaces as a device whose
     /// <see cref="NearbyDevice.Status"/> is <see cref="NearbyDeviceStatus.RequestReceived"/>,
     /// reported through <see cref="INearbyDevices.Changes"/>. Advertising and discovery are
-    /// independent; starting one does not affect the other.
-    /// Calling this method while the device is already advertising is a no-op.
+    /// independent. Starting one does not affect the other. Calling this method while the device is
+    /// already advertising is a no-op.
     /// </remarks>
     /// <exception cref="NearbyAdvertisingException">
     /// The platform failed to start advertising.
@@ -203,7 +203,7 @@ public interface INearby
     /// <remarks>
     /// Discovered devices are added to <see cref="Devices"/> with a
     /// <see cref="NearbyDevice.Status"/> of <see cref="NearbyDeviceStatus.Visible"/>. Advertising
-    /// and discovery are independent; starting one does not affect the other. Calling this method
+    /// and discovery are independent. Starting one does not affect the other. Calling this method
     /// while the device is already discovering performs no operation.
     /// </remarks>
     /// <exception cref="NearbyDiscoveryException">
@@ -226,7 +226,7 @@ public interface INearby
     /// </returns>
     /// <remarks>
     /// Established connections are unaffected, and advertising continues if it was already
-    /// running. Devices that were only visible are removed from <see cref="Devices"/>; connected
+    /// running. Devices that were only visible are removed from <see cref="Devices"/>. Connected
     /// devices remain.
     /// </remarks>
     /// <exception cref="OperationCanceledException">
@@ -246,7 +246,7 @@ public interface INearby
     /// the session is fully stopped.
     /// </returns>
     /// <remarks>
-    /// The session remains usable after this method returns; advertising or discovery can be
+    /// The session remains usable after this method returns. Advertising or discovery can be
     /// started again at any time.
     /// </remarks>
     /// <exception cref="OperationCanceledException">
@@ -271,7 +271,7 @@ public interface INearby
     /// <remarks>
     /// While the handshake is in progress, the device's <see cref="NearbyDevice.Status"/> is
     /// <see cref="NearbyDeviceStatus.Connecting"/> with a <see cref="NearbyDevice.Role"/> of
-    /// <see cref="ConnectionRole.Initiator"/>; on success the status becomes
+    /// <see cref="ConnectionRole.Initiator"/>. On success the status becomes
     /// <see cref="NearbyDeviceStatus.Connected"/>. The returned connection is the same instance
     /// that <see cref="TryGetConnection(string, out NearbyConnection)"/> hands back.
     /// </remarks>

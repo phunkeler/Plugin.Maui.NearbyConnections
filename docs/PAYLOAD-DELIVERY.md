@@ -300,7 +300,7 @@ for two reasons events cannot satisfy:
 
 **Threading.** Changes are delivered on a **thread-pool thread — never the dispatcher and never the
 platform SDK's callback thread.** The SDK callback writes into a channel and a pump republishes from
-the reading side. Marshal inside your loop body, or bind a `NearbyDeviceCollection`, which is the one
+the reading side. Marshal inside your loop body, or bind a `NearbyDeviceCollection<TRow>`, which is the one
 type in the library that knows a UI thread exists:
 
 ```csharp
