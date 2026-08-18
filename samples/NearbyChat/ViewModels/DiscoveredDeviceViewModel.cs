@@ -1,4 +1,6 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
@@ -9,14 +11,33 @@ namespace NearbyChat.ViewModels;
 public partial class DiscoveredDeviceViewModel : NearbyDeviceViewModel
 {
     readonly INearby _session;
+    readonly ILogger _logger;
 
-    public DiscoveredDeviceViewModel(NearbyDevice device, INearby session)
+    public DiscoveredDeviceViewModel(NearbyDevice device, INearby session, ILogger logger)
         : base(device)
     {
         ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(logger);
 
         _session = session;
+        _logger = logger;
     }
+
+    /// <summary>
+    /// Why the last connection attempt failed, or <see langword="null"/> if none has.
+    /// </summary>
+    /// <remarks>
+    /// Shown on the row rather than as an alert, so the message stays attached to the device it
+    /// concerns and does not interrupt a user who is connecting to several devices in turn.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFailed))]
+    public partial string? FailureReason { get; set; }
+
+    /// <summary>
+    /// Whether the last connection attempt failed and the row is showing its reason.
+    /// </summary>
+    public bool HasFailed => FailureReason is not null;
 
     /// <summary>
     /// Whether a handshake is in flight, projected from <see cref="NearbyDevice.Status"/>.
@@ -31,15 +52,49 @@ public partial class DiscoveredDeviceViewModel : NearbyDeviceViewModel
     [RelayCommand(IncludeCancelCommand = true)]
     async Task Connect(CancellationToken cancellationToken)
     {
+        FailureReason = null;
+
         try
         {
             await _session.ConnectAsync(Device, cancellationToken);
         }
-        catch (NearbyException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // Rejected or unreachable. The session has already returned the device to Visible.
+            // The user cancelled. Say nothing — they already know, and the session has returned
+            // the device to Visible so the row is connectable again.
+        }
+        catch (NearbyConnectionTimeoutException ex)
+        {
+            LogConnectFailed(_logger, Device.Id, ex);
+
+            FailureReason = "No answer. Check the other device is showing your request.";
+        }
+        catch (NearbyException ex)
+        {
+            // Rejected, out of range, or a platform error. The session has already returned the
+            // device to Visible, so the row stays connectable and only needs a reason.
+            LogConnectFailed(_logger, Device.Id, ex);
+
+            FailureReason = "Could not connect. The device declined or moved out of range.";
         }
     }
 
-    protected override void OnDeviceChanged() => OnPropertyChanged(nameof(IsConnecting));
+    protected override void OnDeviceChanged()
+    {
+        OnPropertyChanged(nameof(IsConnecting));
+
+        // A fresh handshake clears a stale reason: the row is showing what is happening now, not
+        // what failed last time.
+        if (IsConnecting)
+        {
+            FailureReason = null;
+        }
+    }
+
+    [LoggerMessage(
+        EventId = 1,
+        EventName = nameof(LogConnectFailed),
+        Level = LogLevel.Error,
+        Message = "Connecting to {DeviceId} failed.")]
+    static partial void LogConnectFailed(ILogger logger, string deviceId, Exception exception);
 }

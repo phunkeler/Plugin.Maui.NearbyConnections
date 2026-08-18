@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using NearbyChat.Services;
 using Plugin.Maui.NearbyConnections;
 
@@ -10,6 +11,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
 {
     readonly INavigationService _navigationService;
     readonly INearby _session;
+    readonly ILogger<DiscoveryPageViewModel> _logger;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleDiscoveryCommand))]
@@ -26,15 +28,18 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
         IDispatcher dispatcher,
         INavigationService navigationService,
         INearby session,
-        ConnectionTracker connectionTracker)
+        ConnectionTracker connectionTracker,
+        ILogger<DiscoveryPageViewModel> logger)
         : base(dispatcher)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(connectionTracker);
+        ArgumentNullException.ThrowIfNull(logger);
 
         _navigationService = navigationService;
         _session = session;
+        _logger = logger;
         Connections = connectionTracker;
         IsDiscovering = session.IsDiscovering;
     }
@@ -88,7 +93,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
         var devices = new NearbyDeviceCollection<DiscoveredDeviceViewModel>(
             _session,
             action => Dispatcher.Dispatch(action),
-            project: device => new DiscoveredDeviceViewModel(device, _session),
+            project: device => new DiscoveredDeviceViewModel(device, _session, _logger),
             filter: static device => device.Status is NearbyDeviceStatus.Visible or NearbyDeviceStatus.Connecting,
             update: static (row, device) => row.Update(device));
 

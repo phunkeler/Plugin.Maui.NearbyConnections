@@ -106,11 +106,26 @@
                                         </Image.Triggers>
                                     </Image>
                                 </Border>
+                                <!-- The failure reason takes the subtitle's place rather than
+                                     adding a row, so a failed row is the same height as any
+                                     other and the list does not jump. -->
                                 <Label
                                     Grid.Row="1"
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardSubtitle}"
+                                    IsVisible="{Binding HasFailed, Converter={toolkit:InvertedBoolConverter}}"
                                     Text="{Binding ReceivedAt, Converter={StaticResource relativeTimeConverter}, Mode=OneWay}"/>
+                                <Label
+                                    Grid.Row="1"
+                                    HorizontalOptions="Start"
+                                    LineBreakMode="WordWrap"
+                                    FontSize="{StaticResource FontSizeSM}"
+                                    TextColor="{StaticResource StatusError}"
+                                    IsVisible="{Binding HasFailed}"
+                                    AutomationId="{Binding Id, StringFormat='ConnectFailure_{0}'}"
+                                    Text="{Binding FailureReason}"/>
+                                <!-- No separate retry command: a failed attempt leaves the device
+                                     Visible, so this same button is the retry. -->
                                 <Button
                                     Grid.Row="2"
                                     HeightRequest="44"
@@ -121,7 +136,16 @@
                                     TextColor="{AppThemeBinding Light={StaticResource LightTextPrimary}, Dark={StaticResource DarkTextPrimary}}"
                                     FontAttributes="Bold"
                                     CornerRadius="12"
-                                    FontSize="{StaticResource FontSizeSM}"/>
+                                    FontSize="{StaticResource FontSizeSM}">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button"
+                                                     Binding="{Binding HasFailed}"
+                                                     Value="True">
+                                            <Setter Property="Text"
+                                                    Value="Try again"/>
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
                             </Grid>
                         </Border>
                     </DataTemplate>
