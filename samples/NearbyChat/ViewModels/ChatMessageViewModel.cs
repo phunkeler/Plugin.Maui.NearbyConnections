@@ -24,6 +24,48 @@ public partial class ChatMessageViewModel(ChatMessage model, ILauncher launcher)
     [ObservableProperty]
     public partial double TransferProgress { get; set; }
 
+    /// <summary>
+    /// Why this message did not reach the other device, or <see langword="null"/> while it is in
+    /// flight or delivered.
+    /// </summary>
+    /// <remarks>
+    /// Carried on the bubble rather than raised as an alert, so the failure stays attached to the
+    /// message it belongs to. A user who sends three messages during a dropout can see which ones
+    /// landed.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFailed))]
+    public partial string? FailureReason { get; set; }
+
+    /// <summary>
+    /// What the user can do about <see cref="FailureReason"/>, phrased as an instruction.
+    /// </summary>
+    [ObservableProperty]
+    public partial string? FailureRemedy { get; set; }
+
+    /// <summary>
+    /// Whether this message failed to send and is showing its reason.
+    /// </summary>
+    public bool HasFailed => FailureReason is not null;
+
+    /// <summary>
+    /// Clears the failure state so the bubble can be shown as in flight again.
+    /// </summary>
+    public void ClearFailure()
+    {
+        FailureReason = null;
+        FailureRemedy = null;
+    }
+
+    /// <summary>
+    /// Records why this message failed and what the user should do about it.
+    /// </summary>
+    public void Fail(string reason, string remedy)
+    {
+        FailureReason = reason;
+        FailureRemedy = remedy;
+    }
+
     public static ChatMessageViewModel Create(ChatMessage model, ILauncher launcher) => model switch
     {
         { Attachments: var attachments } when attachments.Any(a => a.Type == AttachmentType.Photo)

@@ -284,6 +284,52 @@
                 Value="End"/>
     </Style>
 
+    <!-- Failed-send state. Shown inside the bubble that failed, so the user can tell which
+         message did not arrive when several are in flight. -->
+    <Style x:Key="ChatFailureReasonLabel"
+           TargetType="Label">
+        <Setter Property="FontSize"
+                Value="12"/>
+        <Setter Property="FontAttributes"
+                Value="Bold"/>
+        <Setter Property="TextColor"
+                Value="{StaticResource StatusError}"/>
+        <Setter Property="LineBreakMode"
+                Value="WordWrap"/>
+    </Style>
+
+    <Style x:Key="ChatFailureRemedyLabel"
+           TargetType="Label">
+        <Setter Property="FontSize"
+                Value="12"/>
+        <Setter Property="TextColor"
+                Value="{StaticResource ChatBubbleMediaTextColor}"/>
+        <Setter Property="LineBreakMode"
+                Value="WordWrap"/>
+    </Style>
+
+    <Style x:Key="ChatRetryButton"
+           TargetType="Button">
+        <Setter Property="Text"
+                Value="Retry"/>
+        <Setter Property="HeightRequest"
+                Value="32"/>
+        <Setter Property="Padding"
+                Value="12,0"/>
+        <Setter Property="CornerRadius"
+                Value="8"/>
+        <Setter Property="FontSize"
+                Value="12"/>
+        <Setter Property="FontAttributes"
+                Value="Bold"/>
+        <Setter Property="HorizontalOptions"
+                Value="End"/>
+        <Setter Property="BackgroundColor"
+                Value="{StaticResource StatusError}"/>
+        <Setter Property="TextColor"
+                Value="White"/>
+    </Style>
+
     <!-- Data Templates -->
     <controls:ChatMessageViewModelDataTemplateSelector x:Key="ChatMessageViewModelDataTemplateSelector">
         <controls:ChatMessageViewModelDataTemplateSelector.TextTemplate>
@@ -294,6 +340,17 @@
                             Text="{Binding Model.Text}"
                             TextColor="{StaticResource ChatBubbleTextTextColor}"
                             LineBreakMode="WordWrap"/>
+                        <VerticalStackLayout Spacing="4"
+                                             IsVisible="{Binding HasFailed}">
+                            <Label Style="{StaticResource ChatFailureReasonLabel}"
+                                   Text="{Binding FailureReason}"/>
+                            <Label Style="{StaticResource ChatFailureRemedyLabel}"
+                                   Text="{Binding FailureRemedy}"/>
+                            <Button Style="{StaticResource ChatRetryButton}"
+                                    AutomationId="ChatRetryButton"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ChatViewModel}}, Path=RetryCommand}"
+                                    CommandParameter="{Binding .}"/>
+                        </VerticalStackLayout>
                         <Label Style="{StaticResource ChatTimestampLabel}"
                                Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"/>
                     </VerticalStackLayout>
@@ -327,6 +384,17 @@
                             Text="{Binding Model.Text}"
                             TextColor="{StaticResource ChatBubbleMediaTextColor}"
                             LineBreakMode="TailTruncation"/>
+                        <VerticalStackLayout Spacing="4"
+                                             IsVisible="{Binding HasFailed}">
+                            <Label Style="{StaticResource ChatFailureReasonLabel}"
+                                   Text="{Binding FailureReason}"/>
+                            <Label Style="{StaticResource ChatFailureRemedyLabel}"
+                                   Text="{Binding FailureRemedy}"/>
+                            <Button Style="{StaticResource ChatRetryButton}"
+                                    AutomationId="ChatRetryButton"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ChatViewModel}}, Path=RetryCommand}"
+                                    CommandParameter="{Binding .}"/>
+                        </VerticalStackLayout>
                         <Label Style="{StaticResource ChatTimestampLabel}"
                                Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"/>
                     </VerticalStackLayout>
@@ -383,6 +451,17 @@
                             Text="{Binding Model.Text}"
                             TextColor="{StaticResource ChatBubbleMediaTextColor}"
                             LineBreakMode="TailTruncation"/>
+                        <VerticalStackLayout Spacing="4"
+                                             IsVisible="{Binding HasFailed}">
+                            <Label Style="{StaticResource ChatFailureReasonLabel}"
+                                   Text="{Binding FailureReason}"/>
+                            <Label Style="{StaticResource ChatFailureRemedyLabel}"
+                                   Text="{Binding FailureRemedy}"/>
+                            <Button Style="{StaticResource ChatRetryButton}"
+                                    AutomationId="ChatRetryButton"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ChatViewModel}}, Path=RetryCommand}"
+                                    CommandParameter="{Binding .}"/>
+                        </VerticalStackLayout>
                         <Label Style="{StaticResource ChatTimestampLabel}"
                                Text="{Binding Model.Timestamp, Converter={StaticResource localTimeConverter}}"/>
                     </VerticalStackLayout>

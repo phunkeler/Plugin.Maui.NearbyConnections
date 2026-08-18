@@ -4,6 +4,7 @@ using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.Logging;
 using NearbyChat.Data;
 using NearbyChat.Messages;
 using NearbyChat.Models;
@@ -20,11 +21,14 @@ public partial class ChatViewModel(
     IMediaPicker mediaPicker,
     INavigationService navigationService,
     ChatMessageStore store,
-    INearby session) : ObservableRecipient(messenger),
+    INearby session,
+    ILogger<ChatViewModel> logger) : ObservableRecipient(messenger),
     INavigationAware,
     IRecipient<ChatMessageReceived>,
     IRecipient<InboundTransferProgress>
 {
+    readonly ILogger<ChatViewModel> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
     [MemberNotNullWhen(true, nameof(Device), nameof(Message))]
     public bool CanSend
         => Device is not null
@@ -67,11 +71,33 @@ public partial class ChatViewModel(
         }
 
         Message = null;
+        MediaAttachment = null;
 
         // Add the bubble before awaiting the send so outbound transfer progress
         // has a message to render against while the file is in flight.
         var vm = ChatMessageViewModel.Create(chatMessage, launcher);
         Messages.Add(vm);
+
+        store.Add(Device.Id, chatMessage);
+
+        await DeliverAsync(vm, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends the message a bubble already shows, and records on that bubble why it did not arrive.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Send"/> so <see cref="Retry"/> can re-run delivery for a bubble that
+    /// is already in the list and already in the store.
+    /// </remarks>
+    async Task DeliverAsync(ChatMessageViewModel vm, CancellationToken cancellationToken)
+    {
+        if (Device is null)
+        {
+            return;
+        }
+
+        vm.ClearFailure();
 
         IProgress<NearbyTransferProgress>? progress = null;
 
@@ -83,25 +109,69 @@ public partial class ChatViewModel(
 
         try
         {
-            store.Add(Device.Id, chatMessage);
-
-            if (session.TryGetConnection(Device.Id, out var connection))
+            // Checked here rather than before the bubble is added: a message the user typed is
+            // never silently dropped, it is shown as failed with a reason they can act on.
+            if (!session.TryGetConnection(Device.Id, out var connection))
             {
-                if (chatMessage.Attachments.FirstOrDefault() is MediaAttachment { FilePath: { Length: > 0 } filePath })
-                {
-                    await connection.SendAsync(filePath, progress, cancellationToken);
-                }
-                else if (!string.IsNullOrWhiteSpace(chatMessage.Text))
-                {
-                    await connection.SendAsync(Encoding.UTF8.GetBytes(chatMessage.Text), cancellationToken);
-                }
+                vm.Fail(
+                    "Not delivered. The connection to this device has ended.",
+                    "Reconnect from the Connections screen, then tap Retry.");
+                return;
             }
+
+            if (vm.Model.Attachments.FirstOrDefault() is MediaAttachment { FilePath: { Length: > 0 } filePath })
+            {
+                await connection.SendAsync(filePath, progress, cancellationToken);
+            }
+            else if (!string.IsNullOrWhiteSpace(vm.Model.Text))
+            {
+                await connection.SendAsync(Encoding.UTF8.GetBytes(vm.Model.Text), cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            vm.Fail(
+                "Not delivered. You cancelled this send.",
+                "Tap Retry to send it again.");
+        }
+        catch (NearbyTransferTimeoutException ex)
+        {
+            LogSendFailed(Device.Id, ex);
+
+            vm.Fail(
+                "Not delivered. The transfer stalled and no data moved for too long.",
+                "Move the devices closer together, then tap Retry.");
+        }
+        catch (NearbyTransferException ex)
+        {
+            LogSendFailed(Device.Id, ex);
+
+            vm.Fail(
+                "Not delivered. The file could not be sent.",
+                "Check the file still exists, then tap Retry.");
+        }
+        catch (NearbyException ex)
+        {
+            // The base type covers the disconnect-mid-send case, which every SendAsync overload
+            // documents but no more specific exception represents.
+            LogSendFailed(Device.Id, ex);
+
+            vm.Fail(
+                "Not delivered. The connection dropped while sending.",
+                "Reconnect from the Connections screen, then tap Retry.");
         }
         finally
         {
             vm.IsTransferring = false;
         }
     }
+
+    /// <summary>
+    /// Sends a failed message again.
+    /// </summary>
+    [RelayCommand]
+    Task Retry(ChatMessageViewModel vm)
+        => DeliverAsync(vm, CancellationToken.None);
 
     [RelayCommand]
     async Task Attach()
@@ -231,6 +301,13 @@ public partial class ChatViewModel(
             ReceiveProgress = progressMsg.Progress.Fraction ?? 0;
         });
     }
+
+    [LoggerMessage(
+        EventId = 1,
+        EventName = nameof(LogSendFailed),
+        Level = LogLevel.Error,
+        Message = "Sending a message to {DeviceId} failed.")]
+    partial void LogSendFailed(string deviceId, Exception exception);
 
     sealed class OutboundProgressRelay(IDispatcher dispatcher, ChatMessageViewModel message) : IProgress<NearbyTransferProgress>
     {

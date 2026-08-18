@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NearbyChat.Services;
@@ -19,15 +20,7 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
 
     public ConnectionTracker Connections { get; }
 
-    /// <summary>
-    /// Devices in range that are not yet connected — the connectable list.
-    /// </summary>
-    /// <remarks>
-    /// The plugin's own bindable projection, so this page keeps no reconcile loop of its own: the
-    /// filter decides which devices appear, and rows are reused across a device's status changes so
-    /// a row mid-connect keeps its spinner.
-    /// </remarks>
-    public NearbyDeviceCollection<DiscoveredDeviceViewModel> DiscoveredDevices { get; }
+    public NearbyDeviceCollection<DiscoveredDeviceViewModel>? DiscoveredDevices { get; private set; }
 
     public DiscoveryPageViewModel(
         IDispatcher dispatcher,
@@ -44,15 +37,6 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
         _session = session;
         Connections = connectionTracker;
         IsDiscovering = session.IsDiscovering;
-
-        DiscoveredDevices = new NearbyDeviceCollection<DiscoveredDeviceViewModel>(
-            session,
-            action => dispatcher.Dispatch(action),
-            project: device => new DiscoveredDeviceViewModel(device, session),
-            filter: static device => device.Status is NearbyDeviceStatus.Visible or NearbyDeviceStatus.Connecting,
-            update: static (row, device) => row.Update(device));
-
-        DiscoveredDevices.CollectionChanged += (_, _) => TrackRelativeTime(DiscoveredDevices);
     }
 
     [RelayCommand]
@@ -97,21 +81,45 @@ public partial class DiscoveryPageViewModel : BasePageViewModel
     {
         base.NavigatedTo();
 
-        // The collection tracks the session for this view model's whole lifetime, so there is
-        // nothing to seed or restart here — devices found while the page was away are already in it.
         IsDiscovering = _session.IsDiscovering;
 
-        TrackRelativeTime(DiscoveredDevices);
+        // Seeding is free: the constructor reads the current device set before it starts watching,
+        // so devices found while the page was away are already in the new collection.
+        var devices = new NearbyDeviceCollection<DiscoveredDeviceViewModel>(
+            _session,
+            action => Dispatcher.Dispatch(action),
+            project: device => new DiscoveredDeviceViewModel(device, _session),
+            filter: static device => device.Status is NearbyDeviceStatus.Visible or NearbyDeviceStatus.Connecting,
+            update: static (row, device) => row.Update(device));
+
+        devices.CollectionChanged += OnDiscoveredDevicesChanged;
+
+        DiscoveredDevices = devices;
+        OnPropertyChanged(nameof(DiscoveredDevices));
+
+        TrackRelativeTime(devices);
     }
 
-    protected override void Dispose(bool disposing)
+    protected override void NavigatedFrom()
     {
-        if (disposing)
-        {
-            DiscoveredDevices.Dispose();
-        }
+        base.NavigatedFrom();
 
-        base.Dispose(disposing);
+        if (DiscoveredDevices is { } devices)
+        {
+            devices.CollectionChanged -= OnDiscoveredDevicesChanged;
+            devices.Dispose();
+
+            DiscoveredDevices = null;
+            OnPropertyChanged(nameof(DiscoveredDevices));
+        }
+    }
+
+    void OnDiscoveredDevicesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (DiscoveredDevices is { } devices)
+        {
+            TrackRelativeTime(devices);
+        }
     }
 
     bool CanToggleDiscovery() => !IsBusy;
