@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
 using NearbyChat.Services;
 using Plugin.Maui.BottomSheet.Navigation;
@@ -6,83 +5,75 @@ using Plugin.Maui.NearbyConnections;
 
 namespace NearbyChat.ViewModels;
 
-public partial class ConnectionsPageViewModel(
-    IDispatcher dispatcher,
-    INavigationService navigationService,
-    INearby session,
-    IBottomSheetNavigationService bottomSheetNavigationService)
-    : BasePageViewModel(dispatcher)
+public partial class ConnectionsPageViewModel : BasePageViewModel
 {
-    public ObservableCollection<ConnectedDeviceViewModel> ConnectedDevices { get; } = [];
+    readonly INavigationService _navigationService;
+    readonly INearby _nearby;
+    readonly IBottomSheetNavigationService _bottomSheetNavigationService;
+
+    public ConnectionsPageViewModel(
+        IDispatcher dispatcher,
+        INavigationService navigationService,
+        INearby nearby,
+        IBottomSheetNavigationService bottomSheetNavigationService)
+        : base(dispatcher)
+    {
+        ArgumentNullException.ThrowIfNull(navigationService);
+        ArgumentNullException.ThrowIfNull(nearby);
+        ArgumentNullException.ThrowIfNull(bottomSheetNavigationService);
+
+        _navigationService = navigationService;
+        _nearby = nearby;
+        _bottomSheetNavigationService = bottomSheetNavigationService;
+    }
+
+    /// <summary>
+    /// The devices this app is currently connected to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The plugin's own bindable projection, matching the other two device pages. It replaces the
+    /// watch loop, the seed pass, and the add/remove bookkeeping this page used to carry: a device
+    /// that leaves <see cref="NearbyDeviceStatus.Connected"/> stops matching the filter and its row
+    /// is dropped.
+    /// </para>
+    /// <para>
+    /// Built in <see cref="NavigatedTo"/> and disposed in <see cref="NavigatedFrom"/>, so it lives
+    /// exactly as long as the page is on screen.
+    /// </para>
+    /// </remarks>
+    public NearbyDeviceCollection<ConnectedDeviceViewModel>? ConnectedDevices { get; private set; }
 
     protected override void NavigatedTo()
     {
         base.NavigatedTo();
 
-        // Connections made while this page was away are already in Devices.
-        ConnectedDevices.Clear();
+        // Seeding is free: the constructor reads the current device set before it starts watching,
+        // so connections made while the page was away are already in the new collection.
+        ConnectedDevices = new NearbyDeviceCollection<ConnectedDeviceViewModel>(
+            _nearby,
+            action => Dispatcher.Dispatch(action),
+            project: device => new ConnectedDeviceViewModel(device, _nearby, _bottomSheetNavigationService),
+            filter: static device => device.Status is NearbyDeviceStatus.Connected,
+            update: static (row, device) => row.Update(device));
 
-        foreach (var device in session.Devices)
-        {
-            if (session.TryGetConnection(device.Id, out var connection))
-            {
-                Add(device.Id, connection);
-            }
-        }
-
-        _ = WatchDevicesAsync(NavigationToken);
+        OnPropertyChanged(nameof(ConnectedDevices));
     }
 
-    /// <summary>
-    /// Tracks connections coming and going until the page is navigated away from.
-    /// </summary>
-    async Task WatchDevicesAsync(CancellationToken cancellationToken)
+    protected override void NavigatedFrom()
     {
-        try
+        base.NavigatedFrom();
+
+        if (ConnectedDevices is { } devices)
         {
-            await foreach (var change in session.Devices.Changes.WithCancellation(cancellationToken))
-            {
-                var device = change.Device;
+            devices.Dispose();
 
-                // The connection is looked up rather than carried on the change: a device is a
-                // value and cannot hold a live handle.
-                var connection = change.Action is not NearbyDeviceChangeAction.Removed
-                    && device.Status is NearbyDeviceStatus.Connected
-                    && session.TryGetConnection(device.Id, out var found)
-                        ? found
-                        : null;
-
-                // Changes arrive on a platform background thread; ConnectedDevices is bound.
-                await Dispatcher.DispatchAsync(() =>
-                {
-                    if (connection is not null)
-                    {
-                        Add(device.Id, connection);
-                    }
-                    else if (ConnectedDevices.FirstOrDefault(d => d.Id == device.Id) is { } vm)
-                    {
-                        ConnectedDevices.Remove(vm);
-                    }
-                });
-            }
+            ConnectedDevices = null;
+            OnPropertyChanged(nameof(ConnectedDevices));
         }
-        catch (OperationCanceledException)
-        {
-            // Navigated away.
-        }
-    }
-
-    void Add(string deviceId, NearbyConnection connection)
-    {
-        if (ConnectedDevices.Any(vm => vm.Id == deviceId))
-        {
-            return;
-        }
-
-        ConnectedDevices.Add(new ConnectedDeviceViewModel(connection, bottomSheetNavigationService));
     }
 
     [RelayCommand]
     Task Back()
-        => navigationService.GoBackAsync();
+        => _navigationService.GoBackAsync();
 }
