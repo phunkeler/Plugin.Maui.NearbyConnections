@@ -49,6 +49,24 @@ public partial class ChatMessageViewModel(ChatMessage model, ILauncher launcher)
     public bool HasFailed => FailureReason is not null;
 
     /// <summary>
+    /// Why the last attempt to open this message's attachment failed, or <see langword="null"/> if
+    /// none has.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately separate from <see cref="FailureReason"/>. That pair means "this message did
+    /// not reach the other device" and renders a Retry button that sends it again. A file that no
+    /// installed app can open is a local problem, and re-sending is the wrong remedy for it.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOpenFailed))]
+    public partial string? OpenFailureReason { get; set; }
+
+    /// <summary>
+    /// Whether the last attempt to open this message's attachment failed.
+    /// </summary>
+    public bool HasOpenFailed => OpenFailureReason is not null;
+
+    /// <summary>
     /// Clears the failure state so the bubble can be shown as in flight again.
     /// </summary>
     public void ClearFailure()
@@ -76,10 +94,21 @@ public partial class ChatMessageViewModel(ChatMessage model, ILauncher launcher)
     };
 
     [RelayCommand]
-    Task<bool> OpenFile(string filePath)
-        => _launcher.OpenAsync(new OpenFileRequest
+    async Task OpenFile(string filePath)
+    {
+        OpenFailureReason = null;
+
+        // OpenAsync reports "no app handled this file" by returning false rather than throwing.
+        // Discarding the result means a tap that opens nothing and explains nothing.
+        var opened = await _launcher.OpenAsync(new OpenFileRequest
         {
             Title = Path.GetFileName(filePath),
             File = new ReadOnlyFile(filePath)
         });
+
+        if (!opened)
+        {
+            OpenFailureReason = "No app on this device can open this file.";
+        }
+    }
 }

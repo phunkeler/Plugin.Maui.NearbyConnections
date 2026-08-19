@@ -93,15 +93,8 @@
 
                                 <Border
                                     Grid.ColumnSpan="2"
-                                    Stroke="Transparent"
-                                    WidthRequest="20"
-                                    HeightRequest="20"
-                                    HorizontalOptions="End"
-                                    StrokeShape="RoundRectangle 10"
-                                    Background="{StaticResource LightTextQuaternary}">
-                                    <Image
-                                        WidthRequest="10"
-                                        HeightRequest="10">
+                                    Style="{StaticResource DeviceRowStatusBadgeBorderStyle}">
+                                    <Image Style="{StaticResource DeviceRowStatusBadgeImageStyle}">
                                         <Image.Source>
                                             <FontImageSource
                                                 FontFamily="NearbyChatIcons"

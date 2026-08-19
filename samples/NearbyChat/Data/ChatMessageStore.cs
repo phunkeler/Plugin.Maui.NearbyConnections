@@ -41,5 +41,19 @@ public sealed class ChatMessageStore
         }
     }
 
-    public void Clear(string deviceId) => _sessions.TryRemove(deviceId, out _);
+    public void Clear(string deviceId)
+    {
+        if (!_sessions.TryRemove(deviceId, out var messages))
+        {
+            return;
+        }
+
+        // Empty the list under its own lock rather than only dropping the dictionary entry. A
+        // writer that took the lock before the removal appends to a list nothing can reach, and
+        // its message disappears. Clearing here means such a write is observably discarded.
+        lock (messages)
+        {
+            messages.Clear();
+        }
+    }
 }

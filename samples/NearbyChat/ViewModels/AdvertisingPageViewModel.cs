@@ -22,22 +22,6 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
 
     public ConnectionTracker Connections { get; }
 
-    /// <summary>
-    /// Devices awaiting a response to their inbound connection request.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The plugin's own bindable projection, so this page keeps no add/remove bookkeeping of its
-    /// own: a device that stops asking — answered, expired, or gone — stops matching the filter and
-    /// its row is dropped.
-    /// </para>
-    /// <para>
-    /// Built in <see cref="NavigatedTo"/> and disposed in <see cref="NavigatedFrom"/>, so it lives
-    /// exactly as long as the page is on screen. Rebuilding costs one pass over
-    /// <see cref="INearby.Devices"/>, which already holds every request that arrived while the page
-    /// was away.
-    /// </para>
-    /// </remarks>
     public NearbyDeviceCollection<AdvertisedDeviceViewModel>? AdvertisedDevices { get; private set; }
 
     public AdvertisingPageViewModel(
@@ -93,7 +77,7 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // The user navigated away mid-toggle. Nothing to report.
+            // The user navigated away or cncelled the operation.
         }
         catch (NearbyException ex)
         {
@@ -155,25 +139,18 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
         }
     }
 
-    /// <summary>
-    /// Whether the platform can start advertising right now: permissions held and the radios
-    /// available. Records the reason and returns <see langword="false"/> when it cannot.
-    /// </summary>
     async Task<bool> CanStartAsync(CancellationToken cancellationToken)
     {
         var permission = await NearbyPermissions.EnsureGrantedAsync();
+
         if (permission is not PermissionStatus.Granted)
         {
             ReportPermissionDenied(permission);
             return false;
         }
 
-        // The plugin documents this as the call to make before starting: without it a disabled radio
-        // fails silently on Android and simply advertises to nobody on iOS.
         var availability = await _nearby.CheckAvailabilityAsync(cancellationToken);
 
-        // WifiDisabled alone is a warning, not a blocker — Bluetooth alone still carries a
-        // connection, just slowly — so it is the one flag that does not stop a start.
         if ((availability & ~NearbyAvailability.WifiDisabled) is not NearbyAvailability.Ready)
         {
             LogUnavailable(_logger, availability);

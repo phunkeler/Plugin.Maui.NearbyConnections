@@ -7,6 +7,4 @@ public sealed class PhotoMessageViewModel(ChatMessage model, ILauncher launcher)
 {
     public PhotoAttachment? Attachment =>
         Model.Attachments.OfType<PhotoAttachment>().FirstOrDefault();
-
-    public new ImageSource? Thumbnail => Attachment?.Thumbnail;
 }

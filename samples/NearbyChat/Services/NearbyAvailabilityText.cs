@@ -26,8 +26,6 @@ public static class NearbyAvailabilityText
 
         if (availability.HasFlag(NearbyAvailability.UnsupportedPlatform))
         {
-            // Nothing the user can do at run time, so it is the whole message rather than one line
-            // in a list of things to go and fix.
             return "This device does not support nearby connections.";
         }
 

@@ -180,6 +180,35 @@
     </Style>
 
     <!-- ========================================== -->
+    <!--             DEVICE ROW BADGES              -->
+    <!-- ========================================== -->
+    <!-- The frame the device-row status badge draws on AdvertisingPage and DiscoveryPage. Only
+         the glyph and the triggers differ between the two, so only those stay in the page. -->
+    <Style x:Key="DeviceRowStatusBadgeBorderStyle"
+           TargetType="Border">
+        <Setter Property="Stroke"
+                Value="Transparent"/>
+        <Setter Property="WidthRequest"
+                Value="20"/>
+        <Setter Property="HeightRequest"
+                Value="20"/>
+        <Setter Property="HorizontalOptions"
+                Value="End"/>
+        <Setter Property="StrokeShape"
+                Value="RoundRectangle 10"/>
+        <Setter Property="Background"
+                Value="{StaticResource LightTextQuaternary}"/>
+    </Style>
+
+    <Style x:Key="DeviceRowStatusBadgeImageStyle"
+           TargetType="Image">
+        <Setter Property="WidthRequest"
+                Value="10"/>
+        <Setter Property="HeightRequest"
+                Value="10"/>
+    </Style>
+
+    <!-- ========================================== -->
     <!--                TEXT STYLES                 -->
     <!-- ========================================== -->
     <Style x:Key="CardTitle"
@@ -384,6 +413,12 @@
                             Text="{Binding Model.Text}"
                             TextColor="{StaticResource ChatBubbleMediaTextColor}"
                             LineBreakMode="TailTruncation"/>
+                        <!-- The local open failure, not the send failure: no Retry button,
+                             because re-sending does not make the file openable. -->
+                        <Label Style="{StaticResource ChatFailureReasonLabel}"
+                               AutomationId="ChatOpenFailure"
+                               IsVisible="{Binding HasOpenFailed}"
+                               Text="{Binding OpenFailureReason}"/>
                         <VerticalStackLayout Spacing="4"
                                              IsVisible="{Binding HasFailed}">
                             <Label Style="{StaticResource ChatFailureReasonLabel}"
@@ -451,6 +486,12 @@
                             Text="{Binding Model.Text}"
                             TextColor="{StaticResource ChatBubbleMediaTextColor}"
                             LineBreakMode="TailTruncation"/>
+                        <!-- The local open failure, not the send failure: no Retry button,
+                             because re-sending does not make the file openable. -->
+                        <Label Style="{StaticResource ChatFailureReasonLabel}"
+                               AutomationId="ChatOpenFailure"
+                               IsVisible="{Binding HasOpenFailed}"
+                               Text="{Binding OpenFailureReason}"/>
                         <VerticalStackLayout Spacing="4"
                                              IsVisible="{Binding HasFailed}">
                             <Label Style="{StaticResource ChatFailureReasonLabel}"

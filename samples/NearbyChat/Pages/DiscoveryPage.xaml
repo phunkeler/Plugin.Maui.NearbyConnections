@@ -88,13 +88,7 @@
                                     HorizontalOptions="Start"
                                     Style="{StaticResource CardTitle}"
                                     Text="{Binding DisplayName}"/>
-                                <Border
-                                    Stroke="Transparent"
-                                    WidthRequest="20"
-                                    HeightRequest="20"
-                                    HorizontalOptions="End"
-                                    StrokeShape="RoundRectangle 10"
-                                    Background="{StaticResource LightTextQuaternary}">
+                                <Border Style="{StaticResource DeviceRowStatusBadgeBorderStyle}">
                                     <Border.Triggers>
                                         <DataTrigger TargetType="Border"
                                                      Binding="{Binding IsConnecting}"
@@ -103,9 +97,7 @@
                                                     Value="{StaticResource StatusInfo}"/>
                                         </DataTrigger>
                                     </Border.Triggers>
-                                    <Image
-                                        WidthRequest="10"
-                                        HeightRequest="10">
+                                    <Image Style="{StaticResource DeviceRowStatusBadgeImageStyle}">
                                         <Image.Source>
                                             <FontImageSource
                                                 FontFamily="NearbyChatIcons"

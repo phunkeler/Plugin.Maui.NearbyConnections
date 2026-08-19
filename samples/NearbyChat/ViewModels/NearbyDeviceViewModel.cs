@@ -53,6 +53,13 @@ public abstract partial class NearbyDeviceViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Re-runs the relative-time binding on this row.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ReceivedAt"/> never changes. The notification exists to make the binding re-run
+    /// its time-dependent converter, so "2 minutes ago" advances as the clock does.
+    /// </remarks>
     public void RefreshRelativeTime() => OnPropertyChanged(nameof(ReceivedAt));
 
     /// <summary>

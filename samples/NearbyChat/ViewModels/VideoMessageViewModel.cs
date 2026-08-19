@@ -8,7 +8,5 @@ public sealed class VideoMessageViewModel(ChatMessage model, ILauncher launcher)
     public VideoAttachment? Attachment =>
         Model.Attachments.OfType<VideoAttachment>().FirstOrDefault();
 
-    public new ImageSource? Thumbnail => Attachment?.Thumbnail;
-
     public TimeSpan? Duration => Attachment?.Duration;
 }

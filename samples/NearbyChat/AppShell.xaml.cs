@@ -26,7 +26,7 @@ public partial class AppShell : Shell
 
         if (!s_viewModelMappings.TryGetValue(viewModelType, out var mapping))
         {
-            throw new KeyNotFoundException($"No map for ${viewModelType} was found on navigation mappings. Please register your ViewModel in {nameof(AppShell)}.{nameof(s_viewModelMappings)}");
+            throw new KeyNotFoundException($"No map for {viewModelType} was found on navigation mappings. Please register your ViewModel in {nameof(AppShell)}.{nameof(s_viewModelMappings)}");
         }
 
         return $"//{mapping.Name}";

@@ -10,16 +10,19 @@ namespace NearbyChat.ViewModels;
 /// </summary>
 public partial class DiscoveredDeviceViewModel : NearbyDeviceViewModel
 {
-    readonly INearby _session;
+    readonly INearby _nearby;
     readonly ILogger _logger;
 
-    public DiscoveredDeviceViewModel(NearbyDevice device, INearby session, ILogger logger)
+    public DiscoveredDeviceViewModel(
+        NearbyDevice device,
+        INearby nearby,
+        ILogger logger)
         : base(device)
     {
-        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(nearby);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _session = session;
+        _nearby = nearby;
         _logger = logger;
     }
 
@@ -56,7 +59,7 @@ public partial class DiscoveredDeviceViewModel : NearbyDeviceViewModel
 
         try
         {
-            await _session.ConnectAsync(Device, cancellationToken);
+            await _nearby.ConnectAsync(Device, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

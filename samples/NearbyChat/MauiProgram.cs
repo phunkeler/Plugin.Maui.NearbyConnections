@@ -66,7 +66,6 @@ public static class MauiProgram
 
         builder.Services.AddBottomSheet<ChatBottomSheet, ChatViewModel>(nameof(ChatViewModel));
 
-
         return builder.Build();
     }
 

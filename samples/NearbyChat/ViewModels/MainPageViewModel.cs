@@ -45,12 +45,10 @@ public partial class MainPageViewModel : BasePageViewModel
         IsDiscovering = _nearby.IsDiscovering;
     }
 
-    /// <summary>
-    /// Keeps one header indicator honest for as long as the page is on screen. The platform stops
-    /// advertising and discovery on its own — backgrounding, a radio fault — so a value read once
-    /// on navigation goes stale with nothing to correct it.
-    /// </summary>
-    async Task WatchAsync(IAsyncEnumerable<bool> changes, Action<bool> apply, CancellationToken cancellationToken)
+    async Task WatchAsync(
+        IAsyncEnumerable<bool> changes,
+        Action<bool> apply,
+        CancellationToken cancellationToken)
     {
         try
         {

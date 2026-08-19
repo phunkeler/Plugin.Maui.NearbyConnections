@@ -232,7 +232,18 @@ public partial class ChatViewModel(
     }
 
     public void OnNavigatedFrom(IBottomSheetNavigationParameters parameters)
-        => IsActive = false;
+    {
+        IsActive = false;
+
+        // An open failure describes what happened on the last tap, not a property of the message.
+        // Clearing on close means a user who installs a viewer and reopens the sheet does not meet
+        // a stale line about a file that now opens. The send failure is deliberately left alone:
+        // that one is a property of the message and survives until it is sent again.
+        foreach (var message in Messages)
+        {
+            message.OpenFailureReason = null;
+        }
+    }
 
     public void OnNavigatedTo(IBottomSheetNavigationParameters parameters)
     {

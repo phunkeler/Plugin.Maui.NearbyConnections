@@ -13,6 +13,7 @@ public static class NearbyPermissions
     public static async Task<PermissionStatus> EnsureGrantedAsync()
     {
         var bluetooth = await EnsureAsync<Permissions.Bluetooth>();
+
         if (bluetooth is not PermissionStatus.Granted)
         {
             return bluetooth;

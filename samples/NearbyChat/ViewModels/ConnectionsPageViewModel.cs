@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using NearbyChat.Services;
 using Plugin.Maui.BottomSheet.Navigation;
 using Plugin.Maui.NearbyConnections;
@@ -10,21 +11,25 @@ public partial class ConnectionsPageViewModel : BasePageViewModel
     readonly INavigationService _navigationService;
     readonly INearby _nearby;
     readonly IBottomSheetNavigationService _bottomSheetNavigationService;
+    readonly ILogger<ConnectionsPageViewModel> _logger;
 
     public ConnectionsPageViewModel(
         IDispatcher dispatcher,
         INavigationService navigationService,
         INearby nearby,
-        IBottomSheetNavigationService bottomSheetNavigationService)
+        IBottomSheetNavigationService bottomSheetNavigationService,
+        ILogger<ConnectionsPageViewModel> logger)
         : base(dispatcher)
     {
         ArgumentNullException.ThrowIfNull(navigationService);
         ArgumentNullException.ThrowIfNull(nearby);
         ArgumentNullException.ThrowIfNull(bottomSheetNavigationService);
+        ArgumentNullException.ThrowIfNull(logger);
 
         _navigationService = navigationService;
         _nearby = nearby;
         _bottomSheetNavigationService = bottomSheetNavigationService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -53,7 +58,7 @@ public partial class ConnectionsPageViewModel : BasePageViewModel
         ConnectedDevices = new NearbyDeviceCollection<ConnectedDeviceViewModel>(
             _nearby,
             action => Dispatcher.Dispatch(action),
-            project: device => new ConnectedDeviceViewModel(device, _nearby, _bottomSheetNavigationService),
+            project: device => new ConnectedDeviceViewModel(device, _nearby, _bottomSheetNavigationService, _logger),
             filter: static device => device.Status is NearbyDeviceStatus.Connected,
             update: static (row, device) => row.Update(device));
 
