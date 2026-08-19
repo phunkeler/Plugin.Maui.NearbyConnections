@@ -18,11 +18,8 @@
 
     <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
     <DefineConstants>$(DefineConstants);MauiAllowImplicitXmlnsDeclaration</DefineConstants>
-    <!-- Required by MauiAllowImplicitXmlnsDeclaration above: the generated
-         GlobalXmlns.g.cs applies AllowImplicitXmlnsDeclarationAttribute, which
-         is itself a preview-features API (CA2252) — removing this flag fails
-         the build with CA2252 on that generated file. -->
-    <EnablePreviewFeatures>true</EnablePreviewFeatures>
+
+    <NoWarn>$(NoWarn);CA2252</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

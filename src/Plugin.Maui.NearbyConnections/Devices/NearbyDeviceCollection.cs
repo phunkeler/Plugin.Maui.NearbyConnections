@@ -29,6 +29,13 @@ namespace Plugin.Maui.NearbyConnections;
 /// <c>ItemsSource</c>.
 /// </para>
 /// <para>
+/// <b>A failed change stream is rethrown, not swallowed.</b> If the underlying stream faults, the
+/// collection stops updating. Rather than freeze silently, it rethrows the fault as a
+/// <see cref="NearbyException"/> through the <c>marshal</c> callback, so it surfaces on the
+/// caller's own thread. Callbacks that throw — <c>project</c>, <c>filter</c>, <c>update</c> — fault
+/// on that same thread directly, because <c>marshal</c> does not return their exceptions here.
+/// </para>
+/// <para>
 /// <b>Rows are reused, not rebuilt.</b> A device that changes is handed to <c>update</c> rather than
 /// re-projected, so a row keeps its own state — a spinner, a selection, a timestamp — across the
 /// device's status transitions. A row is constructed once, when its device first passes
@@ -197,6 +204,20 @@ public class NearbyDeviceCollection<TRow> : IReadOnlyList<TRow>, INotifyCollecti
     /// <see cref="Dispose"/> — the reason this type has no unsubscribe step and cannot leak a
     /// watcher the way an event handler can.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Nothing awaits this task, so a fault it swallows is invisible: the collection stops updating
+    /// and a bound view freezes at its last state with no diagnostic. A fault is therefore rethrown
+    /// through <c>marshal</c>, which puts it on the thread the caller nominated — the same thread a
+    /// throwing <c>project</c> or <c>update</c> already faults on, since <c>marshal</c> is
+    /// fire-and-forget in .NET MAUI and those callbacks never return here.
+    /// </para>
+    /// <para>
+    /// The cancellation catch is filtered on this collection's own token. An
+    /// <see cref="OperationCanceledException"/> from any other source is a fault, not a teardown,
+    /// and takes the rethrow path.
+    /// </para>
+    /// </remarks>
     async Task WatchAsync(IAsyncEnumerator<NearbyDeviceChange> changes)
     {
         try
@@ -207,9 +228,16 @@ public class NearbyDeviceCollection<TRow> : IReadOnlyList<TRow>, INotifyCollecti
                 _marshal(() => Apply(change));
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
         {
             // Disposed.
+        }
+        catch (Exception ex)
+        {
+            _marshal(() => throw new NearbyException(
+                "The nearby device collection stopped updating because its change stream failed. "
+                + "Rows will no longer reflect the session.",
+                ex));
         }
         finally
         {

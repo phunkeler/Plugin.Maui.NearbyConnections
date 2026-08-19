@@ -288,4 +288,74 @@ public class NearbyDeviceCollectionTests
 
         public TestContext TestContext { get; set; }
     }
+
+    [TestClass]
+    public sealed class StreamFaults : NearbyDeviceCollectionTests
+    {
+        // Nothing awaits the watch loop, so a swallowed fault leaves a bound view frozen with no
+        // diagnostic anywhere. The fault is rethrown through marshal instead.
+        [TestMethod]
+        public async Task FaultedStream_RethrowsThroughMarshal()
+        {
+            // Arrange
+            var session = new FaultingDevices();
+            Exception? observed = null;
+
+            // Act
+            using var devices = Create.Devices(
+                session,
+                marshal: action =>
+                {
+                    try
+                    {
+                        action();
+                    }
+                    catch (Exception ex)
+                    {
+                        observed = ex;
+                    }
+                });
+
+            await Wait.UntilAsync(() => observed is not null);
+
+            // Assert
+            Assert.IsInstanceOfType<NearbyException>(observed);
+            Assert.AreSame(session.Fault, observed.InnerException);
+        }
+
+        // Disposal is the one cancellation that is a normal teardown. It must not reach the
+        // rethrow path the way any other fault does.
+        [TestMethod]
+        public async Task Disposal_DoesNotRethrow()
+        {
+            // Arrange
+            var platform = new FakeNearby();
+            var session = Create.Session(platform);
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+
+            Exception? observed = null;
+            var devices = Create.Devices(
+                session,
+                marshal: action =>
+                {
+                    try
+                    {
+                        action();
+                    }
+                    catch (Exception ex)
+                    {
+                        observed = ex;
+                    }
+                });
+
+            // Act
+            devices.Dispose();
+            await platform.EmitDeviceFoundAsync(Create.Device("a", "Alice"));
+
+            // Assert
+            Assert.IsNull(observed);
+        }
+
+        public TestContext TestContext { get; set; }
+    }
 }
