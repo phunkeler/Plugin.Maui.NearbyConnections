@@ -4,10 +4,12 @@ Plugin.Maui.NearbyConnections.ConnectionRole.Acceptor = 1 -> Plugin.Maui.NearbyC
 Plugin.Maui.NearbyConnections.ConnectionRole.Initiator = 0 -> Plugin.Maui.NearbyConnections.ConnectionRole
 Plugin.Maui.NearbyConnections.INearby
 Plugin.Maui.NearbyConnections.INearby.AcceptAsync(Plugin.Maui.NearbyConnections.NearbyDevice! device, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Plugin.Maui.NearbyConnections.NearbyConnection!>!
+Plugin.Maui.NearbyConnections.INearby.AdvertisingChanges.get -> System.Collections.Generic.IAsyncEnumerable<bool>!
 Plugin.Maui.NearbyConnections.INearby.CheckAvailabilityAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Plugin.Maui.NearbyConnections.NearbyAvailability>!
 Plugin.Maui.NearbyConnections.INearby.ConnectAsync(Plugin.Maui.NearbyConnections.NearbyDevice! device, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Plugin.Maui.NearbyConnections.NearbyConnection!>!
 Plugin.Maui.NearbyConnections.INearby.Devices.get -> Plugin.Maui.NearbyConnections.INearbyDevices!
 Plugin.Maui.NearbyConnections.INearby.DisconnectAsync(Plugin.Maui.NearbyConnections.NearbyDevice! device, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Plugin.Maui.NearbyConnections.INearby.DiscoveryChanges.get -> System.Collections.Generic.IAsyncEnumerable<bool>!
 Plugin.Maui.NearbyConnections.INearby.IsAdvertising.get -> bool
 Plugin.Maui.NearbyConnections.INearby.IsDiscovering.get -> bool
 Plugin.Maui.NearbyConnections.INearby.RejectAsync(Plugin.Maui.NearbyConnections.NearbyDevice! device, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!

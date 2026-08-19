@@ -20,8 +20,13 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     readonly ConcurrentDictionary<string, NearbyConnection> _activeConnections
         = new(StringComparer.Ordinal);
 
-    volatile bool _isAdvertising;
-    volatile bool _isDiscovering;
+    // Not volatile: the setters below take a ref to these, and ref-to-volatile is CS0420.
+    // Interlocked.Exchange is a full fence, so every write is already published.
+    bool _isAdvertising;
+    bool _isDiscovering;
+
+    readonly ChangeBroadcast<bool> _advertisingChanges = new();
+    readonly ChangeBroadcast<bool> _discoveryChanges = new();
 
     CancellationTokenSource? _refreshCts;
     Task? _refreshTask;
@@ -78,15 +83,38 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     public bool IsAdvertising
     {
         get => _isAdvertising;
-        private set => _isAdvertising = value;
+
+        // Publish only on a real transition. Every write site routes through this setter, so a
+        // future one cannot forget to signal; Exchange also settles the one race that exists —
+        // a faulting pump and StopPumpAsync both writing false — to a single publish.
+        private set
+        {
+            if (Interlocked.Exchange(ref _isAdvertising, value) != value)
+            {
+                _advertisingChanges.Publish(value);
+            }
+        }
     }
 
     /// <inheritdoc/>
     public bool IsDiscovering
     {
         get => _isDiscovering;
-        private set => _isDiscovering = value;
+
+        private set
+        {
+            if (Interlocked.Exchange(ref _isDiscovering, value) != value)
+            {
+                _discoveryChanges.Publish(value);
+            }
+        }
     }
+
+    /// <inheritdoc/>
+    public IAsyncEnumerable<bool> AdvertisingChanges => _advertisingChanges.Stream;
+
+    /// <inheritdoc/>
+    public IAsyncEnumerable<bool> DiscoveryChanges => _discoveryChanges.Stream;
 
     /// <inheritdoc/>
     public Task<NearbyAvailability> CheckAvailabilityAsync(CancellationToken cancellationToken = default)

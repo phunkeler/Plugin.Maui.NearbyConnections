@@ -278,7 +278,7 @@ public class NearbyImplementationTests
         {
             // A late fault (e.g. the platform's radio drops mid-session) is a different failure
             // mode from a start failure: it must not retroactively fault the already-returned
-            // StartAdvertisingAsync Task. It is still only observable via IsAdvertising.
+            // StartAdvertisingAsync Task. ChangeStreams covers the AdvertisingChanges signal.
 
             // Arrange
             var connections = new FakeNearby();
@@ -1132,6 +1132,157 @@ public class NearbyImplementationTests
     // -------------------------------------------------------------------------
     // Hazards flagged by the test-mining pass.
     // -------------------------------------------------------------------------
+
+    [TestClass]
+    public sealed class ChangeStreams : NearbyImplementationTests
+    {
+        public TestContext TestContext { get; set; } = null!;
+
+        [TestMethod]
+        public async Task StartAdvertisingAsync_PublishesTrue()
+        {
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+
+            // Act
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+
+            // Assert
+            Assert.IsTrue(await changes.MoveNextAsync());
+            Assert.IsTrue(changes.Current);
+        }
+
+        [TestMethod]
+        public async Task StopAdvertisingAsync_PublishesFalse()
+        {
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+
+            // Act
+            await session.StopAdvertisingAsync(TestContext.CancellationToken);
+
+            // Assert
+            Assert.IsTrue(await changes.MoveNextAsync());
+            Assert.IsFalse(changes.Current);
+        }
+
+        [TestMethod]
+        public async Task StopAdvertisingAsync_WhenNotAdvertising_PublishesNothing()
+        {
+            // A stop that stops nothing is not a transition. The channel is FIFO, so
+            // a later real transition arriving as the first item proves nothing preceded it.
+
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+
+            // Act
+            await session.StopAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+
+            // Assert
+            Assert.IsTrue(await changes.MoveNextAsync());
+            Assert.IsTrue(changes.Current, "The no-op stop must not have published false ahead of the real start.");
+        }
+
+        [TestMethod]
+        public async Task AdvertiseStartFailure_PublishesTrueThenFalse()
+        {
+            // The flag is set before the platform confirms the start, so a failed start is a real
+            // pair of transitions. The stream publishes exactly what the property reports.
+
+            // Arrange
+            var connections = new FakeNearby { AdvertiseFault = new NearbyAdvertisingException("nope") };
+            var session = Create.Session(connections);
+            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+
+            // Act
+            await Assert.ThrowsExactlyAsync<NearbyAdvertisingException>(
+                () => session.StartAdvertisingAsync(TestContext.CancellationToken));
+
+            // Assert
+            Assert.IsTrue(await changes.MoveNextAsync());
+            Assert.IsTrue(changes.Current);
+            Assert.IsTrue(await changes.MoveNextAsync());
+            Assert.IsFalse(changes.Current);
+        }
+
+        [TestMethod]
+        public async Task AdvertiseFaultAfterSuccessfulStart_PublishesFalse_AndLeavesDiscoveryRunning()
+        {
+            // The finding-17 scenario: advertising dies mid-session with no caller involved.
+
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+
+            await using var advertising = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+
+            // Act
+            connections.FaultAdvertiseStream(new NearbyAdvertisingException("radio dropped"));
+
+            // Assert
+            Assert.IsTrue(await advertising.MoveNextAsync());
+            Assert.IsFalse(advertising.Current);
+            Assert.IsTrue(session.IsDiscovering, "Advertising and discovery are independent.");
+        }
+
+        [TestMethod]
+        public async Task DiscoverFaultAfterSuccessfulStart_PublishesFalse_AndLeavesAdvertisingRunning()
+        {
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+
+            await using var discovery = session.DiscoveryChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+
+            // Act
+            connections.FaultDiscoverStream(new NearbyDiscoveryException("radio dropped"));
+
+            // Assert
+            Assert.IsTrue(await discovery.MoveNextAsync());
+            Assert.IsFalse(discovery.Current);
+            Assert.IsTrue(session.IsAdvertising, "Advertising and discovery are independent.");
+        }
+
+        [TestMethod]
+        public async Task DiscoveryRefresh_PublishesNothing_AndIsDiscoveringStaysTrue()
+        {
+            // A refresh restarts the underlying scan. Discovery never logically stopped, so the
+            // flag holds and the stream stays silent — otherwise a bound indicator blinks every
+            // refresh interval.
+
+            // Arrange
+            var time = new FakeTimeProvider();
+            var interval = TimeSpan.FromSeconds(30);
+            var connections = new FakeNearby();
+            var session = Create.Session(connections, new NearbyOptions { DiscoveryRefreshInterval = interval }, time);
+            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+
+            await using var changes = session.DiscoveryChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+
+            // Act
+            time.Advance(interval);
+            await Wait.UntilAsync(() => connections.DiscoverCallCount >= 2);
+
+            // Assert
+            Assert.IsTrue(session.IsDiscovering, "Discovery does not stop across a refresh.");
+
+            await session.StopDiscoveryAsync(TestContext.CancellationToken);
+            Assert.IsTrue(await changes.MoveNextAsync());
+            Assert.IsFalse(changes.Current, "The refresh must not have published a false/true blink before the real stop.");
+        }
+    }
 
     [TestClass]
     public sealed class Hazards : NearbyImplementationTests

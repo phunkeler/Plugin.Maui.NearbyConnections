@@ -295,7 +295,10 @@ sealed partial class NearbyImplementation
 
                     _registry.BeginGeneration();
 
-                    await StopPumpAsync(_discover).ConfigureAwait(false);
+                    // Discovery does not logically stop across a refresh, so the flag stays true
+                    // and DiscoveryChanges publishes nothing. StartPump's SetFlag(true) below is
+                    // then a no-op rather than the back half of a false/true blink.
+                    await StopPumpAsync(_discover, clearFlag: false).ConfigureAwait(false);
 
                     var started = StartPump(_discover);
 
@@ -346,7 +349,13 @@ sealed partial class NearbyImplementation
         return started;
     }
 
-    static async Task StopPumpAsync(PumpState pump)
+    /// <param name="pump">The pump to stop.</param>
+    /// <param name="clearFlag">
+    /// Whether to report the operation as stopped. Pass <see langword="false"/> when the pump is
+    /// being restarted immediately and the operation never logically stopped — a discovery refresh
+    /// — so neither the flag nor its change stream reports a stop that did not happen.
+    /// </param>
+    static async Task StopPumpAsync(PumpState pump, bool clearFlag = true)
     {
         var cts = pump.Cts;
         var task = pump.Task;
@@ -365,7 +374,11 @@ sealed partial class NearbyImplementation
         }
 
         cts?.Dispose();
-        pump.SetFlag(false);
+
+        if (clearFlag)
+        {
+            pump.SetFlag(false);
+        }
     }
 
     sealed class PumpState(Func<TaskCompletionSource, CancellationToken, Task> start, Action<bool> setFlag)

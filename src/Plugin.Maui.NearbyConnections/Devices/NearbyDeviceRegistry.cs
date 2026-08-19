@@ -1,5 +1,3 @@
-using System.Threading.Channels;
-
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
@@ -23,7 +21,7 @@ sealed class NearbyDeviceRegistry : INearbyDevices
 {
     readonly Lock _gate = new();
     readonly Dictionary<string, NearbyDevice> _devices = new(StringComparer.Ordinal);
-    readonly List<Channel<NearbyDeviceChange>> _watchers = [];
+    readonly ChangeBroadcast<NearbyDeviceChange> _changes = new();
 
     /// <summary>
     /// Devices carried over from the previous discovery generation that the current pass has not
@@ -45,7 +43,7 @@ sealed class NearbyDeviceRegistry : INearbyDevices
     public NearbyDevice this[int index] => _snapshot[index];
 
     /// <inheritdoc/>
-    public IAsyncEnumerable<NearbyDeviceChange> Changes => new ChangeStream(this);
+    public IAsyncEnumerable<NearbyDeviceChange> Changes => _changes.Stream;
 
     /// <inheritdoc/>
     public IEnumerator<NearbyDevice> GetEnumerator()
@@ -275,101 +273,7 @@ sealed class NearbyDeviceRegistry : INearbyDevices
     }
 
     /// <summary>
-    /// Fans a change out to every watcher. Called outside <see cref="_gate"/>.
+    /// Fans a change out to every watcher.
     /// </summary>
-    /// <remarks>
-    /// The watcher list is copied under the lock and written to outside it: a channel write is
-    /// cheap but is not this type's code, and holding a lock across foreign code is how deadlocks
-    /// are built. Each watcher's channel is unbounded, so <c>TryWrite</c> only fails on a channel
-    /// that is already completed — a watcher that has been disposed and not yet unregistered — and
-    /// dropping the change for it is correct.
-    /// </remarks>
-    void Publish(NearbyDeviceChange change)
-    {
-        Channel<NearbyDeviceChange>[] watchers;
-
-        lock (_gate)
-        {
-            if (_watchers.Count == 0)
-            {
-                return;
-            }
-
-            watchers = [.. _watchers];
-        }
-
-        foreach (var watcher in watchers)
-        {
-            watcher.Writer.TryWrite(change);
-        }
-    }
-
-    Channel<NearbyDeviceChange> Subscribe()
-    {
-        // Unbounded and single-reader: one enumeration drains it, and a slow consumer buffers
-        // rather than blocking the platform callback that produced the change.
-        var channel = Channel.CreateUnbounded<NearbyDeviceChange>(
-            new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-
-        lock (_gate)
-        {
-            _watchers.Add(channel);
-        }
-
-        return channel;
-    }
-
-    void Unsubscribe(Channel<NearbyDeviceChange> channel)
-    {
-        lock (_gate)
-        {
-            _watchers.Remove(channel);
-        }
-
-        channel.Writer.TryComplete();
-    }
-
-    /// <summary>
-    /// One enumeration of <see cref="Changes"/>. A type rather than an iterator method on the
-    /// registry so that <see cref="Changes"/> can be a property: each <c>await foreach</c> calls
-    /// <see cref="GetAsyncEnumerator"/> and gets its own channel, which is what makes the stream
-    /// broadcast rather than shared.
-    /// </summary>
-    sealed class ChangeStream(NearbyDeviceRegistry registry) : IAsyncEnumerable<NearbyDeviceChange>
-    {
-        /// <summary>
-        /// Subscribes, then returns an enumerator that drains the resulting channel.
-        /// </summary>
-        /// <remarks>
-        /// <b>Not an iterator, deliberately.</b> An <c>async</c> iterator body does not begin
-        /// running until the first <c>MoveNextAsync</c>, so subscribing inside one would silently
-        /// drop every change published between <c>GetAsyncEnumerator</c> and that first call —
-        /// exactly the window a consumer uses to read the current state before watching for what
-        /// happens next. Subscribing in this plain method makes the watcher live the moment it
-        /// returns.
-        /// </remarks>
-        public IAsyncEnumerator<NearbyDeviceChange> GetAsyncEnumerator(
-            CancellationToken cancellationToken = default)
-            => Drain(registry, registry.Subscribe(), cancellationToken);
-
-        static async IAsyncEnumerator<NearbyDeviceChange> Drain(
-            NearbyDeviceRegistry registry,
-            Channel<NearbyDeviceChange> channel,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                await foreach (var change in channel.Reader
-                    .ReadAllAsync(cancellationToken)
-                    .ConfigureAwait(false))
-                {
-                    yield return change;
-                }
-            }
-            finally
-            {
-                registry.Unsubscribe(channel);
-            }
-        }
-    }
+    void Publish(NearbyDeviceChange change) => _changes.Publish(change);
 }

@@ -70,6 +70,12 @@ public interface INearby
     /// <value>
     /// <see langword="true"/> if the device is advertising; otherwise, <see langword="false"/>.
     /// </value>
+    /// <remarks>
+    /// This value changes without a caller asking it to: the platform tears advertising down when
+    /// the app is backgrounded, and a radio fault ends it mid-session. Read this property for the
+    /// current state and enumerate <see cref="AdvertisingChanges"/> for what happens next.
+    /// </remarks>
+    /// <seealso cref="AdvertisingChanges"/>
     bool IsAdvertising { get; }
 
     /// <summary>
@@ -78,7 +84,64 @@ public interface INearby
     /// <value>
     /// <see langword="true"/> if the device is discovering; otherwise, <see langword="false"/>.
     /// </value>
+    /// <remarks>
+    /// This value changes without a caller asking it to, for the same reasons as
+    /// <see cref="IsAdvertising"/>. Read this property for the current state and enumerate
+    /// <see cref="DiscoveryChanges"/> for what happens next.
+    /// </remarks>
+    /// <seealso cref="DiscoveryChanges"/>
     bool IsDiscovering { get; }
+
+    /// <summary>
+    /// Gets the stream of changes to <see cref="IsAdvertising"/>.
+    /// </summary>
+    /// <value>
+    /// An <see cref="IAsyncEnumerable{T}"/> that yields the new value of
+    /// <see cref="IsAdvertising"/> every time it changes, until the enumeration is cancelled.
+    /// </value>
+    /// <remarks>
+    /// <para>
+    /// <b>The item is the new value.</b> Apply what the stream yields rather than re-reading
+    /// <see cref="IsAdvertising"/>, which reintroduces the race this stream exists to close.
+    /// </para>
+    /// <para>
+    /// Delivery matches <see cref="INearbyDevices.Changes"/>: broadcast, never replayed, arriving
+    /// on a thread-pool thread, and ending the enumeration is the only cleanup. Read
+    /// <see cref="IsAdvertising"/> for the current state, then watch this for what happens next.
+    /// </para>
+    /// <para>
+    /// A start that fails after the platform accepted the request yields <see langword="true"/>
+    /// followed by <see langword="false"/>, mirroring what <see cref="IsAdvertising"/> reports.
+    /// On <c>net10.0</c> the stream never yields, because starting throws.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// The following example keeps a header label honest while a page is on screen.
+    /// <code language="csharp">
+    /// await foreach (var isAdvertising in nearby.AdvertisingChanges.WithCancellation(cancellationToken))
+    /// {
+    ///     IsAdvertising = isAdvertising;
+    /// }
+    /// </code>
+    /// </example>
+    /// <seealso cref="IsAdvertising"/>
+    IAsyncEnumerable<bool> AdvertisingChanges { get; }
+
+    /// <summary>
+    /// Gets the stream of changes to <see cref="IsDiscovering"/>.
+    /// </summary>
+    /// <value>
+    /// An <see cref="IAsyncEnumerable{T}"/> that yields the new value of
+    /// <see cref="IsDiscovering"/> every time it changes, until the enumeration is cancelled.
+    /// </value>
+    /// <remarks>
+    /// Delivery matches <see cref="AdvertisingChanges"/>. One difference: discovery restarts its
+    /// underlying scan on <see cref="NearbyOptions.DiscoveryRefreshInterval"/>, and because
+    /// discovery does not logically stop across a refresh, no change is published and
+    /// <see cref="IsDiscovering"/> stays <see langword="true"/> throughout.
+    /// </remarks>
+    /// <seealso cref="IsDiscovering"/>
+    IAsyncEnumerable<bool> DiscoveryChanges { get; }
 
     /// <summary>
     /// Determines whether nearby connectivity can be started, and what is preventing it if not.

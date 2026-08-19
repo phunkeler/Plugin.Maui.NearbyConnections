@@ -28,7 +28,8 @@ phones, doing the thing together:
 that operating in the background is unsupported ([forum 11964](https://developer.apple.com/forums/thread/11964)).
 A backgrounded app is suspended within seconds and the session dies silently. The plugin tears it
 down on `DidEnterBackground` and reports every device back to `Visible` through `Devices.Changes`,
-rather than leaving you holding a dead connection.
+rather than leaving you holding a dead connection. The teardown also stops advertising and
+discovery, which surfaces as `false` on `AdvertisingChanges` and `DiscoveryChanges`.
 
 **Android.** No framework prohibition, but the connection dies with the process, and Doze
 independently suspends networking. Surviving backgrounding requires a foreground service. That is
@@ -188,6 +189,20 @@ independent: starting or stopping one never affects the other.
 ```csharp
 await nearby.StartAdvertisingAsync();   // let others find me
 await nearby.StartDiscoveryAsync();     // find others
+```
+
+**Both stop on their own.** `nearby.IsAdvertising` and `nearby.IsDiscovering` report the current
+state, and the platform changes it without asking: backgrounding tears the session down, and a
+radio fault ends a scan mid-session. Read the property for the current value, then watch the
+matching stream for what happens next — the same state-plus-deltas shape as `Devices` and
+`Devices.Changes`.
+
+```csharp
+// each item is the flag's new value; apply it rather than re-reading the property
+await foreach (var isAdvertising in nearby.AdvertisingChanges.WithCancellation(cancellationToken))
+{
+    headerLabel.Text = isAdvertising ? "Broadcasting..." : "Not broadcasting";
+}
 ```
 
 **Device state.** Every device the plugin knows about lives in `nearby.Devices`, from first

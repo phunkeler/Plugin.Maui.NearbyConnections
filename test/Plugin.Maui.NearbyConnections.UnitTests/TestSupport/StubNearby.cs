@@ -14,6 +14,10 @@ sealed class StubNearby : INearby
 
     public bool IsDiscovering => false;
 
+    public IAsyncEnumerable<bool> AdvertisingChanges => throw new NotSupportedException();
+
+    public IAsyncEnumerable<bool> DiscoveryChanges => throw new NotSupportedException();
+
     public Task<NearbyAvailability> CheckAvailabilityAsync(CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
