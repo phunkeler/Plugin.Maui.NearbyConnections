@@ -14,7 +14,7 @@
     (iOS requires macOS + Xcode).
 
 .EXAMPLE
-    ./eng/device-tests.ps1 -Platform all
+    ./scripts/device-tests.ps1 -Platform all
 #>
 [CmdletBinding()]
 param(

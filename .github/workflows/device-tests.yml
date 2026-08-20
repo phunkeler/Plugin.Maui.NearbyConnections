@@ -61,7 +61,7 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: pwsh ./eng/device-tests.ps1 -Platform android
+          script: pwsh ./scripts/device-tests.ps1 -Platform android
 
       - name: Publish results check
         uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
@@ -119,7 +119,7 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Run device tests on simulator
-        run: pwsh ./eng/device-tests.ps1 -Platform ios
+        run: pwsh ./scripts/device-tests.ps1 -Platform ios
 
       - name: Publish results check
         uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0

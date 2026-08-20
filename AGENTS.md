@@ -20,7 +20,7 @@ dotnet run --project test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.Ne
 # Device tests — the platform partials on a real Android emulator / iOS simulator, no radio.
 # Boots a device if none is running; TRX results land in artifacts/. iOS leg needs macOS + Xcode.
 # (This is the one place `dotnet test` DOES work: DeviceRunners.Testing.Targets replaces VSTest.)
-./eng/device-tests.ps1 -Platform all      # or: android | ios
+./scripts/device-tests.ps1 -Platform all      # or: android | ios
 
 # Coverage — dotnet-coverage is pinned in .config/dotnet-tools.json, not globally installed.
 # `dotnet tool restore` once per clone; the tool then runs as `dotnet dotnet-coverage`, not bare.
@@ -319,7 +319,7 @@ against known flakes before blaming a code change.
 
 **Device tests** (`test/Plugin.Maui.NearbyConnections.DeviceTests{,.Runner}/`) are the automated
 check on the platform partials — xUnit v3 hosted in a MAUI runner app via DeviceRunners, driven by
-`eng/device-tests.ps1` on an Android emulator / iOS simulator (locally and in `device-tests.yml`).
+`scripts/device-tests.ps1` on an Android emulator / iOS simulator (locally and in `device-tests.yml`).
 No radio, no multi-device: tests invoke the internal callbacks (`OnConnectionResult`,
 `OnPeerStateChanged`, …) with directly-constructed SDK argument objects — the same pattern
 dotnet/maui's Essentials device tests use — and assert through the channels/TCS/registry the
@@ -337,7 +337,7 @@ unit suite, deliberately:
   runtimes; the deliverable is TRX results (in `artifacts/`, surfaced as CI checks), not a
   coverage delta. Do not add a coverage step to the device jobs — it will not work.
 - **Pass the device explicitly.** DeviceRunners' booted-simulator auto-detection is unreliable;
-  `eng/device-tests.ps1` always passes `-p:DeviceRunnersDevice=<id>`. Do the same in any manual
+  `scripts/device-tests.ps1` always passes `-p:DeviceRunnersDevice=<id>`. Do the same in any manual
   `dotnet test` invocation.
 
 The device tests deliberately do **not** test through `IPlatformNearby` — they drive the internal
