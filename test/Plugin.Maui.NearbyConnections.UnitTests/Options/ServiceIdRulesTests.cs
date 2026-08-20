@@ -29,7 +29,7 @@ public class ServiceIdRulesTests
             var failures = new List<string>();
 
             // Act
-            ServiceIdRules.Validate(serviceId, failures);
+            ServiceIdRules.Validate(serviceId, suggestion: null, failures);
 
             // Assert
             Assert.IsEmpty(failures, $"'{serviceId}' is legal per RFC 6335 but was rejected.");
@@ -56,7 +56,7 @@ public class ServiceIdRulesTests
             var failures = new List<string>();
 
             // Act
-            ServiceIdRules.Validate(serviceId, failures);
+            ServiceIdRules.Validate(serviceId, suggestion: null, failures);
 
             // Assert
             Assert.IsNotEmpty(failures, $"'{serviceId}' violates RFC 6335 but was accepted — this would crash on iOS.");
@@ -72,7 +72,7 @@ public class ServiceIdRulesTests
             var failures = new List<string>();
 
             // Act
-            ServiceIdRules.Validate(ServiceIdRules.Unset, failures);
+            ServiceIdRules.Validate(ServiceIdRules.Unset, suggestion: null, failures);
 
             // Assert
             Assert.HasCount(1, failures);
@@ -90,7 +90,7 @@ public class ServiceIdRulesTests
             var failures = new List<string>();
 
             // Act
-            ServiceIdRules.Validate("-A-", failures);
+            ServiceIdRules.Validate("-A-", suggestion: null, failures);
 
             // Assert
             Assert.IsGreaterThan(1, failures.Count,
@@ -107,7 +107,7 @@ public class ServiceIdRulesTests
             var failures = new List<string>();
 
             // Act
-            ServiceIdRules.Validate(string.Empty, failures);
+            ServiceIdRules.Validate(string.Empty, suggestion: null, failures);
 
             // Assert
             Assert.IsEmpty(failures);
@@ -126,7 +126,7 @@ public class ServiceIdRulesTests
             var failures = new List<string>();
 
             // Act
-            ServiceIdRules.Validate("Nearby_Chat", failures);
+            ServiceIdRules.Validate("Nearby_Chat", suggestion: null, failures);
 
             // Assert
             var message = string.Join(" ", failures);
@@ -142,10 +142,85 @@ public class ServiceIdRulesTests
             var failures = new List<string>();
 
             // Act
-            ServiceIdRules.Validate("way-too-long-service-id", failures);
+            ServiceIdRules.Validate("way-too-long-service-id", suggestion: null, failures);
 
             // Assert
             Assert.Contains("way-too-long-service-id", string.Join(" ", failures), StringComparison.Ordinal);
+        }
+    }
+
+    [TestClass]
+    public sealed class Suggests : ServiceIdRulesTests
+    {
+        [TestMethod]
+        [DataRow("NearbyChat", "nearbychat", DisplayName = "lowercased")]
+        [DataRow("My App", "my-app", DisplayName = "space becomes a hyphen")]
+        [DataRow("ACME_Delivery", "acme-delivery", DisplayName = "underscore becomes a hyphen")]
+        [DataRow("O'Brien & Sons", "o-brien-sons", DisplayName = "a run of punctuation collapses to one hyphen")]
+        [DataRow("Contoso Field Service", "contoso-field-s", DisplayName = "truncated to the 15-character limit")]
+        [DataRow("Cafe  Munster", "cafe-munster", DisplayName = "repeated separators do not produce adjacent hyphens")]
+        public void ApplicationName_DerivesTheExpectedIdentifier(string applicationName, string expected)
+        {
+            // Arrange
+            // (no setup — Suggest is pure)
+
+            // Act
+            var suggestion = ServiceIdRules.Suggest(applicationName);
+
+            // Assert
+            Assert.AreEqual(expected, suggestion);
+        }
+
+        [TestMethod]
+        public void DerivedIdentifier_PassesTheRulesItIsSuggestedFor()
+        {
+            // Arrange
+            var failures = new List<string>();
+            var suggestion = ServiceIdRules.Suggest("Contoso Field Service");
+
+            // Act
+            ServiceIdRules.Validate(suggestion!, suggestion: null, failures);
+
+            // Assert
+            Assert.IsEmpty(failures, $"'{suggestion}' was suggested but is itself invalid.");
+        }
+
+        [TestMethod]
+        [DataRow("2048", DisplayName = "digits only, no ASCII letter to satisfy the rule")]
+        [DataRow("写真共有", DisplayName = "non-Latin script yields nothing legal")]
+        [DataRow("---", DisplayName = "punctuation only")]
+        [DataRow("", DisplayName = "empty")]
+        [DataRow(null, DisplayName = "null")]
+        public void UnsalvageableApplicationName_SuggestsNothing(string? applicationName)
+        {
+            // Arrange
+            // (no setup — Suggest is pure)
+
+            // Act
+            var suggestion = ServiceIdRules.Suggest(applicationName);
+
+            // Assert
+            Assert.IsNull(suggestion);
+        }
+
+        [TestMethod]
+        public void DistinctApplicationNames_CanCollideAfterTruncation()
+        {
+            // The reason a derived value is only ever suggested and never applied as a default:
+            // ServiceId decides which installs discover one another, so a silent collision would
+            // let unrelated sibling apps rendezvous. Pinned so nobody "improves" Suggest into a
+            // default without confronting this.
+
+            // Arrange
+            var service = "Contoso Field Service";
+            var sales = "Contoso Field Sales";
+
+            // Act
+            var suggestedForService = ServiceIdRules.Suggest(service);
+            var suggestedForSales = ServiceIdRules.Suggest(sales);
+
+            // Assert
+            Assert.AreEqual(suggestedForService, suggestedForSales);
         }
     }
 }

@@ -405,7 +405,7 @@ sealed partial class PlatformNearby
         cancellationToken.ThrowIfCancellationRequested();
 
         var failures = new List<string>();
-        ServiceIdRules.Validate(_options.ServiceId, failures);
+        ServiceIdRules.Validate(_options.ServiceId, suggestion: null, failures);
 
         if (failures.Count > 0)
         {

@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -18,7 +17,7 @@ public static partial class ServiceCollectionExtensions
     /// A delegate that configures <see cref="NearbyOptions"/>. If <see langword="null"/>, platform
     /// defaults are used — which is sufficient on Android, but <b>throws on iOS</b>, where
     /// <see cref="NearbyOptions.ServiceId"/> has no default and must be set. See the
-    /// <see cref="OptionsValidationException"/> below.
+    /// <see cref="ArgumentException"/> below.
     /// </param>
     /// <returns>
     /// The same <see cref="IServiceCollection"/> instance, so that multiple calls can be chained.
@@ -61,11 +60,12 @@ public static partial class ServiceCollectionExtensions
     /// <exception cref="ArgumentNullException">
     /// <paramref name="services"/> is <see langword="null"/>.
     /// </exception>
-    /// <exception cref="OptionsValidationException">
+    /// <exception cref="ArgumentException">
     /// The configured <see cref="NearbyOptions"/> is unusable. On iOS, leaving
-    /// <see cref="NearbyOptions.ServiceId"/> unset always throws, because it has no iOS default.
-    /// A value Multipeer Connectivity rejects also throws: null, empty, longer than 15 characters,
-    /// or in the <c>_name._tcp</c> Bonjour form.
+    /// <see cref="NearbyOptions.ServiceId"/> unset always throws, because it has no iOS default;
+    /// the message suggests a valid identifier derived from the application's own name. A value
+    /// Multipeer Connectivity rejects also throws: null, empty, longer than 15 characters, or in
+    /// the <c>_name._tcp</c> Bonjour form.
     /// </exception>
     public static IServiceCollection AddNearby(
         this IServiceCollection services,

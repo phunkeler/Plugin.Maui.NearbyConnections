@@ -1,10 +1,8 @@
-using Microsoft.Extensions.Options;
-
 namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyOptionsValidator
 {
-    public static void Validate(NearbyOptions options)
+    internal static void Validate(NearbyOptions options)
     {
         var failures = new List<string>();
 
@@ -17,7 +15,7 @@ sealed partial class NearbyOptionsValidator
 
         if (failures.Count > 0)
         {
-            throw new OptionsValidationException(string.Empty, typeof(NearbyOptions), failures);
+            throw new ArgumentException($"NearbyOptions is invalid. {string.Join(" ", failures)}");
         }
     }
 

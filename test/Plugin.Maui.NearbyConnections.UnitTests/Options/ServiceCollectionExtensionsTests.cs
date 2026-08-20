@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
@@ -74,11 +73,11 @@ public class ServiceCollectionExtensionsTests
             var services = new ServiceCollection();
 
             // Act
-            var failure = Assert.ThrowsExactly<OptionsValidationException>(
+            var failure = Assert.ThrowsExactly<ArgumentException>(
                 () => services.AddNearby(options => options.ServiceId = ""));
 
             // Assert
-            Assert.IsNotEmpty(failure.Failures);
+            Assert.Contains("ServiceId", failure.Message);
         }
 
         [TestMethod]
@@ -92,7 +91,7 @@ public class ServiceCollectionExtensionsTests
             var services = new ServiceCollection();
 
             // Act & Assert
-            Assert.ThrowsExactly<OptionsValidationException>(
+            Assert.ThrowsExactly<ArgumentException>(
                 () => services.AddNearby(),
                 "ServiceId has no usable default; omitting it must be caught, not tolerated.");
         }
