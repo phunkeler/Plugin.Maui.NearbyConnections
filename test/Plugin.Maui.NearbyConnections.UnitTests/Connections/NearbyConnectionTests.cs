@@ -502,6 +502,39 @@ public class NearbyConnectionTests
         }
 
         [TestMethod]
+        public async Task Register_AfterDisposeAsync_RunsCallbackInline()
+        {
+            // Arrange
+            var connection = Create.Connection(dispose: () => ValueTask.CompletedTask);
+            await connection.DisposeAsync();
+            var ranOnRegisteringThread = false;
+            var registeringThreadId = Environment.CurrentManagedThreadId;
+
+            // Act
+            using var registration = connection.DisconnectedToken.Register(
+                () => ranOnRegisteringThread = Environment.CurrentManagedThreadId == registeringThreadId);
+
+            // Assert
+            Assert.IsTrue(ranOnRegisteringThread);
+        }
+
+        [TestMethod]
+        public async Task ComposesIntoLinkedSource_AfterDisposeAsync()
+        {
+            // Arrange
+            var connection = Create.Connection(dispose: () => ValueTask.CompletedTask);
+            await connection.DisposeAsync();
+            using var caller = new CancellationTokenSource();
+
+            // Act
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+                connection.DisconnectedToken, caller.Token);
+
+            // Assert
+            Assert.IsTrue(linked.Token.IsCancellationRequested);
+        }
+
+        [TestMethod]
         public async Task ReceiveAsync_ExitsLoop_WhenPeerDisconnectsMidEnumeration()
         {
             // Arrange

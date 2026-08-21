@@ -148,6 +148,9 @@ sealed partial class PlatformNearby
     [LoggerMessage(EventId = 2060, Level = LogLevel.Error, Message = "Failed to delete temporary received file: Path={Path}")]
     partial void LogFileDeleteFailed(string path, Exception error);
 
+    [LoggerMessage(EventId = 2061, Level = LogLevel.Debug, Message = "Canceled copy of received file during teardown: Source={Source}, Destination={Destination}")]
+    partial void LogFileCopyCanceled(string source, string destination);
+
     // -------------------------------------------------------------------------
     // Channel bridge helpers
     // -------------------------------------------------------------------------

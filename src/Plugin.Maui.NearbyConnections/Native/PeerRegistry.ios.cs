@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 
 namespace Plugin.Maui.NearbyConnections;
@@ -6,6 +7,7 @@ namespace Plugin.Maui.NearbyConnections;
 sealed partial class PeerRegistry
 {
     readonly ConcurrentDictionary<string, MCPeerID> _handles = new(StringComparer.Ordinal);
+    readonly ConditionalWeakTable<MCPeerID, string> _keyCache = [];
     readonly Lock _localPeerIdLock = new();
 
     MCPeerID? _localPeerId;
@@ -33,6 +35,11 @@ sealed partial class PeerRegistry
             return string.Empty;
         }
 
+        if (_keyCache.TryGetValue(peerID, out var cached))
+        {
+            return cached;
+        }
+
         try
         {
             var archived = NSKeyedArchiver.GetArchivedData(peerID, true, out var error);
@@ -45,8 +52,12 @@ sealed partial class PeerRegistry
             using var data = archived
                 ?? throw new InvalidOperationException("Failed to archive MCPeerID: Result is null");
 
-            var hash = SHA256.HashData([.. data]);
-            return Convert.ToHexString(hash[..8]);
+#pragma warning disable IDE0305 // Simplify collection initialization
+            var hash = SHA256.HashData(data.ToArray());
+#pragma warning restore IDE0305
+            var key = Convert.ToHexString(hash[..8]);
+            _keyCache.AddOrUpdate(peerID, key);
+            return key;
         }
         catch (Exception ex)
         {
@@ -64,8 +75,14 @@ sealed partial class PeerRegistry
 
         lock (_localPeerIdLock)
         {
+            var created = _localPeerId is null;
             _localPeerId ??= new MCPeerID(displayName);
-            LogCreatedLocalPeer(Logger, displayName);
+
+            if (created)
+            {
+                LogCreatedLocalPeer(Logger, displayName);
+            }
+
             return _localPeerId;
         }
     }

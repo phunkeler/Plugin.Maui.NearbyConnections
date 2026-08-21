@@ -190,6 +190,12 @@ public class NearbyDeviceCollection<TRow> : IReadOnlyList<TRow>, INotifyCollecti
     {
         if (Interlocked.Exchange(ref _disposeGuard, 1) == 0)
         {
+            // _cts is cancelled but deliberately not disposed, matching NearbyConnection
+            // ._disconnectedCts. It is constructed with no delay, so it never allocated a Timer,
+            // and Cancel() clears the registration list — what remains is a managed object with no
+            // finalizer, collected with this collection. Disposing it would make the in-flight
+            // WatchAsync enumeration throw ObjectDisposedException instead of observing
+            // cancellation cleanly.
             _cts.Cancel();
         }
 

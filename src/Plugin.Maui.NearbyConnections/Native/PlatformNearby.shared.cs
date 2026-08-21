@@ -118,7 +118,7 @@ sealed partial class PlatformNearby : IPlatformNearby
 
         try
         {
-            await start(cancellationToken);
+            await start(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -128,13 +128,11 @@ sealed partial class PlatformNearby : IPlatformNearby
             throw;
         }
 
-        // A late fault (the channel faults after this point, e.g. the radio drops mid-session) must
-        // not retroactively fault an already-resolved started — TrySetResult, not SetResult.
         started.TrySetResult();
 
         try
         {
-            await foreach (var item in channel.Reader.ReadAllAsync(cancellationToken))
+            await foreach (var item in channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
                 yield return item;
             }
@@ -160,7 +158,7 @@ sealed partial class PlatformNearby : IPlatformNearby
             tcs,
             ConnectionRole.Initiator,
             beforeAwait: token => PlatformInitiateConnectAsync(device, token),
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -231,9 +229,9 @@ sealed partial class PlatformNearby : IPlatformNearby
 
         try
         {
-            await beforeAwait(timeoutCts.Token);
+            await beforeAwait(timeoutCts.Token).ConfigureAwait(false);
 
-            return await tcs.Task.WaitAsync(timeoutCts.Token);
+            return await tcs.Task.WaitAsync(timeoutCts.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
             when (hasTimeout
@@ -241,7 +239,7 @@ sealed partial class PlatformNearby : IPlatformNearby
                 && !cancellationToken.IsCancellationRequested)
         {
             _connectionTcs.TryRemove(device.Id, out _);
-            await PlatformAbandonConnectAsync(device);
+            await PlatformAbandonConnectAsync(device).ConfigureAwait(false);
 
             var name = device.DisplayName ?? device.Id;
             var seconds = timeout.TotalSeconds;
@@ -304,7 +302,7 @@ sealed partial class PlatformNearby : IPlatformNearby
         {
             try
             {
-                await connection.DisposeAsync();
+                await connection.DisposeAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {

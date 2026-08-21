@@ -85,8 +85,15 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// ended the connection, not on yours.
     /// </para>
     /// <para>
-    /// Remains valid after <see cref="DisposeAsync"/> — reading it never throws
-    /// <see cref="ObjectDisposedException"/>.
+    /// <b>Remains valid for the lifetime of this object, including after
+    /// <see cref="DisposeAsync"/>.</b> Reading the token, reading
+    /// <see cref="CancellationToken.IsCancellationRequested"/>, and calling
+    /// <see cref="CancellationToken.Register(Action)"/> all keep working and never throw
+    /// <see cref="ObjectDisposedException"/> — hold a connection reference past teardown to ask why
+    /// a loop ended. A registration added after the connection ended runs immediately, inline on
+    /// the calling thread. The token also stays usable as an input to
+    /// <see cref="CancellationTokenSource.CreateLinkedTokenSource(CancellationToken, CancellationToken)"/>
+    /// at any point in the connection's life.
     /// </para>
     /// </remarks>
     /// <example>
@@ -348,14 +355,19 @@ public sealed class NearbyConnection : IAsyncDisposable
             return;
         }
 
-        await _dispose();
+        await _dispose().ConfigureAwait(false);
         CompleteReceive();
 
-        // _disconnectedCts is deliberately NOT disposed. DisconnectedToken is public and consumers
-        // hold connection references past teardown (a page ViewModel checking why its loop ended);
-        // disposing the source makes every subsequent read throw ObjectDisposedException. A
-        // CancellationTokenSource with no timer and no registrations left holds nothing that needs
-        // releasing once it has been cancelled.
+        // _disconnectedCts is deliberately NOT disposed: the remarks on DisconnectedToken promise
+        // the token stays readable and registerable after teardown, and disposing the source makes
+        // both throw ObjectDisposedException. NearbyConnectionTests.DisconnectedToken
+        // .RemainsReadable_AfterDisposeAsync pins that contract.
+        //
+        // Nothing leaks. This source is constructed with no delay, so it never allocated a Timer,
+        // and Cancel() clears the registration list — what remains is a managed object with no
+        // finalizer, collected with this connection. The one caveat: reading Token.WaitHandle would
+        // lazily allocate a ManualResetEvent that only Dispose releases. Nothing here does, and a
+        // consumer would have to reach for WaitHandle deliberately.
     }
 
     /// <summary>

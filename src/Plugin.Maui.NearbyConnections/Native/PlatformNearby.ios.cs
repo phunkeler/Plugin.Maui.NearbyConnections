@@ -126,7 +126,7 @@ sealed partial class PlatformNearby
                                 invitationHandler(true, session);
                                 return Task.CompletedTask;
                             },
-                            ct);
+                            ct).ConfigureAwait(false);
                     }
                     catch
                     {
@@ -343,14 +343,15 @@ sealed partial class PlatformNearby
                 {
                     try
                     {
-                        var transferred = (long)(nsProgress.FractionCompleted * nsProgress.TotalUnitCount);
+                        var total = nsProgress.TotalUnitCount;
+                        var transferred = (long)(nsProgress.FractionCompleted * total);
 
-                        LogResourceTransferProgress(peerId, "Outbound", payloadId, nsProgress.TotalUnitCount, transferred);
+                        LogResourceTransferProgress(peerId, "Outbound", payloadId, total, transferred);
 
                         transfer.OnUpdate(new NearbyTransferProgress(
                             payloadId: payloadId,
                             bytesTransferred: transferred,
-                            totalBytes: nsProgress.TotalUnitCount,
+                            totalBytes: total,
                             NearbyTransferStatus.InProgress));
                     }
                     catch (Exception ex)
@@ -381,7 +382,7 @@ sealed partial class PlatformNearby
                 cancellationToken, transfer.InactivityToken);
             using var ctr = linkedCts.Token.Register(() => nsProgress?.Cancel());
 
-            await sendTask.WaitAsync(linkedCts.Token);
+            await sendTask.WaitAsync(linkedCts.Token).ConfigureAwait(false);
 
             Report(NearbyTransferStatus.Success);
         }
@@ -598,16 +599,20 @@ sealed partial class PlatformNearby
                 {
                     try
                     {
-                        var transferred = (long)(progress.FractionCompleted * progress.TotalUnitCount);
+                        // TotalUnitCount is an Objective-C property read. Hoist it: this callback
+                        // fires on every change to fractionCompleted, and the value is fixed for
+                        // the transfer.
+                        var total = progress.TotalUnitCount;
+                        var transferred = (long)(progress.FractionCompleted * total);
 
-                        LogResourceTransferProgress(id, "Inbound", 0, progress.TotalUnitCount, transferred);
+                        LogResourceTransferProgress(id, "Inbound", 0, total, transferred);
 
                         if (_activeConnections.TryGetValue(id, out var conn) && conn.InboundProgress is { } inboundProgress)
                         {
                             inboundProgress.Report(new NearbyTransferProgress(
                                 payloadId: 0,
                                 bytesTransferred: transferred,
-                                totalBytes: progress.TotalUnitCount,
+                                totalBytes: total,
                                 NearbyTransferStatus.InProgress));
                         }
                     }

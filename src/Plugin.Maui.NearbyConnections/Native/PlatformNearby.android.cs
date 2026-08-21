@@ -31,7 +31,7 @@ sealed partial class PlatformNearby
                     .SetStrategy(_options.ToPlatformStrategy())
                     .SetLowPower(_options.Android.UseLowPower)
                     .SetConnectionType(_options.ToPlatformConnectionType())
-                    .Build());
+                    .Build()).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -81,7 +81,7 @@ sealed partial class PlatformNearby
             }
             else
             {
-                await PlatformRespondToConnectionAsync(device, accept: true);
+                await PlatformRespondToConnectionAsync(device, accept: true).ConfigureAwait(false);
             }
         }
         catch (Exception ex)
@@ -170,7 +170,7 @@ sealed partial class PlatformNearby
                 new DiscoveryOptions.Builder()
                     .SetStrategy(_options.ToPlatformStrategy())
                     .SetLowPower(_options.Android.UseLowPower)
-                    .Build());
+                    .Build()).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -275,7 +275,7 @@ sealed partial class PlatformNearby
 
             if (update.TransferStatus == PayloadTransferUpdate.Status.Success)
             {
-                await ChainPayloadCompletion(endpointId, update.PayloadId);
+                await ChainPayloadCompletion(endpointId, update.PayloadId).ConfigureAwait(false);
             }
             else if (update.TransferStatus is PayloadTransferUpdate.Status.Failure or PayloadTransferUpdate.Status.Canceled
                 && _incomingPayloads.TryRemove(update.PayloadId, out var deadEntry))
@@ -325,8 +325,16 @@ sealed partial class PlatformNearby
             return;
         }
 
+        // The copy is bounded by the connection's own teardown: DisconnectedToken is cancelled by
+        // CompleteReceive, and DisposeAsync disposes every active connection, so disposing the
+        // session cancels an in-flight copy too. Without a live connection the copied file has
+        // nowhere to go, so skip the work rather than copy a file WritePayload will drop.
+        var copyToken = _activeConnections.TryGetValue(endpointId, out var connection)
+            ? connection.DisconnectedToken
+            : new CancellationToken(canceled: true);
+
         NearbyPayload? nearbyPayload = entry.Payload.PayloadType == Payload.Type.File
-            ? await CopyFilePayloadAsync(entry.Payload, _options.ReceivedFilesDirectory, CancellationToken.None)
+            ? await CopyFilePayloadAsync(entry.Payload, _options.ReceivedFilesDirectory, copyToken).ConfigureAwait(false)
             : entry.Payload.AsBytes() is { } bytes
                 ? new NearbyBytesPayload(bytes)
                 : null;
@@ -335,8 +343,10 @@ sealed partial class PlatformNearby
         {
             WritePayload(endpointId, nearbyPayload);
         }
-        else
+        else if (!copyToken.IsCancellationRequested)
         {
+            // A cancelled copy already logged its own teardown message. Reporting it again as a
+            // processing failure would raise a routine disconnect to Error.
             LogIncomingPayloadProcessingFailed(endpointId, payloadId);
         }
 
@@ -357,6 +367,7 @@ sealed partial class PlatformNearby
 
         var fileName = ResolveResourceName(sourceUri);
         var destinationPath = ResolveUniqueDestinationPath(destinationDirectory, fileName);
+        var source = sourceUri.ToString()!;
 
         try
         {
@@ -368,11 +379,18 @@ sealed partial class PlatformNearby
             }
 
             using var outputStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
-            await inputStream.CopyToAsync(outputStream, cancellationToken);
+            await inputStream.CopyToAsync(outputStream, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Teardown, not a failure: the connection dropped or the session was disposed mid-copy.
+            // Logged at Debug rather than Error so a routine disconnect does not report a fault.
+            LogFileCopyCanceled(source, destinationPath);
+            return null;
         }
         catch (Exception ex)
         {
-            LogFileCopyFailed(sourceUri.ToString()!, destinationPath, ex);
+            LogFileCopyFailed(source, destinationPath, ex);
             return null;
         }
         finally
@@ -406,7 +424,7 @@ sealed partial class PlatformNearby
                         OnConnectionInitiatedAsync,
                         OnConnectionResult,
                         OnDisconnected,
-                        (endpointId, ex) => LogCallbackError(nameof(ConnectionLifecycleCallback.OnConnectionInitiated), endpointId, ex)));
+                        (endpointId, ex) => LogCallbackError(nameof(ConnectionLifecycleCallback.OnConnectionInitiated), endpointId, ex))).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -481,7 +499,7 @@ sealed partial class PlatformNearby
 
         try
         {
-            await client.SendPayloadAsync(endpointId, payload);
+            await client.SendPayloadAsync(endpointId, payload).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -533,12 +551,12 @@ sealed partial class PlatformNearby
 
         try
         {
-            await client.SendPayloadAsync(endpointId, filePayload);
+            await client.SendPayloadAsync(endpointId, filePayload).ConfigureAwait(false);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken,
                 transfer.InactivityToken);
             using var ctr = linkedCts.Token.Register(() => _ = CancelPayloadLoggedAsync());
-            await transfer.Completion.WaitAsync(linkedCts.Token);
+            await transfer.Completion.WaitAsync(linkedCts.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -722,7 +740,7 @@ sealed partial class PlatformNearby
         {
             try
             {
-                await onConnectionInitiated(p0, p1);
+                await onConnectionInitiated(p0, p1).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -760,7 +778,7 @@ sealed partial class PlatformNearby
         {
             try
             {
-                await onPayloadTransferUpdate(p0, p1);
+                await onPayloadTransferUpdate(p0, p1).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
