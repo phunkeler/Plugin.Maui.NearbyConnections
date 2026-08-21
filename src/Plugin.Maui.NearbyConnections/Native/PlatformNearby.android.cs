@@ -5,11 +5,12 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class PlatformNearby
 {
-    IConnectionsClient? _advertiseClient;
-    IConnectionsClient? _discoverClient;
-
     readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
     readonly ConcurrentDictionary<long, OutgoingTransfer> _outgoingTransfers = [];
+    readonly Dictionary<string, Task> _payloadCompletionChains = [];
+
+    IConnectionsClient? _advertiseClient;
+    IConnectionsClient? _discoverClient;
 
     async Task PlatformStartAdvertisingAsync(CancellationToken cancellationToken)
     {
@@ -35,7 +36,6 @@ sealed partial class PlatformNearby
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             LogStartAdvertisingFailed(ex);
-
             throw new NearbyAdvertisingException("Failed to start advertising.", ex);
         }
     }
@@ -57,10 +57,7 @@ sealed partial class PlatformNearby
             {
                 LogConnectionRequestReceived(device.Id, device.DisplayName);
 
-                // No caller token exists yet — the request arrives on a GMS callback, not from a
-                // consumer call. AcceptAsync attaches the real one below.
                 var tcs = RegisterConnectionTcs(endpointId, CancellationToken.None);
-
                 var request = new NearbyConnectionRequest(
                     device,
                     accept: ct =>
@@ -129,9 +126,6 @@ sealed partial class PlatformNearby
             }
             else
             {
-                // Report the loss, not just the local removal — see the sibling comment in
-                // PlatformNearby.ios.cs's NotConnected branch. Without this the session keeps a
-                // Visible device whose endpoint the platform has already discarded.
                 if (Peers.Remove(endpointId) is { } lostDevice)
                 {
                     WriteDeviceLost(lostDevice);
@@ -152,9 +146,7 @@ sealed partial class PlatformNearby
         try
         {
             LogDeviceDisconnected(endpointId);
-
             ReleaseConnection(endpointId);
-
             Peers.Remove(endpointId);
         }
         catch (Exception ex)
@@ -200,9 +192,7 @@ sealed partial class PlatformNearby
         try
         {
             var device = Peers.Record(endpointId, info.EndpointName);
-
             LogDeviceFound(device.Id, device.DisplayName);
-
             WriteDeviceFound(device);
         }
         catch (Exception ex)
@@ -221,11 +211,11 @@ sealed partial class PlatformNearby
                 {
                     LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
                 }
+
                 return;
             }
 
             var device = Peers.Remove(endpointId);
-
             LogDeviceLost(endpointId, device?.DisplayName);
 
             if (device is not null)
@@ -246,7 +236,6 @@ sealed partial class PlatformNearby
         try
         {
             LogPayloadReceived(endpointId, payload.Id, payload.PayloadType);
-
             _incomingPayloads.TryAdd(payload.Id, (endpointId, payload));
         }
         catch (Exception ex)
@@ -286,12 +275,46 @@ sealed partial class PlatformNearby
 
             if (update.TransferStatus == PayloadTransferUpdate.Status.Success)
             {
-                await OnIncomingPayloadSuccess(endpointId, update.PayloadId);
+                await ChainPayloadCompletion(endpointId, update.PayloadId);
+            }
+            else if (update.TransferStatus is PayloadTransferUpdate.Status.Failure or PayloadTransferUpdate.Status.Canceled
+                && _incomingPayloads.TryRemove(update.PayloadId, out var deadEntry))
+            {
+                LogIncomingPayloadProcessingFailed(endpointId, update.PayloadId);
+                deadEntry.Payload.Dispose();
             }
         }
         catch (Exception ex)
         {
             LogCallbackError(nameof(OnPayloadTransferUpdate), endpointId, ex);
+        }
+    }
+
+    Task ChainPayloadCompletion(string endpointId, long payloadId)
+    {
+        Task chained;
+
+        lock (_payloadCompletionChains)
+        {
+            var previous = _payloadCompletionChains.GetValueOrDefault(endpointId, Task.CompletedTask);
+            chained = ContinueAsync(previous);
+            _payloadCompletionChains[endpointId] = chained;
+        }
+
+        return chained;
+
+        async Task ContinueAsync(Task previous)
+        {
+            await previous.ConfigureAwait(false);
+
+            try
+            {
+                await OnIncomingPayloadSuccess(endpointId, payloadId).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogCallbackError(nameof(OnIncomingPayloadSuccess), endpointId, ex);
+            }
         }
     }
 
@@ -320,7 +343,10 @@ sealed partial class PlatformNearby
         entry.Payload.Dispose();
     }
 
-    async Task<NearbyFilePayload?> CopyFilePayloadAsync(Payload payload, string destinationDirectory, CancellationToken cancellationToken)
+    async Task<NearbyFilePayload?> CopyFilePayloadAsync(
+        Payload payload,
+        string destinationDirectory,
+        CancellationToken cancellationToken)
     {
         var sourceUri = payload.AsFile()?.AsUri();
 
@@ -341,10 +367,6 @@ sealed partial class PlatformNearby
                 return null;
             }
 
-            // FileMode.Create, not File.OpenWrite: OpenWrite uses OpenOrCreate and does NOT
-            // truncate, so receiving a smaller file over an existing same-named one left the
-            // previous file's trailing bytes in place — a silently corrupted file delivered to
-            // the app with no error. iOS uses File.Copy(overwrite: true), which does truncate.
             using var outputStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
             await inputStream.CopyToAsync(outputStream, cancellationToken);
         }
@@ -374,15 +396,7 @@ sealed partial class PlatformNearby
 
         try
         {
-            // Must be awaited HERE, not returned directly — RequestConnectionAsync's
-            // Task can fault asynchronously (the ApiException below arrives after
-            // this call already returned a pending Task, not during its
-            // construction), so a try/catch around the call expression alone
-            // never observes it. Returning the Task un-awaited let the fault
-            // propagate to whatever later awaited it (ConnectAsync's own await),
-            // bypassing this catch entirely — confirmed by the exact same crash
-            // still occurring after a first attempt at this fix that didn't
-            // await here.
+            // Must be awaited HERE, not returned directly
             await NearbyClass
                 .GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
                 .RequestConnectionAsync(
@@ -396,30 +410,6 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            // RequestConnectionAsync can fail (e.g. Google Play Services'
-            // ApiException STATUS_ALREADY_CONNECTED_TO_ENDPOINT). Left
-            // unguarded, this exception propagated out of ConnectAsync's await
-            // and crashed the whole app when a caller's own catch clause only
-            // handled NearbyException. Fault the already-registered
-            // TCS instead, consistent with how every other platform failure in
-            // this file is surfaced (see PlatformStartAdvertisingAsync,
-            // OnConnectionResult), so callers get a normal, typed, catchable
-            // failure instead of an unhandled platform exception.
-            //
-            // STATUS_ALREADY_CONNECTED_TO_ENDPOINT specifically means Google
-            // Play Services' Nearby Connections client (a system-level
-            // process, not part of this app's object graph) still considers
-            // this endpoint connected from a PRIOR attempt that never called
-            // DisconnectFromEndpoint — e.g. this ConnectAsync call itself
-            // previously threw/was cancelled before a NearbyConnection object
-            // (whose disposal is normally what triggers
-            // PlatformDisconnectEndpointAsync) was ever created. That GMS-side
-            // state is independent of the app's own belief about whether
-            // it's connected, and persists until explicitly cleared — per
-            // Google's own reference implementations, the fix is to always
-            // call DisconnectFromEndpoint on a failed connection attempt too,
-            // not just on an explicit user-initiated disconnect, so a
-            // subsequent retry doesn't hit the same stuck state.
             try
             {
                 NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
@@ -447,16 +437,6 @@ sealed partial class PlatformNearby
             : client.RejectConnectionAsync(device.Id);
     }
 
-    /// <summary>
-    /// Clears Google Play Services' view of a connection attempt that timed out, so the endpoint is
-    /// not left marked connected from an attempt this app has already given up on.
-    /// </summary>
-    /// <remarks>
-    /// Without this, GMS — a system process, independent of this app's object graph — still
-    /// considers the endpoint connected, and the next <c>ConnectAsync</c> fails with
-    /// <c>STATUS_ALREADY_CONNECTED_TO_ENDPOINT</c>. One un-cleaned timeout would poison every
-    /// subsequent retry to that device.
-    /// </remarks>
     Task PlatformAbandonConnectAsync(NearbyDevice device)
     {
         try
@@ -465,8 +445,6 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            // Best-effort cleanup on a path that is already failing: the caller is about to get a
-            // timeout exception, and masking it with a teardown failure would hide the real cause.
             LogAbandonConnectError(device.Id, ex);
         }
 
@@ -475,13 +453,13 @@ sealed partial class PlatformNearby
 
     void PlatformDisconnectEndpointAsync(string endpointId)
     {
-        LogDisconnecting(endpointId, Peers.TryGetDevice(endpointId, out var d) ? d.DisplayName : null);
+        LogDisconnecting(endpointId, Peers.TryGetDevice(endpointId, out var d)
+            ? d.DisplayName
+            : null);
 
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
         client.DisconnectFromEndpoint(endpointId);
-
         ReleaseConnection(endpointId);
-
         Peers.Remove(endpointId);
     }
 
@@ -541,13 +519,25 @@ sealed partial class PlatformNearby
 
         _outgoingTransfers.TryAdd(filePayload.Id, transfer);
 
+        async Task CancelPayloadLoggedAsync()
+        {
+            try
+            {
+                await client.CancelPayloadAsync(filePayload.Id).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogWriteError(nameof(PlatformSendFileAsync), endpointId, ex);
+            }
+        }
+
         try
         {
             await client.SendPayloadAsync(endpointId, filePayload);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken,
                 transfer.InactivityToken);
-            using var ctr = linkedCts.Token.Register(() => _ = client.CancelPayloadAsync(filePayload.Id));
+            using var ctr = linkedCts.Token.Register(() => _ = CancelPayloadLoggedAsync());
             await transfer.Completion.WaitAsync(linkedCts.Token);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -612,15 +602,6 @@ sealed partial class PlatformNearby
         return null;
     }
 
-    /// <summary>
-    /// Reports what would stop advertising or discovery from working right now.
-    /// </summary>
-    /// <remarks>
-    /// Every condition is evaluated, rather than returning at the first problem, so the caller can
-    /// tell the user everything that needs fixing in one prompt instead of one per attempt.
-    /// Permission checks use the .NET MAUI <c>Permissions</c> API's <c>CheckStatusAsync</c>, which
-    /// reports status without prompting — this method must never surface a system dialog.
-    /// </remarks>
     async Task<NearbyAvailability> PlatformCheckAvailabilityAsync(CancellationToken cancellationToken)
     {
         var result = NearbyAvailability.Ready;
@@ -669,35 +650,37 @@ sealed partial class PlatformNearby
         return result;
     }
 
-    /// <summary>
-    /// Checks the runtime permissions Nearby Connections needs on this API level, without
-    /// prompting. Install-time permissions are not checked: they are granted by virtue of being
-    /// declared, which the package does on the consumer's behalf.
-    /// </summary>
     static async Task<bool> ArePermissionsGrantedAsync()
     {
-        // API 31+ replaced the location requirement with the granular BLUETOOTH_* permissions;
-        // API 33+ added NEARBY_WIFI_DEVICES. The boundaries below follow the running OS, because
-        // that is what determines which permissions the device can actually grant.
         if (await Permissions.CheckStatusAsync<Permissions.Bluetooth>().ConfigureAwait(false) != PermissionStatus.Granted)
         {
             return false;
         }
 
-        // Below API 31, Permissions.Bluetooth resolves to an EMPTY permission set and so returns
-        // Granted having checked nothing: its ACCESS_FINE_LOCATION branch is gated on the app's
-        // target SDK being <= 30, which no current MAUI app satisfies. Location is the real gate on
-        // those devices, so it must be checked explicitly or the preflight reports a vacuous Ready.
         if (!OperatingSystem.IsAndroidVersionAtLeast(31))
         {
             return await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>().ConfigureAwait(false) == PermissionStatus.Granted;
         }
 
-        // On 31+ BLUETOOTH_SCAN covers discovery, so location is deliberately NOT required — asking
-        // for it here would report a permission the app has no reason to hold. NEARBY_WIFI_DEVICES
-        // does not exist before 33, so it is only checked from there up.
         return !OperatingSystem.IsAndroidVersionAtLeast(33)
             || await Permissions.CheckStatusAsync<Permissions.NearbyWifiDevices>().ConfigureAwait(false) == PermissionStatus.Granted;
+    }
+
+    partial void PlatformReleaseConnection(string peerId)
+    {
+        foreach (var (payloadId, entry) in _incomingPayloads)
+        {
+            if (entry.EndpointId == peerId
+                && _incomingPayloads.TryRemove(payloadId, out var removed))
+            {
+                removed.Payload.Dispose();
+            }
+        }
+
+        lock (_payloadCompletionChains)
+        {
+            _payloadCompletionChains.Remove(peerId);
+        }
     }
 
     void PlatformDispose()
@@ -713,6 +696,11 @@ sealed partial class PlatformNearby
             transfer.Dispose();
         }
         _outgoingTransfers.Clear();
+
+        lock (_payloadCompletionChains)
+        {
+            _payloadCompletionChains.Clear();
+        }
     }
 
     static NearbyTransferStatus ToNearbyTransferStatus(int androidStatus) => androidStatus switch

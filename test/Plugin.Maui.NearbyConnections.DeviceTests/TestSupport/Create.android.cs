@@ -26,6 +26,23 @@ static partial class Create
             .Build();
 
     /// <summary>
+    /// An inbound file payload backed by a real file in the cache directory. The copy path reads it
+    /// through <c>ContentResolver</c>, so the file must exist on disk for the copy to succeed.
+    /// </summary>
+    /// <param name="contents">Bytes to write to the backing file.</param>
+    /// <param name="fileName">Name of the backing file, unique per test.</param>
+    /// <returns>The payload, owning a descriptor on the backing file.</returns>
+    public static Payload FilePayload(byte[] contents, string fileName)
+    {
+        var path = Path.Combine(Microsoft.Maui.Storage.FileSystem.CacheDirectory, fileName);
+        File.WriteAllBytes(path, contents);
+
+        var file = new Java.IO.File(path);
+
+        return Payload.FromFile(file)!;
+    }
+
+    /// <summary>
     /// A connection resolution carrying <paramref name="statusCode"/>. Google marks this ctor
     /// deprecated but still ships it at the pinned binding version, so the suppression is scoped to
     /// this one line: a binding bump that removes the ctor fails the build here.

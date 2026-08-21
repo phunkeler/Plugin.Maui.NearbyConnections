@@ -65,7 +65,7 @@ sealed partial class PlatformNearby : IPlatformNearby
     public IAsyncEnumerable<NearbyConnectionRequest> AdvertiseAsync(
         TaskCompletionSource started,
         CancellationToken cancellationToken = default)
-        => StreamAsync(
+        => Step(
             () => NewChannel<NearbyConnectionRequest>(),
             channel => Interlocked.Exchange(ref _advertiseChannel, channel),
             PlatformStartAdvertisingAsync,
@@ -77,7 +77,7 @@ sealed partial class PlatformNearby : IPlatformNearby
     public IAsyncEnumerable<NearbyDeviceEvent> DiscoverAsync(
         TaskCompletionSource started,
         CancellationToken cancellationToken = default)
-        => StreamAsync(
+        => Step(
             () => NewChannel<NearbyDeviceEvent>(),
             channel => Interlocked.Exchange(ref _discoverChannel, channel),
             PlatformStartDiscoveryAsync,
@@ -105,7 +105,7 @@ sealed partial class PlatformNearby : IPlatformNearby
     /// never enumerating it must not swap the live channel.
     /// </para>
     /// </remarks>
-    static async IAsyncEnumerable<T> StreamAsync<T>(
+    static async IAsyncEnumerable<T> Step<T>(
         Func<Channel<T>> createChannel,
         Action<Channel<T>> publish,
         Func<CancellationToken, Task> start,

@@ -341,12 +341,22 @@ sealed partial class PlatformNearby
                 NSKeyValueObservingOptions.New,
                 _ =>
                 {
-                    var transferred = (long)(nsProgress.FractionCompleted * nsProgress.TotalUnitCount);
-                    transfer.OnUpdate(new NearbyTransferProgress(
-                        payloadId: payloadId,
-                        bytesTransferred: transferred,
-                        totalBytes: nsProgress.TotalUnitCount,
-                        NearbyTransferStatus.InProgress));
+                    try
+                    {
+                        var transferred = (long)(nsProgress.FractionCompleted * nsProgress.TotalUnitCount);
+
+                        LogResourceTransferProgress(peerId, "Outbound", payloadId, nsProgress.TotalUnitCount, transferred);
+
+                        transfer.OnUpdate(new NearbyTransferProgress(
+                            payloadId: payloadId,
+                            bytesTransferred: transferred,
+                            totalBytes: nsProgress.TotalUnitCount,
+                            NearbyTransferStatus.InProgress));
+                    }
+                    catch (Exception ex)
+                    {
+                        LogCallbackError(nameof(PlatformSendFileAsync), peerId, ex);
+                    }
                 });
         }
 
@@ -588,9 +598,12 @@ sealed partial class PlatformNearby
                 {
                     try
                     {
+                        var transferred = (long)(progress.FractionCompleted * progress.TotalUnitCount);
+
+                        LogResourceTransferProgress(id, "Inbound", 0, progress.TotalUnitCount, transferred);
+
                         if (_activeConnections.TryGetValue(id, out var conn) && conn.InboundProgress is { } inboundProgress)
                         {
-                            var transferred = (long)(progress.FractionCompleted * progress.TotalUnitCount);
                             inboundProgress.Report(new NearbyTransferProgress(
                                 payloadId: 0,
                                 bytesTransferred: transferred,

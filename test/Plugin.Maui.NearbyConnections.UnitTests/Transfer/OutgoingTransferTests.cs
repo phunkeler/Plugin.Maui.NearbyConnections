@@ -59,6 +59,26 @@ public class OutgoingTransferTests
         }
 
         [TestMethod]
+        public void UpdateAfterTheDeadline_LeavesTheTokenCancelled()
+        {
+            // A stalled transfer times out, then a late platform callback lands — the transfer has
+            // not been disposed yet, so OnUpdate still runs. Rescheduling an already-cancelled
+            // source must not throw and must not un-cancel it: the caller has already been handed
+            // the timeout exception, and cancellation does not reverse.
+
+            // Arrange
+            var time = new FakeTimeProvider();
+            using var transfer = Create.Transfer(time);
+            time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds));
+
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress));
+
+            // Assert
+            Assert.IsTrue(transfer.InactivityToken.IsCancellationRequested);
+        }
+
+        [TestMethod]
         public void InfiniteTimeout_NeverCancels()
         {
             // Arrange
@@ -73,19 +93,11 @@ public class OutgoingTransferTests
         }
 
         [TestMethod]
-        public void TokenCapturedBeforeAnUpdate_IsNeutralisedRatherThanFiringLate()
+        public void TokenCapturedBeforeAnUpdate_DoesNotFireOnTheOriginalDeadline()
         {
-            // Load-bearing detail, and not the obvious one. OnUpdate swaps _inactivityCts for a
-            // fresh source and disposes the old one — and disposing a CancellationTokenSource
-            // cancels its pending timer, so the old token never fires afterwards.
-            //
-            // This is what makes the reset safe for the platform code. Both platforms capture
-            // InactivityToken exactly once into a linked CTS and then await; they never re-read it.
-            // Had the old source kept its timer alive, that captured token would fire on the
-            // ORIGINAL deadline and abort a transfer that was making perfectly good progress.
-            //
-            // If old.Dispose() is ever removed from OnUpdate — say, to "avoid disposing something
-            // a caller might still hold" — this test fails and explains why that is unsafe.
+            // Both platforms read InactivityToken exactly once, into a linked source, and then
+            // await. They never re-read it. So a reset must not let the captured token fire on the
+            // deadline it was created with, or a transfer making good progress aborts.
 
             // Arrange
             var time = new FakeTimeProvider();
@@ -95,15 +107,40 @@ public class OutgoingTransferTests
             // Act
             time.Advance(TimeSpan.FromSeconds(9));
             transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress));
-            time.Advance(TimeSpan.FromSeconds(5)); // well past the original 10s deadline
+            time.Advance(TimeSpan.FromSeconds(5)); // past the original 10s deadline
 
             // Assert
             Assert.IsFalse(
                 capturedEarly.IsCancellationRequested,
-                "The old source's timer must be dead after Dispose, or a progressing transfer aborts.");
-            Assert.IsFalse(
-                transfer.InactivityToken.IsCancellationRequested,
-                "The current token is only 5s into its fresh 10s deadline.");
+                "The reset must move the deadline, or a progressing transfer aborts.");
+        }
+
+        [TestMethod]
+        public void TokenCapturedBeforeAnUpdate_StillFiresOnTheResetDeadline()
+        {
+            // The other half of the rule above, and the one that was missing. Moving the deadline
+            // must not retire the captured token altogether: the platform code is awaiting on it,
+            // so a token that can never fire again turns a stalled transfer into a permanent hang.
+            // This is termination guarantee 1 in AGENTS.md — SendAsync is bounded by
+            // TransferInactivityTimeout.
+            //
+            // The original implementation swapped in a fresh source and disposed the old one, which
+            // satisfied the sibling test above by neutralising the captured token rather than by
+            // rescheduling it. That is why both halves are asserted, and separately.
+
+            // Arrange
+            var time = new FakeTimeProvider();
+            using var transfer = Create.Transfer(time);
+            var capturedEarly = transfer.InactivityToken;
+
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress));
+            time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds));
+
+            // Assert
+            Assert.IsTrue(
+                capturedEarly.IsCancellationRequested,
+                "A stalled transfer must still time out on the token the platform captured.");
         }
     }
 

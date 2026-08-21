@@ -36,7 +36,7 @@ sealed partial class NearbyImplementation
         {
             await foreach (var request in stream.WithCancellation(cancellationToken).ConfigureAwait(false))
             {
-                await OnRequestReceivedAsync(request).ConfigureAwait(false);
+                OnRequestReceived(request);
             }
 
             started.TrySetResult();
@@ -108,23 +108,25 @@ sealed partial class NearbyImplementation
         }
     }
 
-    async Task OnRequestReceivedAsync(NearbyConnectionRequest request)
+    void OnRequestReceived(NearbyConnectionRequest request)
     {
         var device = request.RemoteDevice;
 
         if (_options.AutoAcceptConnectionRequests)
         {
-            await AutoAcceptAsync(request, device).ConfigureAwait(false);
+            _ = AutoAcceptAsync(request, device);
             return;
         }
 
         var expiresAt = ArmRequestExpiry(device);
-
         _pendingRequests[device.Id] = request;
-
         _registry.AddIfAbsent(device);
 
-        Transition(device, NearbyDeviceStatus.RequestReceived, role: null, expiresAt);
+        Transition(
+            device,
+            NearbyDeviceStatus.RequestReceived,
+            role: null,
+            expiresAt);
     }
 
     DateTimeOffset? ArmRequestExpiry(NearbyDevice device)
@@ -137,7 +139,6 @@ sealed partial class NearbyImplementation
         }
 
         var cts = new CancellationTokenSource();
-
         _requestExpiries[device.Id] = cts;
         _ = ExpireRequestAfterAsync(device, timeout, cts.Token);
 

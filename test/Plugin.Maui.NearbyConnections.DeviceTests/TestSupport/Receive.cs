@@ -22,6 +22,33 @@ static class Receive
     }
 
     /// <summary>
+    /// The first <paramref name="count"/> payloads the connection yields, in the order it yields
+    /// them. Fails the test if the stream ends early.
+    /// </summary>
+    /// <param name="connection">The connection to read from.</param>
+    /// <param name="count">How many payloads to take.</param>
+    /// <param name="cancellationToken">Token bounding the read.</param>
+    /// <returns>The payloads, in receive order.</returns>
+    public static async Task<IReadOnlyList<NearbyPayload>> TakeAsync(
+        NearbyConnection connection, int count, CancellationToken cancellationToken)
+    {
+        var received = new List<NearbyPayload>(count);
+
+        await foreach (var payload in connection.ReceiveAsync(cancellationToken))
+        {
+            received.Add(payload);
+
+            if (received.Count == count)
+            {
+                return received;
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            $"The receive stream ended after {received.Count} payloads, expected {count}.");
+    }
+
+    /// <summary>
     /// Asserts nothing reaches the connection's receive stream. Proving absence costs the full
     /// window, so it is deliberately short.
     /// </summary>

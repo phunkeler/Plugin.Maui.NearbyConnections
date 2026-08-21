@@ -35,8 +35,20 @@ sealed partial class PlatformNearby
             if (!written)
             {
                 LogWriteChannelCompleted(nameof(WriteConnectionRequest), request.RemoteDevice.Id);
-                _ = request.RejectAsync();
+                _ = RejectUnroutableRequestAsync(request);
             }
+        }
+        catch (Exception ex)
+        {
+            LogWriteError(nameof(WriteConnectionRequest), request.RemoteDevice.Id, ex);
+        }
+    }
+
+    async Task RejectUnroutableRequestAsync(NearbyConnectionRequest request)
+    {
+        try
+        {
+            await request.RejectAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -61,7 +73,8 @@ sealed partial class PlatformNearby
     /// </para>
     /// </remarks>
     internal TaskCompletionSource<NearbyConnection> RegisterConnectionTcs(
-        string peerId, CancellationToken cancellationToken)
+        string peerId,
+        CancellationToken cancellationToken)
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
 

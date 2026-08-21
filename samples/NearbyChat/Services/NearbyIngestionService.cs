@@ -31,12 +31,12 @@ namespace NearbyChat.Services;
 /// </para>
 /// </remarks>
 public sealed partial class NearbyIngestionService(
-    INearby session,
+    INearby nearby,
     ChatMessageStore store,
     IMessenger messenger,
     ILogger<NearbyIngestionService> logger) : IMauiInitializeService
 {
-    readonly INearby _session = session ?? throw new ArgumentNullException(nameof(session));
+    readonly INearby _nearby = nearby ?? throw new ArgumentNullException(nameof(nearby));
     readonly ChatMessageStore _store = store ?? throw new ArgumentNullException(nameof(store));
     readonly IMessenger _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
     readonly ILogger<NearbyIngestionService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -89,7 +89,7 @@ public sealed partial class NearbyIngestionService(
 
         try
         {
-            await foreach (var change in _session.Devices.Changes)
+            await foreach (var change in _nearby.Devices.Changes)
             {
                 var device = change.Device;
 
@@ -99,7 +99,7 @@ public sealed partial class NearbyIngestionService(
                 if (isConnected)
                 {
                     if (consuming.Add(device.Id)
-                        && _session.TryGetConnection(device.Id, out var connection))
+                        && _nearby.TryGetConnection(device.Id, out var connection))
                     {
                         connection.InboundProgress = new InboundProgressRelay(_messenger, connection.RemoteDevice);
 

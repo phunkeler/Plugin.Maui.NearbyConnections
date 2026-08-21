@@ -49,7 +49,9 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// Safe to await alongside <see cref="ReceiveAsync(CancellationToken)"/> — it does not consume
     /// the receive stream. <b>Never faults or is canceled:</b> a dropped connection is not an error
     /// at this boundary, so this task always completes successfully and carries no information
-    /// about why the connection ended.
+    /// about why the connection ended. Continuations are queued to the thread pool, never run
+    /// inline on the platform callback that ended the connection — contrast
+    /// <see cref="DisconnectedToken"/>, whose registrations do run inline.
     /// </remarks>
     public Task Disconnected => _disconnectedTcs.Task;
 
@@ -73,6 +75,14 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <see cref="OperationCanceledException"/> and discards payloads buffered immediately before
     /// the disconnect. Enumerate with no token, or one of your own, and let the stream complete on
     /// its own.
+    /// </para>
+    /// <para>
+    /// <b>Registered callbacks run inline on the thread that observed the disconnect</b> — the
+    /// platform SDK's own callback thread, or the thread that called <see cref="DisposeAsync"/>.
+    /// This differs from awaiting <see cref="Disconnected"/>, whose continuations are queued to the
+    /// thread pool. Keep a registration short, and do not let it throw: a slow registration stalls
+    /// the platform's own callback dispatch, and a thrown exception surfaces on the thread that
+    /// ended the connection, not on yours.
     /// </para>
     /// <para>
     /// Remains valid after <see cref="DisposeAsync"/> — reading it never throws
@@ -144,7 +154,11 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <param name="fileUri">A URI that identifies the file to send.</param>
     /// <param name="progress">
     /// An optional provider that receives progress updates for the outgoing transfer, or
-    /// <see langword="null"/> to ignore progress.
+    /// <see langword="null"/> to ignore progress. <see cref="IProgress{T}.Report(T)"/> is invoked
+    /// directly on the platform SDK's callback thread — the same contract as
+    /// <see cref="InboundProgress"/> — so marshal to the UI thread inside the handler if it updates
+    /// the user interface, and keep the handler short. A <see cref="Progress{T}"/> instance
+    /// marshals for you, because it captures the synchronization context it was constructed on.
     /// </param>
     /// <param name="cancellationToken">
     /// A <see cref="CancellationToken"/> to observe while transferring.
@@ -185,7 +199,11 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <param name="file">The file to send.</param>
     /// <param name="progress">
     /// An optional provider that receives progress updates for the outgoing transfer, or
-    /// <see langword="null"/> to ignore progress.
+    /// <see langword="null"/> to ignore progress. <see cref="IProgress{T}.Report(T)"/> is invoked
+    /// directly on the platform SDK's callback thread — the same contract as
+    /// <see cref="InboundProgress"/> — so marshal to the UI thread inside the handler if it updates
+    /// the user interface, and keep the handler short. A <see cref="Progress{T}"/> instance
+    /// marshals for you, because it captures the synchronization context it was constructed on.
     /// </param>
     /// <param name="cancellationToken">
     /// A <see cref="CancellationToken"/> to observe while transferring.

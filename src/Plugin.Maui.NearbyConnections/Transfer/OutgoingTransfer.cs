@@ -12,8 +12,7 @@ sealed class OutgoingTransfer(
 {
     readonly TaskCompletionSource _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     readonly Lock _gate = new();
-
-    CancellationTokenSource _inactivityCts = new(inactivityTimeout, timeProvider);
+    readonly CancellationTokenSource _inactivityCts = new(inactivityTimeout, timeProvider);
     bool _disposed;
 
     /// <summary>
@@ -30,11 +29,22 @@ sealed class OutgoingTransfer(
 
     /// <summary>Called by platform code to report a progress update or terminal status.</summary>
     /// <remarks>
+    /// <para>
+    /// Reschedules the deadline with <see cref="CancellationTokenSource.CancelAfter(TimeSpan)"/>
+    /// rather than replacing the source. Both platforms read <see cref="InactivityToken"/> exactly
+    /// once, into a linked source, and then await — they never re-read it. Replacing the source
+    /// satisfied half the rule and broke the other half: disposing the old source killed its timer,
+    /// so the captured token could never fire again, and a transfer that stalled after one update
+    /// hung until the caller's own token intervened. Rescheduling keeps token identity stable, so
+    /// the deadline both moves and still fires.
+    /// </para>
+    /// <para>
     /// A no-op once disposed. Platform callbacks arrive on their own thread and can land after the
-    /// <c>finally</c> in <c>PlatformSendFileAsync</c> has already disposed this transfer; without the
-    /// guard, the swap below installed a fresh <see cref="CancellationTokenSource"/> — with a live
-    /// timer — that nothing would ever dispose, and reported progress for a transfer whose caller had
-    /// already been handed a timeout exception.
+    /// <c>finally</c> in <c>PlatformSendFileAsync</c> has already disposed this transfer. Without the
+    /// guard, <c>CancelAfter</c> would throw <see cref="ObjectDisposedException"/> onto that
+    /// callback thread, and progress would be reported for a transfer whose caller was already
+    /// handed a timeout exception.
+    /// </para>
     /// </remarks>
     public void OnUpdate(NearbyTransferProgress transferProgress)
     {
@@ -45,9 +55,9 @@ sealed class OutgoingTransfer(
                 return;
             }
 
-            var old = _inactivityCts;
-            _inactivityCts = new CancellationTokenSource(inactivityTimeout, timeProvider);
-            old.Dispose();
+            // Timeout.InfiniteTimeSpan is a valid never-firing delay, so the infinite case needs no
+            // separate branch here.
+            _inactivityCts.CancelAfter(inactivityTimeout);
         }
 
         progress?.Report(transferProgress);

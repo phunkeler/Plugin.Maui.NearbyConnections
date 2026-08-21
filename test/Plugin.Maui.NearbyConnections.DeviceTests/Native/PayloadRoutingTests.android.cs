@@ -27,4 +27,29 @@ public class PayloadRoutingTests
         var bytesPayload = Assert.IsType<NearbyBytesPayload>(received);
         Assert.Equal(expected, bytesPayload.Data);
     }
+
+    [Fact]
+    public async Task FileCompletedBeforeBytes_ArrivesFirst()
+    {
+        // Arrange — a file whose copy suspends, then a bytes payload completing during that copy.
+        // Not awaiting the file update is the point: it reproduces the async void callback
+        // returning to GMS at the copy's first await, which is when GMS delivers the next update.
+        await using var platform = Create.PlatformNearby();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+        var file = Create.FilePayload(new byte[512 * 1024], $"ordering-{Guid.NewGuid():N}.bin");
+        var bytes = Payload.FromBytes([1, 2, 3]);
+
+        // Act
+        platform.OnPayloadReceived(id, file);
+        platform.OnPayloadReceived(id, bytes);
+        var fileUpdate = platform.OnPayloadTransferUpdate(id, Create.TransferUpdate(file.Id, PayloadTransferUpdate.Status.Success));
+        await platform.OnPayloadTransferUpdate(id, Create.TransferUpdate(bytes.Id, PayloadTransferUpdate.Status.Success));
+        await fileUpdate;
+
+        // Assert
+        var received = await Receive.TakeAsync(connection, 2, cts.Token);
+        Assert.IsType<NearbyFilePayload>(received[0]);
+        Assert.IsType<NearbyBytesPayload>(received[1]);
+    }
 }

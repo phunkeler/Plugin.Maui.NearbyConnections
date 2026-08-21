@@ -104,6 +104,9 @@ sealed partial class PlatformNearby
     [LoggerMessage(EventId = 2041, Level = LogLevel.Error, Message = "Discovery failed to start.")]
     partial void LogDidNotStartBrowsing(Exception error);
 
+    [LoggerMessage(EventId = 2042, Level = LogLevel.Trace, Message = "Resource transfer progress: Id={DeviceId}, Direction={Direction}, PayloadId={PayloadId}, TotalBytes={TotalBytes}, BytesTransferred={BytesTransferred}")]
+    partial void LogResourceTransferProgress(string deviceId, string direction, long payloadId, long totalBytes, long bytesTransferred);
+
     [LoggerMessage(EventId = 2048, Level = LogLevel.Error, Message = "Failed to send bytes to peer: DisplayName={DisplayName}")]
     partial void LogSendBytesFailed(string displayName, Exception error);
 
@@ -115,6 +118,7 @@ sealed partial class PlatformNearby
 
     [LoggerMessage(EventId = 2051, Level = LogLevel.Debug, Message = "Last peer disconnected, session disposed.")]
     partial void LogSessionDisposed();
+
 
     // 2052 (LogPeerStateChanged) and 2054 (LogControlMessageReceived) are declared in
     // PlatformNearby.log.ios.cs — they take iOS-only/internal enum parameters. Ids stay reserved here.
