@@ -17,7 +17,7 @@ sealed partial class PlatformNearby
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var myPeerId = Peers.GetLocalPeerId(_options.DisplayName);
+        var myPeerId = Peers.GetLocalPeerId();
 
         _mcAdvertiser = new MCNearbyServiceAdvertiser(
             myPeerID: myPeerId,
@@ -104,7 +104,7 @@ sealed partial class PlatformNearby
                     lock (_sessionLock)
                     {
                         _session ??= new MCSession(
-                            Peers.GetLocalPeerId(_options.DisplayName),
+                            Peers.GetLocalPeerId(),
                             identity: null!,
                             _options.ToPlatformEncryptionPreference())
                         {
@@ -157,7 +157,7 @@ sealed partial class PlatformNearby
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var myPeerId = Peers.GetLocalPeerId(_options.DisplayName);
+        var myPeerId = Peers.GetLocalPeerId();
 
         _mcBrowser = new MCNearbyServiceBrowser(
             myPeerID: myPeerId,
@@ -243,7 +243,7 @@ sealed partial class PlatformNearby
         lock (_sessionLock)
         {
             _session ??= new MCSession(
-                Peers.GetLocalPeerId(_options.DisplayName),
+                Peers.GetLocalPeerId(),
                 identity: null!,
                 _options.ToPlatformEncryptionPreference())
             {

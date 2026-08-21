@@ -13,6 +13,7 @@ sealed partial class PeerRegistry
     MCPeerID? _localPeerId;
 
     internal required ILogger Logger { get; init; }
+    internal required string DisplayName { get; init; }
 
     public NearbyDevice Track(MCPeerID peerID)
     {
@@ -66,24 +67,16 @@ sealed partial class PeerRegistry
         }
     }
 
-    public MCPeerID GetLocalPeerId(string displayName)
+    public MCPeerID GetLocalPeerId()
     {
-        if (_localPeerId is not null)
-        {
-            return _localPeerId;
-        }
-
         lock (_localPeerIdLock)
         {
-            var created = _localPeerId is null;
-            _localPeerId ??= new MCPeerID(displayName);
-
-            if (created)
+            if (_localPeerId is null)
             {
-                LogCreatedLocalPeer(Logger, displayName);
+                LogCreatedLocalPeer(Logger, DisplayName);
             }
 
-            return _localPeerId;
+            return _localPeerId ??= new MCPeerID(DisplayName);
         }
     }
 

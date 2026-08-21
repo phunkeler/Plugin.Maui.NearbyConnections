@@ -28,7 +28,8 @@ static partial class Create
     /// one of these rather than a helper type of their own.
     /// </summary>
     /// <returns>The registry.</returns>
-    public static PeerRegistry PeerRegistry() => new() { Logger = NullLogger.Instance };
+    public static PeerRegistry PeerRegistry(string displayName = "TestDevice")
+        => new() { Logger = NullLogger.Instance, DisplayName = displayName };
 
     /// <summary>
     /// Waits until <paramref name="platform"/> has registered a pending handshake. Needed after

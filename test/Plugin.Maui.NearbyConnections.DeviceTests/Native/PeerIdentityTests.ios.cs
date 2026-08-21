@@ -44,11 +44,11 @@ public class PeerIdentityTests
     public void LocalPeerIdentity_MemoizedForProcessLifetime()
     {
         // Arrange
-        var registry = Create.PeerRegistry();
+        var registry = Create.PeerRegistry("Alice");
 
-        // Act — the display name on later calls is documented as ignored once memoized.
-        var first = registry.GetLocalPeerId("Alice");
-        var second = registry.GetLocalPeerId("Bob");
+        // Act
+        var first = registry.GetLocalPeerId();
+        var second = registry.GetLocalPeerId();
 
         // Assert
         Assert.Same(first, second);
