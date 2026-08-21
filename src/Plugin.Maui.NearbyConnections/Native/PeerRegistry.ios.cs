@@ -87,7 +87,15 @@ sealed partial class PeerRegistry
     }
 
     partial void PlatformClear()
-        => _handles.Clear();
+    {
+        _handles.Clear();
+
+        lock (_localPeerIdLock)
+        {
+            _localPeerId?.Dispose();
+            _localPeerId = null;
+        }
+    }
 
     [LoggerMessage(
         EventId = 3000,
