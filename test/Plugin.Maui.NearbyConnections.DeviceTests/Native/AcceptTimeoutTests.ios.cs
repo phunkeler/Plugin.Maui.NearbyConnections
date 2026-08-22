@@ -9,7 +9,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// Real time, not a fake clock: these run against the real platform partial, so the timeouts are
 /// deliberately short rather than injected.
 /// </remarks>
-public class AcceptTimeoutTests
+public class AcceptTimeoutTests : DeviceTest
 {
     static NearbyOptions Options(TimeSpan accept) => new()
     {

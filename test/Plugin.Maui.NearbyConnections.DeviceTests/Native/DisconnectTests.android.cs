@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// <see cref="NearbyConnection.Disconnected"/> task completes and the platform's bookkeeping for
 /// the peer is released.
 /// </summary>
-public class DisconnectTests
+public class DisconnectTests : DeviceTest
 {
     [Fact]
     public async Task RemoteDisconnect_CompletesDisconnectedTaskAndReleasesPeer()

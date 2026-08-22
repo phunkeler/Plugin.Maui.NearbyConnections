@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// <see cref="NearbyConnectionRequest"/> on the advertise channel. Exercised against the real
 /// platform partial with real SDK callback types — no live radio.
 /// </summary>
-public class ConnectionInitiatedTests
+public class ConnectionInitiatedTests : DeviceTest
 {
     [Fact]
     public async Task IncomingInvitation_YieldsRequestOnAdvertiseChannel()

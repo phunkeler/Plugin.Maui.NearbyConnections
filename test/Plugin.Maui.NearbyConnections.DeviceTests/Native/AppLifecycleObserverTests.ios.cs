@@ -14,7 +14,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// pins is that registration, delivery, and double-dispose don't throw on a real runtime — the
 /// class of failure a compile check cannot catch (selector/thread marshaling).
 /// </remarks>
-public class AppLifecycleObserverTests
+public class AppLifecycleObserverTests : DeviceTest
 {
     [Fact]
     public async Task BackgroundNotification_DeliveredToLiveObserver_NoThrow()

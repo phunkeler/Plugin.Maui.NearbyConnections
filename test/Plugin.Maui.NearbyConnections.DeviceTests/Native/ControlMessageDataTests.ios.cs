@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// surfaced to the consumer as payloads. (Named to avoid colliding with the unit suite's
 /// <c>ControlMessageTests</c>, which covers Encode/TryDecode on <c>net10.0</c>.)
 /// </summary>
-public class ControlMessageDataTests
+public class ControlMessageDataTests : DeviceTest
 {
     static CancellationTokenSource Timeout() => new(TimeSpan.FromSeconds(5));
 

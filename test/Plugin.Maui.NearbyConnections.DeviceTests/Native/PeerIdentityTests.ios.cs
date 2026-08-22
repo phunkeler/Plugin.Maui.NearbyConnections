@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// per peer and distinct across peers (even same-named ones), the local identity is memoized for
 /// the process, and the registry round-trips native handles.
 /// </summary>
-public class PeerIdentityTests
+public class PeerIdentityTests : DeviceTest
 {
     [Fact]
     public void PeerKey_StablePerPeerAndDistinctAcrossPeers()

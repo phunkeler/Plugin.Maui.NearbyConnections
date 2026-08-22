@@ -6,7 +6,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// connection's receive stream and consumed through the public
 /// <see cref="NearbyConnection.ReceiveAsync"/> surface.
 /// </summary>
-public class PayloadRoutingTests
+public class PayloadRoutingTests : DeviceTest
 {
     [Fact]
     public async Task BytesPayload_RoutedToActiveConnectionReceiveStream()

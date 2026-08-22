@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// payload reaches <see cref="NearbyConnection.InboundProgress"/>, and a file payload's
 /// <c>Success</c> completes the copy-and-route pipeline end to end with real Java file handles.
 /// </summary>
-public class TransferUpdateTests
+public class TransferUpdateTests : DeviceTest
 {
     [Fact]
     public async Task InProgressUpdate_ForInboundPayload_ReachesInboundProgress()
@@ -37,8 +37,7 @@ public class TransferUpdateTests
     public async Task FilePayloadSuccess_CopiesFileAndRoutesFilePayload()
     {
         // Arrange — live connection and a real file behind a real Java file handle.
-        var receivedDir = Directory.CreateTempSubdirectory("devtest-received").FullName;
-        await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest", ReceivedFilesDirectory = receivedDir });
+        await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
@@ -58,6 +57,67 @@ public class TransferUpdateTests
         // Assert
         var filePayload = Assert.IsType<NearbyFilePayload>(received);
         Assert.Equal(expected, await File.ReadAllBytesAsync(filePayload.FileResult.FullPath, cts.Token));
-        Assert.StartsWith(receivedDir, filePayload.FileResult.FullPath, StringComparison.Ordinal);
+        Assert.StartsWith(PlatformNearby.StagingDirectory, filePayload.FileResult.FullPath, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TwoFilesWithTheSameName_BothSurvive()
+    {
+        // Arrange — the collision the reservation exists for: one peer sends photo.bin twice.
+        await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+
+        byte[] first = [1, 1, 1];
+        byte[] second = [2, 2, 2];
+        var paths = new List<string>();
+
+        // Act
+        foreach (var content in new[] { first, second })
+        {
+            var sourcePath = Path.Combine(Path.GetTempPath(), $"devtest-{Guid.NewGuid():N}.bin");
+            await File.WriteAllBytesAsync(sourcePath, content, cts.Token);
+            using var javaFile = new Java.IO.File(sourcePath);
+            var payload = Payload.FromFile(javaFile);
+
+            platform.OnPayloadReceived(id, payload);
+            await platform.OnPayloadTransferUpdate(
+                id, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
+
+            var received = await Receive.FirstAsync(connection, cts.Token);
+            paths.Add(Assert.IsType<NearbyFilePayload>(received).FileResult.FullPath);
+        }
+
+        // Assert — distinct destinations, neither clobbered.
+        Assert.NotEqual(paths[0], paths[1]);
+        Assert.Equal(first, await File.ReadAllBytesAsync(paths[0], cts.Token));
+        Assert.Equal(second, await File.ReadAllBytesAsync(paths[1], cts.Token));
+    }
+
+    [Fact]
+    public async Task Dispose_RemovesAStagedFileNobodyMoved()
+    {
+        // Arrange — a delivered file the consumer never moved out of staging.
+        var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+
+        var sourcePath = Path.Combine(Path.GetTempPath(), $"devtest-{Guid.NewGuid():N}.bin");
+        await File.WriteAllBytesAsync(sourcePath, [7, 7, 7], cts.Token);
+        using var javaFile = new Java.IO.File(sourcePath);
+        var payload = Payload.FromFile(javaFile);
+
+        platform.OnPayloadReceived(id, payload);
+        await platform.OnPayloadTransferUpdate(
+            id, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
+
+        var received = await Receive.FirstAsync(connection, cts.Token);
+        var stagedPath = Assert.IsType<NearbyFilePayload>(received).FileResult.FullPath;
+
+        // Act
+        await platform.DisposeAsync();
+
+        // Assert
+        Assert.False(File.Exists(stagedPath));
     }
 }

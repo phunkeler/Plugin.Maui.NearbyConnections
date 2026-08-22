@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// cancelled rather than left dangling, so a consumer awaiting <c>AcceptAsync</c> unblocks. Runs
 /// the real <c>PlatformDispose</c> on-device, unlike the <c>net10.0</c> unit equivalent.
 /// </summary>
-public class DisposeTests
+public class DisposeTests : DeviceTest
 {
     [Fact]
     public async Task DisposeMidHandshake_CancelsPendingAccept()

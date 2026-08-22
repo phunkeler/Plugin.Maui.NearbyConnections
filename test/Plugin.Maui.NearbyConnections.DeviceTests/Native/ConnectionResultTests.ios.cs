@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// repo's documented invariant: every failure path must resolve or fault the pending
 /// <c>_connectionTcs</c> entry, or <c>AcceptAsync</c>/<c>ConnectAsync</c> hang forever.
 /// </summary>
-public class ConnectionResultTests
+public class ConnectionResultTests : DeviceTest
 {
     [Fact]
     public async Task Connected_ResolvesConnectionTcsAndRegistersActiveConnection()

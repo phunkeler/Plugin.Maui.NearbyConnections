@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// <c>MCSessionState.Connecting</c> is optional and never a required waypoint — the documented
 /// latent-hang class from AGENTS.md.
 /// </summary>
-public class SessionStateTests
+public class SessionStateTests : DeviceTest
 {
     [Fact]
     public async Task Connecting_LeavesHandshakePending()

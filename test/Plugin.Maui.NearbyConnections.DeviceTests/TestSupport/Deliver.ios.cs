@@ -10,7 +10,7 @@ static class Deliver
     /// <param name="platform">The platform whose callback receives the frame.</param>
     /// <param name="peerId">The peer the frame arrives from.</param>
     /// <param name="type">The control type to encode.</param>
-    public static void ControlFrame(PlatformNearby platform, MCPeerID peerId, ControlMessageType type)
+    internal static void ControlFrame(PlatformNearby platform, MCPeerID peerId, ControlMessageType type)
         => Bytes(platform, peerId, ControlMessage.Encode(type));
 
     /// <summary>
@@ -19,7 +19,7 @@ static class Deliver
     /// </summary>
     /// <param name="platform">The platform whose callback receives the frame.</param>
     /// <param name="peerId">The peer the frame arrives from.</param>
-    public static void UnknownControlFrame(PlatformNearby platform, MCPeerID peerId)
+    internal static void UnknownControlFrame(PlatformNearby platform, MCPeerID peerId)
     {
         var frame = ControlMessage.Encode(ControlMessageType.Disconnect);
         frame[^1] = 0xFF;
@@ -31,7 +31,7 @@ static class Deliver
     /// <param name="platform">The platform whose callback receives the data.</param>
     /// <param name="peerId">The peer the data arrives from.</param>
     /// <param name="data">The bytes to deliver.</param>
-    public static void Bytes(PlatformNearby platform, MCPeerID peerId, byte[] data)
+    internal static void Bytes(PlatformNearby platform, MCPeerID peerId, byte[] data)
     {
         using var native = NSData.FromArray(data);
 

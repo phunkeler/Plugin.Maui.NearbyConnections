@@ -2,7 +2,7 @@ using Xunit;
 
 namespace Plugin.Maui.NearbyConnections.DeviceTests;
 
-public class SmokeTests
+public class SmokeTests : DeviceTest
 {
     [Fact]
     public void TrivialPass()

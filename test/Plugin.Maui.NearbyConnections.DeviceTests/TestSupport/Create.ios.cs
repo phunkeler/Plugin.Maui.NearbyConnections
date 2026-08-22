@@ -1,8 +1,6 @@
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace Plugin.Maui.NearbyConnections.DeviceTests;
 
-static partial class Create
+partial class Create
 {
     /// <summary>
     /// The real platform type on iOS, wired with a real <see cref="PeerLookup"/> — the same shape
@@ -10,17 +8,17 @@ static partial class Create
     /// </summary>
     /// <param name="options">Options to wire the platform with, or <see langword="null"/> for the suite defaults.</param>
     /// <returns>The platform under test.</returns>
-    public static PlatformNearby PlatformNearby(NearbyOptions? options = null)
+    internal PlatformNearby PlatformNearby(NearbyOptions? options = null)
         => new(
             TimeProvider.System,
             options ?? DefaultOptions(),
-            NullLogger.Instance,
+            Logger,
             PeerLookup());
 
     /// <summary>A local <c>MCPeerID</c> standing in for a remote peer in a callback's arguments.</summary>
     /// <param name="displayName">The peer's display name, as MPC reports it.</param>
     /// <returns>The peer id.</returns>
-    public static MCPeerID PeerId(string displayName = "Alice") => new(displayName);
+    internal static MCPeerID PeerId(string displayName = "Alice") => new(displayName);
 
     /// <summary>
     /// The real <see cref="Plugin.Maui.NearbyConnections.PeerLookup"/> the platform is wired
@@ -28,8 +26,8 @@ static partial class Create
     /// of these rather than a helper type of their own.
     /// </summary>
     /// <returns>The registry.</returns>
-    public static PeerLookup PeerLookup()
-        => new() { Logger = NullLogger.Instance };
+    internal PeerLookup PeerLookup()
+        => new() { Logger = Logger };
 
     /// <summary>
     /// Waits until <paramref name="platform"/> has registered a pending handshake. Needed after
@@ -38,7 +36,7 @@ static partial class Create
     /// </summary>
     /// <param name="platform">The platform to observe.</param>
     /// <param name="cancellationToken">Token to cancel the wait.</param>
-    public static async Task WaitForPendingHandshakeAsync(
+    internal static async Task WaitForPendingHandshakeAsync(
         PlatformNearby platform, CancellationToken cancellationToken)
     {
         while (platform._connectionTcs.IsEmpty)
@@ -55,7 +53,7 @@ static partial class Create
     /// <param name="platform">The platform to register the pending handshake on.</param>
     /// <param name="peerId">The remote peer the handshake is keyed by.</param>
     /// <returns>The source the platform will resolve or fault, and the peer key it is stored under.</returns>
-    public static (TaskCompletionSource<NearbyConnection> Tcs, string Id) PendingHandshake(
+    internal static (TaskCompletionSource<NearbyConnection> Tcs, string Id) PendingHandshake(
         PlatformNearby platform, MCPeerID peerId)
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -74,7 +72,7 @@ static partial class Create
     /// <param name="peerId">The remote peer the connection is keyed by.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <returns>The connection, and the platform-side peer id it is keyed by.</returns>
-    public static async Task<(NearbyConnection Connection, string Id)> ConnectedAsync(
+    internal static async Task<(NearbyConnection Connection, string Id)> ConnectedAsync(
         PlatformNearby platform,
         MCPeerID peerId,
         CancellationToken cancellationToken)

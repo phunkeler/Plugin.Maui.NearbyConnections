@@ -4,7 +4,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// Discovery callbacks on Android (<c>OnEndpointFound</c>/<c>OnEndpointLost</c>): found and lost
 /// events arrive on the discover channel, and the peer registry tracks and releases the device.
 /// </summary>
-public class DeviceDiscoveryTests
+public class DeviceDiscoveryTests : DeviceTest
 {
     [Fact]
     public async Task EndpointFound_PublishesFoundEventAndTracksPeer()

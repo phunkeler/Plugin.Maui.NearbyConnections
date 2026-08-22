@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// "every catch on a callback path logs" rule means a stray late callback must never take down the
 /// process. Each Act would fail the test on throw; the assert pins the absence of side effects.
 /// </summary>
-public class UnknownPeerTests
+public class UnknownPeerTests : DeviceTest
 {
     const string UnknownId = "never-seen";
 

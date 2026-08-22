@@ -1,14 +1,12 @@
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace Plugin.Maui.NearbyConnections.DeviceTests;
 
-static partial class Create
+partial class Create
 {
     /// <summary>The real platform type on Android, wired with the default <see cref="PeerLookup"/>.</summary>
     /// <param name="options">Options to wire the platform with, or <see langword="null"/> for the suite defaults.</param>
     /// <returns>The platform under test.</returns>
-    public static PlatformNearby PlatformNearby(NearbyOptions? options = null)
-        => new(TimeProvider.System, options ?? DefaultOptions(), NullLogger.Instance, new PeerLookup());
+    internal PlatformNearby PlatformNearby(NearbyOptions? options = null)
+        => new(TimeProvider.System, options ?? DefaultOptions(), Logger, new PeerLookup());
 
     /// <summary>A transfer update built via the SDK's Builder, the only construction path GMS exposes.</summary>
     /// <param name="payloadId">The payload the update refers to.</param>
@@ -16,7 +14,7 @@ static partial class Create
     /// <param name="total">Total bytes in the transfer.</param>
     /// <param name="transferred">Bytes transferred so far.</param>
     /// <returns>The transfer update.</returns>
-    public static PayloadTransferUpdate TransferUpdate(
+    internal static PayloadTransferUpdate TransferUpdate(
         long payloadId, int status, long total = 3, long transferred = 3)
         => new PayloadTransferUpdate.Builder()
             .SetPayloadId(payloadId)
@@ -32,7 +30,7 @@ static partial class Create
     /// <param name="contents">Bytes to write to the backing file.</param>
     /// <param name="fileName">Name of the backing file, unique per test.</param>
     /// <returns>The payload, owning a descriptor on the backing file.</returns>
-    public static Payload FilePayload(byte[] contents, string fileName)
+    internal static Payload FilePayload(byte[] contents, string fileName)
     {
         var path = Path.Combine(Microsoft.Maui.Storage.FileSystem.CacheDirectory, fileName);
         File.WriteAllBytes(path, contents);
@@ -49,7 +47,7 @@ static partial class Create
     /// </summary>
     /// <param name="statusCode">One of the <see cref="ConnectionsStatusCodes"/> values.</param>
     /// <returns>The resolution.</returns>
-    public static ConnectionResolution Resolution(int statusCode = ConnectionsStatusCodes.StatusOk)
+    internal static ConnectionResolution Resolution(int statusCode = ConnectionsStatusCodes.StatusOk)
 #pragma warning disable CS0618
         => new(new Statuses(statusCode));
 #pragma warning restore CS0618
@@ -60,7 +58,7 @@ static partial class Create
     /// </summary>
     /// <param name="displayName">The remote device's display name, as GMS reports it.</param>
     /// <returns>The connection info.</returns>
-    public static ConnectionInfo ConnectionInfo(string displayName = "Alice")
+    internal static ConnectionInfo ConnectionInfo(string displayName = "Alice")
 #pragma warning disable CS0618
         => new(displayName, "auth-token", isIncomingConnection: true);
 #pragma warning restore CS0618
@@ -71,7 +69,7 @@ static partial class Create
     /// </summary>
     /// <param name="displayName">The remote device's display name, as GMS reports it.</param>
     /// <returns>The discovered endpoint info.</returns>
-    public static DiscoveredEndpointInfo DiscoveredEndpointInfo(string displayName = "Alice")
+    internal static DiscoveredEndpointInfo DiscoveredEndpointInfo(string displayName = "Alice")
 #pragma warning disable CS0618
         => new(ServiceId, displayName);
 #pragma warning restore CS0618
@@ -84,7 +82,7 @@ static partial class Create
     /// <param name="id">The endpoint id the handshake is keyed by.</param>
     /// <param name="displayName">The remote device's display name, as GMS reports it.</param>
     /// <returns>The source the platform will resolve or fault.</returns>
-    public static TaskCompletionSource<NearbyConnection> PendingHandshake(
+    internal static TaskCompletionSource<NearbyConnection> PendingHandshake(
         PlatformNearby platform, string id = "endpoint-1", string displayName = "Alice")
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -103,7 +101,7 @@ static partial class Create
     /// <param name="displayName">The remote device's display name, as GMS reports it.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <returns>The connection, and the platform-side endpoint id it is keyed by.</returns>
-    public static async Task<(NearbyConnection Connection, string Id)> ConnectedAsync(
+    internal static async Task<(NearbyConnection Connection, string Id)> ConnectedAsync(
         PlatformNearby platform,
         string displayName,
         CancellationToken cancellationToken)

@@ -6,7 +6,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// <see cref="NearbyAdvertisingException"/>/<see cref="NearbyDiscoveryException"/> rather than a
 /// silent end-of-stream.
 /// </summary>
-public class StartFailureTests
+public class StartFailureTests : DeviceTest
 {
     [Fact]
     public async Task DidNotStartAdvertising_FaultsAdvertiseChannel()

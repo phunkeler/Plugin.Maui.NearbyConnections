@@ -10,10 +10,15 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests;
 /// same member names with platform-specific parameters, so a test body reads identically on either
 /// target and this file stays free of conditional compilation.
 /// </remarks>
-static partial class Create
+/// <param name="logger">The logger the constructed types write through.</param>
+sealed partial class Create(ILogger logger)
 {
     /// <summary>The service id every device test advertises under.</summary>
     const string ServiceId = "devtest";
+
+    /// <summary>The logger the constructed types write through, scoped to one test.</summary>
+    internal ILogger Logger { get; } = logger;
+
 
     /// <summary>The options the platform is wired with unless a test supplies its own.</summary>
     /// <param name="displayName">The local device's display name, for tests that assert on it.</param>

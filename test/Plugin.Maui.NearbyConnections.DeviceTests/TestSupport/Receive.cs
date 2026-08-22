@@ -10,7 +10,7 @@ static class Receive
     /// The first payload the connection yields, failing the test if the stream ends without one.
     /// Bounded by <paramref name="cancellationToken"/> — the positive-assertion form.
     /// </summary>
-    public static async Task<NearbyPayload> FirstAsync(
+    internal static async Task<NearbyPayload> FirstAsync(
         NearbyConnection connection, CancellationToken cancellationToken)
     {
         await foreach (var payload in connection.ReceiveAsync(cancellationToken))
@@ -29,7 +29,7 @@ static class Receive
     /// <param name="count">How many payloads to take.</param>
     /// <param name="cancellationToken">Token bounding the read.</param>
     /// <returns>The payloads, in receive order.</returns>
-    public static async Task<IReadOnlyList<NearbyPayload>> TakeAsync(
+    internal static async Task<IReadOnlyList<NearbyPayload>> TakeAsync(
         NearbyConnection connection, int count, CancellationToken cancellationToken)
     {
         var received = new List<NearbyPayload>(count);
@@ -53,7 +53,7 @@ static class Receive
     /// window, so it is deliberately short.
     /// </summary>
     /// <param name="connection">The connection whose receive stream must stay empty.</param>
-    public static async Task AssertNothingReceivedAsync(NearbyConnection connection)
+    internal static async Task AssertNothingReceivedAsync(NearbyConnection connection)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
 

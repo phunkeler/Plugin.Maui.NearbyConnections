@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// The result is environment-dependent (emulator image, granted permissions), so the contract
 /// pinned here is the documented one: the check completes, never throws, and never prompts.
 /// </summary>
-public class AvailabilityTests
+public class AvailabilityTests : DeviceTest
 {
     [Fact]
     public async Task CheckAvailability_CompletesWithoutThrowing()

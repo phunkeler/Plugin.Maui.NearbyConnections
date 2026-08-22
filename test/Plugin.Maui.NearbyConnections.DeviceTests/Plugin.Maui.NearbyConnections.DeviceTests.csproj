@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="Microsoft.Extensions.Logging" />
     <Using Include="Plugin.Maui.NearbyConnections" />
     <Using Include="Android.Gms.Common.Apis" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
     <Using Include="Android.Gms.Nearby.Connection" Condition="'$(IsTargetPlatformAndroid)' == 'true'" />
