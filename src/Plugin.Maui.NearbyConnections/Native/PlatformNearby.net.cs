@@ -9,6 +9,11 @@ sealed partial class PlatformNearby
     // blocks) where throwing PlatformNotSupportedException would swallow the original exception.
     void PlatformDispose() { }
 
+    // No payload ever arrives here, so nothing is staged and there is nothing to sweep.
+    internal static partial string StagingDirectory => string.Empty;
+
+    void PlatformSweepStaging() { }
+
     void PlatformStopAdvertising() { }
 
     void PlatformStopDiscovering() { }

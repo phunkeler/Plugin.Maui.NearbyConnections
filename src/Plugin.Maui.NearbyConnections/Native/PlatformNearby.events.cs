@@ -2,6 +2,23 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class PlatformNearby
 {
+    /// <summary>
+    /// Name of the cache subdirectory inbound files are staged into. Shared so both platforms
+    /// stage to the same place; the absolute path is built per platform, because
+    /// <c>FileSystem.CacheDirectory</c> does not resolve on the <c>net10.0</c> target.
+    /// </summary>
+    internal const string StagingDirectoryName = "nearby-received";
+
+    /// <summary>
+    /// The directory inbound files are staged into: app-private, purgeable, and namespaced so
+    /// staged files never collide with the host app's own cache files.
+    /// </summary>
+    /// <remarks>
+    /// Declared here and implemented per platform because <c>FileSystem.CacheDirectory</c> does not
+    /// resolve on the <c>net10.0</c> target, which compiles this file.
+    /// </remarks>
+    internal static partial string StagingDirectory { get; }
+
     internal void WriteDeviceFound(NearbyDevice device)
         => WriteDeviceEvent(device, found: true, nameof(WriteDeviceFound));
 
@@ -178,17 +195,123 @@ sealed partial class PlatformNearby
     }
 
     /// <summary>
+    /// Claims a non-colliding destination path for an inbound file by creating it, so the name is
+    /// reserved rather than merely observed to be free.
+    /// </summary>
+    /// <param name="directory">The directory to place the file in. Created if it does not exist.</param>
+    /// <param name="fileName">
+    /// The remote-supplied file name. Reduced to its file-name component, so a peer cannot steer
+    /// the write outside <paramref name="directory"/>.
+    /// </param>
+    /// <returns>
+    /// A writable <see cref="FileStream"/> on the claimed path. The caller owns it and must dispose
+    /// it. A caller that moves a file onto the path instead disposes the stream first, then moves
+    /// with <c>overwrite: true</c> — the claim stays held across the move.
+    /// </returns>
+    /// <remarks>
+    /// <see cref="FileMode.CreateNew"/> is what makes the reservation atomic: it throws if the name
+    /// already exists, and the loop then re-resolves. Two claims can genuinely be in flight in the
+    /// same directory at once — Android serialises copies within an endpoint but not across them,
+    /// and iOS delegate callbacks for different peers arrive on different threads. Do not weaken
+    /// this into a check-then-write against <see cref="ResolveUniqueDestinationPath"/> alone.
+    /// </remarks>
+    internal static FileStream ClaimUniqueDestinationPath(string directory, string fileName)
+    {
+        // The name arrives from the remote peer, so strip any directory component it carries.
+        fileName = Path.GetFileName(fileName);
+        Directory.CreateDirectory(directory);
+
+        while (true)
+        {
+            var candidate = ResolveUniqueDestinationPath(directory, fileName);
+
+            try
+            {
+                return new FileStream(candidate, FileMode.CreateNew, FileAccess.Write);
+            }
+            catch (IOException) when (File.Exists(candidate))
+            {
+                // A concurrent transfer claimed this name first. Its file now exists, so the next
+                // resolve skips past it and the loop makes progress.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Deletes a destination file whose copy did not complete. Does nothing when the claim itself
+    /// failed, so no path was ever reserved.
+    /// </summary>
+    /// <remarks>
+    /// The name was reserved by creating the file, so an abandoned copy leaves a zero-length or
+    /// partial file behind. Left in place it would both look like a delivered payload and make
+    /// <see cref="ClaimUniqueDestinationPath"/> skip that name forever after.
+    /// </remarks>
+    void DeletePartialDestination(string? destinationPath)
+    {
+        if (destinationPath is null)
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(destinationPath);
+        }
+        catch (Exception ex)
+        {
+            LogFileDeleteFailed(destinationPath, ex);
+        }
+    }
+
+    /// <summary>
+    /// Deletes every file left in the staging directory. Called once, at session disposal.
+    /// </summary>
+    /// <remarks>
+    /// Best-effort by design: <see cref="DisposeAsync"/> does not await the Android payload
+    /// completion chain, so a cancelled copy may still be writing while this runs. Deletes files
+    /// one at a time rather than the directory, so one locked file does not strand the rest.
+    /// </remarks>
+    internal void SweepStagingDirectory(string directory)
+    {
+        string[] files;
+
+        try
+        {
+            files = Directory.GetFiles(directory);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            LogFileDeleteFailed(directory, ex);
+            return;
+        }
+
+        foreach (var file in files)
+        {
+            try
+            {
+                File.Delete(file);
+            }
+            catch (Exception ex)
+            {
+                LogFileDeleteFailed(file, ex);
+            }
+        }
+    }
+
+    /// <summary>
     /// Resolves a non-colliding destination path for an inbound file, appending " (n)" before the
     /// extension when the name is already taken.
     /// </summary>
     /// <remarks>
-    /// Both platforms previously combined <see cref="NearbyOptions.ReceivedFilesDirectory"/>
-    /// with the sender-supplied name and overwrote unconditionally, so two peers sending
-    /// <c>photo.jpg</c> silently clobbered one another and the app saw only the last one. This is
-    /// best-effort, not atomic: a concurrent transfer could claim the same name between the check
-    /// and the write. That race is far narrower than the unconditional overwrite it replaces, and
-    /// closing it fully needs file-creation-based reservation, which is a larger change than this
-    /// fix pass warrants.
+    /// Both platforms previously combined the destination directory with the sender-supplied name
+    /// and overwrote unconditionally, so two peers sending <c>photo.jpg</c> silently clobbered one
+    /// another and the app saw only the last one. On its own this is a check, not a reservation:
+    /// callers reach it through <see cref="ClaimUniqueDestinationPath"/>, which creates the file to
+    /// claim the name and retries when a concurrent transfer wins the race.
     /// </remarks>
     internal static string ResolveUniqueDestinationPath(string directory, string fileName)
     {

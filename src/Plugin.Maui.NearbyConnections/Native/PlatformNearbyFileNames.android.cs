@@ -4,11 +4,6 @@ using Path = System.IO.Path;
 
 namespace Plugin.Maui.NearbyConnections;
 
-// Resolving a human-readable file name from an Android URI is a self-contained concern with no
-// dependency on connection or transfer state — split from PlatformNearby.android.cs for
-// navigability. Every member here is called only from BuildFilePayload, in that file. Named
-// PlatformNearbyFileNames rather than PlatformNearby.android.filenames so the .android.cs suffix
-// MAUI's SDK multi-targeting relies on to exclude this file from other TFMs stays the last segment.
 sealed partial class PlatformNearby
 {
     static AndroidUri? TryCreateUri(string fileUri)
@@ -47,33 +42,6 @@ sealed partial class PlatformNearby
             && (scheme.Equals(ContentResolver.SchemeFile, StringComparison.OrdinalIgnoreCase)
                 || scheme.Equals(ContentResolver.SchemeContent, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>
-    /// Best-effort resolution of a human-readable resource name (including extension) from a URI.
-    /// <para>
-    /// For <c>content://</c> URIs the following sources are tried in order:
-    /// <list type="number">
-    ///   <item><description><c>_display_name</c> — already contains the extension for well-behaved providers (MediaStore, SAF, Downloads).</description></item>
-    ///   <item><description><c>_data</c> — the underlying file path; its filename gives a reliable name + extension for MediaStore URIs. Queried on API 28 and below only, see the remarks.</description></item>
-    ///   <item><description><see cref="ContentResolver.GetType"/> — maps the MIME type to an extension via <see cref="Android.Webkit.MimeTypeMap"/>, for a provider whose display name carries no extension.</description></item>
-    ///   <item><description>Decoded <c>LastPathSegment</c> — opaque but human-readable.</description></item>
-    /// </list>
-    /// </para>
-    /// For <c>file://</c> URIs, the real filesystem path is used directly.
-    /// </summary>
-    /// <remarks>
-    /// The <c>_data</c> tier is gated on
-    /// <see cref="OperatingSystem.IsAndroidVersionAtLeast(int, int, int, int)"/> because
-    /// <c>MediaStore.MediaColumns.DATA</c> was deprecated in API 29 and returns <see langword="null"/>
-    /// under scoped storage. Asking for it on API 29+ can only cost a cursor column that never
-    /// yields a value, so those devices do not ask. It is kept for API 24 to 28, where it does
-    /// resolve and is the better answer than the MIME tier below: it carries the provider's real
-    /// filename rather than a stem paired with an extension derived from the content type.
-    /// <para>
-    /// The guard is the <see cref="OperatingSystem"/> form rather than a <c>Build.VERSION.SdkInt</c>
-    /// comparison so the platform-compatibility analyzer recognises it, which is what keeps a
-    /// version-gated call to a since-deprecated column from tripping the build's warnings-as-errors.
-    /// </para>
-    /// </remarks>
     string ResolveResourceName(AndroidUri uri) =>
         ContentResolver.SchemeContent.Equals(uri.Scheme, StringComparison.OrdinalIgnoreCase)
             ? ResolveContentUriName(uri)

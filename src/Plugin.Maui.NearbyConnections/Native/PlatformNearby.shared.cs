@@ -312,5 +312,10 @@ sealed partial class PlatformNearby : IPlatformNearby
 
         PlatformDispose();
         Peers.Clear();
+
+        // Last: the only point where delivery is provably over, so a staged file nobody moved out
+        // belongs to a session that no longer exists. Best-effort by design — see
+        // SweepStagingDirectory.
+        PlatformSweepStaging();
     }
 }

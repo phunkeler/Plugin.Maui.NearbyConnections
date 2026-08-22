@@ -37,5 +37,4 @@ public sealed partial class NearbyOptions
 
     private static partial string GetDefaultDisplayName() => DeviceInfo.Name;
     private static partial string GetDefaultServiceId() => AppInfo.Name;
-    private static partial string GetDefaultReceivedFilesDirectory() => FileSystem.CacheDirectory;
 }

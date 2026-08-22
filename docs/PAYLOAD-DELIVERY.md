@@ -78,6 +78,22 @@ If no one calls `ReceiveAsync`, payloads accumulate in the channel silently — 
 warning once per connection (`LogPayloadArrivedUnobserved`), but there is no exception and no
 back-pressure signal to the sender.
 
+### A file payload is already on disk when you receive it
+
+Materialisation happens on the write side, before the payload reaches the channel, so
+`FileResult.FullPath` is readable the moment your loop sees it — the consumer never observes a
+partial file.
+
+| Platform | How | Ordering |
+|---|---|---|
+| Android | Asynchronous stream copy out of the GMS `content://` URI, bounded by the connection's `DisconnectedToken`. | An explicit per-endpoint completion chain, so copies for one endpoint never overlap. |
+| iOS | Synchronous same-volume rename out of the MultipeerConnectivity temp location — an O(1) operation. | The delegate's own serial queue. Staying synchronous is what preserves it. |
+
+Both stage into one app-private, operating-system-purgeable directory. The file belongs to the
+consumer from delivery: call `NearbyFilePayload.MoveTo` to keep it. Files nobody moved are deleted
+when the session is disposed — the one point where delivery is provably finished — and the operating
+system may reclaim them before that.
+
 ---
 
 ## Why payloads are a stream

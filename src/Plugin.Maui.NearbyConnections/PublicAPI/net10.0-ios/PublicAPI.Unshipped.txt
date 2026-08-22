@@ -123,6 +123,7 @@ Plugin.Maui.NearbyConnections.NearbyFilePayload.Deconstruct(out Microsoft.Maui.S
 Plugin.Maui.NearbyConnections.NearbyFilePayload.Equals(Plugin.Maui.NearbyConnections.NearbyFilePayload? other) -> bool
 Plugin.Maui.NearbyConnections.NearbyFilePayload.FileResult.get -> Microsoft.Maui.Storage.FileResult!
 Plugin.Maui.NearbyConnections.NearbyFilePayload.FileResult.init -> void
+Plugin.Maui.NearbyConnections.NearbyFilePayload.MoveTo(string! destinationPath) -> Microsoft.Maui.Storage.FileResult!
 Plugin.Maui.NearbyConnections.NearbyFilePayload.NearbyFilePayload(Microsoft.Maui.Storage.FileResult! FileResult) -> void
 Plugin.Maui.NearbyConnections.NearbyOptions
 Plugin.Maui.NearbyConnections.NearbyOptions.AcceptTimeout.get -> System.TimeSpan
@@ -140,8 +141,6 @@ Plugin.Maui.NearbyConnections.NearbyOptions.DisplayName.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.InboundRequestTimeout.get -> System.TimeSpan
 Plugin.Maui.NearbyConnections.NearbyOptions.InboundRequestTimeout.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.NearbyOptions() -> void
-Plugin.Maui.NearbyConnections.NearbyOptions.ReceivedFilesDirectory.get -> string!
-Plugin.Maui.NearbyConnections.NearbyOptions.ReceivedFilesDirectory.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.ServiceId.get -> string!
 Plugin.Maui.NearbyConnections.NearbyOptions.ServiceId.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.TransferInactivityTimeout.get -> System.TimeSpan

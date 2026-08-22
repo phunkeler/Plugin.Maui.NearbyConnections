@@ -36,6 +36,4 @@ public sealed partial class NearbyOptions
     /// validation at startup throws immediately with a descriptive message instead.
     /// </remarks>
     private static partial string GetDefaultServiceId() => ServiceIdRules.Unset;
-
-    private static partial string GetDefaultReceivedFilesDirectory() => FileSystem.AppDataDirectory;
 }

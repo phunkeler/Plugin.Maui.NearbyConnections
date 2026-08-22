@@ -78,21 +78,6 @@ public sealed partial class NearbyOptions
     public string ServiceId { get; set; } = GetDefaultServiceId();
 
     /// <summary>
-    /// Gets or sets the directory in which received files are saved.
-    /// </summary>
-    /// <value>
-    /// The full path to the destination directory. On Android, the default is
-    /// <see cref="FileSystem.CacheDirectory"/>. On iOS, it is
-    /// <see cref="FileSystem.AppDataDirectory"/>.
-    /// </value>
-    /// <remarks>
-    /// The Android default is a cache directory that the operating system may purge to reclaim
-    /// space. If received files must survive, set this property to a persistent location, or move
-    /// files out of the default directory after they arrive.
-    /// </remarks>
-    public string ReceivedFilesDirectory { get; set; } = GetDefaultReceivedFilesDirectory();
-
-    /// <summary>
     /// Gets or sets how often discovery is restarted to drop devices that have gone away without the
     /// platform reporting it.
     /// </summary>
@@ -125,7 +110,6 @@ public sealed partial class NearbyOptions
 
     private static partial string GetDefaultDisplayName();
     private static partial string GetDefaultServiceId();
-    private static partial string GetDefaultReceivedFilesDirectory();
 
     /// <summary>
     /// Gets or sets how long <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/>

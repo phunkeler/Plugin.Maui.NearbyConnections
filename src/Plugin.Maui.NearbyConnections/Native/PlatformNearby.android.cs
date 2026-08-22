@@ -334,7 +334,7 @@ sealed partial class PlatformNearby
             : new CancellationToken(canceled: true);
 
         NearbyPayload? nearbyPayload = entry.Payload.PayloadType == Payload.Type.File
-            ? await CopyFilePayloadAsync(entry.Payload, _options.ReceivedFilesDirectory, copyToken).ConfigureAwait(false)
+            ? await CopyFilePayloadAsync(entry.Payload, StagingDirectory, copyToken).ConfigureAwait(false)
             : entry.Payload.AsBytes() is { } bytes
                 ? new NearbyBytesPayload(bytes)
                 : null;
@@ -366,8 +366,8 @@ sealed partial class PlatformNearby
         }
 
         var fileName = ResolveResourceName(sourceUri);
-        var destinationPath = ResolveUniqueDestinationPath(destinationDirectory, fileName);
         var source = sourceUri.ToString()!;
+        string? destinationPath = null;
 
         try
         {
@@ -378,23 +378,33 @@ sealed partial class PlatformNearby
                 return null;
             }
 
-            using var outputStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
-            await inputStream.CopyToAsync(outputStream, cancellationToken).ConfigureAwait(false);
+            var outputStream = ClaimUniqueDestinationPath(destinationDirectory, fileName);
+            destinationPath = outputStream.Name;
+
+            using (outputStream)
+            {
+                await inputStream.CopyToAsync(outputStream, cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // Teardown, not a failure: the connection dropped or the session was disposed mid-copy.
             // Logged at Debug rather than Error so a routine disconnect does not report a fault.
-            LogFileCopyCanceled(source, destinationPath);
+            LogFileCopyCanceled(source, destinationPath ?? destinationDirectory);
+            DeletePartialDestination(destinationPath);
             return null;
         }
         catch (Exception ex)
         {
-            LogFileCopyFailed(source, destinationPath, ex);
+            LogFileCopyFailed(source, destinationPath ?? destinationDirectory, ex);
+            DeletePartialDestination(destinationPath);
             return null;
         }
         finally
         {
+            // Deleted on every path, cancellation included. A cancelled payload is undeliverable
+            // anyway — the connection is gone — so keeping the GMS original would leave a file in
+            // shared storage that nothing will ever collect.
             try
             {
                 Application.Context.ContentResolver?.Delete(sourceUri, null, null);
@@ -700,6 +710,10 @@ sealed partial class PlatformNearby
             _payloadCompletionChains.Remove(peerId);
         }
     }
+
+    internal static partial string StagingDirectory => Path.Combine(FileSystem.CacheDirectory, StagingDirectoryName);
+
+    void PlatformSweepStaging() => SweepStagingDirectory(StagingDirectory);
 
     void PlatformDispose()
     {

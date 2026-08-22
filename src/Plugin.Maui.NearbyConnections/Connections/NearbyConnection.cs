@@ -32,6 +32,8 @@ public sealed class NearbyConnection : IAsyncDisposable
     int _disposeGuard;
     int _receiveGuard;
 
+    internal bool IsBeingConsumed => Volatile.Read(ref _receiveGuard) != 0;
+
     /// <summary>
     /// Gets the remote device this connection is established with.
     /// </summary>
@@ -220,8 +222,16 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// transfer finishes.
     /// </returns>
     /// <remarks>
+    /// <para>
     /// Accepts the same <see cref="FileResult"/> type that <see cref="NearbyFilePayload"/> exposes,
     /// so a received file can be forwarded without conversion.
+    /// </para>
+    /// <para>
+    /// A <see cref="FileResult"/> from a picker does not always carry a readable file-system path —
+    /// on iOS <c>FullPath</c> may be a bare file name. When that is the case, the file is copied to
+    /// a temporary location through its stream, sent from there, and the temporary copy is deleted
+    /// once the transfer ends. Pass a picker result directly; no staging of your own is needed.
+    /// </para>
     /// </remarks>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="file"/> is <see langword="null"/>.
@@ -245,7 +255,38 @@ public sealed class NearbyConnection : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(file);
-        return _sendFile(file.FullPath, progress, cancellationToken);
+
+        // A file the library staged, or any result whose path is real, sends straight from disk.
+        if (File.Exists(file.FullPath))
+        {
+            return _sendFile(file.FullPath, progress, cancellationToken);
+        }
+
+        return SendStagedAsync();
+
+        async Task SendStagedAsync()
+        {
+            var staged = await StageToTempAsync(
+                file.OpenReadAsync,
+                file.FileName,
+                cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await _sendFile(staged, progress, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(Path.GetDirectoryName(staged)!, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Never widen this catch — a failure to send must still surface.
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -370,10 +411,6 @@ public sealed class NearbyConnection : IAsyncDisposable
         // consumer would have to reach for WaitHandle deliberately.
     }
 
-    /// <summary>
-    /// Completes the receive channel, signaling that no more payloads will arrive.
-    /// Called by the platform when the remote peer disconnects.
-    /// </summary>
     internal void CompleteReceive()
     {
         _disconnectedTcs.TrySetResult();
@@ -381,21 +418,28 @@ public sealed class NearbyConnection : IAsyncDisposable
         _disconnectedCts.Cancel();
     }
 
-    /// <summary>
-    /// Whether anything has started consuming this connection's payloads via
-    /// <see cref="ReceiveAsync"/>.
-    /// </summary>
-    /// <remarks>
-    /// Used to detect the silent-loss case: payloads arriving on a connection nobody reads are
-    /// buffered forever in an unbounded channel and never observed. See
-    /// <c>PlatformNearby.WritePayload</c>, which logs when a payload arrives unobserved.
-    /// </remarks>
-    internal bool IsBeingConsumed => Volatile.Read(ref _receiveGuard) != 0;
-
-    /// <summary>
-    /// Writes an incoming payload to the receive channel.
-    /// A <see langword="false"/> return (channel already completed) is silently dropped.
-    /// </summary>
     internal void TryWritePayload(NearbyPayload payload)
         => _receiveChannel.Writer.TryWrite(payload);
+
+    internal static async Task<string> StageToTempAsync(
+        Func<Task<Stream>> openRead,
+        string fileName,
+        CancellationToken cancellationToken)
+    {
+        var directory = Directory.CreateTempSubdirectory("nearby-send-").FullName;
+        var path = Path.Combine(directory, Path.GetFileName(fileName));
+        var source = await openRead().ConfigureAwait(false);
+
+        await using (source.ConfigureAwait(false))
+        {
+            var destination = File.Create(path);
+
+            await using (destination.ConfigureAwait(false))
+            {
+                await source.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return path;
+    }
 }

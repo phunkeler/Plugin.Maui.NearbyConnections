@@ -447,6 +447,10 @@ sealed partial class PlatformNearby
         return Task.FromResult(NearbyAvailability.Ready);
     }
 
+    internal static partial string StagingDirectory => Path.Combine(FileSystem.CacheDirectory, StagingDirectoryName);
+
+    void PlatformSweepStaging() => SweepStagingDirectory(StagingDirectory);
+
     void PlatformDispose()
     {
         PlatformStopAdvertising();
@@ -707,27 +711,28 @@ sealed partial class PlatformNearby
                 return;
             }
 
-            var destinationPath = ResolveUniqueDestinationPath(_options.ReceivedFilesDirectory, resourceName);
+            string destinationPath;
 
+            // Deliberately synchronous. MultipeerConnectivity deletes its temp file once this
+            // delegate returns, so the file must be consumed before then. A same-volume move is an
+            // O(1) rename, which is why this costs nothing on the delegate's serial queue — and
+            // that queue is also what keeps per-peer payload order. Making this async would break
+            // both guarantees at once: re-introduce staging first.
             try
             {
-                File.Copy(sourcePath, destinationPath, overwrite: false);
+                // The claim is held as a zero-byte file across the move: releasing it before the
+                // move would reopen the race it exists to close, so overwrite it in place.
+                using (var claim = ClaimUniqueDestinationPath(StagingDirectory, resourceName))
+                {
+                    destinationPath = claim.Name;
+                }
+
+                File.Move(sourcePath, destinationPath, overwrite: true);
             }
             catch (Exception ex)
             {
-                LogFileCopyFailed(sourcePath, destinationPath, ex);
+                LogFileCopyFailed(sourcePath, StagingDirectory, ex);
                 return;
-            }
-            finally
-            {
-                try
-                {
-                    File.Delete(sourcePath);
-                }
-                catch (Exception ex)
-                {
-                    LogFileDeleteFailed(sourcePath, ex);
-                }
             }
 
             var payload = new NearbyFilePayload(new FileResult(destinationPath));
