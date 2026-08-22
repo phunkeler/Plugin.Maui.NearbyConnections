@@ -69,7 +69,10 @@ function Invoke-AndroidTests {
     # --logger trx is required, not cosmetic: DeviceRunners omits the CLI's --logger flag when
     # none is given, and writes no TRX at all. The name matches _DeviceRunnersTrxFile, which the
     # report phase reads back.
-    dotnet test $runnerProject -f net10.0-android -p:DeviceRunnersDevice=$serial --logger 'trx;LogFileName=test-results.trx'
+    # -p:TargetFrameworks pins the restore graph to this TFM. `-f` scopes the *build*, but restore
+    # still walks every framework in <TargetFrameworks>, which fails with NETSDK1147 on a machine
+    # that only has the one platform's workload installed (as each CI job does).
+    dotnet test $runnerProject -f net10.0-android -p:TargetFrameworks=net10.0-android -p:DeviceRunnersDevice=$serial --logger 'trx;LogFileName=test-results.trx'
     if ($LASTEXITCODE -ne 0) { throw "Android device tests failed (exit $LASTEXITCODE)." }
 }
 
@@ -103,7 +106,8 @@ function Invoke-IosTests {
     $rid = if ((uname -m) -eq 'arm64') { 'iossimulator-arm64' } else { 'iossimulator-x64' }
     Write-Host "Running iOS device tests on '$($booted.name)' ($($booted.udid), $rid)..."
 
-    dotnet test $runnerProject -f net10.0-ios -p:RuntimeIdentifier=$rid -p:DeviceRunnersDevice=$($booted.udid) --logger 'trx;LogFileName=test-results.trx'
+    # See the Android note: restore ignores -f, so the TFM is pinned for the restore graph too.
+    dotnet test $runnerProject -f net10.0-ios -p:TargetFrameworks=net10.0-ios -p:RuntimeIdentifier=$rid -p:DeviceRunnersDevice=$($booted.udid) --logger 'trx;LogFileName=test-results.trx'
     if ($LASTEXITCODE -ne 0) { throw "iOS device tests failed (exit $LASTEXITCODE)." }
 }
 
@@ -120,12 +124,14 @@ function Copy-Results([string]$suffix) {
 }
 
 if ($Platform -in @('android', 'all')) {
-    try { Invoke-AndroidTests } catch { $failed += "android: $_" } finally { Copy-Results 'android' }
+    # Write-Host, not just $failed: the collected message is printed at the end, but CI needs the
+    # failure visible in the job log at the point it happened.
+    try { Invoke-AndroidTests } catch { Write-Host "android failed: $_"; $failed += "android: $_" } finally { Copy-Results 'android' }
 }
 
 if ($Platform -in @('ios', 'all')) {
     if ($IsMacOS) {
-        try { Invoke-IosTests } catch { $failed += "ios: $_" } finally { Copy-Results 'ios' }
+        try { Invoke-IosTests } catch { Write-Host "ios failed: $_"; $failed += "ios: $_" } finally { Copy-Results 'ios' }
     }
     elseif ($Platform -eq 'all') {
         Write-Warning 'Skipping iOS: requires macOS with Xcode.'

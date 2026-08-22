@@ -110,17 +110,28 @@ jobs:
       - name: Run device tests on emulator
         run: pwsh ./scripts/device-tests.ps1 -Platform android
 
+      # always(), not !cancelled(): these must run even when an earlier step failed, which is
+      # exactly the case that needs diagnosing. mkdir -p guarantees the upload has a path.
+      - name: Collect diagnostics
+        if: always()
+        run: |
+          mkdir -p artifacts
+          cp "${RUNNER_TEMP}/emulator.log" artifacts/ 2>/dev/null || true
+          "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/platform-tools/adb" logcat -d > artifacts/logcat.txt 2>/dev/null || true
+          dotnet workload list > artifacts/workloads.txt 2>&1 || true
+          echo "--- artifacts ---"; ls -la artifacts/
+
       - name: Write run summary
-        if: ${{ !cancelled() }}
+        if: always()
         run: pwsh ./scripts/trx-summary.ps1 -Path artifacts/device-android.trx -Title 'Android' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload TRX artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: ${{ !cancelled() }}
+        if: always()
         with:
           name: device-tests-android
           path: artifacts/
-          if-no-files-found: error
+          if-no-files-found: warn
 
   ios:
     name: iOS simulator
@@ -176,14 +187,22 @@ jobs:
       - name: Run device tests on simulator
         run: pwsh ./scripts/device-tests.ps1 -Platform ios
 
+      - name: Collect diagnostics
+        if: always()
+        run: |
+          mkdir -p artifacts
+          xcrun simctl spawn booted log collect --output artifacts/simulator.logarchive 2>/dev/null || true
+          dotnet workload list > artifacts/workloads.txt 2>&1 || true
+          echo "--- artifacts ---"; ls -la artifacts/
+
       - name: Write run summary
-        if: ${{ !cancelled() }}
+        if: always()
         run: pwsh ./scripts/trx-summary.ps1 -Path artifacts/device-ios.trx -Title 'iOS' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload TRX artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: ${{ !cancelled() }}
+        if: always()
         with:
           name: device-tests-ios
           path: artifacts/
-          if-no-files-found: error
+          if-no-files-found: warn
