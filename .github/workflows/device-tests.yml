@@ -70,10 +70,10 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # A cold emulator boot dominates this job. Cache the AVD snapshot so later runs restore a
-      # booted image instead of booting from scratch. The key covers the exact AVD definition --
-      # changing api-level/arch/target must produce a new snapshot, not reuse a stale one.
-      - name: Cache AVD snapshot
+      # A hosted runner ships the Android SDK but no configured AVD, so one is created here.
+      # This replaces reactivecircus/android-emulator-runner, which is not on this repository's
+      # allowed-actions list -- these are the same sdkmanager/avdmanager calls it wraps.
+      - name: Cache AVD
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
         id: avd-cache
         with:
@@ -82,29 +82,33 @@ jobs:
             ~/.android/adb*
           key: avd-35-x86_64-google_apis
 
-      # Only on a cache miss: boot once with no tests to create the snapshot the next run restores.
-      - name: Create AVD snapshot
+      - name: Create AVD
         if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
-        with:
-          api-level: 35
-          arch: x86_64
-          target: google_apis
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: true
-          script: echo "Snapshot created."
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
+            'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          echo no | "$SDK/cmdline-tools/latest/bin/avdmanager" create avd \
+            --force --name device-tests --abi google_apis/x86_64 \
+            --package 'system-images;android-35;google_apis;x86_64'
+
+      - name: Boot emulator
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          # -no-snapshot-save keeps the cached snapshot from being rewritten by this run.
+          nohup "$SDK/emulator/emulator" -avd device-tests -no-window -no-audio \
+            -no-boot-anim -no-snapshot-save -gpu swiftshader_indirect -camera-back none \
+            > "${RUNNER_TEMP}/emulator.log" 2>&1 &
+          "$SDK/platform-tools/adb" wait-for-device
+          # Bounded: a device that never finishes booting fails the job instead of hanging it.
+          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
+          "$SDK/platform-tools/adb" shell input keyevent 82 || true
 
       - name: Run device tests on emulator
-        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
-        with:
-          api-level: 35
-          arch: x86_64
-          target: google_apis
-          force-avd-creation: false
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: true
-          script: pwsh ./scripts/device-tests.ps1 -Platform android
+        run: pwsh ./scripts/device-tests.ps1 -Platform android
 
       - name: Write run summary
         if: ${{ !cancelled() }}
