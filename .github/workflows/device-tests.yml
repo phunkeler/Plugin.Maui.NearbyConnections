@@ -2,7 +2,10 @@ name: Device Tests
 
 on:
   push:
-    branches: [main]
+    # TEMPORARY: this branch is listed so the workflow runs on push before it exists on main.
+    # A workflow is only registered with Actions once it lands on the default branch, so
+    # `gh workflow run` / workflow_dispatch 404 until then. Remove this branch before merging.
+    branches: [main, merge/refactor-into-preview]
   pull_request:
     # Only the code these tests actually cover. Docs/sample-only PRs skip the whole workflow
     # rather than spending ~6 minutes of macOS runner time to re-prove an untouched suite.
