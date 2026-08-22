@@ -24,10 +24,10 @@ concurrency:
   group: device-tests-${{ github.ref }}
   cancel-in-progress: true
 
-# dorny/test-reporter creates a check run against the commit.
+# Results are rendered into the run summary by scripts/trx-summary.ps1, so no check-run
+# write access is needed -- the workflow only reads the repository.
 permissions:
   contents: read
-  checks: write
 
 jobs:
 
@@ -106,14 +106,6 @@ jobs:
           disable-animations: true
           script: pwsh ./scripts/device-tests.ps1 -Platform android
 
-      - name: Publish results check
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-        if: ${{ !cancelled() }}
-        with:
-          name: Device Tests (Android)
-          path: artifacts/device-android.trx
-          reporter: dotnet-trx
-
       - name: Write run summary
         if: ${{ !cancelled() }}
         run: pwsh ./scripts/trx-summary.ps1 -Path artifacts/device-android.trx -Title 'Android' >> $GITHUB_STEP_SUMMARY
@@ -179,14 +171,6 @@ jobs:
 
       - name: Run device tests on simulator
         run: pwsh ./scripts/device-tests.ps1 -Platform ios
-
-      - name: Publish results check
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
-        if: ${{ !cancelled() }}
-        with:
-          name: Device Tests (iOS)
-          path: artifacts/device-ios.trx
-          reporter: dotnet-trx
 
       - name: Write run summary
         if: ${{ !cancelled() }}
