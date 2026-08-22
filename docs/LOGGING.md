@@ -106,6 +106,11 @@ type and stack trace.
 `Error` for file paths. This is standard `ILogger` behaviour, not a defect — but display names are
 user-chosen and often personal ("Sam's iPhone"), so treat them as identity data.
 
+**A logged path for an inbound file carries a name the sending device supplied.** The library
+reduces that name to its file-name component before use, so it cannot redirect a write, but the
+name itself still reaches the sink as the remote peer wrote it. Treat it as untrusted, and as
+identity data on the same footing as a display name.
+
 If those must not reach a sink — a remote/aggregated one especially — filter this library's
 categories to `Warning` or above for that provider, or scrub the properties in the pipeline. Because
 the values are structured properties rather than pre-formatted text, a sink-side redaction policy can

@@ -3,6 +3,18 @@ name: Device Tests
 on:
   push:
     branches: [main]
+  pull_request:
+    # Only the code these tests actually cover. Docs/sample-only PRs skip the whole workflow
+    # rather than spending ~6 minutes of macOS runner time to re-prove an untouched suite.
+    paths:
+      - 'src/Plugin.Maui.NearbyConnections/**'
+      - 'test/Plugin.Maui.NearbyConnections.DeviceTests/**'
+      - 'test/Plugin.Maui.NearbyConnections.DeviceTests.Runner/**'
+      - 'scripts/device-tests.ps1'
+      - '.github/workflows/device-tests.yml'
+      - 'global.json'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
   workflow_dispatch:
 
 concurrency:
@@ -20,6 +32,7 @@ jobs:
     name: Android emulator
     runs-on: ubuntu-latest
     if: github.repository_owner == 'phunkeler'
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -39,7 +52,7 @@ jobs:
           restore-keys: workload-maui-android-
 
       - name: Install Android workload
-        run: dotnet workload install maui-android
+        run: dotnet workload install maui-android --skip-manifest-update
 
       - name: Cache NuGet packages
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
@@ -54,12 +67,39 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run device tests on emulator
-        uses: reactivecircus/android-emulator-runner@4c44018e59b437e86cdfc41da381398f93ed8808 # v2
+      # A cold emulator boot dominates this job. Cache the AVD snapshot so later runs restore a
+      # booted image instead of booting from scratch. The key covers the exact AVD definition --
+      # changing api-level/arch/target must produce a new snapshot, not reuse a stale one.
+      - name: Cache AVD snapshot
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-35-x86_64-google_apis
+
+      # Only on a cache miss: boot once with no tests to create the snapshot the next run restores.
+      - name: Create AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 35
           arch: x86_64
           target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: echo "Snapshot created."
+
+      - name: Run device tests on emulator
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: pwsh ./scripts/device-tests.ps1 -Platform android
 
@@ -70,6 +110,10 @@ jobs:
           name: Device Tests (Android)
           path: artifacts/device-android.trx
           reporter: dotnet-trx
+
+      - name: Write run summary
+        if: ${{ !cancelled() }}
+        run: pwsh ./scripts/trx-summary.ps1 -Path artifacts/device-android.trx -Title 'Android' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload TRX artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -83,6 +127,7 @@ jobs:
     name: iOS simulator
     runs-on: macos-15
     if: github.repository_owner == 'phunkeler'
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -109,7 +154,7 @@ jobs:
           restore-keys: workload-maui-ios-
 
       - name: Install iOS workload
-        run: dotnet workload install maui-ios
+        run: dotnet workload install maui-ios --skip-manifest-update
 
       - name: Cache NuGet packages
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
@@ -117,6 +162,17 @@ jobs:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
           restore-keys: nuget-${{ runner.os }}-
+
+      # Boot the simulator in the background so it warms up while the app builds, instead of
+      # the script paying the boot serially at test time. `simctl boot` is headless, which is
+      # what CI wants -- device-tests.ps1 skips launching Simulator.app when $CI is set.
+      - name: Pre-boot simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j \
+            | jq -r '.devices | to_entries | map(select(.key | test("SimRuntime.iOS-"))) | .[].value[] | select(.name | test("iPhone")) | .udid' \
+            | head -1)
+          echo "Booting $UDID"
+          xcrun simctl boot "$UDID" || true
 
       - name: Run device tests on simulator
         run: pwsh ./scripts/device-tests.ps1 -Platform ios
@@ -128,6 +184,10 @@ jobs:
           name: Device Tests (iOS)
           path: artifacts/device-ios.trx
           reporter: dotnet-trx
+
+      - name: Write run summary
+        if: ${{ !cancelled() }}
+        run: pwsh ./scripts/trx-summary.ps1 -Path artifacts/device-ios.trx -Title 'iOS' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload TRX artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -382,8 +382,9 @@ await foreach (var payload in connection.ReceiveAsync())
     }
     else if (payload is NearbyFilePayload file)
     {
-        Console.WriteLine($"Received file: {file.FileResult.FullPath}");
-        await GenerateThumbnailAsync(file.FileResult.FullPath);   // awaited in-loop
+        // Move it to keep it. The move consumes the staged copy, so nothing is left behind.
+        var kept = file.MoveTo(Path.Combine(FileSystem.AppDataDirectory, file.FileResult.FileName));
+        await GenerateThumbnailAsync(kept.FullPath);   // awaited in-loop
     }
 }
 ```
@@ -396,11 +397,26 @@ domain message via `IMessenger`.
 ends by itself on disconnect. It is also harmful: cancellation is observed on every iteration, so
 an already-cancelled token discards payloads that arrived just before the peer went away.
 
-Received files are saved to `NearbyOptions.ReceivedFilesDirectory`. The default differs per
-platform. On Android it is `FileSystem.CacheDirectory`, which the OS may purge to reclaim space; on
-iOS it is `FileSystem.AppDataDirectory`, which persists. If received files must persist on Android,
-set the option explicitly, or move the files somewhere durable after receipt. See the
-[Configuration](#configuration) table.
+#### Received files are yours to keep or discard
+
+A received file is staged in app-private storage that the operating system may purge, and it
+belongs to your app from the moment the payload reaches your loop.
+
+- **To keep it:** call `MoveTo`. Inside the app sandbox this is a rename, so it returns
+  immediately. Use the `FileResult` it returns — the payload's own still points at the staging
+  path, which no longer exists.
+- **To discard it:** do nothing. Files you do not move are deleted when the session is disposed,
+  and the operating system may reclaim them before that.
+
+The behaviour is identical on Android and iOS.
+
+`FileName` and `ContentType` come from the sending device. Treat both as untrusted input, and
+validate the content before acting on the declared type.
+
+The library deliberately does not cap the size of an inbound file, filter files by type, or encrypt
+what it stages. Watch `NearbyConnection.InboundProgress` and disconnect if a transfer is larger than
+your app accepts, inspect the file after it arrives, and rely on platform storage encryption
+(Android File-Based Encryption, iOS Data Protection) for data at rest.
 
 ### Error handling
 
@@ -464,7 +480,6 @@ startup has no effect.
 | --- | --- | --- | --- |
 | `DisplayName` | Both | `DeviceInfo.Name` | The name shown to other devices when advertising or discovering. |
 | `ServiceId` | Both | Android: `AppInfo.Name`; iOS: none, **must be set** | Identifier that advertisers and discoverers match on. On iOS it is the `serviceType` (bare string, 1–15 chars; see [step 2](#2-platform-configuration)). Startup validation throws if unset or invalid. |
-| `ReceivedFilesDirectory` | Both | Android: `FileSystem.CacheDirectory` (OS-purgeable); iOS: `FileSystem.AppDataDirectory` (persistent) | Directory where received files are saved. See [step 4](#4-send-and-receive-data). |
 | `TransferInactivityTimeout` | Both | 10 seconds | Maximum time without a transfer progress update before an outgoing file send is aborted with `NearbyTransferTimeoutException`. Set to `Timeout.InfiniteTimeSpan` to disable. |
 | `DiscoveryRefreshInterval` | Both | 30 seconds | How often discovery restarts to re-check what is in range. Devices a new pass does not re-report are removed; a connected or mid-handshake device is never removed. Set to `null` to never restart, and drive `StopDiscoveryAsync`/`StartDiscoveryAsync` yourself. |
 | `AutoAcceptConnectionRequests` | Both | `false` | When `true`, every inbound request is accepted as it arrives and `RequestReceived` is never observed. **This accepts any device that knows the service identifier** — neither platform authenticates the remote device, so enable it only for a kiosk, paired appliance, or trusted network. |

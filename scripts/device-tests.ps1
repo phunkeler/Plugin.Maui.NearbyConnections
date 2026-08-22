@@ -66,7 +66,10 @@ function Invoke-AndroidTests {
     $serial = (($devices | Select-Object -First 1) -split '\t')[0]
     Write-Host "Running Android device tests on '$serial'..."
 
-    dotnet test $runnerProject -f net10.0-android -p:DeviceRunnersDevice=$serial
+    # --logger trx is required, not cosmetic: DeviceRunners omits the CLI's --logger flag when
+    # none is given, and writes no TRX at all. The name matches _DeviceRunnersTrxFile, which the
+    # report phase reads back.
+    dotnet test $runnerProject -f net10.0-android -p:DeviceRunnersDevice=$serial --logger 'trx;LogFileName=test-results.trx'
     if ($LASTEXITCODE -ne 0) { throw "Android device tests failed (exit $LASTEXITCODE)." }
 }
 
@@ -90,11 +93,17 @@ function Invoke-IosTests {
         xcrun simctl boot $booted.udid
     }
 
+    # `simctl boot` starts the runtime headless -- Simulator.app is a separate GUI client that
+    # attaches to an already-booted device. Without this the tests run with no visible window,
+    # unlike the Android leg, where `emulator` *is* the GUI app and shows itself. Skipped in CI,
+    # which has no display server. `open` is a no-op if the app is already running.
+    if (-not $env:CI) { open -a Simulator --args -CurrentDeviceUDID $booted.udid }
+
     # Match the RID to the host: Apple Silicon simulators are arm64, Intel ones x64.
     $rid = if ((uname -m) -eq 'arm64') { 'iossimulator-arm64' } else { 'iossimulator-x64' }
     Write-Host "Running iOS device tests on '$($booted.name)' ($($booted.udid), $rid)..."
 
-    dotnet test $runnerProject -f net10.0-ios -p:RuntimeIdentifier=$rid -p:DeviceRunnersDevice=$($booted.udid)
+    dotnet test $runnerProject -f net10.0-ios -p:RuntimeIdentifier=$rid -p:DeviceRunnersDevice=$($booted.udid) --logger 'trx;LogFileName=test-results.trx'
     if ($LASTEXITCODE -ne 0) { throw "iOS device tests failed (exit $LASTEXITCODE)." }
 }
 

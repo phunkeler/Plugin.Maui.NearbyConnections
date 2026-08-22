@@ -117,7 +117,12 @@ public partial class ChatViewModel(
                 return;
             }
 
-            if (vm.Model.Attachments.FirstOrDefault() is MediaAttachment { FilePath: { Length: > 0 } filePath })
+            if (vm.Model.Attachments.FirstOrDefault() is MediaAttachment { SourceFile: { } sourceFile })
+            {
+                // The library stages this itself when the picker's path is not readable.
+                await connection.SendAsync(sourceFile, progress, cancellationToken);
+            }
+            else if (vm.Model.Attachments.FirstOrDefault() is MediaAttachment { FilePath: { Length: > 0 } filePath })
             {
                 await connection.SendAsync(filePath, progress, cancellationToken);
             }
@@ -207,22 +212,24 @@ public partial class ChatViewModel(
                 return null;
             }
 
-            var fullPath = fileResult.FullPath;
-
-            if (OperatingSystem.IsIOS())
-            {
-                fullPath = await CreateTempFile(fileResult);
-            }
+            // Sending needs no local copy: SendAsync(FileResult) stages the file when the
+            // picker's own path is not readable. This copy exists only so the sample can render a
+            // thumbnail from a real path.
+            var fullPath = File.Exists(fileResult.FullPath)
+                ? fileResult.FullPath
+                : await CopyForThumbnailAsync(fileResult);
 
             MediaAttachment picked = video
                 ? new VideoAttachment
                 {
                     FilePath = fullPath,
+                    SourceFile = fileResult,
                     Thumbnail = await ThumbnailService.GetVideoThumbnailAsync(fullPath)
                 }
                 : new PhotoAttachment
                 {
                     FilePath = fullPath,
+                    SourceFile = fileResult,
                     Thumbnail = ImageSource.FromFile(fullPath)
                 };
 
@@ -265,10 +272,10 @@ public partial class ChatViewModel(
         }
     }
 
-    static async Task<string> CreateTempFile(FileResult fileResult)
+    static async Task<string> CopyForThumbnailAsync(FileResult fileResult)
     {
-        // On iOS, FullPath may be just a filename.
-        // Copy via stream to a known local path before sending.
+        // A picker result's FullPath is not always readable — on iOS it may be a bare file name.
+        // Thumbnail rendering needs a real path, so copy through the stream accessor.
         var localPath = Path.Combine(FileSystem.CacheDirectory, fileResult.FileName);
         await using var source = await fileResult.OpenReadAsync();
         await using var dest = File.Create(localPath);
