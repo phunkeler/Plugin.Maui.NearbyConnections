@@ -1,17 +1,17 @@
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
 [TestCategory("Connections")]
-public class PeerRegistryTests
+public class PeerLookupTests
 {
-    readonly PeerRegistry _sut;
+    readonly PeerLookup _sut;
 
-    public PeerRegistryTests()
+    public PeerLookupTests()
     {
-        _sut = new PeerRegistry();
+        _sut = new PeerLookup();
     }
 
     [TestClass]
-    public sealed class Record : PeerRegistryTests
+    public sealed class Record : PeerLookupTests
     {
         [TestMethod]
         public void NewPeer_ReturnsDeviceWithKeyAndDisplayName()
@@ -60,7 +60,7 @@ public class PeerRegistryTests
     }
 
     [TestClass]
-    public sealed class TryGetDevice : PeerRegistryTests
+    public sealed class TryGetDevice : PeerLookupTests
     {
         [TestMethod]
         public void KnownKey_ReturnsTrueAndDevice()
@@ -94,7 +94,7 @@ public class PeerRegistryTests
     }
 
     [TestClass]
-    public sealed class Remove : PeerRegistryTests
+    public sealed class Remove : PeerLookupTests
     {
         [TestMethod]
         public void KnownKey_ReturnsRemovedDevice()
@@ -140,7 +140,7 @@ public class PeerRegistryTests
     }
 
     [TestClass]
-    public sealed class Clear : PeerRegistryTests
+    public sealed class Clear : PeerLookupTests
     {
         [TestMethod]
         public void RemovesAllTrackedPeers()

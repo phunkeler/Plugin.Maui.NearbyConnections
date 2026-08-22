@@ -10,6 +10,26 @@ sealed partial class PlatformNearby
     MCNearbyServiceAdvertiser? _mcAdvertiser;
     MCNearbyServiceBrowser? _mcBrowser;
     MCSession? _session;
+    MCPeerID? _localPeerId;
+
+    /// <summary>
+    /// This device's own <see cref="MCPeerID"/>, created once and reused for the lifetime of the
+    /// platform layer. Every <see cref="MCSession"/>, advertiser, and browser must be built with
+    /// the same instance: MultipeerConnectivity treats two <see cref="MCPeerID"/> values as
+    /// different peers even when their display names match.
+    /// </summary>
+    internal MCPeerID GetLocalPeerId()
+    {
+        lock (_sessionLock)
+        {
+            if (_localPeerId is null)
+            {
+                LogCreatedLocalPeer(_options.DisplayName);
+            }
+
+            return _localPeerId ??= new MCPeerID(_options.DisplayName);
+        }
+    }
 
     #region Advertising
 
@@ -17,7 +37,7 @@ sealed partial class PlatformNearby
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var myPeerId = Peers.GetLocalPeerId();
+        var myPeerId = GetLocalPeerId();
 
         _mcAdvertiser = new MCNearbyServiceAdvertiser(
             myPeerID: myPeerId,
@@ -104,7 +124,7 @@ sealed partial class PlatformNearby
                     lock (_sessionLock)
                     {
                         _session ??= new MCSession(
-                            Peers.GetLocalPeerId(),
+                            GetLocalPeerId(),
                             identity: null!,
                             _options.ToPlatformEncryptionPreference())
                         {
@@ -157,7 +177,7 @@ sealed partial class PlatformNearby
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var myPeerId = Peers.GetLocalPeerId();
+        var myPeerId = GetLocalPeerId();
 
         _mcBrowser = new MCNearbyServiceBrowser(
             myPeerID: myPeerId,
@@ -243,7 +263,7 @@ sealed partial class PlatformNearby
         lock (_sessionLock)
         {
             _session ??= new MCSession(
-                Peers.GetLocalPeerId(),
+                GetLocalPeerId(),
                 identity: null!,
                 _options.ToPlatformEncryptionPreference())
             {
@@ -440,10 +460,13 @@ sealed partial class PlatformNearby
         Peers.Clear();
 
         MCSession? sessionToDispose;
+        MCPeerID? localPeerToDispose;
         lock (_sessionLock)
         {
             sessionToDispose = _session;
             _session = null;
+            localPeerToDispose = _localPeerId;
+            _localPeerId = null;
         }
 
         if (sessionToDispose is not null)
@@ -451,6 +474,8 @@ sealed partial class PlatformNearby
             sessionToDispose.Disconnect();
             sessionToDispose.Dispose();
         }
+
+        localPeerToDispose?.Dispose();
     }
 
     #region Session Callbacks

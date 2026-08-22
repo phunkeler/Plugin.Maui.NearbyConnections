@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests;
 static partial class Create
 {
     /// <summary>
-    /// The real platform type on iOS, wired with a real <see cref="PeerRegistry"/> — the same shape
+    /// The real platform type on iOS, wired with a real <see cref="PeerLookup"/> — the same shape
     /// <see cref="NearbyImplementation"/> constructs it with in the shipped app.
     /// </summary>
     /// <param name="options">Options to wire the platform with, or <see langword="null"/> for the suite defaults.</param>
@@ -15,7 +15,7 @@ static partial class Create
             TimeProvider.System,
             options ?? DefaultOptions(),
             NullLogger.Instance,
-            PeerRegistry());
+            PeerLookup());
 
     /// <summary>A local <c>MCPeerID</c> standing in for a remote peer in a callback's arguments.</summary>
     /// <param name="displayName">The peer's display name, as MPC reports it.</param>
@@ -23,13 +23,13 @@ static partial class Create
     public static MCPeerID PeerId(string displayName = "Alice") => new(displayName);
 
     /// <summary>
-    /// The real <see cref="Plugin.Maui.NearbyConnections.PeerRegistry"/> the platform is wired
-    /// with. It owns peer-key derivation and local-peer identity, so tests covering either resolve
-    /// one of these rather than a helper type of their own.
+    /// The real <see cref="Plugin.Maui.NearbyConnections.PeerLookup"/> the platform is wired
+    /// with. It owns peer-key derivation and handle tracking, so tests covering either resolve one
+    /// of these rather than a helper type of their own.
     /// </summary>
     /// <returns>The registry.</returns>
-    public static PeerRegistry PeerRegistry(string displayName = "TestDevice")
-        => new() { Logger = NullLogger.Instance, DisplayName = displayName };
+    public static PeerLookup PeerLookup()
+        => new() { Logger = NullLogger.Instance };
 
     /// <summary>
     /// Waits until <paramref name="platform"/> has registered a pending handshake. Needed after

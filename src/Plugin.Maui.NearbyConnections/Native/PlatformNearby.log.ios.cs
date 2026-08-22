@@ -11,4 +11,7 @@ sealed partial class PlatformNearby
 
     [LoggerMessage(EventId = 2054, Level = LogLevel.Trace, Message = "Control message received from peer: Id={DeviceId}, DisplayName={DisplayName}, Type={Type}")]
     partial void LogControlMessageReceived(string deviceId, string displayName, ControlMessageType type);
+
+    [LoggerMessage(EventId = 2005, Level = LogLevel.Debug, Message = "Created local peer: DisplayName={DisplayName}")]
+    partial void LogCreatedLocalPeer(string displayName);
 }

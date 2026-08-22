@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class PeerRegistry
+sealed partial class PeerLookup
 {
     readonly ConcurrentDictionary<string, NearbyDevice> _peers = new(StringComparer.Ordinal);
 

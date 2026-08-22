@@ -16,5 +16,7 @@ static partial class Create
     const string ServiceId = "devtest";
 
     /// <summary>The options the platform is wired with unless a test supplies its own.</summary>
-    static NearbyOptions DefaultOptions() => new() { ServiceId = ServiceId };
+    /// <param name="displayName">The local device's display name, for tests that assert on it.</param>
+    internal static NearbyOptions DefaultOptions(string displayName = "TestDevice")
+        => new() { ServiceId = ServiceId, DisplayName = displayName };
 }

@@ -4,16 +4,12 @@ using System.Security.Cryptography;
 namespace Plugin.Maui.NearbyConnections;
 
 
-sealed partial class PeerRegistry
+sealed partial class PeerLookup
 {
     readonly ConcurrentDictionary<string, MCPeerID> _handles = new(StringComparer.Ordinal);
     readonly ConditionalWeakTable<MCPeerID, string> _keyCache = [];
-    readonly Lock _localPeerIdLock = new();
-
-    MCPeerID? _localPeerId;
 
     internal required ILogger Logger { get; init; }
-    internal required string DisplayName { get; init; }
 
     public NearbyDevice Track(MCPeerID peerID)
     {
@@ -67,19 +63,6 @@ sealed partial class PeerRegistry
         }
     }
 
-    public MCPeerID GetLocalPeerId()
-    {
-        lock (_localPeerIdLock)
-        {
-            if (_localPeerId is null)
-            {
-                LogCreatedLocalPeer(Logger, DisplayName);
-            }
-
-            return _localPeerId ??= new MCPeerID(DisplayName);
-        }
-    }
-
     partial void PlatformRemove(string key)
     {
         LogRemovingRemotePeer(Logger, key);
@@ -87,27 +70,13 @@ sealed partial class PeerRegistry
     }
 
     partial void PlatformClear()
-    {
-        _handles.Clear();
-
-        lock (_localPeerIdLock)
-        {
-            _localPeerId?.Dispose();
-            _localPeerId = null;
-        }
-    }
+        => _handles.Clear();
 
     [LoggerMessage(
         EventId = 3000,
         Level = LogLevel.Error,
         Message = "Failed to derive peer key for '{DisplayName}', falling back to DisplayName.")]
     static partial void LogFailedToDerivePeerKey(ILogger logger, string displayName, Exception error);
-
-    [LoggerMessage(
-        EventId = 3020,
-        Level = LogLevel.Debug,
-        Message = "Created local peer: DisplayName={DisplayName}")]
-    static partial void LogCreatedLocalPeer(ILogger logger, string displayName);
 
     [LoggerMessage(
         EventId = 3030,

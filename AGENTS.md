@@ -216,9 +216,9 @@ src/Plugin.Maui.NearbyConnections/
 ├── Payload/       NearbyPayload + NearbyBytesPayload/NearbyFilePayload — the data
 ├── Transfer/      progress, transfer timeout, outgoing transfer — the act of moving it
 ├── Options/       NearbyOptions + platform scopes + validator (iOS-only rules) + the enums
-├── Native/        IPlatformNearby, PlatformNearby.*, PeerRegistry{,.ios} — this layer's own
+├── Native/        IPlatformNearby, PlatformNearby.*, PeerLookup{,.ios} — this layer's own
 │                  peer bookkeeping, NOT the session's device set (the .ios half adds the
-│                  MCPeerID handle plus peer-key derivation and local peer identity),
+│                  MCPeerID handle plus peer-key derivation),
 │                  AppLifecycleObserver.ios
 └── Platforms/     MAUI SDK convention folder (Android permissions) — NOT the same as Native/
 ```
@@ -248,7 +248,7 @@ File-scoped namespaces are convention, not enforced.
   stack trace and type. Use the instance form (`partial void LogXxx(...)` against a captured
   `_logger`) when the type constructs with an injected logger; use the static form
   (`static partial void LogXxx(ILogger logger, ...)`) when the logger instead arrives via an
-  injected property/parameter on a type that does not own it (e.g. `PeerRegistry`) — both are
+  injected property/parameter on a type that does not own it (e.g. `PeerLookup`) — both are
   correct, the choice follows who owns the logger.
 - Device display names and file paths appear in log messages at `Error`/`Debug` levels by default —
   this is standard `ILogger` behaviour, not a defect; configure a minimum log level per category in
@@ -278,7 +278,7 @@ method-level, so tests must not share mutable state.
 
 **Assert through the surface a consumer uses.** Public API first; internals widened by
 `InternalsVisibleTo` are fair game where the type is itself internal (`PlatformNearby`,
-`PeerRegistry`). Private field names are not — a test coupled to one passes when the behaviour
+`PeerLookup`). Private field names are not — a test coupled to one passes when the behaviour
 breaks and fails when a safe rename happens. The two deliberate exceptions each carry a comment
 saying why, and both exist because `net10.0` cannot reach the behaviour any other way; do not add a
 third without the same justification. Equally, do not test the compiler (generated record members)

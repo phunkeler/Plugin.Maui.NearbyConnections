@@ -931,7 +931,10 @@ public class NearbyImplementationTests
 
             // Act
             await connection.DisposeAsync();
-            await Wait.UntilAsync(() => session.StatusOf("peer-1") is NearbyDeviceStatus.Visible);
+
+            // The registry is written before subscribers are published to, so StatusOf can already
+            // read Visible while the recorder's channel is still undrained. Wait on the recorder.
+            await Wait.UntilAsync(() => recorder.StatusesFor("peer-1").Any());
 
             // Assert
             Assert.HasCount(
@@ -956,7 +959,10 @@ public class NearbyImplementationTests
 
             // Act
             await session.DisconnectAsync(device, TestContext.CancellationToken);
-            await Wait.UntilAsync(() => session.StatusOf("peer-1") is NearbyDeviceStatus.Visible);
+
+            // The registry is written before subscribers are published to, so StatusOf can already
+            // read Visible while the recorder's channel is still undrained. Wait on the recorder.
+            await Wait.UntilAsync(() => recorder.StatusesFor("peer-1").Any());
 
             // Assert
             Assert.HasCount(
@@ -1466,7 +1472,13 @@ public class NearbyImplementationTests
             await using var recorder = new ChangeRecorder(session);
 
             await session.StopAsync(TestContext.CancellationToken);
-            await Wait.UntilAsync(() => recorder.For("peer-1").Count > 0);
+
+            // Two independent async paths settle here: the registry publishes Removed, and the
+            // detached WatchDisconnectAsync task clears _activeConnections once Disconnected
+            // completes. Waiting on the change alone races the second, so wait for both.
+            await Wait.UntilAsync(() => recorder.For("peer-1")
+                .Any(c => c.Action is NearbyDeviceChangeAction.Removed)
+                && !session.TryGetConnection("peer-1", out _));
 
             // Removal is how a stopped session reports the device is gone; the connection going
             // away is what the backgrounded consumer must be able to observe.
@@ -1624,7 +1636,8 @@ public class NearbyImplementationTests
             await session.StopAsync(TestContext.CancellationToken);
 
             // Act
-            await Wait.UntilAsync(() => recorder.For("peer-1").Count > 0);
+            await Wait.UntilAsync(() => recorder.For("peer-1")
+                .Any(c => c.Action is NearbyDeviceChangeAction.Removed));
 
             // Assert
             Assert.HasCount(

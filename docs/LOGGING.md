@@ -56,10 +56,10 @@ To narrow further, filter a single category:
 | Category | Covers |
 |---|---|
 | `Plugin.Maui.NearbyConnections.NearbyImplementation` | Session state, handshake outcomes, teardown, iOS background teardown |
-| `Plugin.Maui.NearbyConnections.PlatformNearby` | The platform layer: discovery, payloads, native callbacks, and the iOS peer identity and bookkeeping messages in the 3000 range |
+| `Plugin.Maui.NearbyConnections.PlatformNearby` | The platform layer: discovery, payloads, native callbacks, and the iOS peer bookkeeping messages in the 3000 range |
 
-Neither `PeerRegistry` nor `AppLifecycleObserver` constructs its own logger, so neither has a
-category of its own. `PeerRegistry` is given the platform layer's logger, so its 3000-range
+Neither `PeerLookup` nor `AppLifecycleObserver` constructs its own logger, so neither has a
+category of its own. `PeerLookup` is given the platform layer's logger, so its 3000-range
 messages arrive under `PlatformNearby`. `AppLifecycleObserver` is given the session's logger, so
 its 3010-range messages arrive under `NearbyImplementation`. Filter either by `EventId`, not by
 category.
@@ -73,7 +73,7 @@ message text. Ranges are allocated per owning type:
 |---|---|
 | 1000–1099 | `NearbyImplementation` — session lifecycle |
 | 2000–2099 | `PlatformNearby` — the platform layer |
-| 3000–3099 | iOS identity and lifecycle — `PeerRegistry` (peer keys, local peer identity, handle tracking) and `AppLifecycleObserver` |
+| 3000–3099 | iOS peer bookkeeping — `PeerLookup` (peer keys, handle tracking) and `AppLifecycleObserver` |
 
 These IDs are worth wiring an alert to:
 

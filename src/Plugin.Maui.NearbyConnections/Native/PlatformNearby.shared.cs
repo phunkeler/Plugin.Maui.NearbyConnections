@@ -14,7 +14,7 @@ sealed partial class PlatformNearby : IPlatformNearby
 
     readonly ConcurrentDictionary<string, byte> _unobservedWarned = new(StringComparer.Ordinal);
 
-    internal PeerRegistry Peers { get; }
+    internal PeerLookup Peers { get; }
 
     int _disposeGuard;
 
@@ -26,7 +26,7 @@ sealed partial class PlatformNearby : IPlatformNearby
         TimeProvider timeProvider,
         NearbyOptions options,
         ILogger logger,
-        PeerRegistry peers)
+        PeerLookup peers)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(options);
