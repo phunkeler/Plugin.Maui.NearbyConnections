@@ -5,6 +5,7 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// payload reaches <see cref="NearbyConnection.InboundProgress"/>, and a file payload's
 /// <c>Success</c> completes the copy-and-route pipeline end to end with real Java file handles.
 /// </summary>
+[Collection(StagingTests.Name)]
 public class TransferUpdateTests : DeviceTest
 {
     [Fact]
@@ -70,9 +71,8 @@ public class TransferUpdateTests : DeviceTest
 
         byte[] first = [1, 1, 1];
         byte[] second = [2, 2, 2];
-        var paths = new List<string>();
 
-        // Act
+        // Act — both sends before the single receive enumeration: ReceiveAsync is single-consumer.
         foreach (var content in new[] { first, second })
         {
             var sourcePath = Path.Combine(Path.GetTempPath(), $"devtest-{Guid.NewGuid():N}.bin");
@@ -83,10 +83,10 @@ public class TransferUpdateTests : DeviceTest
             platform.OnPayloadReceived(id, payload);
             await platform.OnPayloadTransferUpdate(
                 id, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
-
-            var received = await Receive.FirstAsync(connection, cts.Token);
-            paths.Add(Assert.IsType<NearbyFilePayload>(received).FileResult.FullPath);
         }
+
+        var received = await Receive.TakeAsync(connection, 2, cts.Token);
+        var paths = received.Select(p => Assert.IsType<NearbyFilePayload>(p).FileResult.FullPath).ToList();
 
         // Assert — distinct destinations, neither clobbered.
         Assert.NotEqual(paths[0], paths[1]);
