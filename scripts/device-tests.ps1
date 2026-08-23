@@ -126,7 +126,11 @@ function Invoke-AndroidTests {
         # first-boot CPU load, which is a known source of test flake on a cold emulator.
         # --no-window only in CI: a local dev likely wants to see the emulator, matching the iOS
         # leg's own $env:CI-gated --no-open below.
-        $windowArgs = if ($env:CI) { @('--no-window') } else { @() }
+        # [string[]] is required, not stylistic: an untyped array splatted into a native command
+        # (dotnet) is iterated character-by-character when its one element starts with '-',
+        # exploding '--no-window' into '-','-','n','o',... -- verified via repro, this is the
+        # actual cause of "Option does not have a name" on the CI leg.
+        [string[]]$windowArgs = if ($env:CI) { @('--no-window') } else { @() }
         dotnet android avd start --name $avdName @windowArgs `
             --no-audio --no-boot-anim --no-snapshot-save --gpu $AndroidGpu --camera-back none `
             --wait-boot --timeout 300 --cpu-threshold 3 --response-threshold 5
