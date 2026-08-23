@@ -85,7 +85,6 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      # The tool package lands in ~/.nuget/packages, so the cache step above covers it too.
       - name: Restore dotnet tools
         run: dotnet tool restore
 
@@ -95,9 +94,6 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # A hosted runner ships the Android SDK but no configured AVD, so one is created here via
-      # the pinned Microsoft.Maui.Cli -- the same commands scripts/device-tests.ps1 runs locally,
-      # so CI and local share one setup algorithm instead of two.
       - name: Cache AVD
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
         id: avd-cache
@@ -112,7 +108,10 @@ jobs:
         run: |
           set -euo pipefail
           dotnet maui --ci android install --packages "platform-tools,emulator,system-images;android-${{ matrix.level }};google_apis;x86_64" --accept-licenses
-          dotnet maui android emulator create device-tests-${{ matrix.level }} --package "system-images;android-${{ matrix.level }};google_apis;x86_64" --force
+          # Global --ci (before the subcommand) makes `emulator create` default its device
+          # profile non-interactively instead of prompting -- see scripts/device-tests.ps1 for
+          # the same call and the verified failure mode without it.
+          dotnet maui --ci android emulator create device-tests-${{ matrix.level }} --package "system-images;android-${{ matrix.level }};google_apis;x86_64" --force
 
       # The maui CLI cannot pass headless emulator flags yet (dotnet/maui-labs
       # AndroidCommands.Emulator.cs exposes only --cold-boot/--wait), so the raw `emulator`
