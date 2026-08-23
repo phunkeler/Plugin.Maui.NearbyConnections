@@ -31,11 +31,32 @@ permissions:
 
 jobs:
 
+  read-api-levels:
+    name: Read Android API levels
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      levels: ${{ steps.read.outputs.levels }}
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      # .config/android-api-levels.json is the single source of truth for which Android API
+      # levels this suite tests -- read here so the matrix below and a local
+      # ./scripts/device-tests.ps1 run resolve latest/common/minimum to the same numbers.
+      - id: read
+        run: echo "levels=$(jq -c '[.latest,.common,.minimum]' .config/android-api-levels.json)" >> "$GITHUB_OUTPUT"
+
   android:
-    name: Android emulator
+    name: Android emulator (API ${{ matrix.level }})
+    needs: read-api-levels
     runs-on: ubuntu-latest
     if: github.repository_owner == 'phunkeler'
     timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        level: ${{ fromJson(needs.read-api-levels.outputs.levels) }}
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -64,15 +85,19 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
           restore-keys: nuget-${{ runner.os }}-
 
+      # The tool package lands in ~/.nuget/packages, so the cache step above covers it too.
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # A hosted runner ships the Android SDK but no configured AVD, so one is created here.
-      # This replaces reactivecircus/android-emulator-runner, which is not on this repository's
-      # allowed-actions list -- these are the same sdkmanager/avdmanager calls it wraps.
+      # A hosted runner ships the Android SDK but no configured AVD, so one is created here via
+      # the pinned Microsoft.Maui.Cli -- the same commands scripts/device-tests.ps1 runs locally,
+      # so CI and local share one setup algorithm instead of two.
       - name: Cache AVD
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
         id: avd-cache
@@ -80,26 +105,25 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-35-x86_64-google_apis
+          key: avd-${{ matrix.level }}-x86_64-google_apis
 
       - name: Create AVD
         if: steps.avd-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
-          "$SDK/cmdline-tools/latest/bin/sdkmanager" --install \
-            'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
-          echo no | "$SDK/cmdline-tools/latest/bin/avdmanager" create avd \
-            --force --name device-tests --abi google_apis/x86_64 \
-            --package 'system-images;android-35;google_apis;x86_64'
+          dotnet maui --ci android install --packages "platform-tools,emulator,system-images;android-${{ matrix.level }};google_apis;x86_64" --accept-licenses
+          dotnet maui android emulator create device-tests-${{ matrix.level }} --package "system-images;android-${{ matrix.level }};google_apis;x86_64" --force
 
+      # The maui CLI cannot pass headless emulator flags yet (dotnet/maui-labs
+      # AndroidCommands.Emulator.cs exposes only --cold-boot/--wait), so the raw `emulator`
+      # launch stays here for the ubuntu runner's -no-window/-gpu swiftshader_indirect needs.
+      # Fold this step into the CLI when a headless option ships upstream.
       - name: Boot emulator
         run: |
           set -euo pipefail
           SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           # -no-snapshot-save keeps the cached snapshot from being rewritten by this run.
-          nohup "$SDK/emulator/emulator" -avd device-tests -no-window -no-audio \
+          nohup "$SDK/emulator/emulator" -avd device-tests-${{ matrix.level }} -no-window -no-audio \
             -no-boot-anim -no-snapshot-save -gpu swiftshader_indirect -camera-back none \
             > "${RUNNER_TEMP}/emulator.log" 2>&1 &
           "$SDK/platform-tools/adb" wait-for-device
@@ -108,7 +132,7 @@ jobs:
           "$SDK/platform-tools/adb" shell input keyevent 82 || true
 
       - name: Run device tests on emulator
-        run: pwsh ./scripts/device-tests.ps1 -Platform android
+        run: pwsh ./scripts/device-tests.ps1 -Platform android -AndroidApiLevel ${{ matrix.level }}
 
       # always(), not !cancelled(): these must run even when an earlier step failed, which is
       # exactly the case that needs diagnosing. mkdir -p guarantees the upload has a path.
@@ -123,13 +147,13 @@ jobs:
 
       - name: Write run summary
         if: always()
-        run: pwsh ./scripts/trx-summary.ps1 -Path artifacts/device-android.trx -Title 'Android' >> $GITHUB_STEP_SUMMARY
+        run: pwsh ./scripts/trx-summary.ps1 -Path artifacts/device-android-${{ matrix.level }}.trx -Title 'Android API ${{ matrix.level }}' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload TRX artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: device-tests-android
+          name: device-tests-android-${{ matrix.level }}
           path: artifacts/
           if-no-files-found: warn
 
@@ -173,16 +197,28 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
           restore-keys: nuget-${{ runner.os }}-
 
+      # The tool package lands in ~/.nuget/packages, so the cache step above covers it too.
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+
       # Boot the simulator in the background so it warms up while the app builds, instead of
-      # the script paying the boot serially at test time. `simctl boot` is headless, which is
-      # what CI wants -- device-tests.ps1 skips launching Simulator.app when $CI is set.
+      # the script paying the boot serially at test time. Same two CLI commands
+      # scripts/device-tests.ps1 runs, so this is idempotent -- the script's own setup is a fast
+      # no-op afterwards. --no-open is headless, which is what CI wants -- device-tests.ps1 also
+      # skips launching Simulator.app when $CI is set.
       - name: Pre-boot simulator
         run: |
-          UDID=$(xcrun simctl list devices available -j \
-            | jq -r '.devices | to_entries | map(select(.key | test("SimRuntime.iOS-"))) | .[].value[] | select(.name | test("iPhone")) | .udid' \
-            | head -1)
+          set -euo pipefail
+          # devicetypes is already newest-first, so index 0 is the newest iPhone (verified locally:
+          # iPhone 17 Pro precedes iPhone 6s Plus) -- omit --runtime so the CLI picks the newest
+          # installed runtime that supports it.
+          DEVICE_TYPE=$(xcrun simctl list devicetypes -j | jq -r '.devicetypes | map(select(.name | test("^iPhone"))) | .[0].identifier')
+          UDID=$(dotnet maui apple simulator create "$DEVICE_TYPE" --name device-tests --if-not-exists --json | jq -r '.udid')
           echo "Booting $UDID"
-          xcrun simctl boot "$UDID" || true
+          # `simulator start` errors (exit 1) on an already-booted device -- --if-not-exists can
+          # hand back a UDID that's already running, so this tolerates that specific case rather
+          # than failing the job over it.
+          dotnet maui apple simulator start "$UDID" --no-open || true
 
       - name: Run device tests on simulator
         run: pwsh ./scripts/device-tests.ps1 -Platform ios

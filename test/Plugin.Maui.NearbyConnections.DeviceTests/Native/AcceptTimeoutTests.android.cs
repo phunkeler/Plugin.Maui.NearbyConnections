@@ -9,9 +9,30 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// <remarks>
 /// Real time, not a fake clock: these run against the real platform partial, so the timeouts are
 /// deliberately short rather than injected.
+/// <para>
+/// <strong>Requires a real peer, so skipped in the unattended CI/local run.</strong>
+/// <c>AcceptAsync</c> calls the real GMS <c>AcceptConnectionAsync</c>, which validates against
+/// GMS's own live per-endpoint connection state. That state only exists once GMS has itself
+/// processed a genuine <c>requestConnection</c> from a second device — a synthetic
+/// <c>OnConnectionInitiatedAsync</c> call does not create it, so on a single, radio-isolated
+/// emulator GMS always rejects the accept with <c>STATUS_OUT_OF_ORDER_API_CALL</c> (8009),
+/// verified 2026-08-23 against a real advertising session (<see cref="IPlatformNearby.AdvertiseAsync"/>)
+/// and not just a channel write. Same "call the real GMS-backed API, tag what needs a live
+/// environment" pattern as dotnet/maui's own device tests
+/// (<c>Geolocation_Tests.cs</c>, <c>Traits.InteractionType</c>/<c>Human</c>), which is why these
+/// are excluded by trait rather than deleted or faked. The timeout mechanics themselves
+/// (<c>AwaitHandshakeAsync</c>) still have unit coverage that runs everywhere.
+/// </para>
 /// </remarks>
 public class AcceptTimeoutTests : DeviceTest
 {
+    /// <summary>
+    /// Marks a test that needs a real second device or radio and so cannot run against a single,
+    /// radio-isolated emulator/simulator. Excluded from the unattended device-test run via
+    /// <c>dotnet test --filter</c> in <c>scripts/device-tests.ps1</c>.
+    /// </summary>
+    const string RequiresRealPeerTrait = "RequiresRealPeer";
+
     static NearbyOptions Options(TimeSpan accept) => new()
     {
         ServiceId = "devicetests",
@@ -19,6 +40,7 @@ public class AcceptTimeoutTests : DeviceTest
     };
 
     [Fact]
+    [Trait("Category", RequiresRealPeerTrait)]
     public async Task AcceptedRequest_WithNoTerminalCallback_TimesOutInsteadOfHanging()
     {
         // Arrange
@@ -37,6 +59,7 @@ public class AcceptTimeoutTests : DeviceTest
     }
 
     [Fact]
+    [Trait("Category", RequiresRealPeerTrait)]
     public async Task AcceptTimeout_ClearsThePendingHandshakeEntry()
     {
         // Arrange
@@ -57,6 +80,7 @@ public class AcceptTimeoutTests : DeviceTest
     }
 
     [Fact]
+    [Trait("Category", RequiresRealPeerTrait)]
     public async Task AcceptedRequest_WhenResultArrivesFirst_ReturnsTheConnection()
     {
         // Arrange — the deadline must not fire on a handshake that completes normally.

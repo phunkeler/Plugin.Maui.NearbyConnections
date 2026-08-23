@@ -18,9 +18,19 @@ dotnet build src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csp
 dotnet run --project test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj
 
 # Device tests — the platform partials on a real Android emulator / iOS simulator, no radio.
+# Device setup (creating/booting an emulator or simulator) goes through the pinned
+# Microsoft.Maui.Cli local tool (`dotnet tool restore` once per clone; the script does the rest).
 # Boots a device if none is running; TRX results land in artifacts/. iOS leg needs macOS + Xcode.
 # (This is the one place `dotnet test` DOES work: DeviceRunners.Testing.Targets replaces VSTest.)
-./scripts/device-tests.ps1 -Platform all      # or: android | ios
+./scripts/device-tests.ps1                          # -Platform defaults to all
+./scripts/device-tests.ps1 -Platform android -AndroidApiLevel minimum   # or: latest | common | a literal API level
+
+# .config/android-api-levels.json is the single source of truth for which Android API levels
+# this suite tests (latest/common/minimum). CI runs all three as a matrix; a local run tests one
+# at a time (default: latest). `minimum` tracks Directory.Build.props's Android
+# SupportedOSPlatformVersion — bump both together, not independently. `common` is chosen by
+# judgment against real-device distribution share, not derived from any repo constant.
+# On-device coverage is not possible (see below) — this file adds test breadth, not coverage.
 
 # Coverage — dotnet-coverage is pinned in .config/dotnet-tools.json, not globally installed.
 # `dotnet tool restore` once per clone; the tool then runs as `dotnet dotnet-coverage`, not bare.
@@ -339,6 +349,19 @@ unit suite, deliberately:
 - **Pass the device explicitly.** DeviceRunners' booted-simulator auto-detection is unreliable;
   `scripts/device-tests.ps1` always passes `-p:DeviceRunnersDevice=<id>`. Do the same in any manual
   `dotnet test` invocation.
+- **Device setup goes through the pinned `Microsoft.Maui.Cli` local tool** (`dotnet maui ...`,
+  commands: `android emulator create/start/list`, `android install`, `apple simulator
+  create/start/list`, `device list --json`) — one setup algorithm shared by `device-tests.ps1`
+  and `device-tests.yml`, replacing hand-rolled adb/simctl calls. `dotnet maui device list --json`
+  returns snake_case fields (`identifier`, `is_running`, `is_emulator`, `details.avd`); `dotnet
+  maui apple simulator create --json` returns a different shape (`udid`, not `identifier`) — do
+  not assume one schema applies to both commands. The one deliberate exception: CI boots the
+  Android emulator with a raw `emulator -no-window -gpu swiftshader_indirect ...` call, because
+  the CLI's `android emulator start` has no headless flags (only `--cold-boot`/`--wait`) — fold
+  that step into the CLI when a headless option ships upstream.
+- **CI tests Android across a 3-level matrix** (`.config/android-api-levels.json`:
+  latest/common/minimum), one leg per level, each with its own AVD, cache key, TRX file, and
+  uploaded artifact. A local run tests one level at a time (`-AndroidApiLevel`, default `latest`).
 
 The device tests deliberately do **not** test through `IPlatformNearby` — they drive the internal
 callbacks and assert on the internal channels/TCS map/registry. That surface (SDK callbacks in →
