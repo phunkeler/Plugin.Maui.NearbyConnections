@@ -160,11 +160,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      # The .NET iOS SDK pins a minimum Xcode; the newest installed on the runner is the one most
-      # likely to satisfy it (locally this repo has hit "requires Xcode 26.6, found 26.5").
-      - name: Select newest Xcode
-        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
-
       # macOS runners install .NET under /usr/local/share/dotnet, not /usr/share/dotnet as on
       # ubuntu — caching the Linux path here would silently store nothing.
       - name: Cache workload packs
@@ -179,6 +174,39 @@ jobs:
 
       - name: Install iOS workload
         run: dotnet workload install maui-ios --skip-manifest-update
+
+      # The .NET iOS SDK pins an exact required Xcode major.minor -- NOT a minimum, so "always
+      # pick the newest installed" is wrong in both directions: this repo has hit both "requires
+      # Xcode 26.6, found 26.5" (newest too old) and "requires Xcode 26.0, found 26.3" (newest too
+      # new). The pack's own Versions.plist (RecommendedXcodeVersion) is the SDK's authoritative
+      # statement of what it needs -- read after "Install iOS workload" populates the pack, not
+      # before. A fresh CI runner installs exactly one Microsoft.iOS.Sdk.net10.0_* pack (global.json
+      # pins the SDK exactly, rollForward: disable) -- fail loudly rather than guess if more than
+      # one is ever found, since picking the wrong one silently selects the wrong Xcode.
+      - name: Select matching Xcode
+        run: |
+          set -euo pipefail
+          packs=$(ls -d /usr/local/share/dotnet/packs/Microsoft.iOS.Sdk.net10.0_*/*/ 2>/dev/null)
+          packCount=$(echo "$packs" | grep -c . || true)
+          if [ "$packCount" -gt 1 ]; then
+            echo "Found $packCount Microsoft.iOS.Sdk.net10.0_* packs, expected exactly one on a fresh runner:" >&2
+            echo "$packs" >&2
+            exit 1
+          fi
+          required=$(plutil -extract RecommendedXcodeVersion raw "${packs}Versions.plist" 2>/dev/null || true)
+          if [ -z "$required" ]; then
+            echo "Could not determine required Xcode version from installed packs; falling back to newest installed."
+            sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          else
+            echo "Workload requires Xcode $required"
+            match=$(ls -d /Applications/Xcode_${required}*.app 2>/dev/null | sort -V | tail -1)
+            if [ -z "$match" ]; then
+              echo "No installed Xcode matches $required; run 'ls /Applications' on the runner to see what's available." >&2
+              exit 1
+            fi
+            sudo xcode-select -s "$match"
+          fi
+          xcodebuild -version
 
       - name: Cache NuGet packages
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4

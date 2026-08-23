@@ -97,6 +97,14 @@ function Invoke-AndroidTests {
     $avdName = "device-tests-$level-$AndroidArch"
     $sdkId = "system-images;android-$level;google_apis;$AndroidArch"
 
+    # `adb` isn't guaranteed to be on PATH (it wasn't on the CI runner) -- `sdk find` uses
+    # AndroidSdk.Tool's own locator instead of assuming ANDROID_SDK_ROOT/ANDROID_HOME is set,
+    # which isn't guaranteed on a local dev machine either. Resolved once at function scope so
+    # every call site below (pre-install, logcat tail, lock-screen dismiss, log capture) shares
+    # one path instead of each hand-rolling its own -- and so it's just as visible to Start-Job's
+    # separate runspace, which does not inherit the parent scope's variables.
+    $adb = Join-Path (dotnet android sdk find) 'platform-tools/adb'
+
     $running = Get-MauiDevices 'android' | Where-Object { $_.is_running }
     if (-not $running) {
         # AndroidSdk.Tool (`dotnet android`) owns Android emulator create/boot -- its `avd start`
@@ -137,11 +145,8 @@ function Invoke-AndroidTests {
         if ($LASTEXITCODE -ne 0) { throw "dotnet android avd start failed (exit $LASTEXITCODE)." }
 
         # Dismiss the lock screen so instrumented tests can interact with the UI -- no
-        # equivalent flag on `avd start`, so this runs as a follow-up adb call. `sdk find` uses
-        # AndroidSdk.Tool's own locator instead of assuming ANDROID_SDK_ROOT/ANDROID_HOME is set,
-        # which isn't guaranteed on a local dev machine the way it is on the CI runner image.
-        $sdkHome = dotnet android sdk find
-        & (Join-Path $sdkHome 'platform-tools/adb') shell input keyevent 82 2>$null
+        # equivalent flag on `avd start`, so this runs as a follow-up adb call.
+        & $adb shell input keyevent 82 2>$null
 
         $running = Get-MauiDevices 'android' | Where-Object { $_.is_running }
         if (-not $running) { throw "No running Android device found after starting '$avdName'." }
@@ -164,17 +169,18 @@ function Invoke-AndroidTests {
         Where-Object { $_.FullName -match 'net10\.0-android' } |
         Select-Object -First 1 -ExpandProperty FullName
     if (-not $apk) { throw 'Could not find the built runner APK to pre-install.' }
-    & adb -s $serial install -r -g $apk
+    & $adb -s $serial install -r -g $apk
     if ($LASTEXITCODE -ne 0) { throw "adb install -g failed (exit $LASTEXITCODE)." }
 
     # Live-tail structured plugin logs (see AGENTS.md -> Conventions -> Logging) to the console
     # while the run is in progress -- in CI this interleaves directly into the Actions step log,
     # not just the post-run artifact, so a hang is visible as it happens instead of only after
-    # the job times out.
+    # the job times out. Start-Job runs in its own runspace and does not inherit $adb, so it's
+    # passed explicitly alongside the serial.
     $logcatJob = Start-Job -ScriptBlock {
-        param($AdbSerial)
-        & adb -s $AdbSerial logcat -v raw -s 'DOTNET:I'
-    } -ArgumentList $serial
+        param($AdbPath, $AdbSerial)
+        & $AdbPath -s $AdbSerial logcat -v raw -s 'DOTNET:I'
+    } -ArgumentList $adb, $serial
     $logcatReceiver = Start-Job -ScriptBlock {
         param($JobId)
         while ($true) {
@@ -205,7 +211,7 @@ function Invoke-AndroidTests {
     if ($testExitCode -ne 0) { throw "Android device tests failed (exit $testExitCode)." }
 
     # Only CI captured logcat until now; local flake triage gets the same evidence.
-    & adb logcat -d > (Join-Path $artifacts "device-android-$level-logcat.txt") 2>$null
+    & $adb logcat -d > (Join-Path $artifacts "device-android-$level-logcat.txt") 2>$null
 
     $trxPath = Join-Path $artifacts "device-android-$level.trx"
     if (Test-Path $trxPath) {
