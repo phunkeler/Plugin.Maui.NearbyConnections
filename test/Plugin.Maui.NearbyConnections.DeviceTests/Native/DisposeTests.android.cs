@@ -5,6 +5,11 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// cancelled rather than left dangling, so a consumer awaiting <c>AcceptAsync</c> unblocks. Runs
 /// the real <c>PlatformDispose</c> on-device, unlike the <c>net10.0</c> unit equivalent.
 /// </summary>
+/// <remarks>
+/// In the <see cref="StagingTests.Name"/> collection: <c>DisposeAsync</c> sweeps the shared static
+/// staging directory, so this must not run in parallel with other classes that stage files there.
+/// </remarks>
+[Collection(StagingTests.Name)]
 public class DisposeTests : DeviceTest
 {
     [Fact]
