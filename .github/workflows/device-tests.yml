@@ -52,7 +52,9 @@ jobs:
     needs: read-api-levels
     runs-on: ubuntu-latest
     if: github.repository_owner == 'phunkeler'
-    timeout-minutes: 5
+    # Covers a cold AVD-cache-miss create (~80s) + boot + the actual test run -- 5 min was cut
+    # before "Run device tests on emulator" ever started on a cache miss.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -102,34 +104,12 @@ jobs:
             ~/.android/avd/*
             ~/.android/adb*
           key: avd-${{ matrix.level }}-x86_64-google_apis
+          restore-keys: avd-${{ matrix.level }}-
 
-      - name: Create AVD
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        run: |
-          set -euo pipefail
-          dotnet maui --ci android install --packages "platform-tools,emulator,system-images;android-${{ matrix.level }};google_apis;x86_64" --accept-licenses
-          # Global --ci (before the subcommand) makes `emulator create` default its device
-          # profile non-interactively instead of prompting -- see scripts/device-tests.ps1 for
-          # the same call and the verified failure mode without it.
-          dotnet maui --ci android emulator create device-tests-${{ matrix.level }} --package "system-images;android-${{ matrix.level }};google_apis;x86_64" --force
-
-      # The maui CLI cannot pass headless emulator flags yet (dotnet/maui-labs
-      # AndroidCommands.Emulator.cs exposes only --cold-boot/--wait), so the raw `emulator`
-      # launch stays here for the ubuntu runner's -no-window/-gpu swiftshader_indirect needs.
-      # Fold this step into the CLI when a headless option ships upstream.
-      - name: Boot emulator
-        run: |
-          set -euo pipefail
-          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          # -no-snapshot-save keeps the cached snapshot from being rewritten by this run.
-          nohup "$SDK/emulator/emulator" -avd device-tests-${{ matrix.level }} -no-window -no-audio \
-            -no-boot-anim -no-snapshot-save -gpu swiftshader_indirect -camera-back none \
-            > "${RUNNER_TEMP}/emulator.log" 2>&1 &
-          "$SDK/platform-tools/adb" wait-for-device
-          # Bounded: a device that never finishes booting fails the job instead of hanging it.
-          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
-          "$SDK/platform-tools/adb" shell input keyevent 82 || true
-
+      # AVD create + boot + the test run all happen inside device-tests.ps1's Invoke-AndroidTests,
+      # the same single source of truth a local run uses -- it already skips create/install when
+      # `avd list` shows the AVD present (the cache-hit case) and auto-detects arch/gpu from the
+      # host ($env:CI on this runner selects --no-window and --gpu swiftshader_indirect).
       - name: Run device tests on emulator
         run: pwsh ./scripts/device-tests.ps1 -Platform android -AndroidApiLevel ${{ matrix.level }}
 
@@ -139,7 +119,6 @@ jobs:
         if: always()
         run: |
           mkdir -p artifacts
-          cp "${RUNNER_TEMP}/emulator.log" artifacts/ 2>/dev/null || true
           "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/platform-tools/adb" logcat -d > artifacts/logcat.txt 2>/dev/null || true
           dotnet workload list > artifacts/workloads.txt 2>&1 || true
           echo "--- artifacts ---"; ls -la artifacts/

@@ -5,11 +5,13 @@
 
 .DESCRIPTION
     Wraps `dotnet test` on the DeviceRunners-hosted runner app. The same script runs locally
-    (macOS/Windows/Linux) and in CI. Device setup (creating/booting the emulator or simulator)
-    goes through the pinned `Microsoft.Maui.Cli` local tool (`dotnet tool restore` first) --
-    the same commands CI runs, so local and CI share one setup algorithm instead of two. The
-    target device is passed explicitly to `dotnet test` (DeviceRunners' booted-device
-    auto-detection is unreliable), and TRX results land in artifacts/.
+    (macOS/Windows/Linux) and in CI. Device setup goes through two pinned local tools (`dotnet
+    tool restore` first): `AndroidSdk.Tool` (`dotnet android`) creates and boots the Android
+    emulator, `Microsoft.Maui.Cli` (`dotnet maui`) creates/boots the iOS simulator and enumerates
+    devices on both platforms. Local and CI run the same commands through both tools, so they
+    share one setup algorithm instead of two. The target device is passed explicitly to `dotnet
+    test` (DeviceRunners' booted-device auto-detection is unreliable), and TRX results land in
+    artifacts/.
 
     On-device code coverage is not possible: dotnet-coverage/coverlet cannot instrument the
     Android/iOS app runtimes. See AGENTS.md -> Commands. This script produces TRX results and a
@@ -24,18 +26,37 @@
     .config/android-api-levels.json), or a literal API level number. Defaults to 'latest'.
     CI runs all three levels as a matrix; a local run tests one at a time.
 
+.PARAMETER AndroidArch
+    System image ABI for the Android emulator: x86_64 or arm64-v8a. Defaults to the host's own
+    architecture (uname -m) so Apple Silicon runs a native arm64-v8a image instead of x86_64 under
+    emulation. Override to reproduce a specific CI leg (CI is always x86_64) or to force x86_64 on
+    an Intel Mac/Linux host.
+
+.PARAMETER AndroidGpu
+    Emulator --gpu mode. Defaults to 'swiftshader_indirect' (software rendering, required on
+    CI/KVM hosts with no real GPU) when $env:CI is set, or 'auto' (real hardware acceleration)
+    otherwise. Override to force swiftshader locally when reproducing a CI-only flake.
+
 .EXAMPLE
     ./scripts/device-tests.ps1
 
 .EXAMPLE
     ./scripts/device-tests.ps1 -Platform android -AndroidApiLevel minimum
+
+.EXAMPLE
+    ./scripts/device-tests.ps1 -Platform android -AndroidArch x86_64 -AndroidGpu swiftshader_indirect
 #>
 [CmdletBinding()]
 param(
     [ValidateSet('android', 'ios', 'all')]
     [string]$Platform = 'all',
 
-    [string]$AndroidApiLevel = 'latest'
+    [string]$AndroidApiLevel = 'latest',
+
+    [ValidateSet('x86_64', 'arm64-v8a')]
+    [string]$AndroidArch = $(if ((uname -m) -eq 'arm64') { 'arm64-v8a' } else { 'x86_64' }),
+
+    [string]$AndroidGpu = $(if ($env:CI) { 'swiftshader_indirect' } else { 'auto' })
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,7 +65,7 @@ $runnerProject = Join-Path $repoRoot 'test/Plugin.Maui.NearbyConnections.DeviceT
 $artifacts = Join-Path $repoRoot 'artifacts'
 New-Item -ItemType Directory -Force -Path $artifacts | Out-Null
 
-Write-Host 'Restoring local dotnet tools (maui CLI)...'
+Write-Host 'Restoring local dotnet tools (maui CLI, AndroidSdk.Tool)...'
 dotnet tool restore | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'dotnet tool restore failed.' }
 
@@ -71,30 +92,52 @@ function Get-MauiDevices([string]$PlatformFilter) {
 
 function Invoke-AndroidTests {
     $level = Get-AndroidApiLevel $AndroidApiLevel
-    $avdName = "device-tests-$level"
+    # Arch is part of the name: an x86_64 AVD and an arm64-v8a AVD are different images and must
+    # not collide under one name, e.g. a dev switching -AndroidArch to reproduce a CI-only issue.
+    $avdName = "device-tests-$level-$AndroidArch"
+    $sdkId = "system-images;android-$level;google_apis;$AndroidArch"
 
     $running = Get-MauiDevices 'android' | Where-Object { $_.is_running }
     if (-not $running) {
-        $emulators = (dotnet maui android emulator list --json | ConvertFrom-Json)
-        if ($LASTEXITCODE -ne 0) { throw "dotnet maui android emulator list failed (exit $LASTEXITCODE)." }
-        $exists = $emulators | Where-Object { $_.name -eq $avdName }
+        # AndroidSdk.Tool (`dotnet android`) owns Android emulator create/boot -- its `avd start`
+        # has native headless flags and boot-readiness checks (--cpu-threshold,
+        # --response-threshold) that `dotnet maui`'s emulator commands don't expose. `dotnet maui`
+        # still owns device enumeration (Get-MauiDevices, above) and iOS, where AndroidSdk.Tool
+        # has no equivalent. Its JSON output is PascalCase (Newtonsoft default), unlike `dotnet
+        # maui`'s snake_case -- do not assume one schema applies to both tools.
+        $avds = (dotnet android avd list --format json | ConvertFrom-Json)
+        if ($LASTEXITCODE -ne 0) { throw "dotnet android avd list failed (exit $LASTEXITCODE)." }
+        $exists = $avds | Where-Object { $_.Name -eq $avdName }
 
         if (-not $exists) {
-            Write-Host "Creating Android emulator '$avdName' (API $level)..."
+            Write-Host "Creating Android emulator '$avdName' (API $level, $AndroidArch)..."
             # Self-bootstrap: a fresh clone has no Android SDK images installed yet. This is a
             # one-time, large download -- surfaced explicitly so it doesn't look like a hang.
             Write-Host "  (installing Android SDK packages if missing -- one-time, large download)"
-            # Global --ci (before the subcommand) makes `emulator create` default its device
-            # profile non-interactively instead of prompting -- verified: without it, create
-            # fails with "current terminal isn't interactive" whenever no shell is attached.
-            dotnet maui --ci android install --packages "platform-tools,emulator,system-images;android-$level;google_apis;x86_64" --accept-licenses
-            dotnet maui --ci android emulator create $avdName --package "system-images;android-$level;google_apis;x86_64" --force
-            if ($LASTEXITCODE -ne 0) { throw "dotnet maui android emulator create failed (exit $LASTEXITCODE). Run 'dotnet maui doctor' to diagnose." }
+            dotnet android sdk accept-licenses --force
+            dotnet android sdk install --package platform-tools --package emulator --package $sdkId
+            dotnet android avd create --name $avdName --sdk $sdkId --force
+            if ($LASTEXITCODE -ne 0) { throw "dotnet android avd create failed (exit $LASTEXITCODE)." }
         }
 
-        Write-Host "Booting Android emulator '$avdName'..."
-        dotnet maui --ci android emulator start $avdName --wait
-        if ($LASTEXITCODE -ne 0) { throw "dotnet maui android emulator start failed (exit $LASTEXITCODE). Run 'dotnet maui doctor' to diagnose." }
+        Write-Host "Booting Android emulator '$avdName' (--gpu $AndroidGpu)..."
+        # --cpu-threshold/--response-threshold wait for the guest to settle after boot-completed,
+        # not just report it -- a device can report sys.boot_completed=1 while still under
+        # first-boot CPU load, which is a known source of test flake on a cold emulator.
+        # --no-window only in CI: a local dev likely wants to see the emulator, matching the iOS
+        # leg's own $env:CI-gated --no-open below.
+        $windowArgs = if ($env:CI) { @('--no-window') } else { @() }
+        dotnet android avd start --name $avdName @windowArgs `
+            --no-audio --no-boot-anim --no-snapshot-save --gpu $AndroidGpu --camera-back none `
+            --wait-boot --timeout 300 --cpu-threshold 3 --response-threshold 5
+        if ($LASTEXITCODE -ne 0) { throw "dotnet android avd start failed (exit $LASTEXITCODE)." }
+
+        # Dismiss the lock screen so instrumented tests can interact with the UI -- no
+        # equivalent flag on `avd start`, so this runs as a follow-up adb call. `sdk find` uses
+        # AndroidSdk.Tool's own locator instead of assuming ANDROID_SDK_ROOT/ANDROID_HOME is set,
+        # which isn't guaranteed on a local dev machine the way it is on the CI runner image.
+        $sdkHome = dotnet android sdk find
+        & (Join-Path $sdkHome 'platform-tools/adb') shell input keyevent 82 2>$null
 
         $running = Get-MauiDevices 'android' | Where-Object { $_.is_running }
         if (-not $running) { throw "No running Android device found after starting '$avdName'." }

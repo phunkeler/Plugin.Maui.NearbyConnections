@@ -18,9 +18,10 @@ dotnet build src/Plugin.Maui.NearbyConnections/Plugin.Maui.NearbyConnections.csp
 dotnet run --project test/Plugin.Maui.NearbyConnections.UnitTests/Plugin.Maui.NearbyConnections.UnitTests.csproj
 
 # Device tests — the platform partials on a real Android emulator / iOS simulator, no radio.
-# Device setup (creating/booting an emulator or simulator) goes through the pinned
-# Microsoft.Maui.Cli local tool (`dotnet tool restore` once per clone; the script does the rest).
-# Boots a device if none is running; TRX results land in artifacts/. iOS leg needs macOS + Xcode.
+# Device setup (creating/booting an emulator or simulator) goes through two pinned local tools --
+# AndroidSdk.Tool for Android, Microsoft.Maui.Cli for iOS and device enumeration (`dotnet tool
+# restore` once per clone; the script does the rest). Boots a device if none is running; TRX
+# results land in artifacts/. iOS leg needs macOS + Xcode.
 # (This is the one place `dotnet test` DOES work: DeviceRunners.Testing.Targets replaces VSTest.)
 ./scripts/device-tests.ps1                          # -Platform defaults to all
 ./scripts/device-tests.ps1 -Platform android -AndroidApiLevel minimum   # or: latest | common | a literal API level
@@ -349,16 +350,38 @@ unit suite, deliberately:
 - **Pass the device explicitly.** DeviceRunners' booted-simulator auto-detection is unreliable;
   `scripts/device-tests.ps1` always passes `-p:DeviceRunnersDevice=<id>`. Do the same in any manual
   `dotnet test` invocation.
-- **Device setup goes through the pinned `Microsoft.Maui.Cli` local tool** (`dotnet maui ...`,
-  commands: `android emulator create/start/list`, `android install`, `apple simulator
-  create/start/list`, `device list --json`) — one setup algorithm shared by `device-tests.ps1`
-  and `device-tests.yml`, replacing hand-rolled adb/simctl calls. `dotnet maui device list --json`
-  returns snake_case fields (`identifier`, `is_running`, `is_emulator`, `details.avd`); `dotnet
-  maui apple simulator create --json` returns a different shape (`udid`, not `identifier`) — do
-  not assume one schema applies to both commands. The one deliberate exception: CI boots the
-  Android emulator with a raw `emulator -no-window -gpu swiftshader_indirect ...` call, because
-  the CLI's `android emulator start` has no headless flags (only `--cold-boot`/`--wait`) — fold
-  that step into the CLI when a headless option ships upstream.
+- **Device setup goes through two pinned local tools**, both restored via `dotnet tool restore` —
+  one setup algorithm shared by `device-tests.ps1` and `device-tests.yml`, replacing hand-rolled
+  adb/simctl calls:
+  - **`AndroidSdk.Tool`** (`dotnet android ...`) owns Android emulator lifecycle: `sdk
+    accept-licenses --force`, `sdk install --package ...`, `avd create --name ... --sdk ...`,
+    `avd start --name ... --wait-boot --cpu-threshold N --response-threshold N`. Its `avd start`
+    has native headless flags (`--no-window`, `--gpu`) and boot-readiness checks the maui CLI
+    lacks — `--cpu-threshold`/`--response-threshold` wait for the guest to settle after
+    `sys.boot_completed`, not just report it, which is a real gap `getprop` polling has: a device
+    can report boot-completed while still under first-boot CPU load. Its JSON output
+    (`--format json`) is PascalCase (`Name`, `Target`, `Device`) — a different casing convention
+    than `dotnet maui`'s, so do not assume one schema applies to both tools.
+  - **`Microsoft.Maui.Cli`** (`dotnet maui ...`) owns iOS simulator lifecycle (`apple simulator
+    create/start/list`) and cross-platform device enumeration (`device list --json`) — Android
+    still reads through it for `is_running` checks alongside `dotnet android`. `dotnet maui device
+    list --json` returns snake_case fields (`identifier`, `is_running`, `is_emulator`,
+    `details.avd`); `dotnet maui apple simulator create --json` returns a different shape (`udid`,
+    not `identifier`) — do not assume one schema applies to both commands.
+  - `AndroidSdk.Tool` has no iOS/Apple equivalent, so this stays a two-tool split by design, not a
+    full migration off `dotnet maui`.
+  - **AVD create and boot happen only inside `Invoke-AndroidTests`** — `device-tests.yml`'s
+    Android job has no separate create/boot steps; its "Run device tests on emulator" step calls
+    `device-tests.ps1` directly, and the function's own `avd list` check (skip create when the AVD
+    already exists) does the work the workflow's cache-hit conditional used to do explicitly. One
+    place decides whether to create, not two kept in sync by hand.
+  - **Arch and GPU mode are host-detected, not hard-coded.** `-AndroidArch` defaults to the host's
+    `uname -m` (`arm64-v8a` on Apple Silicon, `x86_64` elsewhere) so a Mac runs a native image
+    instead of one under emulation; `-AndroidGpu` defaults to `swiftshader_indirect` (software
+    rendering, required on CI's KVM host with no real GPU) when `$env:CI` is set, `auto` (real
+    hardware acceleration) otherwise. Override either to reproduce a specific CI leg locally. The
+    AVD name embeds arch (`device-tests-{level}-{arch}`) so switching `-AndroidArch` on one machine
+    can't collide with an AVD already created for the other arch.
 - **CI tests Android across a 3-level matrix** (`.config/android-api-levels.json`:
   latest/common/minimum), one leg per level, each with its own AVD, cache key, TRX file, and
   uploaded artifact. A local run tests one level at a time (`-AndroidApiLevel`, default `latest`).
