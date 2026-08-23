@@ -63,6 +63,18 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      # Ubuntu 24.04 uses the XDG convention (~/.config/.android/avd) but avdmanager/emulator's
+      # search order is $ANDROID_AVD_HOME, then $ANDROID_SDK_HOME/avd, then $HOME/.android/avd --
+      # unset, `avd create` can write somewhere the emulator never looks, so it succeeds (exit 0)
+      # while `avd start` reports "Unknown AVD name" against an AVD that does exist, just not
+      # where it's searched. Exporting to $GITHUB_ENV (not a job-level `env:` block, which can't
+      # see the runner's real $HOME at YAML-evaluation time) makes every later step -- create,
+      # start, and the AVD cache path -- agree on one location.
+      - name: Pin ANDROID_AVD_HOME / ANDROID_SDK_HOME
+        run: |
+          echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_HOME=$HOME/.android" >> "$GITHUB_ENV"
+
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           global-json-file: global.json
