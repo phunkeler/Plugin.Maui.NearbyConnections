@@ -281,7 +281,7 @@ sealed partial class PlatformNearby
                 && _incomingPayloads.TryRemove(update.PayloadId, out var deadEntry))
             {
                 LogIncomingPayloadProcessingFailed(endpointId, update.PayloadId);
-                deadEntry.Payload.Dispose();
+                DisposeIncomingPayload(deadEntry.Payload);
             }
         }
         catch (Exception ex)
@@ -350,7 +350,13 @@ sealed partial class PlatformNearby
             LogIncomingPayloadProcessingFailed(endpointId, payloadId);
         }
 
-        entry.Payload.Dispose();
+        DisposeIncomingPayload(entry.Payload);
+    }
+
+    static void DisposeIncomingPayload(Payload payload)
+    {
+        payload.Close();
+        payload.Dispose();
     }
 
     async Task<NearbyFilePayload?> CopyFilePayloadAsync(
@@ -603,6 +609,7 @@ sealed partial class PlatformNearby
         {
             _outgoingTransfers.TryRemove(filePayload.Id, out _);
             transfer.Dispose();
+            filePayload.Close();
             filePayload.Dispose();
         }
     }
@@ -701,7 +708,7 @@ sealed partial class PlatformNearby
             if (entry.EndpointId == peerId
                 && _incomingPayloads.TryRemove(payloadId, out var removed))
             {
-                removed.Payload.Dispose();
+                DisposeIncomingPayload(removed.Payload);
             }
         }
 
@@ -719,7 +726,7 @@ sealed partial class PlatformNearby
     {
         foreach (var (_, entry) in _incomingPayloads)
         {
-            entry.Payload.Dispose();
+            DisposeIncomingPayload(entry.Payload);
         }
         _incomingPayloads.Clear();
 
