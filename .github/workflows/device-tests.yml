@@ -142,7 +142,7 @@ jobs:
     name: iOS simulator
     runs-on: macos-26
     if: github.repository_owner == 'phunkeler'
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
