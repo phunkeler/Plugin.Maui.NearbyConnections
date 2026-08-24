@@ -21,6 +21,6 @@ public class DisconnectTests : DeviceTest
         // Assert
         await connection.Disconnected.WaitAsync(cts.Token);
         Assert.False(platform._activeConnections.ContainsKey(id));
-        Assert.False(platform.Peers.TryGetDevice(id, out _));
+        Assert.False(platform.PeerLookup.TryGetDevice(id, out _));
     }
 }

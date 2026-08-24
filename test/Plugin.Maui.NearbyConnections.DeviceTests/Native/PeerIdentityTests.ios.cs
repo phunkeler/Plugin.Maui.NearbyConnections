@@ -62,10 +62,10 @@ public class PeerIdentityTests : DeviceTest
         using var peerId = Create.PeerId("Alice");
 
         // Act
-        var device = platform.Peers.Track(peerId);
-        var hadHandle = platform.Peers.TryGetHandle(device.Id, out var handle);
-        platform.Peers.Remove(device.Id);
-        var hasHandleAfterRemove = platform.Peers.TryGetHandle(device.Id, out _);
+        var device = platform.PeerLookup.Track(peerId);
+        var hadHandle = platform.PeerLookup.TryGetHandle(device.Id, out var handle);
+        platform.PeerLookup.Remove(device.Id);
+        var hasHandleAfterRemove = platform.PeerLookup.TryGetHandle(device.Id, out _);
 
         // Assert
         Assert.True(hadHandle);

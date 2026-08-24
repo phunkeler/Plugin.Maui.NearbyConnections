@@ -170,7 +170,6 @@ jobs:
             /usr/local/share/dotnet/sdk-manifests
             /usr/local/share/dotnet/metadata
           key: workload-maui-ios-${{ hashFiles('global.json') }}
-          restore-keys: workload-maui-ios-
 
       - name: Install iOS workload
         run: dotnet workload install maui-ios --skip-manifest-update
@@ -186,8 +185,14 @@ jobs:
       - name: Select matching Xcode
         run: |
           set -euo pipefail
-          packs=$(ls -d /usr/local/share/dotnet/packs/Microsoft.iOS.Sdk.net10.0_*/*/ 2>/dev/null)
+          packs=$(ls -d /usr/local/share/dotnet/packs/Microsoft.iOS.Sdk.net10.0_*/*/ 2>/dev/null || true)
           packCount=$(echo "$packs" | grep -c . || true)
+          if [ "$packCount" -eq 0 ]; then
+            echo "No Microsoft.iOS.Sdk.net10.0_* pack found under /usr/local/share/dotnet/packs." >&2
+            echo "Installed packs:" >&2
+            ls -d /usr/local/share/dotnet/packs/*/ >&2 || true
+            exit 1
+          fi
           if [ "$packCount" -gt 1 ]; then
             echo "Found $packCount Microsoft.iOS.Sdk.net10.0_* packs, expected exactly one on a fresh runner:" >&2
             echo "$packs" >&2

@@ -63,6 +63,6 @@ public class ConnectionResultTests : DeviceTest
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
         Assert.False(lost.Found);
         Assert.Equal(found.Device.Id, lost.Device.Id);
-        Assert.False(platform.Peers.TryGetDevice(id, out _));
+        Assert.False(platform.PeerLookup.TryGetDevice(id, out _));
     }
 }

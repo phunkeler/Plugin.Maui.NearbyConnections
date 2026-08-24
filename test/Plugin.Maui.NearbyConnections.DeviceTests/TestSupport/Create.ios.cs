@@ -57,7 +57,7 @@ partial class Create
         PlatformNearby platform, MCPeerID peerId)
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var id = platform.Peers.PeerKey(peerId);
+        var id = platform.PeerLookup.PeerKey(peerId);
 
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
 
@@ -78,7 +78,7 @@ partial class Create
         CancellationToken cancellationToken)
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var id = platform.Peers.PeerKey(peerId);
+        var id = platform.PeerLookup.PeerKey(peerId);
 
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
         platform.OnPeerStateChanged(peerId, MCSessionState.Connected);

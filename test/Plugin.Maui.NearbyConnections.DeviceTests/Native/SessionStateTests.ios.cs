@@ -13,7 +13,7 @@ public class SessionStateTests : DeviceTest
         // Arrange
         await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
-        var id = platform.Peers.PeerKey(peerId);
+        var id = platform.PeerLookup.PeerKey(peerId);
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
 
@@ -30,7 +30,7 @@ public class SessionStateTests : DeviceTest
         // Arrange — the invitation-declined shape: Connecting arrives, then NotConnected.
         await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
-        var id = platform.Peers.PeerKey(peerId);
+        var id = platform.PeerLookup.PeerKey(peerId);
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));

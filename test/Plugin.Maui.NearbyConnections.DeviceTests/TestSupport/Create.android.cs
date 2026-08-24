@@ -87,7 +87,7 @@ partial class Create
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        platform.Peers.Record(id, displayName);
+        platform.PeerLookup.Record(id, displayName);
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
 
         return tcs;
@@ -109,7 +109,7 @@ partial class Create
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
         const string id = "endpoint-1";
 
-        platform.Peers.Record(id, displayName);
+        platform.PeerLookup.Record(id, displayName);
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
         platform.OnConnectionResult(id, Resolution());
 

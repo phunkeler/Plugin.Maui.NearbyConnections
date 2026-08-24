@@ -55,8 +55,8 @@ public class ControlMessageDataTests : DeviceTest
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(aliceId));
-        Assert.True(platform.Peers.TryGetDevice(aliceId, out _));
-        Assert.True(platform.Peers.TryGetHandle(aliceId, out _));
+        Assert.True(platform.PeerLookup.TryGetDevice(aliceId, out _));
+        Assert.True(platform.PeerLookup.TryGetHandle(aliceId, out _));
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class ControlMessageDataTests : DeviceTest
 
         // Assert
         Assert.True(platform._activeConnections.ContainsKey(bobId));
-        Assert.True(platform.Peers.TryGetDevice(bobId, out _));
+        Assert.True(platform.PeerLookup.TryGetDevice(bobId, out _));
     }
 
     [Fact]
@@ -113,6 +113,6 @@ public class ControlMessageDataTests : DeviceTest
         Deliver.ControlFrame(platform, alice, ControlMessageType.Disconnect);
 
         // Assert
-        Assert.False(platform.Peers.IsEmpty);
+        Assert.False(platform.PeerLookup.IsEmpty);
     }
 }

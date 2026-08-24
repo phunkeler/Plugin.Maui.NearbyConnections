@@ -12,7 +12,7 @@ public class DeviceDiscoveryTests : DeviceTest
         // Arrange
         await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
-        var id = platform.Peers.PeerKey(peerId);
+        var id = platform.PeerLookup.PeerKey(peerId);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
@@ -21,7 +21,7 @@ public class DeviceDiscoveryTests : DeviceTest
         // Assert
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
         Assert.True(found.Found);
-        Assert.True(platform.Peers.TryGetDevice(id, out var tracked));
+        Assert.True(platform.PeerLookup.TryGetDevice(id, out var tracked));
         Assert.Equal("Alice", tracked.DisplayName);
     }
 
@@ -31,7 +31,7 @@ public class DeviceDiscoveryTests : DeviceTest
         // Arrange — a peer already discovered, and its Found event drained off the channel.
         await using var platform = Create.PlatformNearby();
         using var peerId = Create.PeerId("Alice");
-        var id = platform.Peers.PeerKey(peerId);
+        var id = platform.PeerLookup.PeerKey(peerId);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         platform.FoundPeer(browser: null!, peerID: peerId, info: null);
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
@@ -43,7 +43,7 @@ public class DeviceDiscoveryTests : DeviceTest
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
         Assert.False(lost.Found);
         Assert.Equal(found.Device.Id, lost.Device.Id);
-        Assert.False(platform.Peers.TryGetDevice(id, out _));
+        Assert.False(platform.PeerLookup.TryGetDevice(id, out _));
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class DeviceDiscoveryTests : DeviceTest
         platform.LostPeer(browser: null!, peerID: peerId);
 
         // Assert
-        Assert.True(platform.Peers.TryGetDevice(id, out _));
+        Assert.True(platform.PeerLookup.TryGetDevice(id, out _));
         Assert.False(platform._discoverChannel.Reader.TryRead(out _));
     }
 }
