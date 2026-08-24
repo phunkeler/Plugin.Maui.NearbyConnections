@@ -202,8 +202,16 @@ public sealed partial class NearbyOptions
     /// <see cref="Timeout.InfiniteTimeSpan"/> to disable the check.
     /// </value>
     /// <remarks>
+    /// <para>
     /// When this interval elapses, the pending <c>SendAsync</c> call throws
     /// <see cref="NearbyTransferTimeoutException"/>.
+    /// </para>
+    /// <para>
+    /// This value covers outbound transfers. An inbound file is copied out of the platform's own
+    /// storage before it reaches the application, and disposal waits for a copy that is still
+    /// running. That wait has a fixed internal bound of a few seconds, so disposing a session
+    /// during a large inbound transfer can take that much longer to return.
+    /// </para>
     /// </remarks>
     public TimeSpan TransferInactivityTimeout { get; set; } = TimeSpan.FromSeconds(10);
 

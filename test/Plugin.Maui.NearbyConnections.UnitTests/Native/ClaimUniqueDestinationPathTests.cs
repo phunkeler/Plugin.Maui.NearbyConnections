@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// cannot take the same name between resolving it and writing to it.
 /// </summary>
 /// <remarks>
-/// Two claims are genuinely concurrent in production — the Android completion chain serialises
+/// Two claims are genuinely concurrent in production — the Android work queue serialises
 /// copies within an endpoint but not across endpoints, and iOS delegate callbacks for different
 /// peers arrive on different threads. The retry these tests exercise is what makes that safe.
 /// </remarks>

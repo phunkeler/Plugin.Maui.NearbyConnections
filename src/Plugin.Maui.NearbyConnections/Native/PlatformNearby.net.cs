@@ -14,13 +14,6 @@ sealed partial class PlatformNearby
 
     void PlatformSweepStaging() { }
 
-    // No payload ever arrives here, so no copy is ever in flight to drain — at session scope or
-    // per connection. Unlike PlatformReleaseConnection, the per-connection drain returns a value,
-    // so it needs an implementation on every target rather than compiling away.
-    static Task PlatformDrainPayloadCompletionAsync() => Task.CompletedTask;
-
-    private partial ValueTask PlatformDrainConnectionAsync(string peerId) => ValueTask.CompletedTask;
-
     void PlatformStopAdvertising() { }
 
     void PlatformStopDiscovering() { }

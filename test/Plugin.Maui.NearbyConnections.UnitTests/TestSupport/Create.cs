@@ -65,6 +65,23 @@ static class Create
             new PeerLookup());
 
     /// <summary>
+    /// A gate a test opens to release work it is holding. Continuations run asynchronously, so
+    /// completing the gate never runs the waiter inline on the completing thread.
+    /// </summary>
+    public static TaskCompletionSource Gate()
+        => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>
+    /// The queue that orders per-peer work, with an error handler that discards what it receives.
+    /// </summary>
+    /// <param name="onError">
+    /// Receives the key and the exception when queued work throws. Pass one when the test asserts
+    /// on the failure.
+    /// </param>
+    public static KeyedSerialQueue KeyedSerialQueue(Action<string, Exception>? onError = null)
+        => new(onError ?? ((_, _) => { }));
+
+    /// <summary>
     /// The inactivity timeout <see cref="Transfer"/> uses unless a test overrides it. Exposed so a
     /// test can advance the clock relative to the deadline without restating the number.
     /// </summary>

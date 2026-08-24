@@ -52,7 +52,14 @@ sealed partial class PlatformNearby
             if (!written)
             {
                 LogWriteChannelCompleted(nameof(WriteConnectionRequest), request.RemoteDevice.Id);
-                _ = RejectUnroutableRequestAsync(request);
+
+                // A separate key from the peer's own, on purpose. This rejection needs tracking, so
+                // that disposal waits for it, but it does not belong behind that peer's payload
+                // work: an inbound copy of several megabytes would otherwise delay telling the
+                // remote peer it was rejected, for a reason unrelated to the rejection.
+                _ = _workQueue.Enqueue(
+                    $"reject:{request.RemoteDevice.Id}",
+                    () => RejectUnroutableRequestAsync(request));
             }
         }
         catch (Exception ex)
@@ -154,9 +161,21 @@ sealed partial class PlatformNearby
     /// <b>Drain, then release.</b> <c>CompleteReceive</c> only <i>requests</i> cancellation, so
     /// work started for this peer can still be reading the handles
     /// <see cref="PlatformReleaseConnection"/> frees — on Android an inbound copy reads
-    /// <c>entry.Payload</c> across an <c>await</c>. <see cref="PlatformDrainConnectionAsync"/>
-    /// waits for that work first. Ordering is what makes the release safe; before this was
-    /// awaitable the safety rested on a <c>TryRemove</c> race between the two sides.
+    /// <c>entry.Payload</c> across an <c>await</c>. Draining the peer's key in
+    /// <see cref="KeyedSerialQueue"/> waits for that work first. Ordering is what makes the release
+    /// safe. Before this was awaitable the safety rested on a <c>TryRemove</c> race between the two
+    /// sides.
+    /// </para>
+    /// <para>
+    /// The drain does not remove the peer's queue entry. A payload that arrives after the peer
+    /// disconnects must stay ordered behind a copy that is still writing. Removing the entry here
+    /// let that payload start a second copy alongside the first.
+    /// </para>
+    /// <para>
+    /// The drain covers the peer's own key, not the <c>reject:</c> key that
+    /// <see cref="WriteConnectionRequest"/> queues an unroutable rejection under. A rejection holds
+    /// no handle <see cref="PlatformReleaseConnection"/> frees, so releasing the connection need not
+    /// wait for it. Disposal still does, through <see cref="KeyedSerialQueue.DrainAllAsync"/>.
     /// </para>
     /// <para>
     /// Safe to call for a peer with no active connection, and safe to call twice: the
@@ -172,23 +191,13 @@ sealed partial class PlatformNearby
 
         _unobservedWarned.TryRemove(peerId, out _);
 
-        await PlatformDrainConnectionAsync(peerId).ConfigureAwait(false);
+        if (!await _workQueue.DrainAsync(peerId, DrainTimeout).ConfigureAwait(false))
+        {
+            LogConnectionDrainTimedOut(peerId, DrainTimeout.TotalSeconds);
+        }
 
         PlatformReleaseConnection(peerId);
     }
-
-    /// <summary>
-    /// Waits for the inbound work still in flight for <paramref name="peerId"/>, so
-    /// <see cref="PlatformReleaseConnection"/> cannot free a handle that work is still reading.
-    /// The per-connection counterpart of <c>PlatformDrainPayloadCompletionAsync</c>, which does
-    /// the same for the whole session at disposal.
-    /// </summary>
-    /// <remarks>
-    /// Android overrides this to await the endpoint's payload completion chain. The iOS and
-    /// <c>net10.0</c> halves keep this completed default: the iOS inbound path is a synchronous
-    /// copy on the delegate queue, so nothing is ever in flight here.
-    /// </remarks>
-    private partial ValueTask PlatformDrainConnectionAsync(string peerId);
 
     /// <summary>
     /// Platform-specific half of <see cref="ReleaseConnectionAsync"/>, run after the peer's
@@ -293,8 +302,8 @@ sealed partial class PlatformNearby
     /// Deletes every file left in the staging directory. Called once, at session disposal.
     /// </summary>
     /// <remarks>
-    /// <see cref="DisposeAsync"/> awaits the Android payload completion chain first, so a copy is
-    /// normally finished before this runs. It stays best-effort for the residual case that wait
+    /// <see cref="DisposeAsync"/> drains the work queue first, so a copy is normally finished
+    /// before this runs. It stays best-effort for the residual case that wait
     /// cannot cover — a copy still writing when the drain times out. Deletes files one at a time
     /// rather than the directory, so one locked file does not strand the rest.
     /// </remarks>

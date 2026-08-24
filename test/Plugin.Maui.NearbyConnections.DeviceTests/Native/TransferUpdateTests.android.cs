@@ -129,7 +129,7 @@ public class TransferUpdateTests : DeviceTest
         //
         // This does not fail without the disposal drain, and it is kept as a guard rather than as a
         // regression test for it. Nothing observable distinguishes the two orderings here: a
-        // cancelled copy deletes its own partial file, and PlatformDispose clears the chain either
+        // cancelled copy deletes its own partial file, and PlatformDispose clears its state either
         // way, so the directory ends up empty whether or not the sweep waited. What it does pin is
         // that disposing mid-copy stays clean — no orphan, no throw, no hang.
         var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
@@ -149,35 +149,5 @@ public class TransferUpdateTests : DeviceTest
         Assert.Empty(Directory.Exists(PlatformNearby.StagingDirectory)
             ? Directory.GetFiles(PlatformNearby.StagingDirectory)
             : []);
-    }
-
-    [Fact]
-    public async Task DisconnectDuringACopy_KeepsTheNextPayloadOrderedBehindIt()
-    {
-        // Arrange — a copy in flight when the peer drops. Releasing the connection must not discard
-        // the endpoint's completion chain: the next payload has to stay ordered behind the copy
-        // rather than starting a fresh chain and racing it.
-        await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var (_, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
-        var file = Create.FilePayload(new byte[4 * 1024 * 1024], $"order-{Guid.NewGuid():N}.bin");
-
-        platform.OnPayloadReceived(id, file);
-        _ = platform.OnPayloadTransferUpdate(
-            id, Create.TransferUpdate(file.Id, PayloadTransferUpdate.Status.Success));
-
-        // Act — the disconnect lands mid-copy, then a second payload arrives for the same endpoint.
-        platform.OnDisconnected(id);
-
-        var bytes = Payload.FromBytes([1, 2, 3]);
-        platform.OnPayloadReceived(id, bytes);
-
-        // Assert — the endpoint keeps its chain across the disconnect, so the second completion is
-        // still ordered behind the running copy. Releasing the connection used to drop the chain,
-        // which let this payload start a fresh one and run while the copy was still writing.
-        Assert.True(platform.HasPayloadCompletionChain(id));
-
-        await platform.OnPayloadTransferUpdate(
-            id, Create.TransferUpdate(bytes.Id, PayloadTransferUpdate.Status.Success));
     }
 }

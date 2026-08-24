@@ -451,17 +451,6 @@ sealed partial class PlatformNearby
 
     void PlatformSweepStaging() => SweepStagingDirectory(StagingDirectory);
 
-    // Nothing to drain: the inbound file path here is a synchronous File.Copy on the delegate
-    // queue, so by the time disposal runs no copy is in flight. The Android half has a real
-    // implementation because its copy is asynchronous.
-    static Task PlatformDrainPayloadCompletionAsync() => Task.CompletedTask;
-
-    // Nothing to drain per connection either, for the same reason. Cannot be static: it implements
-    // a partial declared on the instance, which Android's half needs.
-#pragma warning disable CA1822
-    private partial ValueTask PlatformDrainConnectionAsync(string peerId) => ValueTask.CompletedTask;
-#pragma warning restore CA1822
-
     void PlatformDispose()
     {
         PlatformStopAdvertising();

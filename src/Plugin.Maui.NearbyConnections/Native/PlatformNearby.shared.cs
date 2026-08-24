@@ -5,9 +5,22 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class PlatformNearby : IPlatformNearby
 {
+    /// <summary>
+    /// How long a drain waits before it gives up and lets the release proceed. A constant rather
+    /// than a <see cref="NearbyOptions"/> value: the bound exists so that disposal terminates, and
+    /// no consumer scenario wants a different value.
+    /// </summary>
+    static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(5);
+
     readonly ILogger _logger;
     readonly NearbyOptions _options;
     readonly ConcurrentDictionary<string, byte> _unobservedWarned = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Orders the per-peer work that platform callbacks start and cannot await, so that a release
+    /// or a disposal can wait for that work before it frees the handles the work reads.
+    /// </summary>
+    readonly KeyedSerialQueue _workQueue;
 
     internal readonly ConcurrentDictionary<string, (TaskCompletionSource<NearbyConnection> Tcs, CancellationToken Ct)> _connectionTcs;
     internal readonly ConcurrentDictionary<string, NearbyConnection> _activeConnections;
@@ -40,6 +53,8 @@ sealed partial class PlatformNearby : IPlatformNearby
         _discoverChannel = NewChannel<NearbyDeviceEvent>();
         _connectionTcs = new ConcurrentDictionary<string, (TaskCompletionSource<NearbyConnection> Tcs, CancellationToken Ct)>(StringComparer.Ordinal);
         _activeConnections = new ConcurrentDictionary<string, NearbyConnection>(StringComparer.Ordinal);
+        _workQueue = new KeyedSerialQueue(
+            (key, ex) => LogCallbackError(nameof(KeyedSerialQueue), key, ex));
     }
 
     /// <inheritdoc/>
@@ -124,7 +139,10 @@ sealed partial class PlatformNearby : IPlatformNearby
             }
         }
 
-        await PlatformDrainPayloadCompletionAsync().ConfigureAwait(false);
+        if (!await _workQueue.DrainAllAsync(DrainTimeout).ConfigureAwait(false))
+        {
+            LogPayloadDrainTimedOut(_workQueue.KeyCount, DrainTimeout.TotalSeconds);
+        }
 
         PlatformDispose();
         PeerLookup.Clear();

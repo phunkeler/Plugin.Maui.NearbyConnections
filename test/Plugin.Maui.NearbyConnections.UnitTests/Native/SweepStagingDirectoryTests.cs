@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// does not outlive the session that received it.
 /// </summary>
 /// <remarks>
-/// Disposal now awaits the Android payload completion chain before sweeping, so in the ordinary
+/// Disposal now drains the per-peer work queue before sweeping, so in the ordinary
 /// case no copy is still running here. The sweep stays best-effort for the one residual case the
 /// drain cannot cover: a copy that outlives the drain timeout. These tests pin that it never
 /// throws and never stops early.

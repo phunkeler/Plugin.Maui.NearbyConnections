@@ -73,8 +73,8 @@ These IDs are worth wiring an alert to:
 | `2027` | `Error` | A platform callback threw. Carries a `{Callback}` property naming which one — one filter covers all of them. |
 | `2079` | `Warning` | A payload arrived but nothing was consuming the connection, so it is being buffered and lost. Almost always a wiring bug in the app; see [PAYLOAD-DELIVERY.md](PAYLOAD-DELIVERY.md). |
 | `2084` / `2085` | `Error` | An advertising or discovery start failure could not be delivered to your code. You will see a normal end-of-stream instead of the error, so this log is the only record. |
-| `2093` | `Warning` | Disposal stopped waiting for inbound file copies still running, so the staging sweep that follows may delete a partly written file. Android only. Expect it only when a transfer is wedged — a routine disposal drains in well under the timeout. |
-| `2094` | `Warning` | Releasing one connection stopped waiting for its inbound file copy, so that copy may fail when the payload handles are freed. Android only, same expectation as `2093`. |
+| `2093` | `Warning` | Disposal stopped waiting for queued per-peer work, so the staging sweep that follows may delete a partly written file. The work is an inbound file copy on Android, or a rejected connection request on either platform. Expect it only when a transfer is wedged — a routine disposal drains in well under the timeout. |
+| `2094` | `Warning` | Releasing one connection stopped waiting for that peer's queued work, so an inbound copy may fail when the payload handles are freed. Same expectation as `2093`. |
 | `1013` | `Warning` | An expired inbound request could not be rejected. The device returns to `Visible` either way, but the platform may still hold the request open. |
 | `1014` | `Error` | The expiry countdown for an inbound request failed. That request can stay outstanding until the session stops, so a stale row is the symptom. |
 

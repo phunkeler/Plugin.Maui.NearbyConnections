@@ -86,8 +86,18 @@ partial file.
 
 | Platform | How | Ordering |
 |---|---|---|
-| Android | Asynchronous stream copy out of the GMS `content://` URI, bounded by the connection's `DisconnectedToken`. | An explicit per-endpoint completion chain, so copies for one endpoint never overlap. |
+| Android | Asynchronous stream copy out of the GMS `content://` URI, bounded by the connection's `DisconnectedToken`. | A per-peer work queue, so copies for one peer never overlap. |
 | iOS | Synchronous same-volume rename out of the MultipeerConnectivity temp location — an O(1) operation. | The delegate's own serial queue. Staying synchronous is what preserves it. |
+
+Delivery itself is asynchronous on both platforms. Only the staging step above differs, and the
+difference is forced: MultipeerConnectivity deletes its temp file as soon as the delegate returns,
+so iOS has to consume the file before then. Both platforms deliver through the same channel, in the
+same order, to the same `ReceiveAsync` loop.
+
+One consequence reaches your code. **On Android, disposing a session during a large inbound transfer
+can take several seconds to return**, because disposal waits for the copy in flight before it
+deletes the staging directory. The wait has a fixed internal bound, so disposal always terminates.
+On iOS no copy is ever in flight, so disposal returns immediately.
 
 Both stage into one app-private, operating-system-purgeable directory. The file belongs to the
 consumer from delivery: call `NearbyFilePayload.MoveTo` to keep it. Files nobody moved are deleted

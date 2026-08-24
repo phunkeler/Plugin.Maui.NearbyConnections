@@ -136,13 +136,13 @@ sealed partial class PlatformNearby
     [LoggerMessage(
         EventId = 2093,
         Level = LogLevel.Warning,
-        Message = "Disposal stopped waiting for {PendingCount} inbound payload copies after {TimeoutSeconds}s. A staged file one of them was still writing may be deleted by the sweep that follows.")]
-    partial void LogPayloadDrainTimedOut(int pendingCount, double timeoutSeconds);
+        Message = "Disposal stopped waiting for queued work on {PendingPeerCount} peers after {TimeoutSeconds}s. A staged file a copy was still writing may be deleted by the sweep that follows.")]
+    partial void LogPayloadDrainTimedOut(int pendingPeerCount, double timeoutSeconds);
 
     [LoggerMessage(
         EventId = 2094,
         Level = LogLevel.Warning,
-        Message = "Releasing connection {DeviceId} stopped waiting for its inbound payload copy after {TimeoutSeconds}s. The payload handles are freed anyway, so that copy may fail.")]
+        Message = "Releasing connection {DeviceId} stopped waiting for its queued work after {TimeoutSeconds}s. The payload handles are freed anyway, so an inbound copy that is still running may fail.")]
     partial void LogConnectionDrainTimedOut(string deviceId, double timeoutSeconds);
 
     [LoggerMessage(EventId = 2056, Level = LogLevel.Warning, Message = "Unknown control message type: {Type}")]
