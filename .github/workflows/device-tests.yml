@@ -29,6 +29,16 @@ concurrency:
 permissions:
   contents: read
 
+# Pin the workload set for CI only -- NOT in global.json, which is checked in and would pin
+# every local `dotnet` invocation too. global.json pins the SDK; without a workload pin,
+# `dotnet workload install` on a fresh runner takes the SDK's baseline manifests, which resolved
+# the iOS 26.0 pack and failed: actool needs an iphonesimulator 26.0 runtime that the macos-26
+# image does not actually carry (its readme lists one, but actool reports only 26.2/26.4/26.5).
+# 10.0.400.1 is the serviced set for the 10.0.400 band and resolves the iOS 26.5 pack instead.
+# Bump this deliberately; local machines are free to run whatever manifests they already have.
+env:
+  WORKLOAD_SET_VERSION: '10.0.400.1'
+
 jobs:
 
   read-api-levels:
@@ -84,10 +94,10 @@ jobs:
             ~/.dotnet/packs
             ~/.dotnet/sdk-manifests
             ~/.dotnet/metadata
-          key: workload-maui-android-${{ hashFiles('global.json') }}
+          key: workload-maui-android-${{ env.WORKLOAD_SET_VERSION }}-${{ hashFiles('global.json') }}
 
       - name: Install Android workload
-        run: dotnet workload install maui-android --skip-manifest-update
+        run: dotnet workload install maui-android --version ${{ env.WORKLOAD_SET_VERSION }}
 
       - name: Cache NuGet packages
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
@@ -164,10 +174,10 @@ jobs:
             ~/.dotnet/packs
             ~/.dotnet/sdk-manifests
             ~/.dotnet/metadata
-          key: workload-maui-ios-${{ hashFiles('global.json') }}
+          key: workload-maui-ios-${{ env.WORKLOAD_SET_VERSION }}-${{ hashFiles('global.json') }}
 
       - name: Install iOS workload
-        run: dotnet workload install maui-ios --skip-manifest-update
+        run: dotnet workload install maui-ios --version ${{ env.WORKLOAD_SET_VERSION }}
 
       - name: Read required Xcode version from the iOS SDK
         id: xcode-ver
