@@ -83,11 +83,10 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
         with:
           path: |
-            /usr/share/dotnet/packs
-            /usr/share/dotnet/sdk-manifests
-            /usr/share/dotnet/metadata
+            ~/.dotnet/packs
+            ~/.dotnet/sdk-manifests
+            ~/.dotnet/metadata
           key: workload-maui-android-${{ hashFiles('global.json') }}
-          restore-keys: workload-maui-android-
 
       - name: Install Android workload
         run: dotnet workload install maui-android --skip-manifest-update
@@ -118,15 +117,9 @@ jobs:
           key: avd-${{ matrix.level }}-x86_64-google_apis
           restore-keys: avd-${{ matrix.level }}-
 
-      # AVD create + boot + the test run all happen inside device-tests.ps1's Invoke-AndroidTests,
-      # the same single source of truth a local run uses -- it already skips create/install when
-      # `avd list` shows the AVD present (the cache-hit case) and auto-detects arch/gpu from the
-      # host ($env:CI on this runner selects --no-window and --gpu swiftshader_indirect).
       - name: Run device tests on emulator
         run: pwsh ./scripts/device-tests.ps1 -Platform android -AndroidApiLevel ${{ matrix.level }}
 
-      # always(), not !cancelled(): these must run even when an earlier step failed, which is
-      # exactly the case that needs diagnosing. mkdir -p guarantees the upload has a path.
       - name: Collect diagnostics
         if: always()
         run: |
@@ -149,7 +142,7 @@ jobs:
 
   ios:
     name: iOS simulator
-    runs-on: macos-15
+    runs-on: macos-26
     if: github.repository_owner == 'phunkeler'
     timeout-minutes: 5
 
@@ -160,58 +153,45 @@ jobs:
         with:
           global-json-file: global.json
 
-      # macOS runners install .NET under /usr/local/share/dotnet, not /usr/share/dotnet as on
-      # ubuntu — caching the Linux path here would silently store nothing.
+      # global.json pins the SDK exactly (rollForward: disable), so setup-dotnet downloads its own
+      # copy into ~/.dotnet and does NOT use the runner's preinstalled /usr/local/share/dotnet --
+      # caching the preinstall path stored nothing and left the workload packs unfindable.
+      # Use the literal path, not ${{ env.DOTNET_ROOT }}: setup-dotnet exports DOTNET_ROOT as a
+      # process env var, and the env context only sees workflow-declared env: blocks, so that
+      # expression expands to "" and the paths collapse to /packs.
       - name: Cache workload packs
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
         with:
           path: |
-            /usr/local/share/dotnet/packs
-            /usr/local/share/dotnet/sdk-manifests
-            /usr/local/share/dotnet/metadata
+            ~/.dotnet/packs
+            ~/.dotnet/sdk-manifests
+            ~/.dotnet/metadata
           key: workload-maui-ios-${{ hashFiles('global.json') }}
 
       - name: Install iOS workload
         run: dotnet workload install maui-ios --skip-manifest-update
 
-      # The .NET iOS SDK pins an exact required Xcode major.minor -- NOT a minimum, so "always
-      # pick the newest installed" is wrong in both directions: this repo has hit both "requires
-      # Xcode 26.6, found 26.5" (newest too old) and "requires Xcode 26.0, found 26.3" (newest too
-      # new). The pack's own Versions.plist (RecommendedXcodeVersion) is the SDK's authoritative
-      # statement of what it needs -- read after "Install iOS workload" populates the pack, not
-      # before. A fresh CI runner installs exactly one Microsoft.iOS.Sdk.net10.0_* pack (global.json
-      # pins the SDK exactly, rollForward: disable) -- fail loudly rather than guess if more than
-      # one is ever found, since picking the wrong one silently selects the wrong Xcode.
-      - name: Select matching Xcode
+      - name: Read required Xcode version from the iOS SDK
+        id: xcode-ver
         run: |
           set -euo pipefail
-          packs=$(ls -d /usr/local/share/dotnet/packs/Microsoft.iOS.Sdk.net10.0_*/*/ 2>/dev/null || true)
-          packCount=$(echo "$packs" | grep -c . || true)
-          if [ "$packCount" -eq 0 ]; then
-            echo "No Microsoft.iOS.Sdk.net10.0_* pack found under /usr/local/share/dotnet/packs." >&2
-            echo "Installed packs:" >&2
-            ls -d /usr/local/share/dotnet/packs/*/ >&2 || true
-            exit 1
-          fi
-          if [ "$packCount" -gt 1 ]; then
-            echo "Found $packCount Microsoft.iOS.Sdk.net10.0_* packs, expected exactly one on a fresh runner:" >&2
-            echo "$packs" >&2
-            exit 1
-          fi
-          required=$(plutil -extract RecommendedXcodeVersion raw "${packs}Versions.plist" 2>/dev/null || true)
+          proj=test/Plugin.Maui.NearbyConnections.DeviceTests.Runner/Plugin.Maui.NearbyConnections.DeviceTests.Runner.csproj
+          required=$(dotnet msbuild "$proj" -p:TargetFramework=net10.0-ios -getProperty:RecommendedXcodeVersion)
           if [ -z "$required" ]; then
-            echo "Could not determine required Xcode version from installed packs; falling back to newest installed."
-            sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
-          else
-            echo "Workload requires Xcode $required"
-            match=$(ls -d /Applications/Xcode_${required}*.app 2>/dev/null | sort -V | tail -1)
-            if [ -z "$match" ]; then
-              echo "No installed Xcode matches $required; run 'ls /Applications' on the runner to see what's available." >&2
-              exit 1
-            fi
-            sudo xcode-select -s "$match"
+            required=$(dotnet msbuild "$proj" -p:TargetFramework=net10.0-ios -getProperty:_RecommendedXcodeVersion)
           fi
-          xcodebuild -version
+          if [ -z "$required" ]; then
+            echo "iOS SDK did not report a recommended Xcode version (both property names empty)." >&2
+            exit 1
+          fi
+          version=$(echo "$required" | cut -d. -f1-2)
+          echo "iOS SDK requires Xcode $required (matching on $version)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Select matching Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: ${{ steps.xcode-ver.outputs.version }}
 
       - name: Cache NuGet packages
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
@@ -220,15 +200,9 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      # The tool package lands in ~/.nuget/packages, so the cache step above covers it too.
       - name: Restore dotnet tools
         run: dotnet tool restore
 
-      # Boot the simulator in the background so it warms up while the app builds, instead of
-      # the script paying the boot serially at test time. Same two CLI commands
-      # scripts/device-tests.ps1 runs, so this is idempotent -- the script's own setup is a fast
-      # no-op afterwards. --no-open is headless, which is what CI wants -- device-tests.ps1 also
-      # skips launching Simulator.app when $CI is set.
       - name: Pre-boot simulator
         run: |
           set -euo pipefail
