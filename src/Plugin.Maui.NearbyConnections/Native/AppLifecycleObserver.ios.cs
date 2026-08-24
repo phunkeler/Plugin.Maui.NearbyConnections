@@ -32,12 +32,22 @@ namespace Plugin.Maui.NearbyConnections;
 /// means re-advertising and re-inviting, and the retry policy is app-specific.
 /// </para>
 /// </remarks>
-sealed partial class AppLifecycleObserver : IDisposable
+sealed partial class AppLifecycleObserver : IAsyncDisposable
 {
+    /// <summary>
+    /// How long <see cref="DisposeAsync"/> waits for an in-flight teardown before giving up on it.
+    /// </summary>
+    /// <remarks>
+    /// The teardown it waits for is <c>StopAsync</c>, which is itself bounded by the session's own
+    /// timeouts. This only stops a wedged one from turning disposal into a hang.
+    /// </remarks>
+    static readonly TimeSpan s_tearDownDrainTimeout = TimeSpan.FromSeconds(5);
+
     readonly NearbyImplementation _session;
     readonly ILogger _logger;
 
     NSObject? _backgroundRegistration;
+    Task? _tearDown;
     int _disposeGuard;
 
     internal AppLifecycleObserver(NearbyImplementation session, ILogger logger)
@@ -56,7 +66,10 @@ sealed partial class AppLifecycleObserver : IDisposable
     void OnDidEnterBackground(NSNotification notification)
     {
         LogTearingDownForBackground();
-        _ = TearDownAsync();
+
+        // Kept so DisposeAsync can wait for it. A backgrounding notification landing as the session
+        // is disposed would otherwise leave StopAsync running past the session's own teardown.
+        _tearDown = TearDownAsync();
     }
 
     async Task TearDownAsync()
@@ -71,7 +84,14 @@ sealed partial class AppLifecycleObserver : IDisposable
         }
     }
 
-    public void Dispose()
+    /// <summary>
+    /// Stops observing, then waits for a teardown already in flight.
+    /// </summary>
+    /// <remarks>
+    /// Unregister first, so no new teardown can start while this waits for the current one.
+    /// <c>TearDownAsync</c> never faults — it catches and logs — so the wait needs only its bound.
+    /// </remarks>
+    public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposeGuard, 1) != 0)
         {
@@ -83,6 +103,18 @@ sealed partial class AppLifecycleObserver : IDisposable
             NSNotificationCenter.DefaultCenter.RemoveObserver(_backgroundRegistration);
             _backgroundRegistration.Dispose();
             _backgroundRegistration = null;
+        }
+
+        if (_tearDown is { } tearDown)
+        {
+            try
+            {
+                await tearDown.WaitAsync(s_tearDownDrainTimeout).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogBackgroundTearDownFailed(ex);
+            }
         }
     }
 

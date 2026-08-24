@@ -203,7 +203,7 @@ sealed partial class NearbyImplementation
 
         try
         {
-            var connection = await request.AcceptAsync(CancellationToken.None).ConfigureAwait(false);
+            var connection = await request.AcceptAsync(_disposing.Token).ConfigureAwait(false);
             OnConnected(device, connection, ConnectionRole.Acceptor);
         }
         catch (Exception ex)
@@ -235,6 +235,9 @@ sealed partial class NearbyImplementation
                 return;
             }
 
+            // No disposal guard needed: ResetToVisible reaches the registry through Update, which
+            // returns early for an id it does not hold. Disposal clears the registry first, so a
+            // watcher waking afterwards finds nothing to update and cannot resurrect a row.
             ResetToVisible(device);
         }
         catch (Exception ex)

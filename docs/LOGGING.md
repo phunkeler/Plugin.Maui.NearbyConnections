@@ -37,11 +37,12 @@ deliberately.
 
 ## Turning it up
 
-All categories sit under the `Plugin.Maui.NearbyConnections` namespace, so one entry covers the
-whole library:
+Every message the plugin writes — session lifecycle, the platform layer, iOS peer bookkeeping,
+iOS background teardown — shares one category: `Plugin.Maui.NearbyConnections.INearby`. One filter
+covers the whole library; there is no finer-grained category to narrow into:
 
 ```csharp
-builder.Logging.AddFilter("Plugin.Maui.NearbyConnections", LogLevel.Debug);
+builder.Logging.AddFilter("Plugin.Maui.NearbyConnections.INearby", LogLevel.Debug);
 ```
 
 Pick your level by what you are chasing:
@@ -51,18 +52,7 @@ Pick your level by what you are chasing:
 - **`Trace`** — payloads not arriving, or transfers stalling. Adds one entry per payload, so expect
   real volume on an active connection.
 
-To narrow further, filter a single category:
-
-| Category | Covers |
-|---|---|
-| `Plugin.Maui.NearbyConnections.NearbyImplementation` | Session state, handshake outcomes, teardown, iOS background teardown |
-| `Plugin.Maui.NearbyConnections.PlatformNearby` | The platform layer: discovery, payloads, native callbacks, and the iOS peer bookkeeping messages in the 3000 range |
-
-Neither `PeerLookup` nor `AppLifecycleObserver` constructs its own logger, so neither has a
-category of its own. `PeerLookup` is given the platform layer's logger, so its 3000-range
-messages arrive under `PlatformNearby`. `AppLifecycleObserver` is given the session's logger, so
-its 3010-range messages arrive under `NearbyImplementation`. Filter either by `EventId`, not by
-category.
+Distinguish where a message came from by its `EventId` range (below), not by category.
 
 ## Event IDs
 
@@ -73,7 +63,8 @@ message text. Ranges are allocated per owning type:
 |---|---|
 | 1000–1099 | `NearbyImplementation` — session lifecycle |
 | 2000–2099 | `PlatformNearby` — the platform layer |
-| 3000–3099 | iOS peer bookkeeping — `PeerLookup` (peer keys, handle tracking) and `AppLifecycleObserver` |
+| 3000–3009 | `PeerLookup` — iOS peer keys and handle tracking |
+| 3010–3099 | `AppLifecycleObserver` — iOS background teardown |
 
 These IDs are worth wiring an alert to:
 
@@ -82,6 +73,8 @@ These IDs are worth wiring an alert to:
 | `2027` | `Error` | A platform callback threw. Carries a `{Callback}` property naming which one — one filter covers all of them. |
 | `2079` | `Warning` | A payload arrived but nothing was consuming the connection, so it is being buffered and lost. Almost always a wiring bug in the app; see [PAYLOAD-DELIVERY.md](PAYLOAD-DELIVERY.md). |
 | `2084` / `2085` | `Error` | An advertising or discovery start failure could not be delivered to your code. You will see a normal end-of-stream instead of the error, so this log is the only record. |
+| `2093` | `Warning` | Disposal stopped waiting for inbound file copies still running, so the staging sweep that follows may delete a partly written file. Android only. Expect it only when a transfer is wedged — a routine disposal drains in well under the timeout. |
+| `2094` | `Warning` | Releasing one connection stopped waiting for its inbound file copy, so that copy may fail when the payload handles are freed. Android only, same expectation as `2093`. |
 | `1013` | `Warning` | An expired inbound request could not be rejected. The device returns to `Visible` either way, but the platform may still hold the request open. |
 | `1014` | `Error` | The expiry countdown for an inbound request failed. That request can stay outstanding until the session stops, so a stale row is the symptom. |
 
@@ -99,6 +92,23 @@ than baked into text — you can group every callback failure by callback name o
 
 Exceptions are always passed as the exception argument, never as `ex.Message`, so your sink gets the
 type and stack trace.
+
+One identifier names a device everywhere: `{DeviceId}`. It carries the same value as
+`NearbyDevice.Id`, on both platforms and at every level, so a single equality filter returns every
+message about one device.
+
+| Property | Type | Meaning |
+|---|---|---|
+| `DeviceId` | `string` | The remote device. Matches `NearbyDevice.Id`. |
+| `DisplayName` | `string` | The remote device's user-chosen name. Identity data — see Privacy. |
+| `Callback` | `string` | Which platform callback threw. Pairs with EventId `2027`. |
+| `Writer` | `string` | Which internal stream dropped an event. |
+| `PayloadId` | `long` | Platform-assigned payload handle. Android only. |
+| `TimeoutSeconds` | `double` | The bound that elapsed, for the drain and timeout warnings. |
+
+The plugin emits no logging scopes. Grouping is by `DeviceId`, which survives the thread hops that
+`BeginScope` does not: platform callbacks are pumped onto thread-pool threads before consumers see
+them, so a scope opened in a callback would not enclose the work it caused.
 
 ## Privacy
 
@@ -119,11 +129,13 @@ target them precisely.
 ## Turning it off
 
 ```csharp
-builder.Logging.AddFilter("Plugin.Maui.NearbyConnections", LogLevel.None);
+builder.Logging.AddFilter("Plugin.Maui.NearbyConnections.INearby", LogLevel.None);
 ```
 
-Registering no logging provider at all also works: the plugin falls back to `NullLogger` and every
-call becomes a no-op.
+Logging must already be registered — `AddNearby` resolves `ILogger<INearby>` as a required service,
+not an optional one. `MauiAppBuilder.CreateBuilder()` registers logging for you; code that builds a
+bare `IServiceCollection` calls `AddLogging()` before `AddNearby`. Add no providers to that call and
+every message becomes a no-op with no further configuration needed.
 
 Logging is cheap when disabled. Every message is generated by
 `[LoggerMessage]`, which checks `IsEnabled` before doing any formatting work — a filtered-out

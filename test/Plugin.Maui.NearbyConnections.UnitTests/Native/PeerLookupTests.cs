@@ -60,6 +60,91 @@ public class PeerLookupTests
     }
 
     [TestClass]
+    public sealed class Sanitize : PeerLookupTests
+    {
+        [TestMethod]
+        public void PlainName_IsUnchanged()
+        {
+            // Arrange
+            var displayName = "Alice's iPhone";
+
+            // Act
+            var device = _sut.Record("peer-1", displayName);
+
+            // Assert
+            Assert.AreEqual(displayName, device.DisplayName);
+        }
+
+        [TestMethod]
+        public void NameWithNewlines_HasControlCharactersRemoved()
+        {
+            // Arrange — a forged log record appended to an attacker-chosen name.
+            var displayName = "Alice\r\n[ERROR] transfer approved";
+            var expected = "Alice[ERROR] transfer approved";
+
+            // Act
+            var device = _sut.Record("peer-1", displayName);
+
+            // Assert
+            Assert.AreEqual(expected, device.DisplayName);
+        }
+
+        [TestMethod]
+        public void OverlongName_IsTruncatedToMaxLength()
+        {
+            // Arrange
+            var displayName = new string('A', PeerLookup.MaxDisplayNameLength + 50);
+
+            // Act
+            var device = _sut.Record("peer-1", displayName);
+
+            // Assert
+            Assert.AreEqual(PeerLookup.MaxDisplayNameLength, device.DisplayName!.Length);
+        }
+
+        [TestMethod]
+        public void NameOfOnlyControlCharacters_BecomesNull()
+        {
+            // Arrange
+            var displayName = "\r\n\t\u0000";
+
+            // Act
+            var device = _sut.Record("peer-1", displayName);
+
+            // Assert
+            Assert.IsNull(device.DisplayName);
+        }
+
+        [TestMethod]
+        public void NullName_StaysNull()
+        {
+            // Arrange
+            string? displayName = null;
+
+            // Act
+            var device = _sut.Record("peer-1", displayName);
+
+            // Assert
+            Assert.IsNull(device.DisplayName);
+        }
+
+        [TestMethod]
+        public void TruncationDoesNotSplitSurrogatePair()
+        {
+            // Arrange — every rune is 2 UTF-16 units, so the cap lands exactly on a pair boundary
+            // only if whole runes are appended.
+            var displayName = string.Concat(Enumerable.Repeat("\U0001F600", PeerLookup.MaxDisplayNameLength));
+
+            // Act
+            var device = _sut.Record("peer-1", displayName);
+
+            // Assert — a split pair leaves a lone high surrogate at the end.
+            Assert.IsFalse(char.IsHighSurrogate(device.DisplayName![^1]));
+            Assert.AreEqual(PeerLookup.MaxDisplayNameLength, device.DisplayName.Length);
+        }
+    }
+
+    [TestClass]
     public sealed class TryGetDevice : PeerLookupTests
     {
         [TestMethod]

@@ -7,6 +7,11 @@ sealed partial class NearbyImplementation
     partial void PlatformInitializeLifecycleObserver(ILogger logger)
         => _lifecycleObserver = new AppLifecycleObserver(this, logger);
 
-    partial void PlatformDisposeLifecycleObserver()
-        => _lifecycleObserver?.Dispose();
+    partial void PlatformDisposeLifecycleObserver(ref ValueTask teardown)
+    {
+        if (_lifecycleObserver is { } observer)
+        {
+            teardown = observer.DisposeAsync();
+        }
+    }
 }

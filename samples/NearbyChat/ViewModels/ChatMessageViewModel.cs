@@ -98,8 +98,6 @@ public partial class ChatMessageViewModel(ChatMessage model, ILauncher launcher)
     {
         OpenFailureReason = null;
 
-        // OpenAsync reports "no app handled this file" by returning false rather than throwing.
-        // Discarding the result means a tap that opens nothing and explains nothing.
         var opened = await _launcher.OpenAsync(new OpenFileRequest
         {
             Title = Path.GetFileName(filePath),

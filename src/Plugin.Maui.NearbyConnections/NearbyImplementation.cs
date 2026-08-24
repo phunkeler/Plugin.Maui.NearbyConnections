@@ -6,6 +6,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
 
     readonly PumpState _advertise;
     readonly PumpState _discover;
+    readonly CancellationTokenSource _disposing = new();
     readonly IPlatformNearby _connections;
     readonly NearbyOptions _options;
     readonly ILogger _logger;
@@ -72,9 +73,16 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     partial void PlatformInitializeLifecycleObserver(ILogger logger);
 
     /// <summary>
-    /// Unsubscribes the backgrounding observer, if one was created. No-op where none exists.
+    /// Unsubscribes the backgrounding observer and waits for a teardown it already started, if one
+    /// was created. Compiles away on platforms with no observer.
     /// </summary>
-    partial void PlatformDisposeLifecycleObserver();
+    /// <remarks>
+    /// Takes the teardown task by <see langword="ref"/> rather than returning it, because a
+    /// <c>partial void</c> is what lets the call vanish on Android and <c>net10.0</c> — the
+    /// platform-hook pattern this codebase uses instead of <c>#if</c>. A value-returning partial
+    /// would need a stub file per platform for a member only iOS has.
+    /// </remarks>
+    partial void PlatformDisposeLifecycleObserver(ref ValueTask teardown);
 
     /// <inheritdoc/>
     public INearbyDevices Devices => _registry;
@@ -368,6 +376,17 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         await connection.DisposeAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Tears down the session: stops the session's own background work, disposes every active
+    /// connection, then releases the platform session. Called by the DI container, not by app code
+    /// — see the lifetime remarks on <see cref="INearby"/>.
+    /// </summary>
+    /// <remarks>
+    /// Idempotent — a second call performs no additional work. Drain, then release: each step waits
+    /// for the work that reads a handle before the next step frees it, so nothing here races a
+    /// platform callback against a disposed object. A failure inside <see cref="StopAsync"/> is
+    /// logged and does not stop teardown from completing.
+    /// </remarks>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposeGuard, 1) != 0)
@@ -375,7 +394,12 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
             return;
         }
 
-        PlatformDisposeLifecycleObserver();
+        // First: releases the session's own work before anything it might touch is torn down.
+        await _disposing.CancelAsync().ConfigureAwait(false);
+
+        var lifecycleTeardown = ValueTask.CompletedTask;
+        PlatformDisposeLifecycleObserver(ref lifecycleTeardown);
+        await lifecycleTeardown.ConfigureAwait(false);
 
         try
         {
@@ -388,5 +412,6 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
 
         await _connections.DisposeAsync().ConfigureAwait(false);
         _stateGate.Dispose();
+        _disposing.Dispose();
     }
 }

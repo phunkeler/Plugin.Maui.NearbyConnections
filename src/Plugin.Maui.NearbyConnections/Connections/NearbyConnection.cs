@@ -99,12 +99,13 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// </para>
     /// </remarks>
     /// <example>
-    /// The following example consumes payloads until the remote device disconnects.
+    /// The following example stops the application's own per-connection work when the remote
+    /// device goes away, without waiting for the caller's own token.
     /// <code language="csharp">
-    /// await foreach (var payload in connection.ReceiveAsync())
-    /// {
-    ///     await HandleAsync(payload);
-    /// }
+    /// using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+    ///     connection.DisconnectedToken, cancellationToken);
+    ///
+    /// await SyncProfilePhotoAsync(connection.RemoteDevice, linked.Token);
     /// </code>
     /// </example>
     public CancellationToken DisconnectedToken => _disconnectedCts.Token;
@@ -299,7 +300,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <remarks>
     /// <para>
     /// Outbound progress is a parameter on each <c>SendAsync</c> overload, because the caller starts
-    /// the transfer and already knows which provider to use. An inbound transfer can't follow that
+    /// the transfer and already knows which provider to use. An inbound transfer cannot follow that
     /// pattern — it begins on a platform callback thread before the consumer has any chance to
     /// supply a provider. Setting this property instead lets a handler be attached as soon as the
     /// connection is established, ahead of any payload arriving.
@@ -380,14 +381,27 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// </summary>
     /// <returns>
     /// A <see cref="ValueTask"/> that represents the asynchronous dispose operation. The task
-    /// completes once the disconnect is signaled to the platform.
+    /// completes once the disconnect is signaled to the platform and any in-flight inbound work for
+    /// this connection has drained or timed out.
     /// </returns>
     /// <remarks>
-    /// Once this completes, the stream from <see cref="ReceiveAsync(CancellationToken)"/> ends and
-    /// no further payloads can be sent. Idempotent - a second call performs no additional work. A
-    /// failure signaling the disconnect to the platform propagates from this method unguarded, and
-    /// teardown is not retried, so a caller that wants disposal to always succeed should catch
-    /// around the call.
+    /// <para>
+    /// The stream from <see cref="ReceiveAsync(CancellationToken)"/> ends as soon as teardown
+    /// starts, before this task completes, and no further payloads can be sent. Idempotent - a
+    /// second call performs no additional work. A failure signaling the disconnect to the platform
+    /// propagates from this method unguarded, and teardown is not retried, so a caller that wants
+    /// disposal to always succeed should catch around the call.
+    /// </para>
+    /// <para>
+    /// <b>Android waits for in-flight inbound work; iOS does not need to.</b> On Android, an inbound
+    /// file payload copies asynchronously, so this call waits (bounded, a few seconds) for that copy
+    /// to finish before the platform handles it depends on are freed. If the wait times out, the
+    /// copy may fail and the platform logs a warning rather than throwing here — the file staged for
+    /// that payload may be left partly written. On iOS, the inbound path copies synchronously on the
+    /// delegate queue, so there is never work left to wait for. This wait covers inbound work only —
+    /// a pending outgoing <c>SendAsync</c> call observes the disconnect through its own transfer
+    /// completion, separately from this wait.
+    /// </para>
     /// </remarks>
     public async ValueTask DisposeAsync()
     {

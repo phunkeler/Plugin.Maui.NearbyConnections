@@ -146,14 +146,24 @@ sealed partial class PlatformNearby
 
     /// <summary>
     /// Releases the platform's bookkeeping for a connection that has ended: removes it from
-    /// <c>_activeConnections</c>, ends its receive stream, and clears the unobserved-payload
-    /// warning latch. Platform-specific cleanup hangs off <see cref="PlatformReleaseConnection"/>.
+    /// <c>_activeConnections</c>, ends its receive stream, waits for the work that stream was
+    /// feeding, and only then drops the peer's platform handles.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Drain, then release.</b> <c>CompleteReceive</c> only <i>requests</i> cancellation, so
+    /// work started for this peer can still be reading the handles
+    /// <see cref="PlatformReleaseConnection"/> frees — on Android an inbound copy reads
+    /// <c>entry.Payload</c> across an <c>await</c>. <see cref="PlatformDrainConnectionAsync"/>
+    /// waits for that work first. Ordering is what makes the release safe; before this was
+    /// awaitable the safety rested on a <c>TryRemove</c> race between the two sides.
+    /// </para>
+    /// <para>
     /// Safe to call for a peer with no active connection, and safe to call twice: the
     /// <c>TryRemove</c> guard means <c>CompleteReceive</c> runs at most once per connection.
+    /// </para>
     /// </remarks>
-    internal void ReleaseConnection(string peerId)
+    internal async ValueTask ReleaseConnectionAsync(string peerId)
     {
         if (_activeConnections.TryRemove(peerId, out var connection))
         {
@@ -162,12 +172,28 @@ sealed partial class PlatformNearby
 
         _unobservedWarned.TryRemove(peerId, out _);
 
+        await PlatformDrainConnectionAsync(peerId).ConfigureAwait(false);
+
         PlatformReleaseConnection(peerId);
     }
 
     /// <summary>
-    /// Platform-specific half of <see cref="ReleaseConnection"/>. Implemented on iOS to drop the
-    /// peer's KVO progress observers; on other platforms the call compiles away.
+    /// Waits for the inbound work still in flight for <paramref name="peerId"/>, so
+    /// <see cref="PlatformReleaseConnection"/> cannot free a handle that work is still reading.
+    /// The per-connection counterpart of <c>PlatformDrainPayloadCompletionAsync</c>, which does
+    /// the same for the whole session at disposal.
+    /// </summary>
+    /// <remarks>
+    /// Android overrides this to await the endpoint's payload completion chain. The iOS and
+    /// <c>net10.0</c> halves keep this completed default: the iOS inbound path is a synchronous
+    /// copy on the delegate queue, so nothing is ever in flight here.
+    /// </remarks>
+    private partial ValueTask PlatformDrainConnectionAsync(string peerId);
+
+    /// <summary>
+    /// Platform-specific half of <see cref="ReleaseConnectionAsync"/>, run after the peer's
+    /// in-flight work has stopped. Implemented on Android to drop the peer's staged payload
+    /// handles and on iOS to drop its KVO progress observers.
     /// </summary>
     partial void PlatformReleaseConnection(string peerId);
 
@@ -267,9 +293,10 @@ sealed partial class PlatformNearby
     /// Deletes every file left in the staging directory. Called once, at session disposal.
     /// </summary>
     /// <remarks>
-    /// Best-effort by design: <see cref="DisposeAsync"/> does not await the Android payload
-    /// completion chain, so a cancelled copy may still be writing while this runs. Deletes files
-    /// one at a time rather than the directory, so one locked file does not strand the rest.
+    /// <see cref="DisposeAsync"/> awaits the Android payload completion chain first, so a copy is
+    /// normally finished before this runs. It stays best-effort for the residual case that wait
+    /// cannot cover — a copy still writing when the drain times out. Deletes files one at a time
+    /// rather than the directory, so one locked file does not strand the rest.
     /// </remarks>
     internal void SweepStagingDirectory(string directory)
     {

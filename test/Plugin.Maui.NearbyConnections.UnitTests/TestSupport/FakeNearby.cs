@@ -167,6 +167,44 @@ sealed class FakeNearby : IPlatformNearby
         await DrainAsync();
     }
 
+    TaskCompletionSource<NearbyConnection>? _capturedAccept;
+
+    /// <summary>
+    /// Hands back the source the next emitted accept will await, so a test can observe how that
+    /// accept ended. Pair with <see cref="EmitRequestThatOnlyCancellationEndsAsync"/>.
+    /// </summary>
+    public TaskCompletionSource<NearbyConnection> CaptureNextAcceptToken()
+        => _capturedAccept = new TaskCompletionSource<NearbyConnection>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>
+    /// Emits an inbound request whose accept never completes on its own, so only the token the
+    /// session passes can release it.
+    /// </summary>
+    /// <remarks>
+    /// The platform makes no promise that a handshake callback ever arrives, and auto-accept is
+    /// started by a callback rather than a caller, so no caller's token reaches it. This is the
+    /// shape that hangs disposal when the session has no disposal token of its own to pass.
+    /// </remarks>
+    /// <param name="device">The requesting device.</param>
+    public async Task EmitRequestThatOnlyCancellationEndsAsync(NearbyDevice device)
+    {
+        _requests.Writer.TryWrite(new NearbyConnectionRequest(
+            device,
+            accept: ct =>
+            {
+                var tcs = _capturedAccept ?? new TaskCompletionSource<NearbyConnection>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+
+                ct.Register(() => tcs.TrySetCanceled(ct));
+
+                return tcs.Task;
+            },
+            reject: _ => Task.CompletedTask));
+
+        await DrainAsync();
+    }
+
     /// <summary>
     /// Yields until the session's pump has drained what was just written. The pump reads on a
     /// background task, so a test that asserted immediately would race it.

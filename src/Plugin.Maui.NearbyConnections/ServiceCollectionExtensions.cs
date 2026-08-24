@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -15,7 +14,7 @@ public static partial class ServiceCollectionExtensions
     /// <param name="services">The <see cref="IServiceCollection"/> to add the services to.</param>
     /// <param name="configure">
     /// A delegate that configures <see cref="NearbyOptions"/>. If <see langword="null"/>, platform
-    /// defaults are used — which is sufficient on Android, but <b>throws on iOS</b>, where
+    /// defaults are used — which is enough on Android, but <b>throws on iOS</b>, where
     /// <see cref="NearbyOptions.ServiceId"/> has no default and must be set. See the
     /// <see cref="ArgumentException"/> below.
     /// </param>
@@ -33,6 +32,20 @@ public static partial class ServiceCollectionExtensions
     /// <paramref name="configure"/> is applied and validated synchronously, before this method
     /// returns: an unusable <see cref="NearbyOptions.ServiceId"/> fails immediately at the call
     /// site, rather than surfacing later as a confusing failure the first time advertising starts.
+    /// </para>
+    /// <para>
+    /// That eager validation is why <see cref="NearbyOptions"/> is not registered through
+    /// <c>IOptions&lt;T&gt;</c>. The options pattern defers validation to first resolution, which on
+    /// a mobile device means a misconfigured service identifier surfaces on the page that injects
+    /// <see cref="INearby"/> rather than at startup. The cost of that choice is that a single
+    /// <paramref name="configure"/> delegate is the only way to supply options: configuration
+    /// binding and additional <c>Configure</c> calls do not apply.
+    /// </para>
+    /// <para>
+    /// Logging must already be registered. <c>MauiAppBuilder</c> registers it, so
+    /// <c>UseNearby</c> needs nothing extra. Code that builds a bare
+    /// <see cref="IServiceCollection"/> calls <c>AddLogging()</c> first. A <see cref="TimeProvider"/>
+    /// is registered here if the host has not registered one.
     /// </para>
     /// <para>
     /// Neither advertising nor discovery starts automatically. Call
@@ -77,26 +90,22 @@ public static partial class ServiceCollectionExtensions
         configure?.Invoke(options);
         NearbyOptionsValidator.Validate(options);
 
+        services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<INearby>(sp =>
         {
-            var timeProvider = sp.GetService<TimeProvider>() ?? TimeProvider.System;
-            var logger = sp.GetService<ILogger<PlatformNearby>>()
-                ?? NullLogger<PlatformNearby>.Instance;
+            var timeProvider = sp.GetRequiredService<TimeProvider>();
+            var logger = sp.GetRequiredService<ILogger<INearby>>();
 
-            var connections = CreatePlatformNearby(sp, timeProvider, options, logger);
+            var connections = CreatePlatformNearby(timeProvider, options, logger);
 
-            return new NearbyImplementation(
-                connections,
-                options,
-                sp.GetService<ILogger<NearbyImplementation>>() ?? NullLogger<NearbyImplementation>.Instance);
+            return new NearbyImplementation(connections, options, logger, timeProvider);
         });
 
         return services;
     }
 
     /// <summary>
-    /// Constructs the <see cref="PlatformNearby"/> for this platform, resolving whatever
-    /// platform-specific dependencies its constructor needs from <paramref name="services"/>.
+    /// Constructs the <see cref="PlatformNearby"/> for this platform.
     /// </summary>
     /// <remarks>
     /// A partial method rather than an inline <c>#if</c> in <see cref="AddNearby"/>, so the
@@ -104,7 +113,6 @@ public static partial class ServiceCollectionExtensions
     /// (<c>Native/PlatformNearby.*.cs</c>) extends to this registration code too.
     /// </remarks>
     private static partial PlatformNearby CreatePlatformNearby(
-        IServiceProvider services,
         TimeProvider timeProvider,
         NearbyOptions options,
         ILogger logger);

@@ -111,7 +111,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var device = Peers.Track(peerID);
+            var device = PeerLookup.Track(peerID);
             var id = device.Id;
 
             LogConnectionRequestReceived(device.Id, device.DisplayName);
@@ -203,7 +203,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var device = Peers.Track(peerID);
+            var device = PeerLookup.Track(peerID);
 
             LogDeviceFound(device.Id, device.DisplayName);
 
@@ -219,18 +219,18 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = Peers.PeerKey(peerID);
+            var id = PeerLookup.PeerKey(peerID);
 
             if (_activeConnections.ContainsKey(id))
             {
-                if (Peers.TryGetDevice(id, out var existingDevice))
+                if (PeerLookup.TryGetDevice(id, out var existingDevice))
                 {
                     LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
                 }
                 return;
             }
 
-            var device = Peers.Remove(id);
+            var device = PeerLookup.Remove(id);
 
             LogDeviceLost(id, device?.DisplayName);
 
@@ -251,7 +251,7 @@ sealed partial class PlatformNearby
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!Peers.TryGetHandle(device.Id, out var peerID))
+        if (!PeerLookup.TryGetHandle(device.Id, out var peerID))
         {
             LogNoPeerFoundForDevice(device.Id, device.DisplayName);
             FaultConnectionTcs(device.Id, new NearbyException(
@@ -304,7 +304,7 @@ sealed partial class PlatformNearby
             throw new NearbyException("No active session. Ensure a connection has been established before sending data.");
         }
 
-        if (!Peers.TryGetHandle(peerId, out var peerID))
+        if (!PeerLookup.TryGetHandle(peerId, out var peerID))
         {
             throw new NearbyException($"No peer found for device: Id={peerId}");
         }
@@ -341,7 +341,7 @@ sealed partial class PlatformNearby
             throw new NearbyException("No active session. Ensure a connection has been established before sending data.");
         }
 
-        if (!Peers.TryGetHandle(peerId, out var peerID))
+        if (!PeerLookup.TryGetHandle(peerId, out var peerID))
         {
             throw new NearbyException($"No peer found for device: Id={peerId}");
         }
@@ -451,6 +451,17 @@ sealed partial class PlatformNearby
 
     void PlatformSweepStaging() => SweepStagingDirectory(StagingDirectory);
 
+    // Nothing to drain: the inbound file path here is a synchronous File.Copy on the delegate
+    // queue, so by the time disposal runs no copy is in flight. The Android half has a real
+    // implementation because its copy is asynchronous.
+    static Task PlatformDrainPayloadCompletionAsync() => Task.CompletedTask;
+
+    // Nothing to drain per connection either, for the same reason. Cannot be static: it implements
+    // a partial declared on the instance, which Android's half needs.
+#pragma warning disable CA1822
+    private partial ValueTask PlatformDrainConnectionAsync(string peerId) => ValueTask.CompletedTask;
+#pragma warning restore CA1822
+
     void PlatformDispose()
     {
         PlatformStopAdvertising();
@@ -461,7 +472,7 @@ sealed partial class PlatformNearby
             observer.Dispose();
         }
         _progressObservers.Clear();
-        Peers.Clear();
+        PeerLookup.Clear();
 
         MCSession? sessionToDispose;
         MCPeerID? localPeerToDispose;
@@ -488,14 +499,14 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = Peers.PeerKey(peerID);
+            var id = PeerLookup.PeerKey(peerID);
 
             LogPeerStateChanged(id, peerID.DisplayName, state);
 
             switch (state)
             {
                 case MCSessionState.Connected:
-                    var connectedDevice = Peers.Track(peerID);
+                    var connectedDevice = PeerLookup.Track(peerID);
                     var receiveChannel = NewChannel<NearbyPayload>(singleReader: true);
                     var connection = new NearbyConnection(
                         connectedDevice,
@@ -511,13 +522,13 @@ sealed partial class PlatformNearby
                                 disposeSession = _session;
                             }
 
-                            if (disposeSession is not null && Peers.TryGetHandle(id, out var peer))
+                            if (disposeSession is not null && PeerLookup.TryGetHandle(id, out var peer))
                             {
                                 using var controlData = NSData.FromArray(ControlMessage.Encode(ControlMessageType.Disconnect));
                                 disposeSession.SendData(controlData, [peer], MCSessionSendDataMode.Reliable, out _);
                             }
 
-                            ReleaseConnection(id);
+                            await ReleaseConnectionAsync(id).ConfigureAwait(false);
                             DisposeSessionIfIdle();
                         });
 
@@ -525,11 +536,13 @@ sealed partial class PlatformNearby
                     break;
 
                 case MCSessionState.NotConnected:
-                    ReleaseConnection(id);
+                    // A delegate callback: the signature is fixed, so the release is tracked
+                    // rather than awaited.
+                    ReleaseConnectionFromCallback(id);
                     FaultConnectionTcs(id, new NearbyException(
                         $"Connection to peer '{peerID.DisplayName}' failed: session state changed to NotConnected before the connection was established."));
 
-                    if (Peers.Remove(id) is { } lostDevice)
+                    if (PeerLookup.Remove(id) is { } lostDevice)
                     {
                         WriteDeviceLost(lostDevice);
                     }
@@ -552,7 +565,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = Peers.PeerKey(peerID);
+            var id = PeerLookup.PeerKey(peerID);
 
             LogDataReceived(id, peerID.DisplayName, (long)data.Length);
 
@@ -580,7 +593,7 @@ sealed partial class PlatformNearby
         {
             case ControlMessageType.Disconnect:
                 LogPeerDisconnectRequested(peerId);
-                ReleaseConnection(peerId);
+                ReleaseConnectionFromCallback(peerId);
                 DisposeSessionIfIdle();
                 break;
             default:
@@ -617,7 +630,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = Peers.PeerKey(fromPeer);
+            var id = PeerLookup.PeerKey(fromPeer);
 
             LogResourceReceiveStarted(id, fromPeer.DisplayName, resourceName);
 
@@ -689,7 +702,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = Peers.PeerKey(fromPeer);
+            var id = PeerLookup.PeerKey(fromPeer);
             var loc = localUrl?.ToString() ?? "null";
 
             LogResourceReceiveFinished(id, fromPeer.DisplayName, resourceName, loc, error?.LocalizedDescription);

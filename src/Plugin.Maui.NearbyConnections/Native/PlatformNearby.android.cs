@@ -5,6 +5,8 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class PlatformNearby
 {
+    static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(5);
+
     readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
     readonly ConcurrentDictionary<long, OutgoingTransfer> _outgoingTransfers = [];
     readonly Dictionary<string, Task> _payloadCompletionChains = [];
@@ -51,7 +53,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var device = Peers.Record(endpointId, connectionInfo.EndpointName);
+            var device = PeerLookup.Record(endpointId, connectionInfo.EndpointName);
 
             if (connectionInfo.IsIncomingConnection)
             {
@@ -103,7 +105,7 @@ sealed partial class PlatformNearby
 
             if (resolution.Status.IsSuccess)
             {
-                if (!Peers.TryGetDevice(endpointId, out var device))
+                if (!PeerLookup.TryGetDevice(endpointId, out var device))
                 {
                     FaultConnectionTcs(endpointId, new NearbyException($"Device not found in manager for endpoint '{endpointId}' after successful connection."));
                     return;
@@ -116,17 +118,13 @@ sealed partial class PlatformNearby
                     receiveChannel,
                     sendBytes: (data, ct) => PlatformSendBytesAsync(endpointId, data, ct),
                     sendFile: (fileUri, progress, ct) => PlatformSendFileAsync(endpointId, fileUri, progress, ct),
-                    dispose: () =>
-                    {
-                        PlatformDisconnectEndpointAsync(endpointId);
-                        return ValueTask.CompletedTask;
-                    });
+                    dispose: () => PlatformDisconnectEndpointAsync(endpointId));
 
                 ResolveConnectionTcs(endpointId, connection);
             }
             else
             {
-                if (Peers.Remove(endpointId) is { } lostDevice)
+                if (PeerLookup.Remove(endpointId) is { } lostDevice)
                 {
                     WriteDeviceLost(lostDevice);
                 }
@@ -146,8 +144,10 @@ sealed partial class PlatformNearby
         try
         {
             LogDeviceDisconnected(endpointId);
-            ReleaseConnection(endpointId);
-            Peers.Remove(endpointId);
+
+            // A GMS callback: the signature is fixed, so the release is tracked rather than awaited.
+            ReleaseConnectionFromCallback(endpointId);
+            PeerLookup.Remove(endpointId);
         }
         catch (Exception ex)
         {
@@ -191,7 +191,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var device = Peers.Record(endpointId, info.EndpointName);
+            var device = PeerLookup.Record(endpointId, info.EndpointName);
             LogDeviceFound(device.Id, device.DisplayName);
             WriteDeviceFound(device);
         }
@@ -207,7 +207,7 @@ sealed partial class PlatformNearby
         {
             if (_activeConnections.ContainsKey(endpointId))
             {
-                if (Peers.TryGetDevice(endpointId, out var existingDevice))
+                if (PeerLookup.TryGetDevice(endpointId, out var existingDevice))
                 {
                     LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
                 }
@@ -215,7 +215,7 @@ sealed partial class PlatformNearby
                 return;
             }
 
-            var device = Peers.Remove(endpointId);
+            var device = PeerLookup.Remove(endpointId);
             LogDeviceLost(endpointId, device?.DisplayName);
 
             if (device is not null)
@@ -298,7 +298,15 @@ sealed partial class PlatformNearby
         {
             var previous = _payloadCompletionChains.GetValueOrDefault(endpointId, Task.CompletedTask);
             chained = ContinueAsync(previous);
+
+            // Prune from a continuation, not from inside ContinueAsync: a task is not yet marked
+            // completed while its own finally block runs, so self-removal there never fires.
             _payloadCompletionChains[endpointId] = chained;
+            _ = chained.ContinueWith(
+                t => PruneCompletedChain(endpointId, t),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
 
         return chained;
@@ -315,6 +323,49 @@ sealed partial class PlatformNearby
             {
                 LogCallbackError(nameof(OnIncomingPayloadSuccess), endpointId, ex);
             }
+        }
+    }
+
+    /// <summary>
+    /// Drops an endpoint's chain entry once the last link has run, so a long-lived session that
+    /// talks to many endpoints does not retain one completed task per endpoint forever.
+    /// </summary>
+    /// <remarks>
+    /// Only the tail prunes. The reference check is what makes that safe: a later payload that
+    /// already replaced the entry owns it, so this sees a different task and leaves it alone.
+    /// Releasing a connection deliberately does <b>not</b> prune — see
+    /// <see cref="PlatformReleaseConnection"/>.
+    /// </remarks>
+    /// <param name="endpointId">The endpoint whose chain finished.</param>
+    /// <param name="completed">The chain task that just finished, compared by reference.</param>
+    void PruneCompletedChain(string endpointId, Task completed)
+    {
+        lock (_payloadCompletionChains)
+        {
+            if (_payloadCompletionChains.TryGetValue(endpointId, out var current)
+                && ReferenceEquals(current, completed))
+            {
+                _payloadCompletionChains.Remove(endpointId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether an endpoint currently has a payload completion chain, so the next completion for it
+    /// is ordered behind the one running now.
+    /// </summary>
+    /// <remarks>
+    /// Exists for the device test that pins the chain surviving a disconnect. The ordering it
+    /// guarantees has no observable proxy: both payloads arrive either way, and the difference is
+    /// only whether the second ran concurrently with the first.
+    /// </remarks>
+    /// <param name="endpointId">The endpoint to check.</param>
+    /// <returns><see langword="true"/> when a chain is registered for the endpoint.</returns>
+    internal bool HasPayloadCompletionChain(string endpointId)
+    {
+        lock (_payloadCompletionChains)
+        {
+            return _payloadCompletionChains.ContainsKey(endpointId);
         }
     }
 
@@ -364,7 +415,14 @@ sealed partial class PlatformNearby
         string destinationDirectory,
         CancellationToken cancellationToken)
     {
-        var sourceUri = payload.AsFile()?.AsUri();
+        // Both wrappers are disposed, and both are declared at method scope on purpose: the finally
+        // below still reads sourceUri, and a narrower using block would dispose it first and throw
+        // ArgumentException ("'jobject' must not be IntPtr.Zero"). Disposing a managed callable
+        // wrapper releases only its JNI global reference, never the Java object — the Payload owns
+        // that and is closed separately in DisposeIncomingPayload. Left undisposed, each received
+        // file payload holds two global references until finalization.
+        using var sourceFile = payload.AsFile();
+        using var sourceUri = sourceFile?.AsUri();
 
         if (sourceUri is null)
         {
@@ -471,30 +529,28 @@ sealed partial class PlatformNearby
             : client.RejectConnectionAsync(device.Id);
     }
 
-    Task PlatformAbandonConnectAsync(NearbyDevice device)
+    async Task PlatformAbandonConnectAsync(NearbyDevice device)
     {
         try
         {
-            PlatformDisconnectEndpointAsync(device.Id);
+            await PlatformDisconnectEndpointAsync(device.Id).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             LogAbandonConnectError(device.Id, ex);
         }
-
-        return Task.CompletedTask;
     }
 
-    void PlatformDisconnectEndpointAsync(string endpointId)
+    async ValueTask PlatformDisconnectEndpointAsync(string endpointId)
     {
-        LogDisconnecting(endpointId, Peers.TryGetDevice(endpointId, out var d)
+        LogDisconnecting(endpointId, PeerLookup.TryGetDevice(endpointId, out var d)
             ? d.DisplayName
             : null);
 
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
         client.DisconnectFromEndpoint(endpointId);
-        ReleaseConnection(endpointId);
-        Peers.Remove(endpointId);
+        await ReleaseConnectionAsync(endpointId).ConfigureAwait(false);
+        PeerLookup.Remove(endpointId);
     }
 
     async Task PlatformSendBytesAsync(
@@ -701,8 +757,52 @@ sealed partial class PlatformNearby
             || await Permissions.CheckStatusAsync<Permissions.NearbyWifiDevices>().ConfigureAwait(false) == PermissionStatus.Granted;
     }
 
+    /// <summary>
+    /// Waits for this endpoint's payload completion chain, bounded by <see cref="DrainTimeout"/>,
+    /// so the handle disposal that runs next cannot free a payload a copy is still reading.
+    /// </summary>
+    /// <remarks>
+    /// The chain entry is deliberately left in place for <see cref="PruneCompletedChain"/> to
+    /// remove. Removing it here dropped a chain whose copy was still running — this runs from
+    /// <c>OnDisconnected</c>, so a peer dropping mid-transfer hits exactly that. The next payload
+    /// for the endpoint then started from <see cref="Task.CompletedTask"/> and raced the copy still
+    /// writing, which is the out-of-order delivery the chain exists to prevent.
+    /// </remarks>
+    private partial ValueTask PlatformDrainConnectionAsync(string peerId)
+    {
+        Task? chain;
+
+        lock (_payloadCompletionChains)
+        {
+            chain = _payloadCompletionChains.GetValueOrDefault(peerId);
+        }
+
+        return chain is null
+            ? ValueTask.CompletedTask
+            : new ValueTask(DrainChainAsync(peerId, chain));
+    }
+
+    async Task DrainChainAsync(string endpointId, Task chain)
+    {
+        try
+        {
+            // The chain never faults — ContinueAsync catches everything — so only the bound needs
+            // handling here.
+            await chain.WaitAsync(DrainTimeout).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            LogConnectionDrainTimedOut(endpointId, DrainTimeout.TotalSeconds);
+        }
+        catch (Exception ex)
+        {
+            LogCallbackError(nameof(DrainChainAsync), endpointId, ex);
+        }
+    }
+
     partial void PlatformReleaseConnection(string peerId)
     {
+        // Runs after PlatformQuiesceConnectionAsync, so no copy is still reading these.
         foreach (var (payloadId, entry) in _incomingPayloads)
         {
             if (entry.EndpointId == peerId
@@ -711,16 +811,51 @@ sealed partial class PlatformNearby
                 DisposeIncomingPayload(removed.Payload);
             }
         }
-
-        lock (_payloadCompletionChains)
-        {
-            _payloadCompletionChains.Remove(peerId);
-        }
     }
 
     internal static partial string StagingDirectory => Path.Combine(FileSystem.CacheDirectory, StagingDirectoryName);
 
     void PlatformSweepStaging() => SweepStagingDirectory(StagingDirectory);
+
+    /// <summary>
+    /// Waits for the in-flight payload completion chains to finish, so the staging sweep that runs
+    /// next cannot delete a file a copy is still writing.
+    /// </summary>
+    /// <remarks>
+    /// Cancellation alone is not enough to order these: <c>CompleteReceive</c> only <i>requests</i>
+    /// cancellation and returns, so without this wait the sweep could delete a file
+    /// <see cref="CopyFilePayloadAsync"/> was about to hand to <c>WritePayload</c>. The chains never
+    /// fault — <c>ContinueAsync</c> catches everything — so this needs no exception handling.
+    /// <para>
+    /// The timeout is a safety net, not the mechanism. Every copy already observes a cancelled
+    /// token by the time this runs, so the wait is normally brief. A copy wedged in a native read
+    /// must not turn disposal into a hang, and the sweep is documented as best-effort for exactly
+    /// that residual case.
+    /// </para>
+    /// </remarks>
+    async Task PlatformDrainPayloadCompletionAsync()
+    {
+        Task[] pending;
+
+        lock (_payloadCompletionChains)
+        {
+            pending = [.. _payloadCompletionChains.Values];
+        }
+
+        if (pending.Length == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.WhenAll(pending).WaitAsync(DrainTimeout).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            LogPayloadDrainTimedOut(pending.Length, DrainTimeout.TotalSeconds);
+        }
+    }
 
     void PlatformDispose()
     {

@@ -17,7 +17,9 @@ sealed partial class PeerLookup
         _handles[key] = peerID;
         var device = Record(key, peerID.DisplayName);
 
-        LogTrackingRemotePeer(Logger, key, peerID.DisplayName);
+        // The sanitized name from the device, never peerID.DisplayName: the raw value is
+        // remote-supplied and reaches a log sink here.
+        LogTrackingRemotePeer(Logger, key, device.DisplayName);
 
         return device;
     }
@@ -58,8 +60,13 @@ sealed partial class PeerLookup
         }
         catch (Exception ex)
         {
-            LogFailedToDerivePeerKey(Logger, peerID.DisplayName, ex);
-            return peerID.DisplayName;
+            // Sanitized: this fallback makes the display name the device's Id, so an unfiltered
+            // value would become a dictionary key and reach every log line that names the device.
+            var fallback = Sanitize(peerID.DisplayName);
+
+            LogFailedToDerivePeerKey(Logger, fallback, ex);
+
+            return fallback ?? string.Empty;
         }
     }
 
@@ -76,13 +83,13 @@ sealed partial class PeerLookup
         EventId = 3000,
         Level = LogLevel.Error,
         Message = "Failed to derive peer key for '{DisplayName}', falling back to DisplayName.")]
-    static partial void LogFailedToDerivePeerKey(ILogger logger, string displayName, Exception error);
+    static partial void LogFailedToDerivePeerKey(ILogger logger, string? displayName, Exception error);
 
     [LoggerMessage(
         EventId = 3030,
         Level = LogLevel.Trace,
         Message = "Tracking remote peer: Key={Key}, DisplayName={DisplayName}")]
-    static partial void LogTrackingRemotePeer(ILogger logger, string key, string displayName);
+    static partial void LogTrackingRemotePeer(ILogger logger, string key, string? displayName);
 
     [LoggerMessage(
         EventId = 3031,

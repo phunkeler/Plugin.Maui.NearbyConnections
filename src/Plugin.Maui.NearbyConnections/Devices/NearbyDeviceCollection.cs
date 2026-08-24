@@ -54,7 +54,7 @@ namespace Plugin.Maui.NearbyConnections;
 ///           update: (row, device) => row.Update(device));
 /// </code>
 /// </example>
-public class NearbyDeviceCollection<TRow> : IReadOnlyList<TRow>, INotifyCollectionChanged, IDisposable
+public sealed class NearbyDeviceCollection<TRow> : IReadOnlyList<TRow>, INotifyCollectionChanged, IDisposable
 {
     readonly ObservableCollection<TRow> _rows = [];
     readonly Dictionary<string, TRow> _byDeviceId = new(StringComparer.Ordinal);

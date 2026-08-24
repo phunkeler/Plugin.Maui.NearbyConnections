@@ -10,18 +10,20 @@ public class ServiceCollectionExtensionsTests
     public sealed class AddNearby : ServiceCollectionExtensionsTests
     {
         [TestMethod]
-        public async Task NoLoggingRegistered_ResolvesWithoutThrowing()
+        public async Task NoLoggingRegistered_ThrowsOnResolution()
         {
+            // The plugin resolves its loggers as required services rather than falling back to
+            // NullLogger. A host that never registered logging gets an error naming the missing
+            // service, instead of a session that silently never logs.
+
             // Arrange
             var services = new ServiceCollection();
             services.AddNearby(options => options.ServiceId = "test-service");
-
-            // Act
             await using var provider = services.BuildServiceProvider();
-            var session = provider.GetRequiredService<INearby>();
 
-            // Assert
-            Assert.IsNotNull(session);
+            // Act & Assert
+            Assert.ThrowsExactly<InvalidOperationException>(
+                () => provider.GetRequiredService<INearby>());
         }
 
         [TestMethod]
@@ -32,6 +34,7 @@ public class ServiceCollectionExtensionsTests
 
             // Arrange
             var services = new ServiceCollection();
+            services.AddLogging();
             services.AddNearby(options => options.ServiceId = "test-service");
 
             // Act
@@ -123,10 +126,15 @@ public class ServiceCollectionExtensionsTests
 
             // Arrange
             var services = new ServiceCollection();
-            services.AddNearby(options => options.ServiceId = "test-service");
+            services.AddLogging();
 
+            // Registered before AddNearby: AddNearby supplies TimeProvider.System via
+            // TryAddSingleton, so a consumer's own provider must already be in the collection to
+            // win. Registering one afterwards is too late.
             var clock = new ConstructionWitness();
             services.AddSingleton<TimeProvider>(clock.Resolve);
+
+            services.AddNearby(options => options.ServiceId = "test-service");
 
             await using var provider = services.BuildServiceProvider();
 

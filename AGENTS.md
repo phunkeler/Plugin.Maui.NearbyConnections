@@ -58,6 +58,12 @@ open coveragereport/index.html   # macOS; use `start` on Windows, `xdg-open` on 
   changing `*.android.cs`, grep `*.ios.cs` for the same shape, and vice versa.
 - **`MCSessionState.Connecting` is not guaranteed to occur on iOS** — a peer can go straight to
   `NotConnected`. Treating it as a required waypoint is a latent hang.
+- **A remote display name is untrusted input, and `PeerLookup.Record` is the only place it is
+  cleaned.** Both platforms let the peer choose the string, and it reaches log sinks and consumer
+  UI. `Record` strips control characters and caps the length; every device the library publishes is
+  built there, on both platforms, so new code must route through it rather than passing a raw
+  `EndpointName`/`MCPeerID.DisplayName` onward. The iOS `PeerKey` fallback sanitizes too — there the
+  name becomes the device `Id`.
 - **Every `catch` on a callback or error path must log.** Silent catches have already cost real
   debugging time here.
 - **Published identity is locked before 1.0** — `PackageId`, `AssemblyName`, `RootNamespace`, and
@@ -200,11 +206,41 @@ awaiting anything, so nothing hangs. What breaks instead is the device set: a ro
 whose underlying platform handle is already dead. `RequestReceived` is bounded by
 `InboundRequestTimeout` for exactly this reason.
 
+**Neither guarantee covers work the session starts on its own behalf** — auto-accept, request
+expiry, disconnect watchers, inbound file copies. Nothing awaits those, so disposal cannot tell
+whether they finished. `docs/CONCURRENCY.md` diagrams that third category, records which sites are
+drained today, and is the place to read before adding another `_ = SomeAsync(...)`.
+
+### Drain, then release
+
+The two guarantees above are promises to a caller. This one is internal, and it is what makes
+disposal safe rather than merely prompt.
+
+Every teardown path waits for the work that reads a handle before freeing the handle. Cancellation
+is not a join: `CompleteReceive` and `Cancel()` set a flag and return, so an inbound copy can still
+be mid-write when the next line disposes what it is writing to. The order is the guarantee — not a
+tidiness preference — and it applies at every scope:
+`ReleaseConnectionAsync` for one endpoint, `PlatformNearby.DisposeAsync` for the session,
+`AppLifecycleObserver.DisposeAsync` for the iOS backgrounding observer.
+
+Two consequences bind new code:
+
+- **A release that frees handles must be awaitable.** A `void` one cannot obey the rule. Where the
+  call site is a platform callback whose signature the binding fixes, route it through
+  `ReleaseConnectionFromCallback` — never `async void`, where an exception reaches the SDK's thread
+  and terminates the process.
+- **Every drain is bounded.** A wedged native read must not turn disposal into a hang. The bounds
+  are constants, not `NearbyOptions` knobs: they exist so disposal terminates, and no consumer
+  scenario wants a different value.
+
+`docs/CONCURRENCY.md` lists the four drain sites and explains why the rule is prose rather than a
+shared type.
+
 Platform code lives in platform partials, never `#if` in shared logic. When shared code needs a
 platform-specific step, the sanctioned mechanism is the **platform hook pair**: shared code declares
 a `partial void` (e.g. `PlatformInitializeLifecycleObserver` in `NearbyImplementation.cs`), exactly
 one platform file implements it, and on every other platform the call compiles to nothing — no
-`#if`, no stub file, no unused parameter. See `docs/PLATFORM-ABSTRACTION-REVIEW.md` §4.1.
+`#if`, no stub file, no unused parameter.
 
 ### Folder layout
 
@@ -397,13 +433,15 @@ The device tests deliberately do **not** test through `IPlatformNearby` — they
 callbacks and assert on the internal channels/TCS map/registry. That surface (SDK callbacks in →
 channel/TCS/registry effects out) is a deliberate second contract, *the platform event surface*:
 it is what any new platform backend must satisfy, and the device tests are its executable
-specification. It is declared in prose, not as a type, on purpose — see
-`docs/PLATFORM-ABSTRACTION-REVIEW.md` §4.3 for the reasoning and the reversal trigger.
+specification. It is declared in prose, not as a type, on purpose.
 
 ## Further reading
 
 - `docs/DEVICE-LIFECYCLE.md` — device lifecycle states and platform capability gaps
 - `docs/PAYLOAD-DELIVERY.md` — why payloads are delivered as events, not an async stream
+- `docs/CONCURRENCY.md` — which async work the session owns, who awaits it, and what disposal may
+  assume. Diagrams the task layers behind inbound payloads, and lists the sites where nothing
+  awaits the work yet.
 - `docs/LOGGING.md` — the consumer-facing level contract, categories, and EventIds. **Adding or
   re-levelling a log message means updating that table** — it is the published contract, not a
   summary of the code.

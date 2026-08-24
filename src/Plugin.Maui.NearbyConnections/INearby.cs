@@ -309,8 +309,17 @@ public interface INearby
     /// the session is fully stopped.
     /// </returns>
     /// <remarks>
+    /// <para>
     /// The session remains usable after this method returns. Advertising or discovery can be
     /// started again at any time.
+    /// </para>
+    /// <para>
+    /// Every active connection is disposed in turn, so this call inherits each connection's bounded
+    /// wait for in-flight inbound work — see the remarks on
+    /// <see cref="NearbyConnection.DisposeAsync"/>. With several Android connections open, this can
+    /// take a few seconds per connection. A failure tearing one connection down is logged and does
+    /// not stop the rest, so this method itself never throws for that reason.
+    /// </para>
     /// </remarks>
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was canceled.
@@ -454,7 +463,9 @@ public interface INearby
     /// <remarks>
     /// Disconnecting a device that is not connected performs no operation. The device returns to
     /// <see cref="NearbyDeviceStatus.Visible"/> as the connection ends, reported through
-    /// <see cref="INearbyDevices.Changes"/>.
+    /// <see cref="INearbyDevices.Changes"/>. This call is
+    /// <see cref="NearbyConnection.DisposeAsync"/> on the underlying connection — see its remarks
+    /// for the bounded wait for in-flight inbound work that this method inherits.
     /// </remarks>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="device"/> is <see langword="null"/>.

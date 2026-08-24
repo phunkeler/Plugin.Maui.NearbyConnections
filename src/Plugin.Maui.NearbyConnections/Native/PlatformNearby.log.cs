@@ -70,14 +70,14 @@ sealed partial class PlatformNearby
     // Android-specific
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(EventId = 2020, Level = LogLevel.Debug, Message = "Connection result: EndpointId={EndpointId}, StatusCode={StatusCode}, StatusMessage={StatusMessage}, IsSuccess={IsSuccess}")]
-    partial void LogConnectionResult(string endpointId, int statusCode, string statusMessage, bool isSuccess);
+    [LoggerMessage(EventId = 2020, Level = LogLevel.Debug, Message = "Connection result: DeviceId={DeviceId}, StatusCode={StatusCode}, StatusMessage={StatusMessage}, IsSuccess={IsSuccess}")]
+    partial void LogConnectionResult(string deviceId, int statusCode, string statusMessage, bool isSuccess);
 
-    [LoggerMessage(EventId = 2021, Level = LogLevel.Trace, Message = "Payload received: EndpointId={EndpointId}, PayloadId={PayloadId}, PayloadType={PayloadType}")]
-    partial void LogPayloadReceived(string endpointId, long payloadId, int payloadType);
+    [LoggerMessage(EventId = 2021, Level = LogLevel.Trace, Message = "Payload received: DeviceId={DeviceId}, PayloadId={PayloadId}, PayloadType={PayloadType}")]
+    partial void LogPayloadReceived(string deviceId, long payloadId, int payloadType);
 
-    [LoggerMessage(EventId = 2022, Level = LogLevel.Trace, Message = "Payload transfer update: EndpointId={EndpointId}, PayloadId={PayloadId}, Status={Status}, TotalBytes={TotalBytes}, BytesTransferred={BytesTransferred}")]
-    partial void LogPayloadTransferUpdate(string endpointId, long payloadId, int status, long totalBytes, long bytesTransferred);
+    [LoggerMessage(EventId = 2022, Level = LogLevel.Trace, Message = "Payload transfer update: DeviceId={DeviceId}, PayloadId={PayloadId}, Status={Status}, TotalBytes={TotalBytes}, BytesTransferred={BytesTransferred}")]
+    partial void LogPayloadTransferUpdate(string deviceId, long payloadId, int status, long totalBytes, long bytesTransferred);
 
     [LoggerMessage(EventId = 2023, Level = LogLevel.Warning, Message = "Cannot send file: '{Uri}' is not a valid URI. Only 'file://' and 'content://' schemes are supported.")]
     partial void LogInvalidFileUri(string uri);
@@ -88,11 +88,11 @@ sealed partial class PlatformNearby
     [LoggerMessage(EventId = 2025, Level = LogLevel.Error, Message = "Failed to build file payload.")]
     partial void LogBuildFilePayloadFailed(Exception error);
 
-    [LoggerMessage(EventId = 2026, Level = LogLevel.Error, Message = "Failed to process incoming payload: EndpointId={EndpointId}, PayloadId={PayloadId}")]
-    partial void LogIncomingPayloadProcessingFailed(string endpointId, long payloadId);
+    [LoggerMessage(EventId = 2026, Level = LogLevel.Error, Message = "Failed to process incoming payload: DeviceId={DeviceId}, PayloadId={PayloadId}")]
+    partial void LogIncomingPayloadProcessingFailed(string deviceId, long payloadId);
 
-    [LoggerMessage(EventId = 2029, Level = LogLevel.Warning, Message = "Failed to clear stale connection state for endpoint: EndpointId={EndpointId}")]
-    partial void LogFailedToClearStaleConnectionState(string endpointId, Exception ex);
+    [LoggerMessage(EventId = 2029, Level = LogLevel.Warning, Message = "Failed to clear stale connection state for endpoint: DeviceId={DeviceId}")]
+    partial void LogFailedToClearStaleConnectionState(string deviceId, Exception ex);
 
     // -------------------------------------------------------------------------
     // iOS-specific
@@ -130,8 +130,20 @@ sealed partial class PlatformNearby
     // inbound Disconnect frame, which was the bug: departure is now per-peer (EventId 2092).
     // The id stays reserved and is never reused.
 
-    [LoggerMessage(EventId = 2092, Level = LogLevel.Debug, Message = "Peer announced disconnect via control message: Id={PeerId}")]
-    partial void LogPeerDisconnectRequested(string peerId);
+    [LoggerMessage(EventId = 2092, Level = LogLevel.Debug, Message = "Peer announced disconnect via control message: DeviceId={DeviceId}")]
+    partial void LogPeerDisconnectRequested(string deviceId);
+
+    [LoggerMessage(
+        EventId = 2093,
+        Level = LogLevel.Warning,
+        Message = "Disposal stopped waiting for {PendingCount} inbound payload copies after {TimeoutSeconds}s. A staged file one of them was still writing may be deleted by the sweep that follows.")]
+    partial void LogPayloadDrainTimedOut(int pendingCount, double timeoutSeconds);
+
+    [LoggerMessage(
+        EventId = 2094,
+        Level = LogLevel.Warning,
+        Message = "Releasing connection {DeviceId} stopped waiting for its inbound payload copy after {TimeoutSeconds}s. The payload handles are freed anyway, so that copy may fail.")]
+    partial void LogConnectionDrainTimedOut(string deviceId, double timeoutSeconds);
 
     [LoggerMessage(EventId = 2056, Level = LogLevel.Warning, Message = "Unknown control message type: {Type}")]
     partial void LogUnknownControlMessageType(object type);
@@ -163,17 +175,17 @@ sealed partial class PlatformNearby
     [LoggerMessage(
         EventId = 2079,
         Level = LogLevel.Warning,
-        Message = "A payload arrived from peer {PeerId} but ReceiveAsync was never called for this connection, so it " +
+        Message = "A payload arrived from peer {DeviceId} but ReceiveAsync was never called for this connection, so it " +
             "cannot be observed. Payloads are buffered and lost. Start consuming the connection when the device " +
             "reports Connected, and register that consumer so it exists before the first connection. " +
             "See docs/PAYLOAD-DELIVERY.md.")]
-    partial void LogPayloadArrivedUnobserved(string peerId);
+    partial void LogPayloadArrivedUnobserved(string deviceId);
 
-    [LoggerMessage(EventId = 2080, Level = LogLevel.Warning, Message = "WritePayload: no active connection for peer {PeerId}; payload dropped.")]
-    partial void LogWritePayloadNoConnection(string peerId);
+    [LoggerMessage(EventId = 2080, Level = LogLevel.Warning, Message = "WritePayload: no active connection for peer {DeviceId}; payload dropped.")]
+    partial void LogWritePayloadNoConnection(string deviceId);
 
-    [LoggerMessage(EventId = 2081, Level = LogLevel.Error, Message = "DisposeAsync: error disposing connection to peer {PeerId}; continuing teardown.")]
-    partial void LogDisposeConnectionError(string peerId, Exception ex);
+    [LoggerMessage(EventId = 2081, Level = LogLevel.Error, Message = "DisposeAsync: error disposing connection to peer {DeviceId}; continuing teardown.")]
+    partial void LogDisposeConnectionError(string deviceId, Exception ex);
 
     [LoggerMessage(EventId = 2082, Level = LogLevel.Error, Message = "Failed to start advertising.")]
     partial void LogStartAdvertisingFailed(Exception ex);

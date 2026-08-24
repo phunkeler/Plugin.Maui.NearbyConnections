@@ -87,6 +87,44 @@ you need nearby connectivity.
 Nothing starts on its own. Advertising and discovery begin only when you call them, so permission
 prompts happen when your app decides.
 
+`UseNearby()` needs logging registered, which `MauiApp.CreateBuilder()` already does. It also
+registers `TimeProvider.System` if your app has not registered a `TimeProvider` of its own.
+
+### Start watching before the first connection
+
+`INearby` is a lazy singleton: DI constructs it the first time something resolves it. `Devices.Changes`
+does not replay. A watcher that starts on the first page navigation therefore misses every change
+before that point, and inbound payloads arrive with no consumer.
+
+Resolve `INearby` during startup if your app must observe every connection from launch. Register an
+`IMauiInitializeService`, which MAUI runs inside `Build()`:
+
+```csharp
+public sealed class NearbyIngestionService(INearby nearby) : IMauiInitializeService
+{
+    public void Initialize(IServiceProvider services) => _ = WatchAsync();
+
+    async Task WatchAsync()
+    {
+        await foreach (var change in nearby.Devices.Changes)
+        {
+            // Open a receive loop per connected device.
+        }
+    }
+}
+```
+
+```csharp
+// Registration order does not matter: whichever caller resolves INearby first constructs it,
+// and every later resolution gets that same instance.
+builder.Services.TryAddEnumerable(
+    ServiceDescriptor.Singleton<IMauiInitializeService, NearbyIngestionService>());
+```
+
+Use `TryAddEnumerable`. MAUI invokes these through `GetServices<T>()`, so a duplicate registration
+starts two watchers and processes every payload twice. `samples/NearbyChat/Services/NearbyIngestionService.cs`
+is the complete version.
+
 ## 2. Platform configuration
 
 ### Android
@@ -454,6 +492,12 @@ everything, but leaves the plugin usable, so you can start again whenever you li
 DI singleton owned by the container. App code never disposes it, so no single page can shut down
 connectivity for the whole app.
 
+`DisconnectAsync()` and `StopAsync()` both wait for in-flight inbound work on the connections they
+tear down — on Android, an inbound file payload that is still copying — before returning. The wait
+is bounded to a few seconds per connection; a wedged copy is abandoned rather than left to hang
+disposal, and the app is logged. With several connections open, `StopAsync()` tears them down in
+turn, so the total wait scales with connection count.
+
 # How connections work
 
 Neither platform gives you direct control over which radio carries your data. Both negotiate
@@ -494,6 +538,70 @@ startup has no effect.
 
 `TransferInactivityTimeout` is the one that shows up in the walkthrough directly. By default it
 aborts file sends in step 4 after a 10-second stall.
+
+# Security considerations
+
+A proximity network is an untrusted network. Any device in radio range that knows your `ServiceId`
+can discover this app and request a connection. Read this section before you ship.
+
+## What the plugin gives you
+
+- **The link is encrypted.** Android encrypts every connection and ignores
+  `Apple.EncryptionPreference`. On iOS the default is `NearbyEncryptionPreference.Required`. Do not
+  lower it in a shipping app.
+- **Inbound file names are safe to write.** The plugin strips any directory component a sender puts
+  in a file name, so a name like `../../databases/app.db` cannot escape the staging directory.
+  Colliding names get a ` (1)` suffix instead of overwriting.
+- **Remote display names are cleaned before use.** Control characters are removed and the name is
+  capped at 64 characters, so a peer cannot forge log records through its own name.
+- **Staged files are temporary.** Inbound files land in the app cache directory and are deleted
+  when the session is disposed. Move a file you want to keep with `NearbyFilePayload.MoveTo`.
+
+## What the plugin does not give you
+
+**Neither platform authenticates the remote device, and this plugin does not add authentication.**
+
+- `NearbyDevice.DisplayName` is chosen by the remote device. It is not verified, it is not unique,
+  and two devices can advertise the same name. Never use it as identity, and never use it to make
+  an authorization decision.
+- `NearbyDevice.Id` identifies a device only within the current session. It is not stable across
+  sessions and is not a credential.
+- A connection proves proximity and nothing else. If your app needs to know *who* is on the other
+  end, authenticate at the application layer: exchange a token, a pairing code, or a signature over
+  the connection after it opens, and treat the connection as untrusted until that succeeds.
+
+`AutoAcceptConnectionRequests` accepts **every** request from **any** device that knows the service
+identifier. It exists for closed environments — a kiosk, a test rig, a demo. Leave it `false` in a
+shipping app and accept requests explicitly, so a person can decide.
+
+## Treat every payload as hostile input
+
+Payload bytes and file contents come from an unauthenticated sender. The plugin delivers them
+verbatim and does not inspect them.
+
+- Validate and size-check bytes before you parse them. Do not deserialize a payload into a type
+  that can execute code or allocate without bound.
+- Do not trust an inbound file's name or extension to describe its contents.
+- There is no inbound size limit. A peer can send a file large enough to fill the cache directory,
+  so check `NearbyTransferProgress.TotalBytes` and disconnect if a transfer is larger than your app
+  expects.
+- Payloads buffer in memory until something reads them. Consume `ReceiveAsync` for the life of the
+  connection, or disconnect.
+
+## Logs contain device names and file paths
+
+Display names appear at `Debug` and file paths at `Error`. That is standard `ILogger` behaviour, not
+a defect, but it means identity data reaches whatever sink your app configures. Raise the minimum
+level for the `Plugin.Maui.NearbyConnections` category if that data must not be persisted. See
+[Logging](#logging).
+
+## Android permissions
+
+The package declares the permissions Nearby Connections needs, capped with `maxSdkVersion` where a
+newer permission replaces an older one. It declares no `uses-feature` entry, so it never narrows
+which devices can install your app. If your app does not derive location from scan results, add
+`android:usesPermissionFlags="neverForLocation"` to `BLUETOOTH_SCAN` in your own manifest — see
+[Platform configuration](#2-platform-configuration).
 
 # Logging
 

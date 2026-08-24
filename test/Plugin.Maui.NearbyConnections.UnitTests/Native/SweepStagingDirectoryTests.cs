@@ -5,8 +5,9 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// does not outlive the session that received it.
 /// </summary>
 /// <remarks>
-/// The sweep is best-effort on purpose: disposal does not await the Android payload completion
-/// chain, so a cancelled copy may still be unwinding while it runs. These tests pin that it never
+/// Disposal now awaits the Android payload completion chain before sweeping, so in the ordinary
+/// case no copy is still running here. The sweep stays best-effort for the one residual case the
+/// drain cannot cover: a copy that outlives the drain timeout. These tests pin that it never
 /// throws and never stops early.
 /// </remarks>
 [TestCategory("Connections")]

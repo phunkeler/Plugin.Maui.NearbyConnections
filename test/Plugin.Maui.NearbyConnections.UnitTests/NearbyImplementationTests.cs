@@ -544,6 +544,30 @@ public class NearbyImplementationTests
         }
 
         [TestMethod]
+        public async Task AutoAccept_WhenTheAcceptNeverSettles_DisposalCancelsIt()
+        {
+            // Arrange
+            var connections = new FakeNearby();
+            var options = new NearbyOptions { AutoAcceptConnectionRequests = true };
+            var session = Create.Session(connections, options);
+            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            var accept = connections.CaptureNextAcceptToken();
+            await connections.EmitRequestThatOnlyCancellationEndsAsync(new NearbyDevice("peer-1", "Alice"));
+
+            // Act
+            await session.DisposeAsync();
+
+            // Assert — auto-accept is started by a callback, so no caller's token reaches it. The
+            // session passes its own disposal token instead, which is what ends an accept the
+            // platform never settles. Nothing awaits auto-accept today, so this is the only
+            // observable effect; it is also what keeps a future disposal drain from hanging here.
+            await Wait.UntilAsync(() => accept.Task.IsCompleted);
+            Assert.IsTrue(
+                accept.Task.IsCanceled,
+                "Disposal must cancel a pending auto-accept, not leave it awaiting forever.");
+        }
+
+        [TestMethod]
         public async Task AutoAccept_LeavesNoPendingRequestToAnswer()
         {
             // Arrange
@@ -942,6 +966,33 @@ public class NearbyImplementationTests
                 recorder.StatusesFor("peer-1"),
                 "A duplicate drop was a previously fixed bug (P2-3).");
             Assert.AreEqual(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
+        }
+
+        [TestMethod]
+        public async Task DisposeAsync_AfterADisconnect_LeavesTheRegistryEmpty()
+        {
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+            var device = new NearbyDevice("peer-1", "Alice");
+            var connection = Create.Connection(device);
+            connections.ConnectResult = connection;
+
+            await session.ConnectAsync(device, TestContext.CancellationToken);
+
+            // Act — StopAsync disposes each live connection but leaves _activeConnections for the
+            // watcher to clear, so the watcher wakes mid-disposal and calls ResetToVisible after
+            // _registry.Clear() has already run.
+            await session.DisposeAsync();
+
+            // Give the watcher every chance to run and re-add the row.
+            await Wait.UntilAsync(() => session.Devices.Count > 0);
+
+            // Assert
+            Assert.IsEmpty(
+                session.Devices,
+                "A watcher waking after disposal must not resurrect a row. Registry.Update returns "
+                    + "early for an absent id, which is what makes this hold — keep it that way.");
         }
 
         [TestMethod]

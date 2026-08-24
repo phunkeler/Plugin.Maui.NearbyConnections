@@ -13,7 +13,7 @@ public static class MauiAppBuilderExtensions
     /// <param name="builder">The <see cref="MauiAppBuilder"/> to register the services with.</param>
     /// <param name="configure">
     /// A delegate that configures <see cref="NearbyOptions"/>. If <see langword="null"/>, platform
-    /// defaults are used — which is sufficient on Android, but <b>throws on iOS</b>, where
+    /// defaults are used — which is enough on Android, but <b>throws on iOS</b>, where
     /// <see cref="NearbyOptions.ServiceId"/> has no default and must be set. See the
     /// <see cref="ArgumentException"/> below.
     /// </param>

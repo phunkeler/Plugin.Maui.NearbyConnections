@@ -69,7 +69,11 @@ sealed class ChangeBroadcast<T>
         // Unbounded and single-reader: one enumeration drains it, and a slow consumer buffers
         // rather than blocking the platform callback that produced the change.
         var channel = Channel.CreateUnbounded<T>(
-            new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+            new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = false
+            });
 
         lock (_gate)
         {
