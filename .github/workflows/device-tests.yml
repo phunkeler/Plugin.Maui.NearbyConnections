@@ -52,8 +52,6 @@ jobs:
     needs: read-api-levels
     runs-on: ubuntu-latest
     if: github.repository_owner == 'phunkeler'
-    # Covers a cold AVD-cache-miss create (~80s) + boot + the actual test run -- 5 min was cut
-    # before "Run device tests on emulator" ever started on a cache miss.
     timeout-minutes: 15
     strategy:
       fail-fast: false
