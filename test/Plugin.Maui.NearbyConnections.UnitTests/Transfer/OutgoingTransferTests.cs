@@ -288,4 +288,75 @@ public class OutgoingTransferTests
             transfer.Dispose();
         }
     }
+
+    // Read on every terminal path in PlatformSendFileAsync, so that a cancel or a failure reports
+    // the position the transfer actually reached. Android previously hard-coded 0/0 there while iOS
+    // reported real counts, so the same cancel produced two different progress payloads.
+    [TestClass]
+    public sealed class LastProgress : OutgoingTransferTests
+    {
+        [TestMethod]
+        public void BeforeAnyUpdate_IsZero()
+        {
+            // Arrange
+            var time = new FakeTimeProvider();
+            using var transfer = Create.Transfer(time);
+
+            // Act
+            var last = transfer.LastProgress;
+
+            // Assert
+            Assert.AreEqual(0, last.BytesTransferred);
+            Assert.AreEqual(0, last.TotalBytes);
+        }
+
+        [TestMethod]
+        public void AfterAnUpdate_CarriesThatUpdatesCounts()
+        {
+            // Arrange
+            var time = new FakeTimeProvider();
+            using var transfer = Create.Transfer(time);
+
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: 80));
+
+            // Assert
+            var last = transfer.LastProgress;
+            Assert.AreEqual(80, last.BytesTransferred);
+            Assert.AreEqual(100, last.TotalBytes);
+        }
+
+        [TestMethod]
+        public void AfterSeveralUpdates_CarriesTheMostRecent()
+        {
+            // Arrange
+            var time = new FakeTimeProvider();
+            using var transfer = Create.Transfer(time);
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: 10));
+
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: 60));
+
+            // Assert
+            Assert.AreEqual(60, transfer.LastProgress.BytesTransferred);
+        }
+
+        // A late platform callback lands after the caller's finally disposed the transfer. OnUpdate
+        // is a no-op then, so the recorded position must stay where it was rather than move.
+        [TestMethod]
+        public void UpdateAfterDispose_LeavesTheRecordedPositionAlone()
+        {
+            // Arrange
+            var time = new FakeTimeProvider();
+            var transfer = Create.Transfer(time);
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: 40));
+            transfer.Dispose();
+
+            // Act
+            transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: 90));
+
+            // Assert
+            Assert.AreEqual(40, transfer.LastProgress.BytesTransferred);
+        }
+    }
 }

@@ -99,7 +99,7 @@ message about one device.
 
 | Property | Type | Meaning |
 |---|---|---|
-| `DeviceId` | `string` | The remote device. Matches `NearbyDevice.Id`. |
+| `DeviceId` | `string` | The remote device. Matches `NearbyDevice.Id`. Pseudonymous — see Privacy. |
 | `DisplayName` | `string` | The remote device's user-chosen name. Identity data — see Privacy. |
 | `Callback` | `string` | Which platform callback threw. Pairs with EventId `2027`. |
 | `Writer` | `string` | Which internal stream dropped an event. |
@@ -120,6 +120,20 @@ user-chosen and often personal ("Sam's iPhone"), so treat them as identity data.
 reduces that name to its file-name component before use, so it cannot redirect a write, but the
 name itself still reaches the sink as the remote peer wrote it. Treat it as untrusted, and as
 identity data on the same footing as a display name.
+
+**`DeviceId` is pseudonymous, not anonymous.** It is opaque, and it is never the device's name, but
+what it is derived from differs per platform:
+
+- On Android it is the Nearby Connections endpoint identifier — a short token the platform assigns
+  for a discovery session. It is not derived from device identity.
+- On iOS it is a salted hash of the archived `MCPeerID`. That archive contains the peer's display
+  name, so the input is low-entropy and guessable; a per-session random salt is mixed in before
+  hashing, which is what stops the value being reversible by dictionary attack and stops the same
+  device correlating across sessions or across separate log sets.
+
+Neither value survives a session, so `DeviceId` cannot be used to recognise a device on a later run.
+Treat it as identity data of a weaker grade than `DisplayName`: safe to log and to correlate within
+one session's logs, not safe to publish as though it were an anonymous statistic.
 
 If those must not reach a sink — a remote/aggregated one especially — filter this library's
 categories to `Warning` or above for that provider, or scrub the properties in the pipeline. Because

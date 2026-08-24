@@ -73,6 +73,115 @@ open coveragereport/index.html   # macOS; use `start` on Windows, `xdg-open` on 
   would change them silently. Internal type names, file names, and folders are **not** locked and
   may be reorganised freely; see `DESIGN-PRINCIPLES.md`.
 
+## The first principle: one abstraction, not two implementations
+
+**This library exists to make Android and iOS look like one thing. Every other rule here serves
+that. When a decision is hard, this is the tiebreaker.**
+
+The value a consumer buys is writing peer-to-peer code once. Two SDKs designed by different
+companies, a decade apart, on different transports, with different lifecycles, are unified into one
+API. Every platform detail that reaches the public surface takes part of that value back: the
+consumer now has to know that detail, and has to write code that branches on it. A plugin that
+passes platform differences through is not an abstraction. It is two SDKs behind one NuGet package,
+and the consumer would have been better served calling the bindings directly, where at least the
+documentation matches what they are actually using.
+
+### The rule
+
+**A consumer must be able to write correct cross-platform code without knowing which platform they
+are on.** If a member's type, shape, value format, or lifetime differs by platform, the abstraction
+is unfinished — regardless of whether the difference is documented.
+
+### Documenting a leak does not fix it
+
+This is the failure mode to watch for, because it feels like diligence.
+
+```csharp
+/// <param name="id">
+/// A unique identifier for the device, valid within the current session — the endpoint
+/// identifier on Android, a serialized peer identifier on iOS.
+/// </param>
+```
+
+That doc comment is accurate, honest, and helpful. It is also the bug report. `NearbyDevice.Id` is a
+raw Google endpoint token on one platform and a 16-character hex string on the other, so a consumer
+who logs it, displays it, stores it, or writes a test asserting its shape gets different behaviour
+per platform. Writing the split down tells the consumer to handle it. It does not spare them the
+work — it moves the work to them, which is the opposite of what they installed this package for.
+
+(That example is live, not historical: unifying `Id` behind a library-minted identifier is in
+progress at the time of writing. The doc comment above is the one currently shipping.)
+
+**A sentence of the form "X on Android, Y on iOS" in a public doc is a design smell.** Read it as an
+unfinished abstraction until proven otherwise. Sometimes it is genuinely the best available answer.
+Usually the abstraction can absorb the difference and nobody tried.
+
+### Absorb, name, or omit — in that order
+
+When the platforms differ, there are exactly three honest options.
+
+1. **Absorb it.** Make the difference invisible. This is the default and should be the answer most
+   of the time. Both platforms are callback-shaped and promise nothing about completion; the library
+   converts them into awaitable operations with deadlines it owns, so a consumer awaits the same way
+   on both (see *Two termination guarantees*). Consumers get a device set and a delta stream, not
+   GMS's endpoint callbacks and MPC's session-state transitions. Inbound payloads arrive through one
+   channel-backed stream, though one platform copies files asynchronously and the other synchronously
+   on a delegate queue. The target state for `NearbyDevice.Id` is the same treatment: an identifier
+   this library mints, identical in shape on both platforms, with each SDK's own identifier confined
+   to `Native/`.
+
+2. **Name it, when the capability genuinely exists on one platform only.** Put it behind a platform
+   scope so the divergence is impossible to miss at the call site: `options.Android.Topology`, not
+   `options.Topology`. `Topology`, `UseLowPower`, and `ConnectionType` are Android-only because
+   Multipeer Connectivity has no equivalent; `EncryptionPreference` is iOS-only because Nearby
+   Connections always encrypts. **These are not leaks** — the platform's name is in the expression,
+   so the consumer knows exactly what they are opting into, and shared code that never touches those
+   scopes stays platform-agnostic. The machine-checkable form is that **all three PublicAPI baselines
+   stay byte-identical**: a scoped option compiles everywhere and simply does nothing off its
+   platform, instead of forcing `#if` into consumer code.
+
+3. **Omit it.** A capability that cannot be offered honestly on both platforms, and does not warrant
+   a named scope, does not go on the public surface. A member that silently does nothing on one
+   platform is worse than an absent one — the consumer writes code that looks correct, compiles, and
+   has no effect.
+
+The order matters. Reach for (2) only after (1) has actually been attempted, and (3) only when
+neither works. Most leaks are (1) that nobody tried.
+
+### Vocabulary is part of the contract
+
+`Peer` is Apple's word. `Endpoint` is Google's. `Strategy`, `Browser`, `Advertiser`, and `Session`
+are lifted from one SDK or the other. A public API borrowing either vendor's vocabulary teaches the
+consumer the wrong mental model: it implies a thin wrapper over that one platform, and it ages badly
+the moment the platform does. Apple has already deprecated MultipeerConnectivity — every MPC term on
+the public surface would now be a lie. Internal code may use the platform's own term freely; that is
+what `Native/` is for. The binding rules are in `.claude/rules/naming.md`.
+
+### What this costs, and why it is still right
+
+Absorbing a difference is more work than passing it through, and it puts the complexity in this
+library instead of in the consumer's app. **That trade is the entire product.** The cost is paid
+once, here, by people who have read both SDKs. The alternative charges it to every consumer, every
+time, forever — and they pay it with less context than we have.
+
+It is also what makes the library survivable. The iOS backend will migrate off MultipeerConnectivity
+to Network.framework. Every consumer whose code does not know what an `MCPeerID` is survives that
+migration unchanged. Every leak is a consumer we break.
+
+### Applying it
+
+Raise this explicitly in any change that touches the public surface. Concretely, ask:
+
+- Would a consumer's code have to branch on the platform to use this correctly?
+- Does a public doc comment say "on Android … on iOS"? Is that a named scope (fine) or a leaked
+  difference (not fine)?
+- Does this member's value have the same shape, format, and lifetime on both platforms?
+- Does this name come from Google's or Apple's vocabulary?
+- Do all three PublicAPI baselines stay identical?
+
+A "yes" to the wrong one of those is not automatically a blocker — but it is a decision that has to
+be made deliberately and written down, not made by default.
+
 ## Architecture
 
 One public interface, registered as a DI singleton (one radio, one native session):
@@ -308,7 +417,9 @@ File-scoped namespaces are convention, not enforced.
   ```csharp
   catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
   ```
-- Public members need XML docs (enforced). **Document platform divergence on the member itself.**
+- Public members need XML docs (enforced). **Document platform divergence on the member itself** —
+  but document only divergence you have already decided to keep. Documenting a difference is not a
+  substitute for absorbing it; see *The first principle*, which ranks absorb over name over omit.
 - Public types stay vendor-neutral: `Peer` is Apple's vocabulary, `Endpoint` is Google's. Internal
   code may use the platform's own term. The binding contract is `.claude/rules/naming.md` (loads
   automatically for `src/**`); `DESIGN-PRINCIPLES.md` explains the reasoning and holds the questions

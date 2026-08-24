@@ -108,7 +108,7 @@ sealed partial class PlatformNearby
     partial void LogResourceTransferProgress(string deviceId, string direction, long payloadId, long totalBytes, long bytesTransferred);
 
     [LoggerMessage(EventId = 2048, Level = LogLevel.Error, Message = "Failed to send bytes to peer: DisplayName={DisplayName}")]
-    partial void LogSendBytesFailed(string displayName, Exception error);
+    partial void LogSendBytesFailed(string? displayName, Exception error);
 
     [LoggerMessage(EventId = 2049, Level = LogLevel.Warning, Message = "File transfer stalled: Id={DeviceId}, DisplayName={DisplayName}, Timeout={TimeoutSeconds}s")]
     partial void LogSendFileTimeout(string deviceId, string? displayName, double timeoutSeconds);
@@ -124,7 +124,7 @@ sealed partial class PlatformNearby
     // PlatformNearby.log.ios.cs — they take iOS-only/internal enum parameters. Ids stay reserved here.
 
     [LoggerMessage(EventId = 2053, Level = LogLevel.Trace, Message = "Data received from peer: Id={DeviceId}, DisplayName={DisplayName}, Length={Length} bytes")]
-    partial void LogDataReceived(string deviceId, string displayName, long length);
+    partial void LogDataReceived(string deviceId, string? displayName, long length);
 
     // 2055 (LogDisconnectingFromSession) is retired. It reported a session-wide teardown on an
     // inbound Disconnect frame, which was the bug: departure is now per-peer (EventId 2092).
@@ -149,10 +149,10 @@ sealed partial class PlatformNearby
     partial void LogUnknownControlMessageType(object type);
 
     [LoggerMessage(EventId = 2057, Level = LogLevel.Debug, Message = "Started receiving resource from: Id={DeviceId}, DisplayName={DisplayName}, ResourceName={ResourceName}")]
-    partial void LogResourceReceiveStarted(string deviceId, string displayName, string resourceName);
+    partial void LogResourceReceiveStarted(string deviceId, string? displayName, string resourceName);
 
     [LoggerMessage(EventId = 2058, Level = LogLevel.Debug, Message = "Finished receiving resource from: Id={DeviceId}, DisplayName={DisplayName}, ResourceName={ResourceName}, Location={Location}, Error={Error}")]
-    partial void LogResourceReceiveFinished(string deviceId, string displayName, string resourceName, string? location, string? error);
+    partial void LogResourceReceiveFinished(string deviceId, string? displayName, string resourceName, string? location, string? error);
 
     [LoggerMessage(EventId = 2059, Level = LogLevel.Error, Message = "Failed to copy received file: Source={Source}, Destination={Destination}")]
     partial void LogFileCopyFailed(string source, string destination, Exception error);

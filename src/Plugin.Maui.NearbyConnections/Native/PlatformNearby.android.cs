@@ -543,6 +543,20 @@ sealed partial class PlatformNearby
             }
         }
 
+        // Every terminal path reports the bytes transferred so far against the same total; only the
+        // status differs. Mirrors the iOS Report helper — reporting 0/0 here would snap a bound
+        // progress bar to zero on cancel instead of leaving it where the transfer actually stopped.
+        void Report(NearbyTransferStatus status)
+        {
+            var (BytesTransferred, TotalBytes) = transfer.LastProgress;
+
+            progress?.Report(new NearbyTransferProgress(
+                payloadId: filePayload.Id,
+                bytesTransferred: BytesTransferred,
+                totalBytes: TotalBytes,
+                status));
+        }
+
         try
         {
             await client.SendPayloadAsync(endpointId, filePayload).ConfigureAwait(false);
@@ -554,30 +568,18 @@ sealed partial class PlatformNearby
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            progress?.Report(new NearbyTransferProgress(
-                payloadId: filePayload.Id,
-                bytesTransferred: 0,
-                totalBytes: 0,
-                NearbyTransferStatus.Canceled));
+            Report(NearbyTransferStatus.Canceled);
             throw;
         }
         catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
         {
-            progress?.Report(new NearbyTransferProgress(
-                payloadId: filePayload.Id,
-                bytesTransferred: 0,
-                totalBytes: 0,
-                NearbyTransferStatus.Failure));
+            Report(NearbyTransferStatus.Failure);
 
             throw TransferInactivityTimeoutException(endpointId);
         }
         catch (Exception ex) when (ex is not OperationCanceledException and not NearbyException)
         {
-            progress?.Report(new NearbyTransferProgress(
-                payloadId: filePayload.Id,
-                bytesTransferred: 0,
-                totalBytes: 0,
-                NearbyTransferStatus.Failure));
+            Report(NearbyTransferStatus.Failure);
 
             LogSendFileFailed(endpointId, null, ex);
             throw new NearbyTransferException(
@@ -589,6 +591,12 @@ sealed partial class PlatformNearby
             transfer.Dispose();
             filePayload.Close();
             filePayload.Dispose();
+
+            // A terminal GMS update can fault transfer.Completion after this caller has already
+            // left the await on one of the catch paths above, leaving the fault unobserved and
+            // surfacing later on the finalizer thread. Observing it here retires that. The iOS
+            // sibling does the same at the end of its own PlatformSendFileAsync.
+            _ = transfer.Completion.Exception;
         }
     }
 

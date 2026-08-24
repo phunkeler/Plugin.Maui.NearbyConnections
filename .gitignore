@@ -425,6 +425,10 @@ sample/NearbyChat/Scripts/tmp/
 # Note: git will not descend into an excluded directory, so .claude/ itself must stay
 # un-excluded for the negations to be reachable.
 .claude/*
+!.claude/rules/
+.claude/rules/*
+!.claude/rules/naming.md
+!.claude/rules/writing-rules.md
 # Local test settings — never commit real device serials or IPs
 *.local.runsettings
 

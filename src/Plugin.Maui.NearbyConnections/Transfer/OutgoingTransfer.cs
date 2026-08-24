@@ -14,11 +14,32 @@ sealed class OutgoingTransfer(
     readonly Lock _gate = new();
     readonly CancellationTokenSource _inactivityCts = new(inactivityTimeout, timeProvider);
     bool _disposed;
+    (long BytesTransferred, long TotalBytes) _lastProgress;
 
     /// <summary>
     /// Awaitable task that completes when the transfer reaches a terminal state.
     /// </summary>
     public Task Completion => _tcs.Task;
+
+    /// <summary>
+    /// The byte counts from the most recent <see cref="OnUpdate"/>, or zeroes when none has
+    /// arrived yet.
+    /// </summary>
+    /// <remarks>
+    /// Lets a caller report a terminal status against the position the transfer actually reached,
+    /// rather than against zero. A cancel at 80% of a large file should leave a bound progress bar
+    /// at 80%, not snap it back to the start.
+    /// </remarks>
+    public (long BytesTransferred, long TotalBytes) LastProgress
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _lastProgress;
+            }
+        }
+    }
 
     /// <summary>
     /// Cancelled when no transfer updates have been received within the configured inactivity
@@ -55,8 +76,7 @@ sealed class OutgoingTransfer(
                 return;
             }
 
-            // Timeout.InfiniteTimeSpan is a valid never-firing delay, so the infinite case needs no
-            // separate branch here.
+            _lastProgress = (transferProgress.BytesTransferred, transferProgress.TotalBytes);
             _inactivityCts.CancelAfter(inactivityTimeout);
         }
 

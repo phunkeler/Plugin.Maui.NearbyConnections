@@ -165,7 +165,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(DidReceiveInvitationFromPeer), peerID.DisplayName, ex);
+            LogCallbackError(nameof(DidReceiveInvitationFromPeer), PeerLookup.PeerKey(peerID), ex);
         }
     }
 
@@ -211,7 +211,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(FoundPeer), peerID.DisplayName, ex);
+            LogCallbackError(nameof(FoundPeer), PeerLookup.PeerKey(peerID), ex);
         }
     }
 
@@ -241,7 +241,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(LostPeer), peerID.DisplayName, ex);
+            LogCallbackError(nameof(LostPeer), PeerLookup.PeerKey(peerID), ex);
         }
     }
 
@@ -315,8 +315,10 @@ sealed partial class PlatformNearby
         if (error is not null)
         {
             var nsErrorException = new NSErrorException(error);
-            LogSendBytesFailed(peerID.DisplayName, nsErrorException);
-            throw new NearbyTransferException($"Failed to send bytes to '{peerID.DisplayName}': {error.LocalizedDescription}", nsErrorException);
+            var name = PeerLookup.SafeDisplayName(peerId, peerID);
+
+            LogSendBytesFailed(name, nsErrorException);
+            throw new NearbyTransferException($"Failed to send bytes to '{name}': {error.LocalizedDescription}", nsErrorException);
         }
 
         return Task.CompletedTask;
@@ -489,8 +491,9 @@ sealed partial class PlatformNearby
         try
         {
             var id = PeerLookup.PeerKey(peerID);
+            var name = PeerLookup.SafeDisplayName(id, peerID);
 
-            LogPeerStateChanged(id, peerID.DisplayName, state);
+            LogPeerStateChanged(id, name, state);
 
             switch (state)
             {
@@ -529,7 +532,7 @@ sealed partial class PlatformNearby
                     // rather than awaited.
                     ReleaseConnectionFromCallback(id);
                     FaultConnectionTcs(id, new NearbyException(
-                        $"Connection to peer '{peerID.DisplayName}' failed: session state changed to NotConnected before the connection was established."));
+                        $"Connection to peer '{PeerLookup.SafeDisplayName(peerID)}' failed: session state changed to NotConnected before the connection was established."));
 
                     if (PeerLookup.Remove(id) is { } lostDevice)
                     {
@@ -546,7 +549,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnPeerStateChanged), peerID.DisplayName, ex);
+            LogCallbackError(nameof(OnPeerStateChanged), PeerLookup.PeerKey(peerID), ex);
         }
     }
 
@@ -555,14 +558,15 @@ sealed partial class PlatformNearby
         try
         {
             var id = PeerLookup.PeerKey(peerID);
+            var name = PeerLookup.SafeDisplayName(id, peerID);
 
-            LogDataReceived(id, peerID.DisplayName, (long)data.Length);
+            LogDataReceived(id, name, (long)data.Length);
 
             var bytes = data.ToArray();
 
             if (ControlMessage.TryDecode(bytes, out var controlType))
             {
-                LogControlMessageReceived(id, peerID.DisplayName, controlType);
+                LogControlMessageReceived(id, name, controlType);
                 HandleControlMessage(id, controlType);
                 return;
             }
@@ -572,7 +576,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnDataReceived), peerID.DisplayName, ex);
+            LogCallbackError(nameof(OnDataReceived), PeerLookup.PeerKey(peerID), ex);
         }
     }
 
@@ -620,8 +624,9 @@ sealed partial class PlatformNearby
         try
         {
             var id = PeerLookup.PeerKey(fromPeer);
+            var name = PeerLookup.SafeDisplayName(id, fromPeer);
 
-            LogResourceReceiveStarted(id, fromPeer.DisplayName, resourceName);
+            LogResourceReceiveStarted(id, name, resourceName);
 
             var observer = progress.AddObserver(
                 "fractionCompleted",
@@ -649,7 +654,7 @@ sealed partial class PlatformNearby
                     }
                     catch (Exception ex)
                     {
-                        LogCallbackError(nameof(OnResourceStarted), fromPeer.DisplayName, ex);
+                        LogCallbackError(nameof(OnResourceStarted), PeerLookup.PeerKey(fromPeer), ex);
                     }
                 });
 
@@ -657,7 +662,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnResourceStarted), fromPeer.DisplayName, ex);
+            LogCallbackError(nameof(OnResourceStarted), PeerLookup.PeerKey(fromPeer), ex);
         }
     }
 
@@ -693,8 +698,9 @@ sealed partial class PlatformNearby
         {
             var id = PeerLookup.PeerKey(fromPeer);
             var loc = localUrl?.ToString() ?? "null";
+            var name = PeerLookup.SafeDisplayName(id, fromPeer);
 
-            LogResourceReceiveFinished(id, fromPeer.DisplayName, resourceName, loc, error?.LocalizedDescription);
+            LogResourceReceiveFinished(id, name, resourceName, loc, error?.LocalizedDescription);
 
             if (_progressObservers.TryRemove(ObserverKey(id, resourceName), out var observer))
             {
@@ -742,7 +748,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnResourceFinished), fromPeer.DisplayName, ex);
+            LogCallbackError(nameof(OnResourceFinished), PeerLookup.PeerKey(fromPeer), ex);
         }
     }
 
