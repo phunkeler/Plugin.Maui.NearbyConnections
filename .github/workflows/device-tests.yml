@@ -86,16 +86,6 @@ jobs:
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           global-json-file: global.json
-
-      - name: Cache workload packs
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
-        with:
-          path: |
-            ~/.dotnet/packs
-            ~/.dotnet/sdk-manifests
-            ~/.dotnet/metadata
-          key: workload-maui-android-${{ env.WORKLOAD_SET_VERSION }}-${{ hashFiles('global.json') }}
-
       - name: Install Android workload
         run: dotnet workload install maui-android --version ${{ env.WORKLOAD_SET_VERSION }}
 
@@ -152,7 +142,7 @@ jobs:
     name: iOS simulator
     runs-on: macos-26
     if: github.repository_owner == 'phunkeler'
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -160,21 +150,6 @@ jobs:
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           global-json-file: global.json
-
-      # global.json pins the SDK exactly (rollForward: disable), so setup-dotnet downloads its own
-      # copy into ~/.dotnet and does NOT use the runner's preinstalled /usr/local/share/dotnet --
-      # caching the preinstall path stored nothing and left the workload packs unfindable.
-      # Use the literal path, not ${{ env.DOTNET_ROOT }}: setup-dotnet exports DOTNET_ROOT as a
-      # process env var, and the env context only sees workflow-declared env: blocks, so that
-      # expression expands to "" and the paths collapse to /packs.
-      - name: Cache workload packs
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
-        with:
-          path: |
-            ~/.dotnet/packs
-            ~/.dotnet/sdk-manifests
-            ~/.dotnet/metadata
-          key: workload-maui-ios-${{ env.WORKLOAD_SET_VERSION }}-${{ hashFiles('global.json') }}
 
       - name: Install iOS workload
         run: dotnet workload install maui-ios --version ${{ env.WORKLOAD_SET_VERSION }}
