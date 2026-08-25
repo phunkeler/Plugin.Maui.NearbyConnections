@@ -16,7 +16,7 @@ public class DisconnectTests : DeviceTest
         var (connection, endpointId, deviceId) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
         // Act
-        platform.OnDisconnected(endpointId);
+        platform.AndroidAdapter.OnDisconnected(endpointId);
 
         // Assert
         await connection.Disconnected.WaitAsync(cts.Token);

@@ -16,7 +16,7 @@ public class DeviceDiscoveryTests : DeviceTest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.FoundPeer(browser: null!, peerID: peerID, info: null);
+        platform.IosAdapter.FoundPeer(browser: null!, peerID: peerID, info: null);
 
         // Assert
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
@@ -33,11 +33,11 @@ public class DeviceDiscoveryTests : DeviceTest
         using var peerID = Create.PeerId("Alice");
         var id = platform.PeerLookup.DeviceIdFor(peerID);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        platform.FoundPeer(browser: null!, peerID: peerID, info: null);
+        platform.IosAdapter.FoundPeer(browser: null!, peerID: peerID, info: null);
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
 
         // Act
-        platform.LostPeer(browser: null!, peerID: peerID);
+        platform.IosAdapter.LostPeer(browser: null!, peerID: peerID);
 
         // Assert
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
@@ -56,7 +56,7 @@ public class DeviceDiscoveryTests : DeviceTest
         var (_, id) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         // Act
-        platform.LostPeer(browser: null!, peerID: peerID);
+        platform.IosAdapter.LostPeer(browser: null!, peerID: peerID);
 
         // Assert
         Assert.True(platform.PeerLookup.TryGetDevice(id, out _));

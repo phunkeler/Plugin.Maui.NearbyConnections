@@ -17,7 +17,7 @@ public class ConnectionResultTests : DeviceTest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.OnPeerStateChanged(peerID, MCSessionState.Connected);
+        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.Connected);
 
         // Assert
         var connection = await tcs.Task.WaitAsync(cts.Token);
@@ -35,7 +35,7 @@ public class ConnectionResultTests : DeviceTest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
+        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
 
         // Assert
         await Assert.ThrowsAsync<NearbyException>(() => tcs.Task.WaitAsync(cts.Token));
@@ -52,12 +52,12 @@ public class ConnectionResultTests : DeviceTest
         await using var platform = Create.PlatformNearby();
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        platform.FoundPeer(browser: null!, peerID: peerID, info: null);
+        platform.IosAdapter.FoundPeer(browser: null!, peerID: peerID, info: null);
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
         var (_, id) = Create.PendingHandshake(platform, peerID);
 
         // Act
-        platform.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
+        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
 
         // Assert
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);

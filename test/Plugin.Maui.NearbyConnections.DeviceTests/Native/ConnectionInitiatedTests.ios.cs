@@ -16,7 +16,7 @@ public class ConnectionInitiatedTests : DeviceTest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.DidReceiveInvitationFromPeer(
+        platform.IosAdapter.DidReceiveInvitationFromPeer(
             advertiser: null!,
             peerID: peerID,
             context: null,

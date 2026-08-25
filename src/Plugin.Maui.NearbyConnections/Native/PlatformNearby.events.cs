@@ -42,6 +42,17 @@ sealed partial class PlatformNearby
         }
     }
 
+    /// <summary>
+    /// Faults the current advertise channel with a start failure, so the grace window or the pump
+    /// observes it. Returns <see langword="false"/> when the fault was dropped — log that.
+    /// </summary>
+    internal bool TryFaultAdvertiseChannel(Exception exception)
+        => _advertiseChannel.Writer.TryComplete(exception);
+
+    /// <summary>The discovery sibling of <see cref="TryFaultAdvertiseChannel"/>.</summary>
+    internal bool TryFaultDiscoverChannel(Exception exception)
+        => _discoverChannel.Writer.TryComplete(exception);
+
     internal void WriteConnectionRequest(NearbyConnectionRequest request)
     {
         try
@@ -281,7 +292,7 @@ sealed partial class PlatformNearby
     /// partial file behind. Left in place it would both look like a delivered payload and make
     /// <see cref="ClaimUniqueDestinationPath"/> skip that name forever after.
     /// </remarks>
-    void DeletePartialDestination(string? destinationPath)
+    internal void DeletePartialDestination(string? destinationPath)
     {
         if (destinationPath is null)
         {

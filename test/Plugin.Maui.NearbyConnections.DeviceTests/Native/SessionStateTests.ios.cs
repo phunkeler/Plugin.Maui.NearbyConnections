@@ -18,7 +18,7 @@ public class SessionStateTests : DeviceTest
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
 
         // Act
-        platform.OnPeerStateChanged(peerID, MCSessionState.Connecting);
+        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.Connecting);
 
         // Assert — Connecting is informational; the handshake is neither resolved nor faulted.
         Assert.False(tcs.Task.IsCompleted);
@@ -36,8 +36,8 @@ public class SessionStateTests : DeviceTest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.OnPeerStateChanged(peerID, MCSessionState.Connecting);
-        platform.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
+        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.Connecting);
+        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
 
         // Assert
         await Assert.ThrowsAsync<NearbyException>(() => tcs.Task.WaitAsync(cts.Token));

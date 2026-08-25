@@ -17,7 +17,7 @@ public class DisconnectTests : DeviceTest
         var (connection, id) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         // Act
-        platform.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
+        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
 
         // Assert
         await connection.Disconnected.WaitAsync(cts.Token);

@@ -81,7 +81,7 @@ partial class Create
         var id = platform.PeerLookup.DeviceIdFor(peerID);
 
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
-        platform.OnPeerStateChanged(peerID, MCSessionState.Connected);
+        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.Connected);
 
         return (await tcs.Task.WaitAsync(cancellationToken), id);
     }

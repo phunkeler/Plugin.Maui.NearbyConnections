@@ -16,7 +16,7 @@ public class DisposeTests : DeviceTest
         await using var platform = Create.PlatformNearby();
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        platform.DidReceiveInvitationFromPeer(
+        platform.IosAdapter.DidReceiveInvitationFromPeer(
             advertiser: null!,
             peerID: peerID,
             context: null,

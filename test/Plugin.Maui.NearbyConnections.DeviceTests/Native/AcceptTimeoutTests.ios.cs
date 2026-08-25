@@ -25,7 +25,7 @@ public class AcceptTimeoutTests : DeviceTest
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        platform.DidReceiveInvitationFromPeer(
+        platform.IosAdapter.DidReceiveInvitationFromPeer(
             advertiser: null!,
             peerID: peerID,
             context: null,
@@ -48,7 +48,7 @@ public class AcceptTimeoutTests : DeviceTest
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        platform.DidReceiveInvitationFromPeer(
+        platform.IosAdapter.DidReceiveInvitationFromPeer(
             advertiser: null!,
             peerID: peerID,
             context: null,
@@ -74,7 +74,7 @@ public class AcceptTimeoutTests : DeviceTest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var accepted = new List<bool>();
 
-        platform.DidReceiveInvitationFromPeer(
+        platform.IosAdapter.DidReceiveInvitationFromPeer(
             advertiser: null!,
             peerID: peerID,
             context: null,

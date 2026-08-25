@@ -20,10 +20,10 @@ public class TransferUpdateTests : DeviceTest
         connection.InboundProgress = new Progress<NearbyTransferProgress>(p => reported.TrySetResult(p));
 
         var payload = Payload.FromBytes([1, 2, 3]);
-        platform.OnPayloadReceived(endpointId, payload);
+        platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
 
         // Act
-        await platform.OnPayloadTransferUpdate(
+        await platform.AndroidAdapter.OnPayloadTransferUpdate(
             endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.InProgress, total: 3, transferred: 1));
 
         var update = await reported.Task.WaitAsync(cts.Token);
@@ -49,8 +49,8 @@ public class TransferUpdateTests : DeviceTest
         var payload = Payload.FromFile(javaFile);
 
         // Act — receipt then success, the order GMS delivers them; the platform owns the payload.
-        platform.OnPayloadReceived(endpointId, payload);
-        await platform.OnPayloadTransferUpdate(
+        platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
+        await platform.AndroidAdapter.OnPayloadTransferUpdate(
             endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
 
         var received = await Receive.FirstAsync(connection, cts.Token);
@@ -80,8 +80,8 @@ public class TransferUpdateTests : DeviceTest
             using var javaFile = new Java.IO.File(sourcePath);
             var payload = Payload.FromFile(javaFile);
 
-            platform.OnPayloadReceived(endpointId, payload);
-            await platform.OnPayloadTransferUpdate(
+            platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
+            await platform.AndroidAdapter.OnPayloadTransferUpdate(
                 endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
         }
 
@@ -107,8 +107,8 @@ public class TransferUpdateTests : DeviceTest
         using var javaFile = new Java.IO.File(sourcePath);
         var payload = Payload.FromFile(javaFile);
 
-        platform.OnPayloadReceived(endpointId, payload);
-        await platform.OnPayloadTransferUpdate(
+        platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
+        await platform.AndroidAdapter.OnPayloadTransferUpdate(
             endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
 
         var received = await Receive.FirstAsync(connection, cts.Token);
@@ -137,8 +137,8 @@ public class TransferUpdateTests : DeviceTest
         var (_, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
         var payload = Create.FilePayload(new byte[4 * 1024 * 1024], $"drain-{Guid.NewGuid():N}.bin");
 
-        platform.OnPayloadReceived(endpointId, payload);
-        var copy = platform.OnPayloadTransferUpdate(
+        platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
+        var copy = platform.AndroidAdapter.OnPayloadTransferUpdate(
             endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success));
 
         // Act

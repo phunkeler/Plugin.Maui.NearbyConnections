@@ -4,7 +4,7 @@ using Path = System.IO.Path;
 
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class PlatformNearby
+sealed partial class AndroidAdapter
 {
     static AndroidUri? TryCreateUri(string fileUri)
     {
@@ -62,7 +62,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCouldNotResolveContentUriName(ex);
+            _bridge.LogCouldNotResolveContentUriName(ex);
             return Guid.NewGuid().ToString("N");
         }
     }

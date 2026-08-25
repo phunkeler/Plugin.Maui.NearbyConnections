@@ -16,7 +16,7 @@ public class UnknownPeerTests : DeviceTest
         var id = platform.PeerLookup.DeviceIdFor(peerID);
 
         // Act
-        platform.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
+        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(id));
@@ -32,7 +32,7 @@ public class UnknownPeerTests : DeviceTest
         var id = platform.PeerLookup.DeviceIdFor(peerID);
 
         // Act
-        platform.LostPeer(browser: null!, peerID: peerID);
+        platform.IosAdapter.LostPeer(browser: null!, peerID: peerID);
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(id));
@@ -49,7 +49,7 @@ public class UnknownPeerTests : DeviceTest
         using var data = NSData.FromArray([1, 2, 3]);
 
         // Act
-        platform.OnDataReceived(data, peerID);
+        platform.IosAdapter.OnDataReceived(data, peerID);
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(id));

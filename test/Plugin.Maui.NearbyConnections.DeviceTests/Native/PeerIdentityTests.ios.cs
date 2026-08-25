@@ -46,8 +46,8 @@ public class PeerIdentityTests : DeviceTest
         await using var platform = Create.PlatformNearby(Create.DefaultOptions("Alice"));
 
         // Act
-        var first = platform.GetLocalPeerId();
-        var second = platform.GetLocalPeerId();
+        var first = platform.IosAdapter.GetLocalPeerId();
+        var second = platform.IosAdapter.GetLocalPeerId();
 
         // Assert
         Assert.Same(first, second);

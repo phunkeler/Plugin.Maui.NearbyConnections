@@ -16,7 +16,7 @@ public class StartFailureTests : DeviceTest
         using var error = new NSError((NSString)"devtest", code: 42);
 
         // Act
-        platform.DidNotStartAdvertisingPeer(advertiser: null!, error);
+        platform.IosAdapter.DidNotStartAdvertisingPeer(advertiser: null!, error);
 
         // Assert
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -32,7 +32,7 @@ public class StartFailureTests : DeviceTest
         using var error = new NSError((NSString)"devtest", code: 42);
 
         // Act
-        platform.DidNotStartBrowsingForPeers(browser: null!, error);
+        platform.IosAdapter.DidNotStartBrowsingForPeers(browser: null!, error);
 
         // Assert
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));

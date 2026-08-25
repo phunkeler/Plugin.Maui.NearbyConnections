@@ -14,7 +14,7 @@ public class DeviceDiscoveryTests : DeviceTest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
+        platform.AndroidAdapter.OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
 
         // Assert
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
@@ -29,11 +29,11 @@ public class DeviceDiscoveryTests : DeviceTest
         // Arrange — a device already discovered, and its Found event drained off the channel.
         await using var platform = Create.PlatformNearby();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        platform.OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
+        platform.AndroidAdapter.OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
 
         // Act
-        platform.OnEndpointLost("endpoint-1");
+        platform.AndroidAdapter.OnEndpointLost("endpoint-1");
 
         // Assert
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
@@ -51,7 +51,7 @@ public class DeviceDiscoveryTests : DeviceTest
         var (_, _, deviceId) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
         // Act
-        platform.OnEndpointLost("endpoint-1");
+        platform.AndroidAdapter.OnEndpointLost("endpoint-1");
 
         // Assert
         Assert.True(platform.PeerLookup.TryGetDevice(deviceId, out _));

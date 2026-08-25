@@ -24,7 +24,7 @@ public class ResourceTransferTests : DeviceTest
 
         // Act
         using var sourceUrl = NSUrl.FromFilename(sourcePath);
-        platform.OnResourceFinished("photo.bin", peerID, sourceUrl, error: null);
+        platform.IosAdapter.OnResourceFinished("photo.bin", peerID, sourceUrl, error: null);
 
         var received = await Receive.FirstAsync(connection, cts.Token);
 
@@ -46,7 +46,7 @@ public class ResourceTransferTests : DeviceTest
 
         // Act
         using var error = new NSError((NSString)"devtest", code: 42);
-        platform.OnResourceFinished("photo.bin", peerID, localUrl: null, error);
+        platform.IosAdapter.OnResourceFinished("photo.bin", peerID, localUrl: null, error);
 
         // Assert
         await Receive.AssertNothingReceivedAsync(connection);
@@ -67,7 +67,7 @@ public class ResourceTransferTests : DeviceTest
         using var progress = NSProgress.FromTotalUnitCount(100);
 
         // Act — the real KVO registration fires when the native progress advances.
-        platform.OnResourceStarted("photo.bin", peerID, progress);
+        platform.IosAdapter.OnResourceStarted("photo.bin", peerID, progress);
         progress.CompletedUnitCount = 50;
 
         // Assert
@@ -98,7 +98,7 @@ public class ResourceTransferTests : DeviceTest
             await File.WriteAllBytesAsync(sourcePath, content, cts.Token);
 
             using var sourceUrl = NSUrl.FromFilename(sourcePath);
-            platform.OnResourceFinished("photo.bin", peerID, sourceUrl, error: null);
+            platform.IosAdapter.OnResourceFinished("photo.bin", peerID, sourceUrl, error: null);
         }
 
         foreach (var received in await Receive.TakeAsync(connection, 2, cts.Token))
@@ -125,7 +125,7 @@ public class ResourceTransferTests : DeviceTest
         await File.WriteAllBytesAsync(sourcePath, [7, 7, 7], cts.Token);
 
         using var sourceUrl = NSUrl.FromFilename(sourcePath);
-        platform.OnResourceFinished("photo.bin", peerID, sourceUrl, error: null);
+        platform.IosAdapter.OnResourceFinished("photo.bin", peerID, sourceUrl, error: null);
 
         var received = await Receive.FirstAsync(connection, cts.Token);
         var stagedPath = Assert.IsType<NearbyFilePayload>(received).FileResult.FullPath;

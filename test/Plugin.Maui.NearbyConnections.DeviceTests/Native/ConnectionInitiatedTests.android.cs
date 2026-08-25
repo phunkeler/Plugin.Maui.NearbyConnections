@@ -15,7 +15,7 @@ public class ConnectionInitiatedTests : DeviceTest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        await platform.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
+        await platform.AndroidAdapter.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
 
         // Assert
         var request = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);

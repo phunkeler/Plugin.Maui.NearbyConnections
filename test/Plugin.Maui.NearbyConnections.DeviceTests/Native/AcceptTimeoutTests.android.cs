@@ -48,7 +48,7 @@ public class AcceptTimeoutTests : DeviceTest
         await using var platform = Create.PlatformNearby(Options(accept));
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        await platform.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
+        await platform.AndroidAdapter.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
         var request = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
 
         // Act — accept, then never deliver OnConnectionResult.
@@ -67,7 +67,7 @@ public class AcceptTimeoutTests : DeviceTest
         await using var platform = Create.PlatformNearby(Options(accept));
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        await platform.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
+        await platform.AndroidAdapter.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
         var request = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
 
         // Act
@@ -87,12 +87,12 @@ public class AcceptTimeoutTests : DeviceTest
         await using var platform = Create.PlatformNearby(Options(TimeSpan.FromSeconds(30)));
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
-        await platform.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
+        await platform.AndroidAdapter.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
         var request = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
 
         // Act
         var pending = request.AcceptAsync(cts.Token);
-        platform.OnConnectionResult("endpoint-1", Create.Resolution());
+        platform.AndroidAdapter.OnConnectionResult("endpoint-1", Create.Resolution());
 
         // Assert
         var connection = await pending;

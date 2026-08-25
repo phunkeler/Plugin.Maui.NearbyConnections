@@ -7,11 +7,11 @@ namespace Plugin.Maui.NearbyConnections;
 sealed partial class PlatformNearby
 {
     [LoggerMessage(EventId = 2052, Level = LogLevel.Debug, Message = "Peer state changed: Id={DeviceId}, DisplayName={DisplayName}, State={State}")]
-    partial void LogPeerStateChanged(string deviceId, string? displayName, MCSessionState state);
+    internal partial void LogPeerStateChanged(string deviceId, string? displayName, MCSessionState state);
 
     [LoggerMessage(EventId = 2054, Level = LogLevel.Trace, Message = "Control message received from peer: Id={DeviceId}, DisplayName={DisplayName}, Type={Type}")]
-    partial void LogControlMessageReceived(string deviceId, string? displayName, ControlMessageType type);
+    internal partial void LogControlMessageReceived(string deviceId, string? displayName, ControlMessageType type);
 
     [LoggerMessage(EventId = 2005, Level = LogLevel.Debug, Message = "Created local peer: DisplayName={DisplayName}")]
-    partial void LogCreatedLocalPeer(string displayName);
+    internal partial void LogCreatedLocalPeer(string displayName);
 }

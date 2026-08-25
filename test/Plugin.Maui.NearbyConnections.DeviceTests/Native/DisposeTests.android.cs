@@ -18,7 +18,7 @@ public class DisposeTests : DeviceTest
         // Arrange — a real inbound handshake, paused between "request surfaced" and "peer accepted".
         await using var platform = Create.PlatformNearby();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        await platform.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
+        await platform.AndroidAdapter.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
         _ = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
         var (tcs, _) = platform._connectionTcs[platform.PeerLookup.DeviceIdFor("endpoint-1")];
 

@@ -16,7 +16,7 @@ public class UnknownPeerTests : DeviceTest
         await using var platform = Create.PlatformNearby();
 
         // Act
-        platform.OnDisconnected(UnknownId);
+        platform.AndroidAdapter.OnDisconnected(UnknownId);
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(UnknownId));
@@ -30,7 +30,7 @@ public class UnknownPeerTests : DeviceTest
         await using var platform = Create.PlatformNearby();
 
         // Act
-        platform.OnEndpointLost(UnknownId);
+        platform.AndroidAdapter.OnEndpointLost(UnknownId);
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(UnknownId));
@@ -44,7 +44,7 @@ public class UnknownPeerTests : DeviceTest
         await using var platform = Create.PlatformNearby();
 
         // Act
-        platform.OnConnectionResult(UnknownId, Create.Resolution());
+        platform.AndroidAdapter.OnConnectionResult(UnknownId, Create.Resolution());
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(UnknownId));
@@ -58,7 +58,7 @@ public class UnknownPeerTests : DeviceTest
         await using var platform = Create.PlatformNearby();
 
         // Act
-        await platform.OnPayloadTransferUpdate(
+        await platform.AndroidAdapter.OnPayloadTransferUpdate(
             UnknownId, Create.TransferUpdate(payloadId: 42, PayloadTransferUpdate.Status.Success));
 
         // Assert

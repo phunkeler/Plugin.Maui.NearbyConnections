@@ -35,6 +35,6 @@ static class Deliver
     {
         using var native = NSData.FromArray(data);
 
-        platform.OnDataReceived(native, peerID);
+        platform.IosAdapter.OnDataReceived(native, peerID);
     }
 }

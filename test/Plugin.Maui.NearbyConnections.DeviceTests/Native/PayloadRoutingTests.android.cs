@@ -19,8 +19,8 @@ public class PayloadRoutingTests : DeviceTest
         var payload = Payload.FromBytes(expected);
 
         // Act
-        platform.OnPayloadReceived(endpointId, payload);
-        await platform.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success));
+        platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
+        await platform.AndroidAdapter.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success));
 
         // Assert
         var received = await Receive.FirstAsync(connection, cts.Token);
@@ -41,10 +41,10 @@ public class PayloadRoutingTests : DeviceTest
         var bytes = Payload.FromBytes([1, 2, 3]);
 
         // Act
-        platform.OnPayloadReceived(endpointId, file);
-        platform.OnPayloadReceived(endpointId, bytes);
-        var fileUpdate = platform.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(file.Id, PayloadTransferUpdate.Status.Success));
-        await platform.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(bytes.Id, PayloadTransferUpdate.Status.Success));
+        platform.AndroidAdapter.OnPayloadReceived(endpointId, file);
+        platform.AndroidAdapter.OnPayloadReceived(endpointId, bytes);
+        var fileUpdate = platform.AndroidAdapter.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(file.Id, PayloadTransferUpdate.Status.Success));
+        await platform.AndroidAdapter.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(bytes.Id, PayloadTransferUpdate.Status.Success));
         await fileUpdate;
 
         // Assert

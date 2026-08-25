@@ -7,7 +7,8 @@ sealed partial class PlatformNearby
 
     // Intentional no-ops: stop/dispose are called from shared cleanup paths (DisposeAsync, finally
     // blocks) where throwing PlatformNotSupportedException would swallow the original exception.
-    void PlatformDispose() { }
+    // This target creates no adapter, so the null-conditional call compiles the field's use away.
+    void PlatformDispose() => _adapter?.Dispose();
 
     // No payload ever arrives here, so nothing is staged and there is nothing to sweep.
     internal static partial string StagingDirectory => string.Empty;

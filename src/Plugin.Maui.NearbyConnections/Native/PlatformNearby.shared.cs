@@ -33,6 +33,38 @@ sealed partial class PlatformNearby : IPlatformNearby
     internal PeerLookup PeerLookup { get; }
     internal TimeProvider TimeProvider { get; }
 
+    /// <summary>
+    /// The platform adapter, created by <see cref="PlatformCreateAdapter"/> during construction.
+    /// Null only on <c>net10.0</c>, whose <c>Platform*</c> stubs never reach it.
+    /// </summary>
+    /// <remarks>
+    /// Typed as the interface on purpose: the seam is the design (decision D5), and each TFM
+    /// assigning exactly one implementation is what CA1859 sees — not a mistake to optimize away.
+    /// CS0649 is the <c>net10.0</c> target, which never assigns the field: its throwing stubs
+    /// answer before any call could reach an adapter.
+    /// </remarks>
+#pragma warning disable CA1859, CS0649
+    IPlatformAdapter? _adapter;
+#pragma warning restore CA1859, CS0649
+
+    /// <summary>The session's options snapshot, for the adapter's SDK calls.</summary>
+    internal NearbyOptions Options => _options;
+
+    /// <summary>The session's logger, for the adapter's own log messages.</summary>
+    internal ILogger Logger => _logger;
+
+    /// <summary>The per-peer work queue, for callback work the adapter cannot await (C6).</summary>
+    internal KeyedSerialQueue WorkQueue => _workQueue;
+
+    /// <summary>The advertise channel's completion — the iOS start-failure grace window awaits it.</summary>
+    internal Task AdvertiseChannelCompletion => _advertiseChannel.Reader.Completion;
+
+    /// <summary>The discover channel's completion. See <see cref="AdvertiseChannelCompletion"/>.</summary>
+    internal Task DiscoverChannelCompletion => _discoverChannel.Reader.Completion;
+
+    /// <summary>Creates this platform's <see cref="IPlatformAdapter"/>. No <c>net10.0</c> implementation.</summary>
+    partial void PlatformCreateAdapter();
+
     internal PlatformNearby(
         TimeProvider timeProvider,
         NearbyOptions options,
@@ -55,6 +87,8 @@ sealed partial class PlatformNearby : IPlatformNearby
         _activeConnections = new ConcurrentDictionary<string, NearbyConnection>(StringComparer.Ordinal);
         _workQueue = new KeyedSerialQueue(
             (key, ex) => LogCallbackError(nameof(KeyedSerialQueue), key, ex));
+
+        PlatformCreateAdapter();
     }
 
     /// <inheritdoc/>
@@ -217,7 +251,7 @@ sealed partial class PlatformNearby : IPlatformNearby
         }
     }
 
-    NearbyTransferTimeoutException TransferInactivityTimeoutException(string deviceId)
+    internal NearbyTransferTimeoutException TransferInactivityTimeoutException(string deviceId)
     {
         LogSendFileTimeout(deviceId, null, _options.TransferInactivityTimeout.TotalSeconds);
 
@@ -225,7 +259,7 @@ sealed partial class PlatformNearby : IPlatformNearby
             $"Transfer stalled: no progress received for {_options.TransferInactivityTimeout}.");
     }
 
-    void ReleaseConnectionFromCallback(string deviceId)
+    internal void ReleaseConnectionFromCallback(string deviceId)
     {
         var release = ReleaseConnectionAsync(deviceId);
 

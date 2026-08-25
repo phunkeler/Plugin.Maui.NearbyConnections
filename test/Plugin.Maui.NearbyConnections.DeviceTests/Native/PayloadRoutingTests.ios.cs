@@ -19,7 +19,7 @@ public class PayloadRoutingTests : DeviceTest
         using var data = NSData.FromArray(expected);
 
         // Act
-        platform.OnDataReceived(data, peerID);
+        platform.IosAdapter.OnDataReceived(data, peerID);
 
         // Assert
         var received = await Receive.FirstAsync(connection, cts.Token);

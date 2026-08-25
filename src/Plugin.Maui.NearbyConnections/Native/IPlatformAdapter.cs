@@ -19,7 +19,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <see cref="IPlatformConnection"/> the adapter produces, which captures its native handle once.
 /// </para>
 /// </remarks>
-interface IPlatformAdapter
+interface IPlatformAdapter : IDisposable
 {
     /// <summary>Starts advertising this device. Throws the typed start failure.</summary>
     /// <param name="cancellationToken">A token to abandon the start.</param>
@@ -66,7 +66,4 @@ interface IPlatformAdapter
     /// </summary>
     /// <param name="deviceId">The device whose bookkeeping to drop.</param>
     void ReleaseConnection(string deviceId);
-
-    /// <summary>Releases every SDK object the adapter still holds. Called once, at disposal.</summary>
-    void Dispose();
 }

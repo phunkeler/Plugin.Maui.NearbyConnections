@@ -131,7 +131,7 @@ partial class Create
 
         platform.PeerLookup.Record(deviceId, displayName);
         platform._connectionTcs[deviceId] = (tcs, CancellationToken.None);
-        platform.OnConnectionResult(endpointId, Resolution());
+        platform.AndroidAdapter.OnConnectionResult(endpointId, Resolution());
 
         return (await tcs.Task.WaitAsync(cancellationToken), endpointId, deviceId);
     }
