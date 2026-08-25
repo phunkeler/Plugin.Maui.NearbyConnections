@@ -2,13 +2,12 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
-[TestCategory("Connections")]
+[Trait("Category", "Connections")]
 public class OutgoingTransferTests
 {
-    [TestClass]
     public sealed class InactivityTimeout : OutgoingTransferTests
     {
-        [TestMethod]
+        [Fact]
         public void BeforeTheDeadline_TokenIsNotCancelled()
         {
             // Arrange
@@ -19,10 +18,10 @@ public class OutgoingTransferTests
             time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds) - TimeSpan.FromMilliseconds(1));
 
             // Assert
-            Assert.IsFalse(transfer.InactivityToken.IsCancellationRequested);
+            Assert.False(transfer.InactivityToken.IsCancellationRequested);
         }
 
-        [TestMethod]
+        [Fact]
         public void AtTheDeadline_TokenIsCancelled()
         {
             // Arrange
@@ -33,10 +32,10 @@ public class OutgoingTransferTests
             time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds));
 
             // Assert
-            Assert.IsTrue(transfer.InactivityToken.IsCancellationRequested);
+            Assert.True(transfer.InactivityToken.IsCancellationRequested);
         }
 
-        [TestMethod]
+        [Fact]
         public void ProgressUpdate_ResetsTheDeadline()
         {
             // Arrange
@@ -49,16 +48,16 @@ public class OutgoingTransferTests
                 time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds) - TimeSpan.FromSeconds(1));
                 transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: i * 10));
 
-                Assert.IsFalse(
+                Assert.False(
                     transfer.InactivityToken.IsCancellationRequested,
                     $"Timed out after update {i} despite continuous progress.");
             }
 
             // Assert — total elapsed time is far past the timeout, but no single gap ever was.
-            Assert.IsGreaterThan(DateTimeOffset.UnixEpoch.AddSeconds(40), time.GetUtcNow());
+            Assert.True(time.GetUtcNow() > DateTimeOffset.UnixEpoch.AddSeconds(40));
         }
 
-        [TestMethod]
+        [Fact]
         public void UpdateAfterTheDeadline_LeavesTheTokenCancelled()
         {
             // A stalled transfer times out, then a late platform callback lands — the transfer has
@@ -75,10 +74,10 @@ public class OutgoingTransferTests
             transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress));
 
             // Assert
-            Assert.IsTrue(transfer.InactivityToken.IsCancellationRequested);
+            Assert.True(transfer.InactivityToken.IsCancellationRequested);
         }
 
-        [TestMethod]
+        [Fact]
         public void InfiniteTimeout_NeverCancels()
         {
             // Arrange
@@ -89,10 +88,10 @@ public class OutgoingTransferTests
             time.Advance(TimeSpan.FromDays(1));
 
             // Assert
-            Assert.IsFalse(transfer.InactivityToken.IsCancellationRequested);
+            Assert.False(transfer.InactivityToken.IsCancellationRequested);
         }
 
-        [TestMethod]
+        [Fact]
         public void TokenCapturedBeforeAnUpdate_DoesNotFireOnTheOriginalDeadline()
         {
             // Both platforms read InactivityToken exactly once, into a linked source, and then
@@ -110,12 +109,12 @@ public class OutgoingTransferTests
             time.Advance(TimeSpan.FromSeconds(5)); // past the original 10s deadline
 
             // Assert
-            Assert.IsFalse(
+            Assert.False(
                 capturedEarly.IsCancellationRequested,
                 "The reset must move the deadline, or a progressing transfer aborts.");
         }
 
-        [TestMethod]
+        [Fact]
         public void TokenCapturedBeforeAnUpdate_StillFiresOnTheResetDeadline()
         {
             // The other half of the rule above, and the one that was missing. Moving the deadline
@@ -138,16 +137,15 @@ public class OutgoingTransferTests
             time.Advance(TimeSpan.FromSeconds(Create.TransferTimeoutSeconds));
 
             // Assert
-            Assert.IsTrue(
+            Assert.True(
                 capturedEarly.IsCancellationRequested,
                 "A stalled transfer must still time out on the token the platform captured.");
         }
     }
 
-    [TestClass]
     public sealed class TerminalStates : OutgoingTransferTests
     {
-        [TestMethod]
+        [Fact]
         public async Task Success_CompletesTheTask()
         {
             // Arrange
@@ -159,10 +157,10 @@ public class OutgoingTransferTests
 
             // Assert
             await transfer.Completion;
-            Assert.IsTrue(transfer.Completion.IsCompletedSuccessfully);
+            Assert.True(transfer.Completion.IsCompletedSuccessfully);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task Failure_FaultsTheTask()
         {
             // Arrange
@@ -173,11 +171,11 @@ public class OutgoingTransferTests
             transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Failure));
 
             // Assert
-            var ex = await Assert.ThrowsExactlyAsync<NearbyTransferException>(() => transfer.Completion);
+            var ex = await Assert.ThrowsAsync<NearbyTransferException>(() => transfer.Completion);
             Assert.Contains("1", ex.Message, StringComparison.Ordinal);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task Canceled_CancelsTheTask()
         {
             // Arrange
@@ -188,10 +186,10 @@ public class OutgoingTransferTests
             transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Canceled));
 
             // Assert
-            await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => transfer.Completion);
+            await Assert.ThrowsAsync<TaskCanceledException>(() => transfer.Completion);
         }
 
-        [TestMethod]
+        [Fact]
         public void InProgress_LeavesTheTaskPending()
         {
             // Arrange
@@ -202,10 +200,10 @@ public class OutgoingTransferTests
             transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress));
 
             // Assert
-            Assert.IsFalse(transfer.Completion.IsCompleted);
+            Assert.False(transfer.Completion.IsCompleted);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task FirstTerminalStatusWins()
         {
             // Arrange
@@ -219,14 +217,13 @@ public class OutgoingTransferTests
 
             // Assert
             await transfer.Completion;
-            Assert.IsTrue(transfer.Completion.IsCompletedSuccessfully);
+            Assert.True(transfer.Completion.IsCompletedSuccessfully);
         }
     }
 
-    [TestClass]
     public sealed class ProgressReporting : OutgoingTransferTests
     {
-        [TestMethod]
+        [Fact]
         public void EveryUpdate_IsForwardedInOrder()
         {
             // Arrange
@@ -240,13 +237,13 @@ public class OutgoingTransferTests
             transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Success, bytes: 100));
 
             // Assert
-            Assert.HasCount(3, recorder.Reports);
-            Assert.AreSequenceEqual(
+            Assert.Equal(3, recorder.Reports.Count);
+            Assert.Equal(
                 new long[] { 10, 50, 100 },
                 recorder.Reports.Select(r => r.BytesTransferred).ToArray());
         }
 
-        [TestMethod]
+        [Fact]
         public void NullProgress_IsTolerated()
         {
             // Arrange
@@ -257,14 +254,13 @@ public class OutgoingTransferTests
             transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.Success));
 
             // Assert
-            Assert.IsTrue(transfer.Completion.IsCompletedSuccessfully);
+            Assert.True(transfer.Completion.IsCompletedSuccessfully);
         }
     }
 
-    [TestClass]
     public sealed class Disposal : OutgoingTransferTests
     {
-        [TestMethod]
+        [Fact]
         public void Dispose_IsIdempotent()
         {
             // Arrange
@@ -276,7 +272,7 @@ public class OutgoingTransferTests
             transfer.Dispose();
         }
 
-        [TestMethod]
+        [Fact]
         public void DisposeAfterTimeout_DoesNotThrow()
         {
             // Arrange
@@ -292,10 +288,9 @@ public class OutgoingTransferTests
     // Read on every terminal path in PlatformSendFileAsync, so that a cancel or a failure reports
     // the position the transfer actually reached. Android previously hard-coded 0/0 there while iOS
     // reported real counts, so the same cancel produced two different progress payloads.
-    [TestClass]
     public sealed class LastProgress : OutgoingTransferTests
     {
-        [TestMethod]
+        [Fact]
         public void BeforeAnyUpdate_IsZero()
         {
             // Arrange
@@ -306,11 +301,11 @@ public class OutgoingTransferTests
             var last = transfer.LastProgress;
 
             // Assert
-            Assert.AreEqual(0, last.BytesTransferred);
-            Assert.AreEqual(0, last.TotalBytes);
+            Assert.Equal(0, last.BytesTransferred);
+            Assert.Equal(0, last.TotalBytes);
         }
 
-        [TestMethod]
+        [Fact]
         public void AfterAnUpdate_CarriesThatUpdatesCounts()
         {
             // Arrange
@@ -322,11 +317,11 @@ public class OutgoingTransferTests
 
             // Assert
             var last = transfer.LastProgress;
-            Assert.AreEqual(80, last.BytesTransferred);
-            Assert.AreEqual(100, last.TotalBytes);
+            Assert.Equal(80, last.BytesTransferred);
+            Assert.Equal(100, last.TotalBytes);
         }
 
-        [TestMethod]
+        [Fact]
         public void AfterSeveralUpdates_CarriesTheMostRecent()
         {
             // Arrange
@@ -338,12 +333,12 @@ public class OutgoingTransferTests
             transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: 60));
 
             // Assert
-            Assert.AreEqual(60, transfer.LastProgress.BytesTransferred);
+            Assert.Equal(60, transfer.LastProgress.BytesTransferred);
         }
 
         // A late platform callback lands after the caller's finally disposed the transfer. OnUpdate
         // is a no-op then, so the recorded position must stay where it was rather than move.
-        [TestMethod]
+        [Fact]
         public void UpdateAfterDispose_LeavesTheRecordedPositionAlone()
         {
             // Arrange
@@ -356,7 +351,7 @@ public class OutgoingTransferTests
             transfer.OnUpdate(Create.ProgressUpdate(NearbyTransferStatus.InProgress, bytes: 90));
 
             // Assert
-            Assert.AreEqual(40, transfer.LastProgress.BytesTransferred);
+            Assert.Equal(40, transfer.LastProgress.BytesTransferred);
         }
     }
 }

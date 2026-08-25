@@ -7,55 +7,51 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// Tests for <see cref="NearbyDeviceCollection"/>, the optional bindable projection over
 /// <see cref="INearbyDevices.Changes"/>.
 /// </summary>
-[TestCategory("Devices")]
+[Trait("Category", "Devices")]
 public class NearbyDeviceCollectionTests
 {
-    [TestClass]
     public sealed class Construction : NearbyDeviceCollectionTests
     {
-        [TestMethod]
+        [Fact]
         public void NullSession_Throws()
-            => Assert.ThrowsExactly<ArgumentNullException>(
+            => Assert.Throws<ArgumentNullException>(
                 () => new NearbyDeviceCollection<NearbyDevice>(null!, _ => { }, static d => d));
 
-        [TestMethod]
+        [Fact]
         public void NullMarshal_Throws()
-            => Assert.ThrowsExactly<ArgumentNullException>(
+            => Assert.Throws<ArgumentNullException>(
                 () => new NearbyDeviceCollection<NearbyDevice>(Create.Session(new FakeNearby()), null!, static d => d));
 
         // Constructing mid-session must show what is already there: the change stream carries
         // deltas, not history, so a collection built after discovery started would otherwise be
         // empty until the next change.
-        [TestMethod]
+        [Fact]
         public async Task Seeds_FromDevicesAlreadyKnown()
         {
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
             await platform.EmitDeviceFoundAsync(Create.Device("a", "Alice"));
 
             // Act
             using var devices = Create.Devices(session);
 
             // Assert
-            Assert.HasCount(1, devices);
-            Assert.AreEqual("a", devices[0].Id);
+            Assert.Single(devices);
+            Assert.Equal("a", devices[0].Id);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
-    [TestClass]
     public sealed class Projection : NearbyDeviceCollectionTests
     {
-        [TestMethod]
+        [Fact]
         public async Task DiscoveredDevice_IsAdded()
         {
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             using var devices = Create.Devices(session);
 
@@ -64,18 +60,18 @@ public class NearbyDeviceCollectionTests
             await Wait.UntilAsync(() => devices.Count == 1);
 
             // Assert
-            Assert.HasCount(1, devices);
+            Assert.Single(devices);
         }
 
         // A device is a value, so an update is a replacement. The indexer assignment raises Replace,
         // which is what lets a bound row update in place instead of moving.
-        [TestMethod]
+        [Fact]
         public async Task StatusChange_ReplacesInPlace_AndRaisesReplace()
         {
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var device = Create.Device("a", "Alice");
             await platform.EmitDeviceFoundAsync(device);
@@ -88,23 +84,23 @@ public class NearbyDeviceCollectionTests
             platform.ConnectResult = Create.Connection(device: device);
 
             // Act
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
             await Wait.UntilAsync(() => devices.Count == 1 && devices[0].Status is NearbyDeviceStatus.Connected);
 
             // Assert
-            Assert.HasCount(1, devices);
-            Assert.AreEqual(NearbyDeviceStatus.Connected, devices[0].Status);
+            Assert.Single(devices);
+            Assert.Equal(NearbyDeviceStatus.Connected, devices[0].Status);
             Assert.Contains(NotifyCollectionChangedAction.Replace, actions);
             Assert.DoesNotContain(NotifyCollectionChangedAction.Remove, actions);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task Mutations_GoThroughTheMarshalCallback()
         {
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var marshal = new InlineMarshal();
             using var devices = Create.Devices(session, marshal.Run);
@@ -114,16 +110,16 @@ public class NearbyDeviceCollectionTests
             await Wait.UntilAsync(() => devices.Count == 1);
 
             // Assert
-            Assert.IsGreaterThan(0, marshal.Count, "Every mutation must run inside the caller's marshal callback.");
+            Assert.True(marshal.Count > 0, "Every mutation must run inside the caller's marshal callback.");
         }
 
-        [TestMethod]
+        [Fact]
         public async Task Dispose_StopsTracking()
         {
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var devices = Create.Devices(session);
             devices.Dispose();
@@ -133,13 +129,14 @@ public class NearbyDeviceCollectionTests
 
             // A fixed wait, not a poll: this asserts that something never arrives, and polling can
             // only establish that it has not arrived yet.
-            await Task.Delay(50, TestContext.CancellationToken);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsEmpty(devices, "A disposed collection must stop applying changes.");
+            // A disposed collection must stop applying changes.
+            Assert.Empty(devices);
         }
 
-        [TestMethod]
+        [Fact]
         public void Dispose_IsIdempotent()
         {
             // Arrange
@@ -150,43 +147,41 @@ public class NearbyDeviceCollectionTests
             devices.Dispose();
 
             // Assert
-            Assert.IsEmpty(devices);
+            Assert.Empty(devices);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
-    [TestClass]
     public sealed class Filtering : NearbyDeviceCollectionTests
     {
-        [TestMethod]
+        [Fact]
         public async Task NonMatchingDevice_IsNotShown()
         {
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             using var devices = Create.Devices(
                 session, filter: static d => d.Status is NearbyDeviceStatus.Connected);
 
             // Act
             await platform.EmitDeviceFoundAsync(Create.Device("a", "Alice"));
-            await Task.Delay(50, TestContext.CancellationToken);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsEmpty(devices, "A device that fails the filter must never enter the collection.");
+            // A device that fails the filter must never enter the collection.
+            Assert.Empty(devices);
         }
 
         // The filter is re-evaluated per change, so leaving the filtered set is a removal even
         // though the session reported an update.
-        [TestMethod]
+        [Fact]
         public async Task DeviceLeavingTheFilteredSet_IsRemoved()
         {
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var device = Create.Device("a", "Alice");
             await platform.EmitDeviceFoundAsync(device);
@@ -197,26 +192,23 @@ public class NearbyDeviceCollectionTests
             platform.ConnectResult = Create.Connection(device: device);
 
             // Act
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
             await Wait.UntilAsync(() => devices.Count == 0);
 
             // Assert
-            Assert.IsEmpty(devices);
+            Assert.Empty(devices);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
-    [TestClass]
     public sealed class Projecting : NearbyDeviceCollectionTests
     {
-        [TestMethod]
+        [Fact]
         public async Task Device_IsProjectedOntoARow()
         {
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             using var rows = new NearbyDeviceCollection<Row>(
                 session, a => a(), project: static d => new Row(d));
@@ -226,18 +218,18 @@ public class NearbyDeviceCollectionTests
             await Wait.UntilAsync(() => rows.Count == 1);
 
             // Assert
-            Assert.AreEqual("a", rows[0].Id);
+            Assert.Equal("a", rows[0].Id);
         }
 
         // The whole reason the generic form takes an updater: a row that carries its own state must
         // survive its device's transitions rather than being rebuilt and losing it.
-        [TestMethod]
+        [Fact]
         public async Task ChangedDevice_ReusesTheExistingRow()
         {
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var device = Create.Device("a", "Alice");
             await platform.EmitDeviceFoundAsync(device);
@@ -252,21 +244,22 @@ public class NearbyDeviceCollectionTests
             platform.ConnectResult = Create.Connection(device: device);
 
             // Act
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
             await Wait.UntilAsync(() => rows[0].Status is NearbyDeviceStatus.Connected);
 
             // Assert — connecting reports Connecting then Connected, so the one row took both.
-            Assert.AreSame(original, rows[0], "A changed device must update its row, not replace it.");
-            Assert.AreEqual(2, original.UpdateCount);
+            // A changed device must update its row, not replace it.
+            Assert.Same(original, rows[0]);
+            Assert.Equal(2, original.UpdateCount);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task WithoutAnUpdater_ChangedDeviceReplacesTheRow()
         {
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var device = Create.Device("a", "Alice");
             await platform.EmitDeviceFoundAsync(device);
@@ -278,23 +271,20 @@ public class NearbyDeviceCollectionTests
             platform.ConnectResult = Create.Connection(device: device);
 
             // Act
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
             await Wait.UntilAsync(() => rows[0].Status is NearbyDeviceStatus.Connected);
 
             // Assert
-            Assert.AreNotSame(original, rows[0]);
-            Assert.HasCount(1, rows);
+            Assert.NotSame(original, rows[0]);
+            Assert.Single(rows);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
-    [TestClass]
     public sealed class StreamFaults : NearbyDeviceCollectionTests
     {
         // Nothing awaits the watch loop, so a swallowed fault leaves a bound view frozen with no
         // diagnostic anywhere. The fault is rethrown through marshal instead.
-        [TestMethod]
+        [Fact]
         public async Task FaultedStream_RethrowsThroughMarshal()
         {
             // Arrange
@@ -319,19 +309,19 @@ public class NearbyDeviceCollectionTests
             await Wait.UntilAsync(() => observed is not null);
 
             // Assert
-            Assert.IsInstanceOfType<NearbyException>(observed);
-            Assert.AreSame(session.Fault, observed.InnerException);
+            var nearbyException = Assert.IsAssignableFrom<NearbyException>(observed);
+            Assert.Same(session.Fault, nearbyException.InnerException);
         }
 
         // Disposal is the one cancellation that is a normal teardown. It must not reach the
         // rethrow path the way any other fault does.
-        [TestMethod]
+        [Fact]
         public async Task Disposal_DoesNotRethrow()
         {
             // Arrange
             var platform = new FakeNearby();
             var session = Create.Session(platform);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             Exception? observed = null;
             var devices = Create.Devices(
@@ -353,9 +343,7 @@ public class NearbyDeviceCollectionTests
             await platform.EmitDeviceFoundAsync(Create.Device("a", "Alice"));
 
             // Assert
-            Assert.IsNull(observed);
+            Assert.Null(observed);
         }
-
-        public TestContext TestContext { get; set; }
     }
 }

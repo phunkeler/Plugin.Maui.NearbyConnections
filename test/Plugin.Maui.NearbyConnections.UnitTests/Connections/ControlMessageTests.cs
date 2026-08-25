@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
-[TestCategory("Connections")]
+[Trait("Category", "Connections")]
 public class ControlMessageTests
 {
     /// <summary>
@@ -8,10 +8,9 @@ public class ControlMessageTests
     /// </summary>
     static byte[] SignatureBytes => [0x43, 0x4E, 0x4D, 0x50];
 
-    [TestClass]
     public sealed class Encode : ControlMessageTests
     {
-        [TestMethod]
+        [Fact]
         public void Disconnect_ProducesTheExactExpectedBytes()
         {
             // Arrange
@@ -21,27 +20,28 @@ public class ControlMessageTests
             var encoded = ControlMessage.Encode(ControlMessageType.Disconnect);
 
             // Assert
-            Assert.HasCount(5, encoded, "The frame is a 4-byte signature plus a 1-byte type.");
-            Assert.AreSequenceEqual(
-                SignatureBytes, encoded[..4], "Signature bytes changed — every peer on the previous version will stop recognising control messages.");
-            Assert.AreEqual(ExpectedDisconnectByte, encoded[4], "Disconnect's wire value changed.");
+            // The frame is a 4-byte signature plus a 1-byte type.
+            Assert.Equal(5, encoded.Length);
+            // Signature bytes changed — every peer on the previous version will stop recognising control messages.
+            Assert.Equal(SignatureBytes, encoded[..4]);
+            // Disconnect's wire value changed.
+            Assert.Equal(ExpectedDisconnectByte, encoded[4]);
         }
 
-        [TestMethod]
+        [Fact]
         public void SignatureOnTheWire_IsPmncReversed()
         {
             // Act
             var encoded = ControlMessage.Encode(ControlMessageType.Disconnect);
 
             // Assert
-            Assert.AreEqual("CNMP", System.Text.Encoding.ASCII.GetString(encoded[..4]));
+            Assert.Equal("CNMP", System.Text.Encoding.ASCII.GetString(encoded[..4]));
         }
     }
 
-    [TestClass]
     public sealed class TryDecode : ControlMessageTests
     {
-        [TestMethod]
+        [Fact]
         public void EncodedMessage_RoundTrips()
         {
             // Arrange
@@ -51,15 +51,15 @@ public class ControlMessageTests
             var decoded = ControlMessage.TryDecode(encoded, out var type);
 
             // Assert
-            Assert.IsTrue(decoded);
-            Assert.AreEqual(ControlMessageType.Disconnect, type);
+            Assert.True(decoded);
+            Assert.Equal(ControlMessageType.Disconnect, type);
         }
 
-        [TestMethod]
-        [DataRow(0, DisplayName = "empty")]
-        [DataRow(4, DisplayName = "signature only, type byte missing")]
-        [DataRow(6, DisplayName = "one byte too long")]
-        [DataRow(64, DisplayName = "an ordinary small payload")]
+        [Theory]
+        [InlineData(0, TestDisplayName = "empty")]
+        [InlineData(4, TestDisplayName = "signature only, type byte missing")]
+        [InlineData(6, TestDisplayName = "one byte too long")]
+        [InlineData(64, TestDisplayName = "an ordinary small payload")]
         public void WrongLength_IsRejected(int length)
         {
             // Arrange
@@ -70,10 +70,10 @@ public class ControlMessageTests
             var decoded = ControlMessage.TryDecode(buffer, out _);
 
             // Assert
-            Assert.IsFalse(decoded, $"A {length}-byte buffer was accepted as a control message.");
+            Assert.False(decoded, $"A {length}-byte buffer was accepted as a control message.");
         }
 
-        [TestMethod]
+        [Fact]
         public void WrongSignature_IsRejected()
         {
             // Arrange
@@ -83,10 +83,10 @@ public class ControlMessageTests
             var decoded = ControlMessage.TryDecode(userPayload, out _);
 
             // Assert
-            Assert.IsFalse(decoded);
+            Assert.False(decoded);
         }
 
-        [TestMethod]
+        [Fact]
         public void SignatureInWrongByteOrder_IsRejected()
         {
             // Arrange
@@ -96,10 +96,10 @@ public class ControlMessageTests
             var decoded = ControlMessage.TryDecode(bigEndian, out _);
 
             // Assert
-            Assert.IsFalse(decoded);
+            Assert.False(decoded);
         }
 
-        [TestMethod]
+        [Fact]
         public void UndefinedType_DecodesSuccessfully_ForForwardCompatibility()
         {
             // Arrange
@@ -109,12 +109,12 @@ public class ControlMessageTests
             var decoded = ControlMessage.TryDecode(futureType, out var type);
 
             // Assert
-            Assert.IsTrue(decoded);
-            Assert.AreEqual((ControlMessageType)0xFE, type);
-            Assert.IsFalse(Enum.IsDefined(type), "0xFE should not be a defined type in this build.");
+            Assert.True(decoded);
+            Assert.Equal((ControlMessageType)0xFE, type);
+            Assert.False(Enum.IsDefined(type), "0xFE should not be a defined type in this build.");
         }
 
-        [TestMethod]
+        [Fact]
         public void RejectedMessage_LeavesTypeAtDefault()
         {
             // Arrange
@@ -124,7 +124,7 @@ public class ControlMessageTests
             ControlMessage.TryDecode(notAControlMessage, out var type);
 
             // Assert
-            Assert.AreEqual(default, type);
+            Assert.Equal(default, type);
         }
     }
 }

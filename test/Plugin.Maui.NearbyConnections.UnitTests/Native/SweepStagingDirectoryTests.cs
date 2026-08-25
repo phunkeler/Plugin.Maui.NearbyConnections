@@ -10,13 +10,12 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// drain cannot cover: a copy that outlives the drain timeout. These tests pin that it never
 /// throws and never stops early.
 /// </remarks>
-[TestCategory("Connections")]
+[Trait("Category", "Connections")]
 public class SweepStagingDirectoryTests
 {
-    [TestClass]
     public sealed class WhenFilesAreStaged : SweepStagingDirectoryTests
     {
-        [TestMethod]
+        [Fact]
         public void DeletesThemAll()
         {
             // Arrange
@@ -29,14 +28,13 @@ public class SweepStagingDirectoryTests
             platform.SweepStagingDirectory(temp.Path);
 
             // Assert
-            Assert.IsEmpty(Directory.GetFiles(temp.Path));
+            Assert.Empty(Directory.GetFiles(temp.Path));
         }
     }
 
-    [TestClass]
     public sealed class WhenTheDirectoryIsMissing : SweepStagingDirectoryTests
     {
-        [TestMethod]
+        [Fact]
         public void ReturnsQuietly()
         {
             // A session that never received a file never creates the directory, and disposal must
@@ -51,14 +49,13 @@ public class SweepStagingDirectoryTests
             platform.SweepStagingDirectory(missing);
 
             // Assert
-            Assert.IsFalse(Directory.Exists(missing));
+            Assert.False(Directory.Exists(missing));
         }
     }
 
-    [TestClass]
     public sealed class WhenOneFileCannotBeDeleted : SweepStagingDirectoryTests
     {
-        [TestMethod]
+        [Fact]
         public void StillDeletesTheRest()
         {
             // Arrange
@@ -72,7 +69,7 @@ public class SweepStagingDirectoryTests
             platform.SweepStagingDirectory(temp.Path);
 
             // Assert
-            Assert.IsFalse(File.Exists(Path.Combine(temp.Path, "free.bin")));
+            Assert.False(File.Exists(Path.Combine(temp.Path, "free.bin")));
         }
     }
 }

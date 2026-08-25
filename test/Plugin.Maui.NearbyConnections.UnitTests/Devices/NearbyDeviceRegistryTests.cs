@@ -4,13 +4,12 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// Tests for <see cref="NearbyDeviceRegistry"/>, the thread-safe device store that replaced the
 /// dispatcher-marshalled <c>ObservableCollection</c>.
 /// </summary>
-[TestCategory("Devices")]
+[Trait("Category", "Devices")]
 public class NearbyDeviceRegistryTests
 {
-    [TestClass]
     public sealed class Membership : NearbyDeviceRegistryTests
     {
-        [TestMethod]
+        [Fact]
         public void AddIfAbsent_NewDevice_AddsIt()
         {
             // Arrange
@@ -21,13 +20,13 @@ public class NearbyDeviceRegistryTests
             var result = registry.AddIfAbsent(device);
 
             // Assert
-            Assert.AreSame(device, result);
-            Assert.HasCount(1, registry);
+            Assert.Same(device, result);
+            Assert.Single(registry);
         }
 
         // The rediscovery case: a connected device seen again by discovery must not be reset to the
         // freshly-constructed Visible snapshot the platform hands over.
-        [TestMethod]
+        [Fact]
         public void AddIfAbsent_ExistingDevice_KeepsTheIncumbent()
         {
             // Arrange
@@ -39,12 +38,12 @@ public class NearbyDeviceRegistryTests
             var result = registry.AddIfAbsent(Create.Device("a"));
 
             // Assert
-            Assert.AreSame(connected, result);
-            Assert.AreEqual(NearbyDeviceStatus.Connected, registry[0].Status);
-            Assert.HasCount(1, registry);
+            Assert.Same(connected, result);
+            Assert.Equal(NearbyDeviceStatus.Connected, registry[0].Status);
+            Assert.Single(registry);
         }
 
-        [TestMethod]
+        [Fact]
         public void Remove_AbsentDevice_ReturnsFalse()
         {
             // Arrange
@@ -54,10 +53,10 @@ public class NearbyDeviceRegistryTests
             var result = registry.Remove("nope");
 
             // Assert
-            Assert.IsFalse(result);
+            Assert.False(result);
         }
 
-        [TestMethod]
+        [Fact]
         public void RemoveWhere_RemovesOnlyMatches()
         {
             // Arrange
@@ -69,11 +68,11 @@ public class NearbyDeviceRegistryTests
             registry.RemoveWhere(d => d.Status is NearbyDeviceStatus.Visible);
 
             // Assert
-            Assert.HasCount(1, registry);
-            Assert.AreEqual("connected", registry[0].Id);
+            Assert.Single(registry);
+            Assert.Equal("connected", registry[0].Id);
         }
 
-        [TestMethod]
+        [Fact]
         public void Update_AbsentDevice_ReturnsNull()
         {
             // Arrange
@@ -83,10 +82,10 @@ public class NearbyDeviceRegistryTests
             var result = registry.Update("nope", d => d with { Status = NearbyDeviceStatus.Connected });
 
             // Assert
-            Assert.IsNull(result);
+            Assert.Null(result);
         }
 
-        [TestMethod]
+        [Fact]
         public void Update_ReplacesTheStoredSnapshot()
         {
             // Arrange
@@ -97,13 +96,13 @@ public class NearbyDeviceRegistryTests
             var result = registry.Update("a", d => d with { Status = NearbyDeviceStatus.Connected });
 
             // Assert
-            Assert.AreEqual(NearbyDeviceStatus.Connected, result!.Status);
-            Assert.AreEqual(NearbyDeviceStatus.Connected, registry[0].Status);
+            Assert.Equal(NearbyDeviceStatus.Connected, result!.Status);
+            Assert.Equal(NearbyDeviceStatus.Connected, registry[0].Status);
         }
 
         // Enumeration must never throw for concurrent modification — the whole reason reads go
         // through an immutable snapshot rather than the dictionary.
-        [TestMethod]
+        [Fact]
         public void Enumerating_WhileMutating_DoesNotThrow()
         {
             // Arrange
@@ -120,15 +119,15 @@ public class NearbyDeviceRegistryTests
             }
 
             // Assert
-            Assert.AreEqual(1, enumerated, "The snapshot taken at loop start must not grow underneath it.");
-            Assert.HasCount(2, registry);
+            // The snapshot taken at loop start must not grow underneath it.
+            Assert.Equal(1, enumerated);
+            Assert.Equal(2, registry.Count);
         }
     }
 
-    [TestClass]
     public sealed class Changes : NearbyDeviceRegistryTests
     {
-        [TestMethod]
+        [Fact]
         public async Task Add_PublishesAdded()
         {
             // Arrange
@@ -141,12 +140,12 @@ public class NearbyDeviceRegistryTests
             // Assert
             await watch.WaitForAsync(1);
             var changes = watch.Changes;
-            Assert.HasCount(1, changes);
-            Assert.AreEqual(NearbyDeviceChangeAction.Added, changes[0].Action);
-            Assert.AreEqual("a", changes[0].Device.Id);
+            Assert.Single(changes);
+            Assert.Equal(NearbyDeviceChangeAction.Added, changes[0].Action);
+            Assert.Equal("a", changes[0].Device.Id);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AddIfAbsent_WhenAlreadyPresent_PublishesNothing()
         {
             // Arrange
@@ -160,12 +159,13 @@ public class NearbyDeviceRegistryTests
             // Assert
             await watch.WaitForAsync(0);
             var changes = watch.Changes;
-            Assert.IsEmpty(changes, "A no-op add must not wake every watcher.");
+            // A no-op add must not wake every watcher.
+            Assert.Empty(changes);
         }
 
         // Suppressing no-op updates is what keeps a bound row from re-rendering on every redundant
         // platform callback; the platforms re-report unchanged state routinely.
-        [TestMethod]
+        [Fact]
         public async Task Update_ThatChangesNothing_PublishesNothing()
         {
             // Arrange
@@ -179,10 +179,10 @@ public class NearbyDeviceRegistryTests
             // Assert
             await watch.WaitForAsync(0);
             var changes = watch.Changes;
-            Assert.IsEmpty(changes);
+            Assert.Empty(changes);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task RemoveWhere_PublishesOneChangePerDevice()
         {
             // Arrange
@@ -197,13 +197,13 @@ public class NearbyDeviceRegistryTests
             // Assert
             await watch.WaitForAsync(2);
             var changes = watch.Changes;
-            Assert.HasCount(2, changes);
-            Assert.IsTrue(changes.All(c => c.Action is NearbyDeviceChangeAction.Removed));
+            Assert.Equal(2, changes.Count);
+            Assert.True(changes.All(c => c.Action is NearbyDeviceChangeAction.Removed));
         }
 
         // Broadcast, not shared: two enumerations each receive every change. A single-consumer pipe
         // would hand each change to whichever watcher happened to read first.
-        [TestMethod]
+        [Fact]
         public async Task EveryWatcher_ReceivesEveryChange()
         {
             // Arrange
@@ -220,10 +220,10 @@ public class NearbyDeviceRegistryTests
             await second.WaitForAsync(1);
             var secondChanges = second.Changes;
 
-            Assert.HasCount(1, firstChanges);
-            Assert.HasCount(1, secondChanges);
-            Assert.AreEqual("a", firstChanges[0].Device.Id);
-            Assert.AreEqual("a", secondChanges[0].Device.Id);
+            Assert.Single(firstChanges);
+            Assert.Single(secondChanges);
+            Assert.Equal("a", firstChanges[0].Device.Id);
+            Assert.Equal("a", secondChanges[0].Device.Id);
         }
 
         // GetAsyncEnumerator must subscribe eagerly. An `async` iterator body does not run until
@@ -231,7 +231,7 @@ public class NearbyDeviceRegistryTests
         // between would be dropped — precisely the window a consumer uses to read current state
         // before watching. NearbyDeviceCollection's constructor depends on this: it takes the
         // enumerator, then seeds from Devices, and must not lose a change arriving in between.
-        [TestMethod]
+        [Fact]
         public async Task GetAsyncEnumerator_SubscribesBeforeTheFirstRead()
         {
             // Arrange
@@ -243,15 +243,15 @@ public class NearbyDeviceRegistryTests
             registry.AddIfAbsent(Create.Device("seed-window"));
 
             // Assert
-            Assert.IsTrue(await enumerator.MoveNextAsync(), "The change must already be buffered.");
-            Assert.AreEqual("seed-window", enumerator.Current.Device.Id);
+            Assert.True(await enumerator.MoveNextAsync(), "The change must already be buffered.");
+            Assert.Equal("seed-window", enumerator.Current.Device.Id);
 
             await cts.CancelAsync();
             await enumerator.DisposeAsync();
             cts.Dispose();
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ChangesBeforeSubscribing_AreNotReplayed()
         {
             // Arrange
@@ -266,14 +266,14 @@ public class NearbyDeviceRegistryTests
             // Assert
             await watch.WaitForAsync(1);
             var changes = watch.Changes;
-            Assert.HasCount(1, changes);
-            Assert.AreEqual("late", changes[0].Device.Id);
+            Assert.Single(changes);
+            Assert.Equal("late", changes[0].Device.Id);
         }
 
         // A watcher that ends its enumeration must stop costing anything. If unsubscribe were
         // skipped, the registry would write to a dead channel forever — the leak the removed events
         // made easy and this design is meant to make impossible.
-        [TestMethod]
+        [Fact]
         public async Task EndingAnEnumeration_StopsDelivery()
         {
             // Arrange
@@ -288,15 +288,16 @@ public class NearbyDeviceRegistryTests
 
             // A fixed wait, not a poll: this asserts that a change never reaches the earlier
             // snapshot, and polling can only establish that it has not reached it yet.
-            await Task.Delay(50, TestContext.CancellationToken);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.HasCount(1, before, "Only the change published while watching should arrive.");
+            // Only the change published while watching should arrive.
+            Assert.Single(before);
         }
 
         // A watcher that never reads must not block the publisher: each watcher buffers its own
         // changes in an unbounded channel.
-        [TestMethod]
+        [Fact]
         public async Task AWatcherThatNeverReads_DoesNotBlockPublishing()
         {
             // Arrange
@@ -315,15 +316,13 @@ public class NearbyDeviceRegistryTests
             }
 
             // Assert
-            Assert.HasCount(100, registry);
+            Assert.Equal(100, registry.Count);
 
             // Publishing hands the change to the channel, which completes the pending read on a
             // continuation — so this is reachable but not instantaneous. Asserting IsCompleted
             // synchronously races that continuation.
             await Wait.UntilAsync(() => neverAwaited.IsCompleted);
-            Assert.IsTrue(neverAwaited.IsCompleted, "The first change should have completed the pending read.");
+            Assert.True(neverAwaited.IsCompleted, "The first change should have completed the pending read.");
         }
-
-        public TestContext TestContext { get; set; }
     }
 }

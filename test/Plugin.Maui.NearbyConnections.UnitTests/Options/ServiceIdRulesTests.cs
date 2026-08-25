@@ -10,19 +10,18 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// which reaches the app as a fatal native crash that no <c>try</c>/<c>catch</c> can intercept. A
 /// rule that silently stops being enforced re-opens that crash, so each one is pinned here.
 /// </remarks>
-[TestCategory("Options")]
+[Trait("Category", "Options")]
 public class ServiceIdRulesTests
 {
-    [TestClass]
     public sealed class Accepts : ServiceIdRulesTests
     {
-        [TestMethod]
-        [DataRow("abc-txtchat", DisplayName = "Apple's own documented example")]
-        [DataRow("nearbychat", DisplayName = "letters only")]
-        [DataRow("a", DisplayName = "single letter, the shortest legal value")]
-        [DataRow("chat2", DisplayName = "trailing digit")]
-        [DataRow("a1-b2-c3", DisplayName = "multiple separated hyphens")]
-        [DataRow("abcdefghijklmno", DisplayName = "exactly 15 characters, the maximum")]
+        [Theory]
+        [InlineData("abc-txtchat", TestDisplayName = "Apple's own documented example")]
+        [InlineData("nearbychat", TestDisplayName = "letters only")]
+        [InlineData("a", TestDisplayName = "single letter, the shortest legal value")]
+        [InlineData("chat2", TestDisplayName = "trailing digit")]
+        [InlineData("a1-b2-c3", TestDisplayName = "multiple separated hyphens")]
+        [InlineData("abcdefghijklmno", TestDisplayName = "exactly 15 characters, the maximum")]
         public void ValidServiceId_ProducesNoFailures(string serviceId)
         {
             // Arrange
@@ -32,24 +31,24 @@ public class ServiceIdRulesTests
             ServiceIdRules.Validate(serviceId, suggestion: null, failures);
 
             // Assert
-            Assert.IsEmpty(failures, $"'{serviceId}' is legal per RFC 6335 but was rejected.");
+            // A service id legal per RFC 6335 must not be rejected.
+            Assert.Empty(failures);
         }
     }
 
-    [TestClass]
     public sealed class Rejects : ServiceIdRulesTests
     {
-        [TestMethod]
-        [DataRow("abcdefghijklmnop", DisplayName = "16 characters, one over the limit")]
-        [DataRow("NearbyChat", DisplayName = "uppercase letters")]
-        [DataRow("nearby_chat", DisplayName = "underscore")]
-        [DataRow("nearby.chat", DisplayName = "dot")]
-        [DataRow("nearby chat", DisplayName = "space")]
-        [DataRow("_nearbychat._tcp", DisplayName = "Bonjour service-type form, the likeliest mistake")]
-        [DataRow("123", DisplayName = "digits only, no ASCII letter")]
-        [DataRow("-chat", DisplayName = "leading hyphen")]
-        [DataRow("chat-", DisplayName = "trailing hyphen")]
-        [DataRow("near--chat", DisplayName = "adjacent hyphens")]
+        [Theory]
+        [InlineData("abcdefghijklmnop", TestDisplayName = "16 characters, one over the limit")]
+        [InlineData("NearbyChat", TestDisplayName = "uppercase letters")]
+        [InlineData("nearby_chat", TestDisplayName = "underscore")]
+        [InlineData("nearby.chat", TestDisplayName = "dot")]
+        [InlineData("nearby chat", TestDisplayName = "space")]
+        [InlineData("_nearbychat._tcp", TestDisplayName = "Bonjour service-type form, the likeliest mistake")]
+        [InlineData("123", TestDisplayName = "digits only, no ASCII letter")]
+        [InlineData("-chat", TestDisplayName = "leading hyphen")]
+        [InlineData("chat-", TestDisplayName = "trailing hyphen")]
+        [InlineData("near--chat", TestDisplayName = "adjacent hyphens")]
         public void InvalidServiceId_ProducesAtLeastOneFailure(string serviceId)
         {
             // Arrange
@@ -59,10 +58,11 @@ public class ServiceIdRulesTests
             ServiceIdRules.Validate(serviceId, suggestion: null, failures);
 
             // Assert
-            Assert.IsNotEmpty(failures, $"'{serviceId}' violates RFC 6335 but was accepted — this would crash on iOS.");
+            // A service id that violates RFC 6335 must be rejected — accepting it would crash on iOS.
+            Assert.NotEmpty(failures);
         }
 
-        [TestMethod]
+        [Fact]
         public void UnsetSentinel_ReportsOnlyTheUnsetMessage()
         {
             // The sentinel violates several rules at once. Reporting all of them would bury the one
@@ -75,11 +75,11 @@ public class ServiceIdRulesTests
             ServiceIdRules.Validate(ServiceIdRules.Unset, suggestion: null, failures);
 
             // Assert
-            Assert.HasCount(1, failures);
+            Assert.Single(failures);
             Assert.Contains("has not been set", failures[0], StringComparison.Ordinal);
         }
 
-        [TestMethod]
+        [Fact]
         public void MultipleViolations_AreAllReported()
         {
             // A developer fixing a value should learn every problem at once rather than one per
@@ -93,11 +93,11 @@ public class ServiceIdRulesTests
             ServiceIdRules.Validate("-A-", suggestion: null, failures);
 
             // Assert
-            Assert.IsGreaterThan(1, failures.Count,
+            Assert.True(failures.Count > 1,
                 "Validation stopped at the first violation instead of reporting all of them.");
         }
 
-        [TestMethod]
+        [Fact]
         public void EmptyServiceId_DefersToTheSharedNullCheck()
         {
             // The shared validator already reports null/empty. Adding four more rule violations
@@ -110,14 +110,13 @@ public class ServiceIdRulesTests
             ServiceIdRules.Validate(string.Empty, suggestion: null, failures);
 
             // Assert
-            Assert.IsEmpty(failures);
+            Assert.Empty(failures);
         }
     }
 
-    [TestClass]
     public sealed class FailureMessages : ServiceIdRulesTests
     {
-        [TestMethod]
+        [Fact]
         public void NamesTheOffendingCharacters()
         {
             // The message has to be actionable: "invalid" alone sends the developer hunting.
@@ -135,7 +134,7 @@ public class ServiceIdRulesTests
             Assert.Contains("C", message, StringComparison.Ordinal);
         }
 
-        [TestMethod]
+        [Fact]
         public void IncludesTheOffendingValue()
         {
             // Arrange
@@ -149,16 +148,15 @@ public class ServiceIdRulesTests
         }
     }
 
-    [TestClass]
     public sealed class Suggests : ServiceIdRulesTests
     {
-        [TestMethod]
-        [DataRow("NearbyChat", "nearbychat", DisplayName = "lowercased")]
-        [DataRow("My App", "my-app", DisplayName = "space becomes a hyphen")]
-        [DataRow("ACME_Delivery", "acme-delivery", DisplayName = "underscore becomes a hyphen")]
-        [DataRow("O'Brien & Sons", "o-brien-sons", DisplayName = "a run of punctuation collapses to one hyphen")]
-        [DataRow("Contoso Field Service", "contoso-field-s", DisplayName = "truncated to the 15-character limit")]
-        [DataRow("Cafe  Munster", "cafe-munster", DisplayName = "repeated separators do not produce adjacent hyphens")]
+        [Theory]
+        [InlineData("NearbyChat", "nearbychat", TestDisplayName = "lowercased")]
+        [InlineData("My App", "my-app", TestDisplayName = "space becomes a hyphen")]
+        [InlineData("ACME_Delivery", "acme-delivery", TestDisplayName = "underscore becomes a hyphen")]
+        [InlineData("O'Brien & Sons", "o-brien-sons", TestDisplayName = "a run of punctuation collapses to one hyphen")]
+        [InlineData("Contoso Field Service", "contoso-field-s", TestDisplayName = "truncated to the 15-character limit")]
+        [InlineData("Cafe  Munster", "cafe-munster", TestDisplayName = "repeated separators do not produce adjacent hyphens")]
         public void ApplicationName_DerivesTheExpectedIdentifier(string applicationName, string expected)
         {
             // Arrange
@@ -168,10 +166,10 @@ public class ServiceIdRulesTests
             var suggestion = ServiceIdRules.Suggest(applicationName);
 
             // Assert
-            Assert.AreEqual(expected, suggestion);
+            Assert.Equal(expected, suggestion);
         }
 
-        [TestMethod]
+        [Fact]
         public void DerivedIdentifier_PassesTheRulesItIsSuggestedFor()
         {
             // Arrange
@@ -182,15 +180,16 @@ public class ServiceIdRulesTests
             ServiceIdRules.Validate(suggestion!, suggestion: null, failures);
 
             // Assert
-            Assert.IsEmpty(failures, $"'{suggestion}' was suggested but is itself invalid.");
+            // A suggested service id must itself pass validation.
+            Assert.Empty(failures);
         }
 
-        [TestMethod]
-        [DataRow("2048", DisplayName = "digits only, no ASCII letter to satisfy the rule")]
-        [DataRow("写真共有", DisplayName = "non-Latin script yields nothing legal")]
-        [DataRow("---", DisplayName = "punctuation only")]
-        [DataRow("", DisplayName = "empty")]
-        [DataRow(null, DisplayName = "null")]
+        [Theory]
+        [InlineData("2048", TestDisplayName = "digits only, no ASCII letter to satisfy the rule")]
+        [InlineData("写真共有", TestDisplayName = "non-Latin script yields nothing legal")]
+        [InlineData("---", TestDisplayName = "punctuation only")]
+        [InlineData("", TestDisplayName = "empty")]
+        [InlineData(null, TestDisplayName = "null")]
         public void UnsalvageableApplicationName_SuggestsNothing(string? applicationName)
         {
             // Arrange
@@ -200,10 +199,10 @@ public class ServiceIdRulesTests
             var suggestion = ServiceIdRules.Suggest(applicationName);
 
             // Assert
-            Assert.IsNull(suggestion);
+            Assert.Null(suggestion);
         }
 
-        [TestMethod]
+        [Fact]
         public void DistinctApplicationNames_CanCollideAfterTruncation()
         {
             // The reason a derived value is only ever suggested and never applied as a default:
@@ -220,7 +219,7 @@ public class ServiceIdRulesTests
             var suggestedForSales = ServiceIdRules.Suggest(sales);
 
             // Assert
-            Assert.AreEqual(suggestedForService, suggestedForSales);
+            Assert.Equal(suggestedForService, suggestedForSales);
         }
     }
 }

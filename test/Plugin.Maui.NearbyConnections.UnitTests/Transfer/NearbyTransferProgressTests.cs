@@ -1,12 +1,11 @@
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
-[TestCategory("Transfer")]
+[Trait("Category", "Transfer")]
 public class NearbyTransferProgressTests
 {
-    [TestClass]
     public sealed class Fraction : NearbyTransferProgressTests
     {
-        [TestMethod]
+        [Fact]
         public void KnownSize_NoProgress_ReturnsZero()
         {
             // Arrange
@@ -16,10 +15,10 @@ public class NearbyTransferProgressTests
             var result = progress.Fraction;
 
             // Assert
-            Assert.AreEqual(0.0, result);
+            Assert.Equal(0.0, result);
         }
 
-        [TestMethod]
+        [Fact]
         public void KnownSize_PartialProgress_ReturnsFraction()
         {
             // Arrange
@@ -29,10 +28,10 @@ public class NearbyTransferProgressTests
             var result = progress.Fraction;
 
             // Assert
-            Assert.AreEqual(0.5, result);
+            Assert.Equal(0.5, result);
         }
 
-        [TestMethod]
+        [Fact]
         public void KnownSize_Complete_ReturnsOne()
         {
             // Arrange
@@ -42,10 +41,10 @@ public class NearbyTransferProgressTests
             var result = progress.Fraction;
 
             // Assert
-            Assert.AreEqual(1.0, result);
+            Assert.Equal(1.0, result);
         }
 
-        [TestMethod]
+        [Fact]
         public void UnknownSize_ReturnsNull()
         {
             // Arrange
@@ -55,10 +54,10 @@ public class NearbyTransferProgressTests
             var result = progress.Fraction;
 
             // Assert
-            Assert.IsNull(result);
+            Assert.Null(result);
         }
 
-        [TestMethod]
+        [Fact]
         public void ZeroTotalBytes_ReturnsNull()
         {
             // Arrange
@@ -68,7 +67,7 @@ public class NearbyTransferProgressTests
             var result = progress.Fraction;
 
             // Assert
-            Assert.IsNull(result);
+            Assert.Null(result);
         }
     }
 }

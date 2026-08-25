@@ -25,13 +25,12 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// rather than how a test is written.
 /// </para>
 /// </remarks>
-[TestCategory("Connections")]
+[Trait("Category", "Connections")]
 public class PlatformNearbyTests
 {
-    [TestClass]
     public sealed class WriteConnectionRequest : PlatformNearbyTests
     {
-        [TestMethod]
+        [Fact]
         public async Task YieldsRequestOnAdvertiseChannel()
         {
             // Arrange
@@ -55,11 +54,11 @@ public class PlatformNearbyTests
             captured = await reader.ReadAsync(cts.Token);
 
             // Assert
-            Assert.IsNotNull(captured);
-            Assert.AreSame(device, captured.RemoteDevice);
+            Assert.NotNull(captured);
+            Assert.Same(device, captured.RemoteDevice);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task MultipleRequests_AllYielded()
         {
             // Arrange
@@ -80,15 +79,14 @@ public class PlatformNearbyTests
             var second = await reader.ReadAsync(cts.Token);
 
             // Assert
-            Assert.AreEqual("peer-1", first.RemoteDevice.Id);
-            Assert.AreEqual("peer-2", second.RemoteDevice.Id);
+            Assert.Equal("peer-1", first.RemoteDevice.Id);
+            Assert.Equal("peer-2", second.RemoteDevice.Id);
         }
     }
 
-    [TestClass]
     public sealed class ResolveConnectionTcs : PlatformNearbyTests
     {
-        [TestMethod]
+        [Fact]
         public async Task AcceptAsync_ResolveConnectionTcs_CompletesWithNearbyConnection()
         {
             // Arrange
@@ -108,10 +106,10 @@ public class PlatformNearbyTests
             var result = await tcs.Task.WaitAsync(cts.Token);
 
             // Assert
-            Assert.AreSame(connection, result);
+            Assert.Same(connection, result);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task RegistersConnectionInActiveConnections()
         {
             // Arrange
@@ -128,10 +126,10 @@ public class PlatformNearbyTests
             await tcs.Task; // wait for resolution
 
             // Assert — connection is now tracked in _activeConnections
-            Assert.IsTrue(platform._activeConnections.ContainsKey("peer-1"));
+            Assert.True(platform._activeConnections.ContainsKey("peer-1"));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task FaultConnectionTcs_FaultsTheTcsWithGivenException()
         {
             // Arrange
@@ -145,11 +143,11 @@ public class PlatformNearbyTests
             platform.FaultConnectionTcs("peer-1", expectedException);
 
             // Assert
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await tcs.Task);
         }
 
-        [TestMethod]
+        [Fact]
         public void NoRegisteredTcs_SilentlyNoOps()
         {
             // Arrange - reproduces the iOS advertiser race window where a platform callback
@@ -167,14 +165,13 @@ public class PlatformNearbyTests
 
             // Assert - no TCS was registered, so the resolution is dropped and the connection
             // is never tracked as active; nothing throws.
-            Assert.IsFalse(platform._activeConnections.ContainsKey("peer-1"));
+            Assert.False(platform._activeConnections.ContainsKey("peer-1"));
         }
     }
 
-    [TestClass]
     public sealed class WriteDeviceFound : PlatformNearbyTests
     {
-        [TestMethod]
+        [Fact]
         public async Task YieldsFoundEventOnDiscoverChannel()
         {
             // Arrange
@@ -188,11 +185,11 @@ public class PlatformNearbyTests
             var evt = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
 
             // Assert
-            Assert.IsTrue(evt.Found);
-            Assert.AreSame(device, evt.Device);
+            Assert.True(evt.Found);
+            Assert.Same(device, evt.Device);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task WriteDeviceLost_YieldsLostEventOnDiscoverChannel()
         {
             // Arrange
@@ -206,11 +203,11 @@ public class PlatformNearbyTests
             var evt = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
 
             // Assert
-            Assert.IsFalse(evt.Found);
-            Assert.AreSame(device, evt.Device);
+            Assert.False(evt.Found);
+            Assert.Same(device, evt.Device);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ThenLost_PreservesOrder()
         {
             // Arrange
@@ -227,15 +224,14 @@ public class PlatformNearbyTests
             var second = await reader.ReadAsync(cts.Token);
 
             // Assert
-            Assert.IsTrue(first.Found);
-            Assert.IsFalse(second.Found);
+            Assert.True(first.Found);
+            Assert.False(second.Found);
         }
     }
 
-    [TestClass]
     public sealed class WritePayload : PlatformNearbyTests
     {
-        [TestMethod]
+        [Fact]
         public async Task RoutesPayloadToActiveConnection()
         {
             // Arrange
@@ -261,10 +257,10 @@ public class PlatformNearbyTests
             var received = await receiveChannel.Reader.ReadAsync(cts.Token);
 
             // Assert
-            Assert.AreSame(payload, received);
+            Assert.Same(payload, received);
         }
 
-        [TestMethod]
+        [Fact]
         public void UnknownPeer_DoesNotThrow()
         {
             // Arrange
@@ -275,14 +271,13 @@ public class PlatformNearbyTests
             platform.WritePayload("nonexistent-peer", payload);
 
             // Assert — unknown peer silently ignored; no connection was registered
-            Assert.IsFalse(platform._activeConnections.ContainsKey("nonexistent-peer"));
+            Assert.False(platform._activeConnections.ContainsKey("nonexistent-peer"));
         }
     }
 
-    [TestClass]
     public sealed class DisposeAsync : PlatformNearbyTests
     {
-        [TestMethod]
+        [Fact]
         public async Task CompletesAdvertiseChannel()
         {
             // Arrange
@@ -292,10 +287,10 @@ public class PlatformNearbyTests
             await platform.DisposeAsync();
 
             // Assert — channel writer is completed, so reader will complete immediately
-            Assert.IsTrue(platform._advertiseChannel.Reader.Completion.IsCompleted);
+            Assert.True(platform._advertiseChannel.Reader.Completion.IsCompleted);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task CompletesDiscoverChannel()
         {
             // Arrange
@@ -305,10 +300,10 @@ public class PlatformNearbyTests
             await platform.DisposeAsync();
 
             // Assert
-            Assert.IsTrue(platform._discoverChannel.Reader.Completion.IsCompleted);
+            Assert.True(platform._discoverChannel.Reader.Completion.IsCompleted);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task CancelsPendingConnectionTcs()
         {
             // Arrange
@@ -321,10 +316,10 @@ public class PlatformNearbyTests
             await platform.DisposeAsync();
 
             // Assert
-            Assert.IsTrue(tcs.Task.IsCanceled);
+            Assert.True(tcs.Task.IsCanceled);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task CalledTwice_DoesNotThrow()
         {
             // Arrange
@@ -337,7 +332,7 @@ public class PlatformNearbyTests
 #pragma warning restore S3966
 
             // Assert
-            Assert.IsTrue(platform._advertiseChannel.Reader.Completion.IsCompleted);
+            Assert.True(platform._advertiseChannel.Reader.Completion.IsCompleted);
         }
     }
 }

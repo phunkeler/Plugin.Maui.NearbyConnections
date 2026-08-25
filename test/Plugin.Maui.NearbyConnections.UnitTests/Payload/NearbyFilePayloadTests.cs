@@ -9,13 +9,12 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// The move is what both keeps the file and clears it from staging, so the tests that matter are
 /// the ones asserting the staging path is gone afterwards.
 /// </remarks>
-[TestCategory("Payload")]
+[Trait("Category", "Payload")]
 public class NearbyFilePayloadTests
 {
-    [TestClass]
     public sealed class WhenTheDestinationIsFree : NearbyFilePayloadTests
     {
-        [TestMethod]
+        [Fact]
         public void MovesTheContent()
         {
             // Arrange
@@ -29,11 +28,11 @@ public class NearbyFilePayloadTests
             var result = payload.MoveTo(destination);
 
             // Assert
-            Assert.AreEqual("bytes", File.ReadAllText(destination));
-            Assert.AreEqual(destination, result.FullPath);
+            Assert.Equal("bytes", File.ReadAllText(destination));
+            Assert.Equal(destination, result.FullPath);
         }
 
-        [TestMethod]
+        [Fact]
         public void ClearsTheStagedFile()
         {
             // This is the reason the method exists: reading the stream and copying would leave the
@@ -49,10 +48,10 @@ public class NearbyFilePayloadTests
             payload.MoveTo(Path.Combine(temp.Path, "kept", "photo.jpg"));
 
             // Assert
-            Assert.IsFalse(File.Exists(staged));
+            Assert.False(File.Exists(staged));
         }
 
-        [TestMethod]
+        [Fact]
         public void CreatesAMissingDestinationDirectory()
         {
             // Arrange
@@ -66,14 +65,13 @@ public class NearbyFilePayloadTests
             payload.MoveTo(destination);
 
             // Assert
-            Assert.IsTrue(File.Exists(destination));
+            Assert.True(File.Exists(destination));
         }
     }
 
-    [TestClass]
     public sealed class WhenTheDestinationIsTaken : NearbyFilePayloadTests
     {
-        [TestMethod]
+        [Fact]
         public void ThrowsAndLeavesTheStagedFileInPlace()
         {
             // Arrange
@@ -84,17 +82,16 @@ public class NearbyFilePayloadTests
             var destination = temp.Touch("taken.jpg");
 
             // Act
-            Assert.ThrowsExactly<IOException>(() => payload.MoveTo(destination));
+            Assert.Throws<IOException>(() => payload.MoveTo(destination));
 
             // Assert
-            Assert.IsTrue(File.Exists(staged));
+            Assert.True(File.Exists(staged));
         }
     }
 
-    [TestClass]
     public sealed class WhenTheStagedFileIsGone : NearbyFilePayloadTests
     {
-        [TestMethod]
+        [Fact]
         public void Throws()
         {
             // The operating system may purge staging, and a second move finds nothing left.
@@ -107,14 +104,13 @@ public class NearbyFilePayloadTests
             var act = () => payload.MoveTo(Path.Combine(temp.Path, "kept.jpg"));
 
             // Assert
-            Assert.ThrowsExactly<FileNotFoundException>(act);
+            Assert.Throws<FileNotFoundException>(act);
         }
     }
 
-    [TestClass]
     public sealed class WhenTheDestinationIsNull : NearbyFilePayloadTests
     {
-        [TestMethod]
+        [Fact]
         public void Throws()
         {
             // Arrange
@@ -125,7 +121,7 @@ public class NearbyFilePayloadTests
             var act = () => payload.MoveTo(null!);
 
             // Assert
-            Assert.ThrowsExactly<ArgumentNullException>(act);
+            Assert.Throws<ArgumentNullException>(act);
         }
     }
 }

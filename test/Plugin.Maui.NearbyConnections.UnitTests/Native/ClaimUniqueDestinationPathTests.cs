@@ -9,13 +9,12 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// copies within an endpoint but not across endpoints, and iOS delegate callbacks for different
 /// peers arrive on different threads. The retry these tests exercise is what makes that safe.
 /// </remarks>
-[TestCategory("Connections")]
+[Trait("Category", "Connections")]
 public class ClaimUniqueDestinationPathTests
 {
-    [TestClass]
     public sealed class WhenTheDirectoryIsMissing : ClaimUniqueDestinationPathTests
     {
-        [TestMethod]
+        [Fact]
         public void CreatesIt()
         {
             // Arrange
@@ -26,14 +25,13 @@ public class ClaimUniqueDestinationPathTests
             using var result = PlatformNearby.ClaimUniqueDestinationPath(dir, "photo.jpg");
 
             // Assert
-            Assert.AreEqual(Path.Combine(dir, "photo.jpg"), result.Name);
+            Assert.Equal(Path.Combine(dir, "photo.jpg"), result.Name);
         }
     }
 
-    [TestClass]
     public sealed class WhenNameIsFree : ClaimUniqueDestinationPathTests
     {
-        [TestMethod]
+        [Fact]
         public void ClaimsItAndLeavesTheFileOnDisk()
         {
             // Arrange
@@ -44,15 +42,14 @@ public class ClaimUniqueDestinationPathTests
             using var result = PlatformNearby.ClaimUniqueDestinationPath(temp.Path, "photo.jpg");
 
             // Assert
-            Assert.AreEqual(expected, result.Name);
-            Assert.IsTrue(File.Exists(expected));
+            Assert.Equal(expected, result.Name);
+            Assert.True(File.Exists(expected));
         }
     }
 
-    [TestClass]
     public sealed class WhenNameIsTaken : ClaimUniqueDestinationPathTests
     {
-        [TestMethod]
+        [Fact]
         public void ClaimsTheCounteredName()
         {
             // Arrange
@@ -63,14 +60,13 @@ public class ClaimUniqueDestinationPathTests
             using var result = PlatformNearby.ClaimUniqueDestinationPath(temp.Path, "photo.jpg");
 
             // Assert
-            Assert.AreEqual(Path.Combine(temp.Path, "photo (1).jpg"), result.Name);
+            Assert.Equal(Path.Combine(temp.Path, "photo (1).jpg"), result.Name);
         }
     }
 
-    [TestClass]
     public sealed class WhenAConcurrentClaimHoldsTheResolvedName : ClaimUniqueDestinationPathTests
     {
-        [TestMethod]
+        [Fact]
         public void RetriesPastIt()
         {
             // Simulates the real race: a rival holds an open claim on the name this call resolves
@@ -85,14 +81,13 @@ public class ClaimUniqueDestinationPathTests
             using var result = PlatformNearby.ClaimUniqueDestinationPath(temp.Path, "photo.jpg");
 
             // Assert
-            Assert.AreEqual(expected, result.Name);
+            Assert.Equal(expected, result.Name);
         }
     }
 
-    [TestClass]
     public sealed class WhenTheNameCarriesADirectoryComponent : ClaimUniqueDestinationPathTests
     {
-        [TestMethod]
+        [Fact]
         public void StripsItSoTheWriteStaysInTheDirectory()
         {
             // The name arrives from a remote peer, so it must not be able to steer the write.
@@ -105,7 +100,7 @@ public class ClaimUniqueDestinationPathTests
             using var result = PlatformNearby.ClaimUniqueDestinationPath(temp.Path, "../evil.jpg");
 
             // Assert
-            Assert.AreEqual(expected, result.Name);
+            Assert.Equal(expected, result.Name);
         }
     }
 }

@@ -6,10 +6,9 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// watcher release is not observable from a consumer-visible surface: an abandoned watcher fails
 /// silently, by buffering forever rather than by misbehaving.
 /// </summary>
-[TestCategory("Devices")]
+[Trait("Category", "Devices")]
 public class ChangeBroadcastTests
 {
-    [TestClass]
     public sealed class WatcherRelease : ChangeBroadcastTests
     {
         // The regression this file exists for. Subscribe runs eagerly in GetAsyncEnumerator, so an
@@ -17,26 +16,26 @@ public class ChangeBroadcastTests
         // unsubscribe lived in the draining iterator's `finally`, it did not: an async iterator body
         // never starts until the first MoveNextAsync, so the watcher stayed registered for the life
         // of the session and every later Publish wrote into a channel nothing drained.
-        [TestMethod]
+        [Fact]
         public async Task EnumeratorDisposedWithoutReading_ReleasesItsWatcher()
         {
             // Arrange
             var broadcast = new ChangeBroadcast<int>();
-            var enumerator = broadcast.Stream.GetAsyncEnumerator(TestContext.CancellationToken);
+            var enumerator = broadcast.Stream.GetAsyncEnumerator(TestContext.Current.CancellationToken);
 
             // Act
             await enumerator.DisposeAsync();
 
             // Assert
-            Assert.AreEqual(0, broadcast.WatcherCount);
+            Assert.Equal(0, broadcast.WatcherCount);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task EnumeratorDisposedAfterReading_ReleasesItsWatcher()
         {
             // Arrange
             var broadcast = new ChangeBroadcast<int>();
-            var enumerator = broadcast.Stream.GetAsyncEnumerator(TestContext.CancellationToken);
+            var enumerator = broadcast.Stream.GetAsyncEnumerator(TestContext.Current.CancellationToken);
             broadcast.Publish(1);
             await enumerator.MoveNextAsync();
 
@@ -44,42 +43,42 @@ public class ChangeBroadcastTests
             await enumerator.DisposeAsync();
 
             // Assert
-            Assert.AreEqual(0, broadcast.WatcherCount);
+            Assert.Equal(0, broadcast.WatcherCount);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DisposingTwice_ReleasesTheWatcherOnce()
         {
             // Arrange
             var broadcast = new ChangeBroadcast<int>();
-            var enumerator = broadcast.Stream.GetAsyncEnumerator(TestContext.CancellationToken);
+            var enumerator = broadcast.Stream.GetAsyncEnumerator(TestContext.Current.CancellationToken);
             await enumerator.DisposeAsync();
 
             // Act
             await enumerator.DisposeAsync();
 
             // Assert
-            Assert.AreEqual(0, broadcast.WatcherCount);
+            Assert.Equal(0, broadcast.WatcherCount);
         }
 
         // One abandoned enumeration must not take its siblings' watchers with it.
-        [TestMethod]
+        [Fact]
         public async Task DisposingOneEnumerator_LeavesTheOtherSubscribed()
         {
             // Arrange
             var broadcast = new ChangeBroadcast<int>();
-            var abandoned = broadcast.Stream.GetAsyncEnumerator(TestContext.CancellationToken);
-            var kept = broadcast.Stream.GetAsyncEnumerator(TestContext.CancellationToken);
+            var abandoned = broadcast.Stream.GetAsyncEnumerator(TestContext.Current.CancellationToken);
+            var kept = broadcast.Stream.GetAsyncEnumerator(TestContext.Current.CancellationToken);
 
             // Act
             await abandoned.DisposeAsync();
 
             // Assert
-            Assert.AreEqual(1, broadcast.WatcherCount);
+            Assert.Equal(1, broadcast.WatcherCount);
 
             broadcast.Publish(7);
-            Assert.IsTrue(await kept.MoveNextAsync());
-            Assert.AreEqual(7, kept.Current);
+            Assert.True(await kept.MoveNextAsync());
+            Assert.Equal(7, kept.Current);
 
             await kept.DisposeAsync();
         }
@@ -87,23 +86,21 @@ public class ChangeBroadcastTests
         // Eager subscribe is the other half of the contract, and the two are easy to break in
         // opposite directions: moving the unsubscribe out of the iterator must not move the
         // subscribe in with it.
-        [TestMethod]
+        [Fact]
         public async Task ChangePublishedBeforeTheFirstRead_IsStillDelivered()
         {
             // Arrange
             var broadcast = new ChangeBroadcast<int>();
-            var enumerator = broadcast.Stream.GetAsyncEnumerator(TestContext.CancellationToken);
+            var enumerator = broadcast.Stream.GetAsyncEnumerator(TestContext.Current.CancellationToken);
 
             // Act
             broadcast.Publish(42);
 
             // Assert
-            Assert.IsTrue(await enumerator.MoveNextAsync());
-            Assert.AreEqual(42, enumerator.Current);
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.Equal(42, enumerator.Current);
 
             await enumerator.DisposeAsync();
         }
-
-        public TestContext TestContext { get; set; }
     }
 }

@@ -432,12 +432,22 @@ File-scoped namespaces are convention, not enforced.
 
 ## Tests
 
-MSTest v4 with strict Arrange / Act / Assert — blank line between sections, all three comments
-present even when trivial. Compute expected values in Arrange; no logic in Assert.
+xUnit v3 (`[Fact]`/`[Theory]`) with strict Arrange / Act / Assert — blank line between sections,
+all three comments present even when trivial. Compute expected values in Arrange; no logic in
+Assert.
 
-MSTest specifics: `Assert.ThrowsExactly<T>` (not `ThrowsException<T>`), `Assert.IsEmpty(x)`,
-`Assert.HasCount(n, x)` (count first). Class names cannot end in `Collection`. Parallelization is
-method-level, so tests must not share mutable state.
+xUnit specifics: `Assert.Throws<T>`/`ThrowsAsync<T>` match the exception type exactly (use
+`ThrowsAnyAsync<T>` when a derived type is acceptable). `Assert.Single(x)` over a count of 1,
+`Assert.Empty(x)` over a count of 0 — the analyzers enforce both. No assert takes a message
+argument except `Assert.True`/`False`; a fact worth stating goes in a comment above the assert.
+Data rows are `[InlineData(..., TestDisplayName = "...")]`. The test cancellation token is
+`TestContext.Current.CancellationToken` — no property injection. Parallelization is per test
+class, and tests must not share mutable state.
+
+NSubstitute stands in for simple seams (`Substitute.For<INearby>()` where only identity matters).
+The stream-timing doubles — `FakeNearby`, `FaultingDevices` — stay hand-written: no mocking
+library expresses stream timing. `RecordingProgress` also stays hand-written; its doc comment
+says why.
 
 **Assert through the surface a consumer uses.** Public API first; internals widened by
 `InternalsVisibleTo` are fair game where the type is itself internal (`PlatformNearby`,
@@ -451,7 +461,7 @@ implementation.
 **Supporting code lives in `TestSupport/`, never in a test file.** A `*Tests.cs` file contains its
 test classes and test methods and nothing else — no factories, no fakes, no constants — so it reads
 top to bottom as tests. `TestSupport/Create.cs` builds the types under test; `FakeNearby` is the
-suite's one test double, standing in for the `IPlatformNearby` seam. Helpers carry XML docs (they
+suite's hand-written double for the `IPlatformNearby` seam. Helpers carry XML docs (they
 are read apart from their call sites); tests do not (the name is the doc).
 
 A change that touches the same construction shape at 3+ test call sites (e.g. a constructor
@@ -464,7 +474,7 @@ test-quality convention beyond this repo's own rules, weigh changes against Micr
 [Unit testing best practices for .NET](https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-best-practices)
 rather than relying on memory of a past review — an agent with no prior context on this repo can
 fetch that page directly and re-derive the same checks (AAA structure, one Act per test, no magic
-values, minimal input, helper methods over `[TestInitialize]`/`[TestCleanup]`).
+values, minimal input, helper methods over constructor/`IDisposable` setup).
 
 **When adding or changing tests, generate coverage** (Commands, above) and check the delta on the
 files the change actually touches — a new test that doesn't move coverage on its target method
@@ -489,9 +499,10 @@ dotnet/maui's Essentials device tests use — and assert through the channels/TC
 callbacks feed. Multi-device flows remain the UI suite's job. Conventions that differ from the
 unit suite, deliberately:
 
-- **xUnit (`[Fact]`), not MSTest.** MSTest has no maintained on-device runner (MSTestX predates
-  modern `net*-android` and fails `XA1039`); DeviceRunners supports xUnit v3 with `dotnet test`
-  TRX collection. AAA structure and TestSupport rules still apply.
+- **xUnit v3 here predates the unit suite's own migration.** MSTest has no maintained on-device
+  runner (MSTestX predates modern `net*-android` and fails `XA1039`); DeviceRunners supports
+  xUnit v3 with `dotnet test` TRX collection. Both suites are xUnit v3 now (decision D8). AAA
+  structure and TestSupport rules still apply.
 - **Some GMS argument types only construct through deprecated-but-shipped ctors**
   (`ConnectionResolution`, `ConnectionInfo`, `DiscoveredEndpointInfo`). Each such call site wraps
   exactly one line in `#pragma warning disable CS0618` — if a binding bump removes the ctor, the

@@ -13,15 +13,14 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// is <c>DeviceInfo.Name</c>, so the limit is reachable with no consumer mistake at all — a rule
 /// that silently stops being enforced re-opens that crash for real users.
 /// </remarks>
-[TestCategory("Options")]
+[Trait("Category", "Options")]
 public class DisplayNameRulesTests
 {
-    [TestClass]
     public sealed class Accepts : DisplayNameRulesTests
     {
-        [TestMethod]
-        [DataRow("Sam's iPhone", DisplayName = "an ordinary device name")]
-        [DataRow("A", DisplayName = "single character, the shortest legal value")]
+        [Theory]
+        [InlineData("Sam's iPhone", TestDisplayName = "an ordinary device name")]
+        [InlineData("A", TestDisplayName = "single character, the shortest legal value")]
         public void ValidDisplayName_ProducesNoFailures(string displayName)
         {
             // Arrange
@@ -31,10 +30,11 @@ public class DisplayNameRulesTests
             DisplayNameRules.Validate(displayName, failures);
 
             // Assert
-            Assert.IsEmpty(failures, $"'{displayName}' is legal but was rejected.");
+            // A legal display name must not be rejected.
+            Assert.Empty(failures);
         }
 
-        [TestMethod]
+        [Fact]
         public void NameOfExactlyTheByteLimit_IsAccepted()
         {
             // Arrange
@@ -45,12 +45,12 @@ public class DisplayNameRulesTests
             DisplayNameRules.Validate(displayName, failures);
 
             // Assert
-            Assert.IsEmpty(failures);
+            Assert.Empty(failures);
         }
 
         // The limit is bytes, so a multi-byte name is legal at far fewer characters. This is the
         // boundary a character-based check would wrongly reject.
-        [TestMethod]
+        [Fact]
         public void MultiByteNameWithinTheByteLimit_IsAccepted()
         {
             // Arrange — 3 UTF-8 bytes per character, so 21 characters is 63 bytes.
@@ -61,15 +61,14 @@ public class DisplayNameRulesTests
             DisplayNameRules.Validate(displayName, failures);
 
             // Assert
-            Assert.AreEqual(DisplayNameRules.MaxBytes, Encoding.UTF8.GetByteCount(displayName));
-            Assert.IsEmpty(failures);
+            Assert.Equal(DisplayNameRules.MaxBytes, Encoding.UTF8.GetByteCount(displayName));
+            Assert.Empty(failures);
         }
     }
 
-    [TestClass]
     public sealed class Rejects : DisplayNameRulesTests
     {
-        [TestMethod]
+        [Fact]
         public void NullName_IsRejected()
         {
             // Arrange
@@ -79,10 +78,10 @@ public class DisplayNameRulesTests
             DisplayNameRules.Validate(null, failures);
 
             // Assert
-            Assert.HasCount(1, failures);
+            Assert.Single(failures);
         }
 
-        [TestMethod]
+        [Fact]
         public void EmptyName_IsRejected()
         {
             // Arrange
@@ -92,10 +91,10 @@ public class DisplayNameRulesTests
             DisplayNameRules.Validate(string.Empty, failures);
 
             // Assert
-            Assert.HasCount(1, failures);
+            Assert.Single(failures);
         }
 
-        [TestMethod]
+        [Fact]
         public void NameOneByteOverTheLimit_IsRejected()
         {
             // Arrange
@@ -106,12 +105,12 @@ public class DisplayNameRulesTests
             DisplayNameRules.Validate(displayName, failures);
 
             // Assert
-            Assert.HasCount(1, failures);
+            Assert.Single(failures);
         }
 
         // The case that reaches a real user: a device named in a non-Latin script is well under any
         // plausible character limit while being over the byte limit.
-        [TestMethod]
+        [Fact]
         public void ShortMultiByteNameOverTheByteLimit_IsRejected()
         {
             // Arrange — 22 characters, but 66 UTF-8 bytes.
@@ -122,11 +121,11 @@ public class DisplayNameRulesTests
             DisplayNameRules.Validate(displayName, failures);
 
             // Assert
-            Assert.IsGreaterThan(DisplayNameRules.MaxBytes, Encoding.UTF8.GetByteCount(displayName));
-            Assert.HasCount(1, failures);
+            Assert.True(Encoding.UTF8.GetByteCount(displayName) > DisplayNameRules.MaxBytes);
+            Assert.Single(failures);
         }
 
-        [TestMethod]
+        [Fact]
         public void RejectionMessage_NamesTheByteCountAndTheLimit()
         {
             // Arrange

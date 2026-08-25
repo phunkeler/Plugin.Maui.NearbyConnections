@@ -9,11 +9,10 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// 2026-08-24. The queue is pure BCL, so every item here is gated on a
 /// <see cref="TaskCompletionSource"/> and the result does not depend on timing.
 /// </remarks>
-[TestClass]
-[TestCategory("Connections")]
+[Trait("Category", "Connections")]
 public sealed class KeyedSerialQueueTests
 {
-    [TestMethod]
+    [Fact]
     public async Task TwoItemsSharingAKeyRunInOrder()
     {
         // The ordering guarantee. On Android the first item is a file copy that is still writing,
@@ -49,12 +48,12 @@ public sealed class KeyedSerialQueueTests
         await second;
 
         // Assert
-        Assert.IsFalse(secondStartedWhileFirstWasGated);
-        Assert.IsTrue(secondStarted.Task.IsCompleted);
-        Assert.IsTrue(first.IsCompleted);
+        Assert.False(secondStartedWhileFirstWasGated);
+        Assert.True(secondStarted.Task.IsCompleted);
+        Assert.True(first.IsCompleted);
     }
 
-    [TestMethod]
+    [Fact]
     public void EnqueueDoesNotRunTheWorkBeforeReturning()
     {
         // The defect this queue fixes. The Android caller is a Google Mobile Services callback that
@@ -79,13 +78,13 @@ public sealed class KeyedSerialQueueTests
         });
 
         // Assert
-        Assert.IsFalse(workStarted);
-        Assert.IsFalse(queued.IsCompleted);
+        Assert.False(workStarted);
+        Assert.False(queued.IsCompleted);
 
         gate.SetResult();
     }
 
-    [TestMethod]
+    [Fact]
     public async Task DifferentKeysRunIndependently()
     {
         // One slow peer must not hold up another peer's payloads.
@@ -101,12 +100,12 @@ public sealed class KeyedSerialQueueTests
         await other;
 
         // Assert
-        Assert.IsTrue(other.IsCompleted);
+        Assert.True(other.IsCompleted);
 
         blockedGate.SetResult();
     }
 
-    [TestMethod]
+    [Fact]
     public async Task ThrownWorkReachesTheErrorHandlerAndTheKeyKeepsRunning()
     {
         // A failed copy must not stop the payloads behind it, and it must not fault a task the
@@ -130,14 +129,14 @@ public sealed class KeyedSerialQueueTests
         await following;
 
         // Assert
-        Assert.HasCount(1, failures);
-        Assert.AreEqual("peer-1", failures[0].Key);
-        Assert.AreSame(thrown, failures[0].Error);
-        Assert.IsTrue(secondRan);
-        Assert.IsFalse(failing.IsFaulted);
+        Assert.Single(failures);
+        Assert.Equal("peer-1", failures[0].Key);
+        Assert.Same(thrown, failures[0].Error);
+        Assert.True(secondRan);
+        Assert.False(failing.IsFaulted);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task DrainingAnUnknownKeyCompletesImmediately()
     {
         // Releasing a peer that received no payloads is the common case.
@@ -149,10 +148,10 @@ public sealed class KeyedSerialQueueTests
         var drained = await queue.DrainAsync("peer-nobody", TimeSpan.FromSeconds(30));
 
         // Assert
-        Assert.IsTrue(drained);
+        Assert.True(drained);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task DrainingOneKeyWaitsForItsQueuedWork()
     {
         // Arrange
@@ -173,12 +172,12 @@ public sealed class KeyedSerialQueueTests
         var drained = await drain;
 
         // Assert
-        Assert.IsFalse(finishedBeforeTheGateOpened);
-        Assert.IsTrue(drained);
-        Assert.IsTrue(workFinished);
+        Assert.False(finishedBeforeTheGateOpened);
+        Assert.True(drained);
+        Assert.True(workFinished);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task DrainingAnEmptyQueueCompletesImmediately()
     {
         // Arrange
@@ -188,10 +187,10 @@ public sealed class KeyedSerialQueueTests
         var drained = await queue.DrainAllAsync(TimeSpan.FromSeconds(30));
 
         // Assert
-        Assert.IsTrue(drained);
+        Assert.True(drained);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task DrainingEveryKeyWaitsForAllOfThem()
     {
         // Disposal sweeps the staging directory next, so it must wait for every peer's copy.
@@ -212,11 +211,11 @@ public sealed class KeyedSerialQueueTests
         var drained = await drain;
 
         // Assert
-        Assert.IsFalse(finishedAfterOnlyOneKey);
-        Assert.IsTrue(drained);
+        Assert.False(finishedAfterOnlyOneKey);
+        Assert.True(drained);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task DrainingReportsFalseWhenTheBoundElapses()
     {
         // The bound is what stops a stuck native read from turning a release or a disposal into a
@@ -233,8 +232,8 @@ public sealed class KeyedSerialQueueTests
         var drained = await queue.DrainAllAsync(TimeSpan.FromMilliseconds(10));
 
         // Assert
-        Assert.IsFalse(drained);
-        Assert.AreEqual(1, queue.KeyCount);
+        Assert.False(drained);
+        Assert.Equal(1, queue.KeyCount);
 
         gate.SetResult();
     }

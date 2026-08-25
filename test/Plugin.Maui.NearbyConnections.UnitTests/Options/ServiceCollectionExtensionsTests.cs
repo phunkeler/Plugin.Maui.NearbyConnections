@@ -1,15 +1,15 @@
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 using Microsoft.Extensions.Logging;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
-[TestCategory("Options")]
+[Trait("Category", "Options")]
 public class ServiceCollectionExtensionsTests
 {
-    [TestClass]
     public sealed class AddNearby : ServiceCollectionExtensionsTests
     {
-        [TestMethod]
+        [Fact]
         public async Task NoLoggingRegistered_ThrowsOnResolution()
         {
             // The plugin resolves its loggers as required services rather than falling back to
@@ -22,11 +22,11 @@ public class ServiceCollectionExtensionsTests
             await using var provider = services.BuildServiceProvider();
 
             // Act & Assert
-            Assert.ThrowsExactly<InvalidOperationException>(
+            Assert.Throws<InvalidOperationException>(
                 () => provider.GetRequiredService<INearby>());
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ResolvedTwice_ReturnsTheSameInstance()
         {
             // One radio, one native session — the singleton lifetime is platform-forced, not a
@@ -41,12 +41,12 @@ public class ServiceCollectionExtensionsTests
             await using var provider = services.BuildServiceProvider();
 
             // Assert
-            Assert.AreSame(
+            Assert.Same(
                 provider.GetRequiredService<INearby>(),
                 provider.GetRequiredService<INearby>());
         }
 
-        [TestMethod]
+        [Fact]
         public void Always_DoesNotRegisterLoggingInfrastructure()
         {
             // Arrange
@@ -56,10 +56,10 @@ public class ServiceCollectionExtensionsTests
             services.AddNearby(options => options.ServiceId = "test-service");
 
             // Assert
-            Assert.DoesNotContain(d => d.ServiceType == typeof(ILoggerFactory), services);
+            Assert.DoesNotContain(services, d => d.ServiceType == typeof(ILoggerFactory));
         }
 
-        [TestMethod]
+        [Fact]
         public void EmptyServiceId_FailsValidationImmediately()
         {
             // NearbyOptionsValidator is covered in isolation elsewhere; this covers that AddNearby
@@ -76,14 +76,14 @@ public class ServiceCollectionExtensionsTests
             var services = new ServiceCollection();
 
             // Act
-            var failure = Assert.ThrowsExactly<ArgumentException>(
+            var failure = Assert.Throws<ArgumentException>(
                 () => services.AddNearby(options => options.ServiceId = ""));
 
             // Assert
             Assert.Contains("ServiceId", failure.Message);
         }
 
-        [TestMethod]
+        [Fact]
         public void NoConfigureDelegate_StillValidates_RatherThanShippingAnUnusableServiceId()
         {
             // AddNearby() with no delegate never sets a ServiceId. That must fail immediately rather
@@ -94,12 +94,11 @@ public class ServiceCollectionExtensionsTests
             var services = new ServiceCollection();
 
             // Act & Assert
-            Assert.ThrowsExactly<ArgumentException>(
-                () => services.AddNearby(),
-                "ServiceId has no usable default; omitting it must be caught, not tolerated.");
+            // ServiceId has no usable default; omitting it must be caught, not tolerated.
+            Assert.Throws<ArgumentException>(() => services.AddNearby());
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ConsumerRegisteredItsOwn_TryAddSingletonLeavesItAlone()
         {
             // TryAddSingleton, not AddSingleton: an app that supplies its own INearby — a fake in a
@@ -107,7 +106,7 @@ public class ServiceCollectionExtensionsTests
 
             // Arrange
             var services = new ServiceCollection();
-            var stub = new StubNearby();
+            var stub = Substitute.For<INearby>();
             services.AddSingleton<INearby>(stub);
 
             // Act
@@ -115,10 +114,10 @@ public class ServiceCollectionExtensionsTests
 
             // Assert
             await using var provider = services.BuildServiceProvider();
-            Assert.AreSame(stub, provider.GetRequiredService<INearby>());
+            Assert.Same(stub, provider.GetRequiredService<INearby>());
         }
 
-        [TestMethod]
+        [Fact]
         public async Task TimeProviderRegistered_TheSessionUsesItRatherThanTheSystemClock()
         {
             // The session falls back to TimeProvider.System, so a registered provider being ignored
@@ -142,10 +141,10 @@ public class ServiceCollectionExtensionsTests
             _ = provider.GetRequiredService<INearby>();
 
             // Assert
-            Assert.IsTrue(clock.WasResolved, "A registered TimeProvider must win over TimeProvider.System.");
+            Assert.True(clock.WasResolved, "A registered TimeProvider must win over TimeProvider.System.");
         }
 
-        [TestMethod]
+        [Fact]
         public void CalledTwice_DoesNotThrow()
         {
             // AddNearby has no MAUI-lifecycle registration left to duplicate: it registers only

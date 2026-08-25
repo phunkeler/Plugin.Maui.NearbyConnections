@@ -2,11 +2,10 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
-[TestClass]
-[TestCategory("Session")]
+[Trait("Category", "Session")]
 public sealed class HandshakeTimeoutTests
 {
-    [TestMethod]
+    [Fact]
     public async Task ConnectAsync_TimeoutIsArmedFromOptions()
     {
         // Arrange
@@ -14,11 +13,11 @@ public sealed class HandshakeTimeoutTests
         var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = TimeSpan.FromSeconds(5) });
 
         // Assert
-        await Assert.ThrowsExactlyAsync<PlatformNotSupportedException>(
-            () => platform.ConnectAsync(Create.Device("peer-1", "Alice"), TestContext.CancellationToken));
+        await Assert.ThrowsAsync<PlatformNotSupportedException>(
+            () => platform.ConnectAsync(Create.Device("peer-1", "Alice"), TestContext.Current.CancellationToken));
     }
 
-    [TestMethod]
+    [Fact]
     public async Task ConnectAsync_WhenPlatformFails_DoesNotStrandThePendingEntry()
     {
         // Arrange
@@ -27,13 +26,13 @@ public sealed class HandshakeTimeoutTests
         var device = Create.Device("peer-1", "Alice");
 
         // Act
-        await Assert.ThrowsExactlyAsync<PlatformNotSupportedException>(() => platform.ConnectAsync(device, TestContext.CancellationToken));
+        await Assert.ThrowsAsync<PlatformNotSupportedException>(() => platform.ConnectAsync(device, TestContext.Current.CancellationToken));
 
         // Assert
-        Assert.IsEmpty(platform._connectionTcs);
+        Assert.Empty(platform._connectionTcs);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task ConnectAsync_CallerCancellation_ReportsCancellationNotTimeout()
     {
         // Arrange
@@ -43,17 +42,17 @@ public sealed class HandshakeTimeoutTests
         await cts.CancelAsync();
 
         // Act
-        var ex = await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+        var ex = await Assert.ThrowsAsync<OperationCanceledException>(
             () => platform.ConnectAsync(Create.Device("peer-1", "Alice"), cts.Token));
 
         // Assert
-        Assert.IsNotInstanceOfType<NearbyConnectionTimeoutException>(ex);
+        Assert.IsNotAssignableFrom<NearbyConnectionTimeoutException>(ex);
     }
 
     // The two roles read different options. Every test below sets ConnectTimeout and AcceptTimeout
     // to different values on purpose: with one shared value, a wire-up that read the wrong option
     // would still pass.
-    [TestMethod]
+    [Fact]
     public async Task AwaitHandshake_AsInitiator_UsesConnectTimeoutNotAcceptTimeout()
     {
         // Arrange
@@ -83,14 +82,14 @@ public sealed class HandshakeTimeoutTests
         // deadline so a regression that fires early fails here rather than hanging the suite.
         var settled = await Task.WhenAny(
             handshake,
-            Task.Delay(TimeSpan.FromSeconds(2), TestContext.CancellationToken));
-        Assert.AreNotSame(handshake, settled, "The initiator must not time out on AcceptTimeout.");
-
+            Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken));
+        // The initiator must not time out on AcceptTimeout.
+        Assert.NotSame(handshake, settled);
         time.Advance(connect - accept);
-        await Assert.ThrowsExactlyAsync<NearbyConnectionTimeoutException>(() => handshake);
+        await Assert.ThrowsAsync<NearbyConnectionTimeoutException>(() => handshake);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task AwaitHandshake_AsAcceptor_UsesAcceptTimeoutNotConnectTimeout()
     {
         // Arrange
@@ -117,10 +116,10 @@ public sealed class HandshakeTimeoutTests
         time.Advance(accept);
 
         // Assert — the acceptor's shorter deadline governs, well before ConnectTimeout would fire.
-        await Assert.ThrowsExactlyAsync<NearbyConnectionTimeoutException>(() => handshake);
+        await Assert.ThrowsAsync<NearbyConnectionTimeoutException>(() => handshake);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task AwaitHandshake_AsAcceptor_ReportsTheAcceptWindowInItsMessage()
     {
         // Arrange
@@ -144,14 +143,14 @@ public sealed class HandshakeTimeoutTests
             CancellationToken.None);
 
         time.Advance(accept);
-        var ex = await Assert.ThrowsExactlyAsync<NearbyConnectionTimeoutException>(() => handshake);
+        var ex = await Assert.ThrowsAsync<NearbyConnectionTimeoutException>(() => handshake);
 
         // Assert — the message must quote the deadline that actually fired, not the other one.
         Assert.Contains("accepting the request", ex.Message);
         Assert.Contains("5s", ex.Message);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task AwaitHandshake_WhenTheHandshakeIsCancelledByTeardown_DoesNotReportATimeout()
     {
         // Arrange — DisposeAsync settles a pending handshake by cancelling its TCS. That is neither
@@ -177,15 +176,15 @@ public sealed class HandshakeTimeoutTests
         tcs.TrySetCanceled(CancellationToken.None);
 
         // Assert
-        var ex = await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => handshake);
-        Assert.IsNotInstanceOfType<NearbyConnectionTimeoutException>(ex);
+        var ex = await Assert.ThrowsAsync<TaskCanceledException>(() => handshake);
+        Assert.IsNotAssignableFrom<NearbyConnectionTimeoutException>(ex);
     }
 
     // The accept path's deadline, exercised through AwaitHandshakeAsync directly. The platform
     // accept lambdas that call it are unreachable on net10.0, but the deadline itself is shared
     // code, and it is the part that regressed: before it was extracted, both platforms awaited the
     // caller's token alone, so an accepted handshake that never completed hung forever.
-    [TestMethod]
+    [Fact]
     public async Task AwaitHandshake_WhenNoTerminalCallbackArrives_TimesOutInsteadOfHanging()
     {
         // Arrange
@@ -206,10 +205,10 @@ public sealed class HandshakeTimeoutTests
         time.Advance(timeout);
 
         // Assert
-        await Assert.ThrowsExactlyAsync<NearbyConnectionTimeoutException>(() => handshake);
+        await Assert.ThrowsAsync<NearbyConnectionTimeoutException>(() => handshake);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task AwaitHandshake_WhenTimeoutElapses_DoesNotStrandThePendingEntry()
     {
         // Arrange
@@ -228,13 +227,13 @@ public sealed class HandshakeTimeoutTests
             CancellationToken.None);
 
         time.Advance(timeout);
-        await Assert.ThrowsExactlyAsync<NearbyConnectionTimeoutException>(() => handshake);
+        await Assert.ThrowsAsync<NearbyConnectionTimeoutException>(() => handshake);
 
         // Assert
-        Assert.IsEmpty(platform._connectionTcs);
+        Assert.Empty(platform._connectionTcs);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task AwaitHandshake_WhenCallbackResolvesFirst_ReturnsTheConnection()
     {
         // Arrange
@@ -255,10 +254,10 @@ public sealed class HandshakeTimeoutTests
         platform.ResolveConnectionTcs(device.Id, expected);
 
         // Assert
-        Assert.AreSame(expected, await handshake);
+        Assert.Same(expected, await handshake);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task AwaitHandshake_WhenTimeoutIsInfinite_DoesNotTimeOut()
     {
         // Arrange
@@ -280,10 +279,10 @@ public sealed class HandshakeTimeoutTests
         platform.ResolveConnectionTcs(device.Id, expected);
 
         // Assert
-        Assert.AreSame(expected, await handshake);
+        Assert.Same(expected, await handshake);
     }
 
-    [TestMethod]
+    [Fact]
     public async Task AwaitHandshake_CallerCancellation_ReportsCancellationNotTimeout()
     {
         // Arrange
@@ -304,9 +303,7 @@ public sealed class HandshakeTimeoutTests
         await cts.CancelAsync();
 
         // Assert
-        var ex = await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => handshake);
-        Assert.IsNotInstanceOfType<NearbyConnectionTimeoutException>(ex);
+        var ex = await Assert.ThrowsAsync<TaskCanceledException>(() => handshake);
+        Assert.IsNotAssignableFrom<NearbyConnectionTimeoutException>(ex);
     }
-
-    public TestContext TestContext { get; set; }
 }

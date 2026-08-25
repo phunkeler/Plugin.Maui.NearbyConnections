@@ -11,13 +11,12 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// The library stages such a file itself. Before this existed, every consumer had to reconstruct
 /// the copy by hand, and the sample application did exactly that.
 /// </remarks>
-[TestCategory("Connections")]
+[Trait("Category", "Connections")]
 public class SendFileStagingTests
 {
-    [TestClass]
     public sealed class WhenThePathIsReadable : SendFileStagingTests
     {
-        [TestMethod]
+        [Fact]
         public async Task SendsItDirectly()
         {
             // Arrange
@@ -31,19 +30,16 @@ public class SendFileStagingTests
             });
 
             // Act
-            await connection.SendAsync(new FileResult(real), cancellationToken: TestContext.CancellationToken);
+            await connection.SendAsync(new FileResult(real), cancellationToken: TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreEqual(real, sent.Single());
+            Assert.Equal(real, sent.Single());
         }
-
-        public TestContext TestContext { get; set; }
     }
 
-    [TestClass]
     public sealed class WhenStagingIsNeeded : SendFileStagingTests
     {
-        [TestMethod]
+        [Fact]
         public async Task CopiesTheContent()
         {
             // Arrange
@@ -53,14 +49,14 @@ public class SendFileStagingTests
             var path = await NearbyConnection.StageToTempAsync(
                 () => Task.FromResult<Stream>(new MemoryStream(Encoding.UTF8.GetBytes(expected))),
                 "photo.jpg",
-                TestContext.CancellationToken);
+                TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreEqual(expected, File.ReadAllText(path));
+            Assert.Equal(expected, File.ReadAllText(path));
             Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task KeepsTheOriginalFileName()
         {
             // iOS sends the last path component as the resource name, so a random temporary name
@@ -73,14 +69,14 @@ public class SendFileStagingTests
             var path = await NearbyConnection.StageToTempAsync(
                 () => Task.FromResult<Stream>(new MemoryStream([1, 2, 3])),
                 expected,
-                TestContext.CancellationToken);
+                TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreEqual(expected, Path.GetFileName(path));
+            Assert.Equal(expected, Path.GetFileName(path));
             Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task GivesConcurrentSendsOfTheSameNameSeparateDirectories()
         {
             // Arrange
@@ -90,19 +86,19 @@ public class SendFileStagingTests
             var firstPath = await NearbyConnection.StageToTempAsync(
                 () => Task.FromResult<Stream>(new MemoryStream([1])),
                 name,
-                TestContext.CancellationToken);
+                TestContext.Current.CancellationToken);
             var secondPath = await NearbyConnection.StageToTempAsync(
                 () => Task.FromResult<Stream>(new MemoryStream([2])),
                 name,
-                TestContext.CancellationToken);
+                TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreNotEqual(firstPath, secondPath);
+            Assert.NotEqual(firstPath, secondPath);
             Directory.Delete(Path.GetDirectoryName(firstPath)!, recursive: true);
             Directory.Delete(Path.GetDirectoryName(secondPath)!, recursive: true);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StripsADirectoryComponentFromTheName()
         {
             // Arrange
@@ -112,13 +108,11 @@ public class SendFileStagingTests
             var path = await NearbyConnection.StageToTempAsync(
                 () => Task.FromResult<Stream>(new MemoryStream([1])),
                 "../evil.jpg",
-                TestContext.CancellationToken);
+                TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreEqual(Path.Combine(Path.GetDirectoryName(path)!, expected), path);
+            Assert.Equal(Path.Combine(Path.GetDirectoryName(path)!, expected), path);
             Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
         }
-
-        public TestContext TestContext { get; set; }
     }
 }

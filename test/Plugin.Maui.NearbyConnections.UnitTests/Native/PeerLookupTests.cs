@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
-[TestCategory("Connections")]
+[Trait("Category", "Connections")]
 public class PeerLookupTests
 {
     readonly PeerLookup _sut;
@@ -10,10 +10,9 @@ public class PeerLookupTests
         _sut = new PeerLookup();
     }
 
-    [TestClass]
     public sealed class Record : PeerLookupTests
     {
-        [TestMethod]
+        [Fact]
         public void NewPeer_ReturnsDeviceWithKeyAndDisplayName()
         {
             // Arrange
@@ -24,11 +23,11 @@ public class PeerLookupTests
             var device = _sut.Record(key, displayName);
 
             // Assert
-            Assert.AreEqual(key, device.Id);
-            Assert.AreEqual(displayName, device.DisplayName);
+            Assert.Equal(key, device.Id);
+            Assert.Equal(displayName, device.DisplayName);
         }
 
-        [TestMethod]
+        [Fact]
         public void ExistingPeer_ReturnsSameDeviceInstance()
         {
             // Arrange
@@ -40,10 +39,10 @@ public class PeerLookupTests
             var second = _sut.Record(key, displayName);
 
             // Assert
-            Assert.AreSame(first, second);
+            Assert.Same(first, second);
         }
 
-        [TestMethod]
+        [Fact]
         public void ExistingPeer_DoesNotAdoptNewDisplayName()
         {
             // Arrange — a rediscovery re-records the same endpoint; the incumbent must survive.
@@ -54,15 +53,14 @@ public class PeerLookupTests
             var rediscovered = _sut.Record(key, "Alice (renamed)");
 
             // Assert
-            Assert.AreSame(original, rediscovered);
-            Assert.AreEqual("Alice", rediscovered.DisplayName);
+            Assert.Same(original, rediscovered);
+            Assert.Equal("Alice", rediscovered.DisplayName);
         }
     }
 
-    [TestClass]
     public sealed class Sanitize : PeerLookupTests
     {
-        [TestMethod]
+        [Fact]
         public void PlainName_IsUnchanged()
         {
             // Arrange
@@ -72,10 +70,10 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.AreEqual(displayName, device.DisplayName);
+            Assert.Equal(displayName, device.DisplayName);
         }
 
-        [TestMethod]
+        [Fact]
         public void NameWithNewlines_HasControlCharactersRemoved()
         {
             // Arrange — a forged log record appended to an attacker-chosen name.
@@ -86,10 +84,10 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.AreEqual(expected, device.DisplayName);
+            Assert.Equal(expected, device.DisplayName);
         }
 
-        [TestMethod]
+        [Fact]
         public void OverlongName_IsTruncatedToMaxLength()
         {
             // Arrange — ASCII, so one UTF-8 byte per character and the cap lands on a round number.
@@ -99,12 +97,12 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.AreEqual(PeerLookup.MaxDisplayNameBytes, device.DisplayName!.Length);
+            Assert.Equal(PeerLookup.MaxDisplayNameBytes, device.DisplayName!.Length);
         }
 
         // The cap counts UTF-8 bytes, which is what both a log sink and the platforms constrain. A
         // multi-byte name therefore keeps fewer characters than an ASCII one.
-        [TestMethod]
+        [Fact]
         public void OverlongMultiByteName_IsTruncatedByBytesNotCharacters()
         {
             // Arrange — U+00E9 is one char but two UTF-8 bytes.
@@ -115,13 +113,13 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.AreEqual(expectedChars, device.DisplayName!.Length);
-            Assert.AreEqual(
+            Assert.Equal(expectedChars, device.DisplayName!.Length);
+            Assert.Equal(
                 PeerLookup.MaxDisplayNameBytes,
                 System.Text.Encoding.UTF8.GetByteCount(device.DisplayName));
         }
 
-        [TestMethod]
+        [Fact]
         public void NameOfOnlyControlCharacters_BecomesNull()
         {
             // Arrange
@@ -131,10 +129,10 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.IsNull(device.DisplayName);
+            Assert.Null(device.DisplayName);
         }
 
-        [TestMethod]
+        [Fact]
         public void NullName_StaysNull()
         {
             // Arrange
@@ -144,10 +142,10 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.IsNull(device.DisplayName);
+            Assert.Null(device.DisplayName);
         }
 
-        [TestMethod]
+        [Fact]
         public void TruncationDoesNotSplitSurrogatePair()
         {
             // Arrange — every rune is 4 UTF-8 bytes and 2 UTF-16 units, so the cap lands on a pair
@@ -159,11 +157,11 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert — a split pair leaves a lone high surrogate at the end.
-            Assert.IsFalse(char.IsHighSurrogate(device.DisplayName![^1]));
-            Assert.AreEqual(expectedChars, device.DisplayName.Length);
+            Assert.False(char.IsHighSurrogate(device.DisplayName![^1]));
+            Assert.Equal(expectedChars, device.DisplayName.Length);
         }
 
-        [TestMethod]
+        [Fact]
         public void EmptyName_BecomesNull()
         {
             // Arrange — an empty name and an all-control name both mean "no usable name", so both
@@ -174,13 +172,13 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.IsNull(device.DisplayName);
+            Assert.Null(device.DisplayName);
         }
 
         // U+2028 and U+2029 are LineSeparator and ParagraphSeparator, not Control, so Rune.IsControl
         // let them through. Both break lines in common log formatters, which forges a whole record
         // around the real one — the attack stripping \r\n was meant to stop.
-        [TestMethod]
+        [Fact]
         public void NameWithUnicodeLineSeparators_HasThemRemoved()
         {
             // Arrange
@@ -191,12 +189,12 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.AreEqual(expected, device.DisplayName);
+            Assert.Equal(expected, device.DisplayName);
         }
 
         // A bidirectional override reverses how the remainder of the name renders, so a peer can
         // make one string display as another to the person deciding whether to trust the device.
-        [TestMethod]
+        [Fact]
         public void NameWithBidiOverride_HasItRemoved()
         {
             // Arrange
@@ -207,11 +205,11 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.AreEqual(expected, device.DisplayName);
+            Assert.Equal(expected, device.DisplayName);
         }
 
         // Zero-width characters let two distinct peers render identically in the device list.
-        [TestMethod]
+        [Fact]
         public void NameWithZeroWidthCharacters_HasThemRemoved()
         {
             // Arrange
@@ -222,10 +220,10 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.AreEqual(expected, device.DisplayName);
+            Assert.Equal(expected, device.DisplayName);
         }
 
-        [TestMethod]
+        [Fact]
         public void TwoNamesDifferingOnlyByZeroWidth_SanitizeToTheSameString()
         {
             // Arrange
@@ -236,10 +234,10 @@ public class PeerLookupTests
 
             // Assert — identical rendering is now visible as identical data, rather than hiding
             // behind two strings that look the same but compare unequal.
-            Assert.AreEqual(genuine.DisplayName, impostor.DisplayName);
+            Assert.Equal(genuine.DisplayName, impostor.DisplayName);
         }
 
-        [TestMethod]
+        [Fact]
         public void NameOfOnlyRejectedCharacters_BecomesNull()
         {
             // Arrange
@@ -249,10 +247,10 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.IsNull(device.DisplayName);
+            Assert.Null(device.DisplayName);
         }
 
-        [TestMethod]
+        [Fact]
         public void NameWithLoneSurrogate_HasItRemoved()
         {
             // Arrange — an unpaired high surrogate renders unpredictably per platform.
@@ -263,10 +261,10 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.AreEqual(expected, device.DisplayName);
+            Assert.Equal(expected, device.DisplayName);
         }
 
-        [TestMethod]
+        [Fact]
         public void NameWithLegitimateNonAsciiText_IsUnchanged()
         {
             // Arrange — the filter must not reject ordinary international names or emoji.
@@ -276,14 +274,13 @@ public class PeerLookupTests
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
-            Assert.AreEqual(displayName, device.DisplayName);
+            Assert.Equal(displayName, device.DisplayName);
         }
     }
 
-    [TestClass]
     public sealed class TryGetDevice : PeerLookupTests
     {
-        [TestMethod]
+        [Fact]
         public void KnownKey_ReturnsTrueAndDevice()
         {
             // Arrange
@@ -294,12 +291,12 @@ public class PeerLookupTests
             var found = _sut.TryGetDevice(key, out var device);
 
             // Assert
-            Assert.IsTrue(found);
-            Assert.IsNotNull(device);
-            Assert.AreEqual(key, device.Id);
+            Assert.True(found);
+            Assert.NotNull(device);
+            Assert.Equal(key, device.Id);
         }
 
-        [TestMethod]
+        [Fact]
         public void UnknownKey_ReturnsFalseAndNullOut()
         {
             // Arrange
@@ -309,15 +306,14 @@ public class PeerLookupTests
             var found = _sut.TryGetDevice(key, out var device);
 
             // Assert
-            Assert.IsFalse(found);
-            Assert.IsNull(device);
+            Assert.False(found);
+            Assert.Null(device);
         }
     }
 
-    [TestClass]
     public sealed class Remove : PeerLookupTests
     {
-        [TestMethod]
+        [Fact]
         public void KnownKey_ReturnsRemovedDevice()
         {
             // Arrange
@@ -328,11 +324,11 @@ public class PeerLookupTests
             var removed = _sut.Remove(key);
 
             // Assert
-            Assert.IsNotNull(removed);
-            Assert.AreEqual(key, removed.Id);
+            Assert.NotNull(removed);
+            Assert.Equal(key, removed.Id);
         }
 
-        [TestMethod]
+        [Fact]
         public void KnownKey_IsNoLongerResolvable()
         {
             // Arrange
@@ -343,10 +339,10 @@ public class PeerLookupTests
             _sut.Remove(key);
 
             // Assert
-            Assert.IsFalse(_sut.TryGetDevice(key, out _));
+            Assert.False(_sut.TryGetDevice(key, out _));
         }
 
-        [TestMethod]
+        [Fact]
         public void UnknownKey_ReturnsNull()
         {
             // Arrange
@@ -356,14 +352,13 @@ public class PeerLookupTests
             var removed = _sut.Remove(key);
 
             // Assert
-            Assert.IsNull(removed);
+            Assert.Null(removed);
         }
     }
 
-    [TestClass]
     public sealed class Clear : PeerLookupTests
     {
-        [TestMethod]
+        [Fact]
         public void RemovesAllTrackedPeers()
         {
             // Arrange
@@ -374,11 +369,11 @@ public class PeerLookupTests
             _sut.Clear();
 
             // Assert
-            Assert.IsFalse(_sut.TryGetDevice("peer-1", out _));
-            Assert.IsFalse(_sut.TryGetDevice("peer-2", out _));
+            Assert.False(_sut.TryGetDevice("peer-1", out _));
+            Assert.False(_sut.TryGetDevice("peer-2", out _));
         }
 
-        [TestMethod]
+        [Fact]
         public void OnEmptyRegistry_DoesNotThrow()
         {
             // Arrange — registry is created empty in constructor
@@ -387,7 +382,7 @@ public class PeerLookupTests
             _sut.Clear();
 
             // Assert
-            Assert.IsFalse(_sut.TryGetDevice("peer-1", out _));
+            Assert.False(_sut.TryGetDevice("peer-1", out _));
         }
     }
 }

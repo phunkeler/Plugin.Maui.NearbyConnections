@@ -2,13 +2,12 @@ using System.Threading.Channels;
 
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
-[TestCategory("Connections")]
+[Trait("Category", "Connections")]
 public class NearbyConnectionTests
 {
-    [TestClass]
     public sealed class RemoteDevice : NearbyConnectionTests
     {
-        [TestMethod]
+        [Fact]
         public void ReturnsConstructedDevice()
         {
             // Arrange
@@ -19,14 +18,13 @@ public class NearbyConnectionTests
             var result = connection.RemoteDevice;
 
             // Assert
-            Assert.AreSame(device, result);
+            Assert.Same(device, result);
         }
     }
 
-    [TestClass]
     public sealed class SendAsyncBytes : NearbyConnectionTests
     {
-        [TestMethod]
+        [Fact]
         public async Task SendAsync_Bytes_DelegatesToSendBytes()
         {
             // Arrange
@@ -36,14 +34,14 @@ public class NearbyConnectionTests
             var payload = new byte[] { 10, 20, 30 };
 
             // Act
-            await connection.SendAsync(payload, TestContext.CancellationToken);
+            await connection.SendAsync(payload, TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsNotNull(captured);
-            Assert.AreSequenceEqual(payload, captured);
+            Assert.NotNull(captured);
+            Assert.Equal(payload, captured);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task SendAsync_Bytes_ForwardsCancellationToken()
         {
             // Arrange
@@ -56,29 +54,26 @@ public class NearbyConnectionTests
             await connection.SendAsync([1], cts.Token);
 
             // Assert
-            Assert.AreEqual(cts.Token, capturedToken);
+            Assert.Equal(cts.Token, capturedToken);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task SendAsync_NullBytes_ThrowsArgumentNullException()
         {
             // Arrange
             var connection = Create.Connection();
 
             // Act
-            Func<Task> act = () => connection.SendAsync((byte[])null!, TestContext.CancellationToken);
+            Func<Task> act = () => connection.SendAsync((byte[])null!, TestContext.Current.CancellationToken);
 
             // Assert
-            await Assert.ThrowsExactlyAsync<ArgumentNullException>(act);
+            await Assert.ThrowsAsync<ArgumentNullException>(act);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
-    [TestClass]
     public sealed class SendAsyncFile : NearbyConnectionTests
     {
-        [TestMethod]
+        [Fact]
         public async Task SendAsync_File_DelegatesToSendFile()
         {
             // Arrange
@@ -87,13 +82,13 @@ public class NearbyConnectionTests
                 sendFile: (uri, _, _) => { capturedUri = uri; return Task.CompletedTask; });
 
             // Act
-            await connection.SendAsync("/path/to/file.txt", cancellationToken: TestContext.CancellationToken);
+            await connection.SendAsync("/path/to/file.txt", cancellationToken: TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreEqual("/path/to/file.txt", capturedUri);
+            Assert.Equal("/path/to/file.txt", capturedUri);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task SendAsync_File_ForwardsProgress()
         {
             // Arrange
@@ -103,33 +98,30 @@ public class NearbyConnectionTests
             var progress = new Progress<NearbyTransferProgress>();
 
             // Act
-            await connection.SendAsync("/path/to/file.txt", progress, TestContext.CancellationToken);
+            await connection.SendAsync("/path/to/file.txt", progress, TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreSame(progress, capturedProgress);
+            Assert.Same(progress, capturedProgress);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task SendAsync_NullFileUri_ThrowsArgumentNullException()
         {
             // Arrange
             var connection = Create.Connection();
 
             // Act
-            async Task act() => await connection.SendAsync((string)null!, cancellationToken: TestContext.CancellationToken);
+            async Task act() => await connection.SendAsync((string)null!, cancellationToken: TestContext.Current.CancellationToken);
 
             // Assert
-            await Assert.ThrowsExactlyAsync<ArgumentNullException>(act);
+            await Assert.ThrowsAsync<ArgumentNullException>(act);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
-    [TestClass]
     public sealed class ReceiveAsync : NearbyConnectionTests
     {
 
-        [TestMethod]
+        [Fact]
         public async Task WritePayload_YieldsPayload()
         {
             // Arrange
@@ -149,11 +141,11 @@ public class NearbyConnectionTests
             }
 
             // Assert
-            Assert.HasCount(1, received);
-            Assert.AreSame(payload, received[0]);
+            Assert.Single(received);
+            Assert.Same(payload, received[0]);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task MultiplePayloads_YieldsInOrder()
         {
             // Arrange
@@ -180,13 +172,13 @@ public class NearbyConnectionTests
             }
 
             // Assert
-            Assert.HasCount(3, received);
-            Assert.AreSame(p1, received[0]);
-            Assert.AreSame(p2, received[1]);
-            Assert.AreSame(p3, received[2]);
+            Assert.Equal(3, received.Count);
+            Assert.Same(p1, received[0]);
+            Assert.Same(p2, received[1]);
+            Assert.Same(p3, received[2]);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task CancellationRequested_ThrowsOperationCanceledException()
         {
             // Arrange
@@ -206,24 +198,24 @@ public class NearbyConnectionTests
             };
 
             // Assert — TaskCanceledException is a subclass of OperationCanceledException
-            await Assert.ThrowsAsync<OperationCanceledException>(act);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(act);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task CalledTwice_ThrowsInvalidOperationException()
         {
             // Arrange
             var connection = Create.Connection();
-            connection.ReceiveAsync(TestContext.CancellationToken); // first call — sets guard
+            connection.ReceiveAsync(TestContext.Current.CancellationToken); // first call — sets guard
 
             // Act
-            Task Act() { connection.ReceiveAsync(TestContext.CancellationToken); return Task.CompletedTask; }
+            Task Act() { connection.ReceiveAsync(TestContext.Current.CancellationToken); return Task.CompletedTask; }
 
             // Assert
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(Act);
+            await Assert.ThrowsAsync<InvalidOperationException>(Act);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task CalledAfterCancellation_ThrowsInvalidOperationException()
         {
             // Arrange
@@ -234,19 +226,16 @@ public class NearbyConnectionTests
             catch (OperationCanceledException) { }
 
             // Act
-            Task Act() { connection.ReceiveAsync(TestContext.CancellationToken); return Task.CompletedTask; }
+            Task Act() { connection.ReceiveAsync(TestContext.Current.CancellationToken); return Task.CompletedTask; }
 
             // Assert
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(Act);
+            await Assert.ThrowsAsync<InvalidOperationException>(Act);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
-    [TestClass]
     public sealed class CompleteReceive : NearbyConnectionTests
     {
-        [TestMethod]
+        [Fact]
         public async Task CompletesReceiveEnumerable()
         {
             // Arrange
@@ -271,14 +260,13 @@ public class NearbyConnectionTests
 
             // Assert — enumeration terminates cleanly
             await enumerateTask.WaitAsync(cts.Token);
-            Assert.IsEmpty(received);
+            Assert.Empty(received);
         }
     }
 
-    [TestClass]
     public sealed class DisposeAsync : NearbyConnectionTests
     {
-        [TestMethod]
+        [Fact]
         public async Task CallsDispose()
         {
             // Arrange
@@ -290,10 +278,10 @@ public class NearbyConnectionTests
             await connection.DisposeAsync();
 
             // Assert
-            Assert.IsTrue(disposed);
+            Assert.True(disposed);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task CompletesReceiveEnumerable()
         {
             // Arrange
@@ -316,10 +304,10 @@ public class NearbyConnectionTests
 
             // Assert
             await enumerateTask.WaitAsync(cts.Token);
-            Assert.IsTrue(enumerateTask.IsCompletedSuccessfully);
+            Assert.True(enumerateTask.IsCompletedSuccessfully);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task TryWritePayload_AfterDispose_DoesNotThrow()
         {
             // Arrange
@@ -332,12 +320,12 @@ public class NearbyConnectionTests
             connection.TryWritePayload(new NearbyBytesPayload([1, 2, 3]));
 
             // Assert — payload silently dropped; channel writer is completed so nothing was queued
-            Assert.IsFalse(receiveChannel.Reader.TryRead(out _));
+            Assert.False(receiveChannel.Reader.TryRead(out _));
         }
 
         // IsBeingConsumed is what lets the platform layer detect the silent-loss case: payloads
         // arriving on a connection whose ReceiveAsync was never called.
-        [TestMethod]
+        [Fact]
         public void IsBeingConsumed_BeforeReceiveAsync_IsFalse()
         {
             // Arrange
@@ -347,7 +335,7 @@ public class NearbyConnectionTests
             var consumed = connection.IsBeingConsumed;
 
             // Assert
-            Assert.IsFalse(consumed);
+            Assert.False(consumed);
         }
 
         // Pins the retention guarantee the whole late-consumer story rests on: the receive channel is
@@ -355,7 +343,7 @@ public class NearbyConnectionTests
         // anything calls ReceiveAsync are buffered, not dropped. A consumer that starts late drains
         // the entire backlog from connection-open, which is why the plugin needs no separate
         // payload-replay feature — only a reliable way to hand out the connection.
-        [TestMethod]
+        [Fact]
         public async Task ReceiveAsync_StartedLate_DrainsPayloadsWrittenBeforeItBegan()
         {
             // Arrange
@@ -368,38 +356,35 @@ public class NearbyConnectionTests
             var received = new List<byte>();
             connection.CompleteReceive();
 
-            await foreach (var payload in connection.ReceiveAsync(TestContext.CancellationToken))
+            await foreach (var payload in connection.ReceiveAsync(TestContext.Current.CancellationToken))
             {
                 received.Add(((NearbyBytesPayload)payload).Data[0]);
             }
 
             // Assert — every pre-subscription payload is delivered, in arrival order
-            Assert.HasCount(3, received);
-            Assert.AreEqual(1, received[0]);
-            Assert.AreEqual(2, received[1]);
-            Assert.AreEqual(3, received[2]);
+            Assert.Equal(3, received.Count);
+            Assert.Equal(1, received[0]);
+            Assert.Equal(2, received[1]);
+            Assert.Equal(3, received[2]);
         }
 
-        [TestMethod]
+        [Fact]
         public void IsBeingConsumed_AfterReceiveAsync_IsTrue()
         {
             // Arrange
             var connection = Create.Connection();
 
             // Act
-            _ = connection.ReceiveAsync(TestContext.CancellationToken);
+            _ = connection.ReceiveAsync(TestContext.Current.CancellationToken);
 
             // Assert — set by calling ReceiveAsync, without needing to enumerate it
-            Assert.IsTrue(connection.IsBeingConsumed);
+            Assert.True(connection.IsBeingConsumed);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
-    [TestClass]
     public sealed class Disconnected : NearbyConnectionTests
     {
-        [TestMethod]
+        [Fact]
         public async Task CompletesWhenCompleteReceiveCalled()
         {
             // Arrange
@@ -409,11 +394,11 @@ public class NearbyConnectionTests
             connection.CompleteReceive();
 
             // Assert
-            await connection.Disconnected.WaitAsync(TimeSpan.FromSeconds(2), TestContext.CancellationToken);
-            Assert.IsTrue(connection.Disconnected.IsCompleted);
+            await connection.Disconnected.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+            Assert.True(connection.Disconnected.IsCompleted);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task CompletesWhenDisposeAsyncCalled()
         {
             // Arrange
@@ -423,10 +408,10 @@ public class NearbyConnectionTests
             await connection.DisposeAsync();
 
             // Assert
-            Assert.IsTrue(connection.Disconnected.IsCompleted);
+            Assert.True(connection.Disconnected.IsCompleted);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task IsIdempotentOnDoubleCompleteAndDispose()
         {
             // Arrange
@@ -438,26 +423,23 @@ public class NearbyConnectionTests
             await connection.DisposeAsync();
 
             // Assert
-            Assert.IsTrue(connection.Disconnected.IsCompleted);
+            Assert.True(connection.Disconnected.IsCompleted);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
-    [TestClass]
     public sealed class DisconnectedToken : NearbyConnectionTests
     {
-        [TestMethod]
+        [Fact]
         public void IsNotCanceled_WhileConnected()
         {
             // Arrange
             var connection = Create.Connection();
 
             // Assert
-            Assert.IsFalse(connection.DisconnectedToken.IsCancellationRequested);
+            Assert.False(connection.DisconnectedToken.IsCancellationRequested);
         }
 
-        [TestMethod]
+        [Fact]
         public void IsCanceled_AfterCompleteReceive()
         {
             // Arrange
@@ -467,10 +449,10 @@ public class NearbyConnectionTests
             connection.CompleteReceive();
 
             // Assert
-            Assert.IsTrue(connection.DisconnectedToken.IsCancellationRequested);
+            Assert.True(connection.DisconnectedToken.IsCancellationRequested);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task IsCanceled_AfterDisposeAsync()
         {
             // Arrange
@@ -480,13 +462,13 @@ public class NearbyConnectionTests
             await connection.DisposeAsync();
 
             // Assert
-            Assert.IsTrue(connection.DisconnectedToken.IsCancellationRequested);
+            Assert.True(connection.DisconnectedToken.IsCancellationRequested);
         }
 
         // DisconnectedToken is public and consumers hold connection references past teardown, so the
         // backing CancellationTokenSource must NOT be disposed — reading the token after
         // DisposeAsync has to keep working rather than throw ObjectDisposedException.
-        [TestMethod]
+        [Fact]
         public async Task RemainsReadable_AfterDisposeAsync()
         {
             // Arrange
@@ -497,11 +479,11 @@ public class NearbyConnectionTests
 
             // Assert — reading the token and registering on it must not throw
             var token = connection.DisconnectedToken;
-            Assert.IsTrue(token.IsCancellationRequested);
+            Assert.True(token.IsCancellationRequested);
             using var registration = token.Register(static () => { });
         }
 
-        [TestMethod]
+        [Fact]
         public async Task Register_AfterDisposeAsync_RunsCallbackInline()
         {
             // Arrange
@@ -515,10 +497,10 @@ public class NearbyConnectionTests
                 () => ranOnRegisteringThread = Environment.CurrentManagedThreadId == registeringThreadId);
 
             // Assert
-            Assert.IsTrue(ranOnRegisteringThread);
+            Assert.True(ranOnRegisteringThread);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ComposesIntoLinkedSource_AfterDisposeAsync()
         {
             // Arrange
@@ -531,10 +513,10 @@ public class NearbyConnectionTests
                 connection.DisconnectedToken, caller.Token);
 
             // Assert
-            Assert.IsTrue(linked.Token.IsCancellationRequested);
+            Assert.True(linked.Token.IsCancellationRequested);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ReceiveAsync_ExitsLoop_WhenPeerDisconnectsMidEnumeration()
         {
             // Arrange
@@ -544,21 +526,21 @@ public class NearbyConnectionTests
 
             // Act — disconnect from inside the loop after the first payload
             var received = new List<NearbyPayload>();
-            await foreach (var payload in connection.ReceiveAsync(TestContext.CancellationToken))
+            await foreach (var payload in connection.ReceiveAsync(TestContext.Current.CancellationToken))
             {
                 received.Add(payload);
                 connection.CompleteReceive();
             }
 
             // Assert — the loop terminated without the consumer owning a token at all
-            Assert.HasCount(1, received);
+            Assert.Single(received);
         }
 
         // Pins the documented misuse. Passing DisconnectedToken to ReceiveAsync looks natural and is
         // wrong: ReadAllAsync observes cancellation on every iteration, so an already-cancelled token
         // throws and discards buffered payloads — the exact data loss the design must prevent. If
         // this ever stops throwing, the remarks on DisconnectedToken need revisiting.
-        [TestMethod]
+        [Fact]
         public async Task ReceiveAsync_WithDisconnectedToken_ThrowsAndDiscardsBufferedPayloads()
         {
             // Arrange
@@ -568,14 +550,12 @@ public class NearbyConnectionTests
             connection.CompleteReceive();
 
             // Act + Assert
-            await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () =>
+            await Assert.ThrowsAsync<TaskCanceledException>(async () =>
             {
                 await foreach (var _ in connection.ReceiveAsync(connection.DisconnectedToken))
                 {
                 }
             });
         }
-
-        public TestContext TestContext { get; set; }
     }
 }

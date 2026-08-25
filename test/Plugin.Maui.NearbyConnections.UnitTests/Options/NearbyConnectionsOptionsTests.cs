@@ -9,13 +9,12 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// and named by platform at the call site. This suite runs on <c>net10.0</c> — the target that
 /// consumes none of them — so it fails if either scope is ever made conditional again.
 /// </remarks>
-[TestCategory("Options")]
+[Trait("Category", "Options")]
 public class NearbyConnectionsOptionsTests
 {
-    [TestClass]
     public sealed class PlatformScopes : NearbyConnectionsOptionsTests
     {
-        [TestMethod]
+        [Fact]
         public void Scopes_AreAvailableOnEveryTargetFramework()
         {
             // Arrange
@@ -26,11 +25,12 @@ public class NearbyConnectionsOptionsTests
             var apple = options.Apple;
 
             // Assert
-            Assert.IsNotNull(android, "Android options must exist on every TFM, not just android.");
-            Assert.IsNotNull(apple, "Apple options must exist on every TFM, not just ios.");
+            // Android options must exist on every TFM, not just android.
+            Assert.NotNull(android);            // Apple options must exist on every TFM, not just ios.
+            Assert.NotNull(apple);
         }
 
-        [TestMethod]
+        [Fact]
         public void Scopes_AreIndependentBetweenInstances()
         {
             // Arrange
@@ -41,17 +41,14 @@ public class NearbyConnectionsOptionsTests
             first.Android.Topology = NearbyTopology.Star;
 
             // Assert
-            Assert.AreEqual(
-                NearbyTopology.Cluster,
-                second.Android.Topology,
-                "The scope objects must not be shared between options instances.");
+            // The scope objects must not be shared between options instances.
+            Assert.Equal(NearbyTopology.Cluster, second.Android.Topology);
         }
     }
 
-    [TestClass]
     public sealed class Defaults : NearbyConnectionsOptionsTests
     {
-        [TestMethod]
+        [Fact]
         public void PlatformScopes_CarryTheDocumentedDefaults()
         {
             // Arrange
@@ -65,7 +62,7 @@ public class NearbyConnectionsOptionsTests
                 options.Apple.EncryptionPreference);
 
             // Assert
-            Assert.AreEqual(
+            Assert.Equal(
                 (NearbyTopology.Cluster,
                  NearbyConnectionType.Balanced,
                  false,
@@ -73,7 +70,7 @@ public class NearbyConnectionsOptionsTests
                 actual);
         }
 
-        [TestMethod]
+        [Fact]
         public void ConnectTimeout_IsThirtySeconds()
         {
             // Arrange
@@ -84,10 +81,10 @@ public class NearbyConnectionsOptionsTests
 
             // Assert — load-bearing: Google's Nearby Connections has no native invitation timeout,
             // so this default is what stops an un-configured app hanging forever on Android.
-            Assert.AreEqual(expected, actual);
+            Assert.Equal(expected, actual);
         }
 
-        [TestMethod]
+        [Fact]
         public void AcceptTimeout_IsFifteenSeconds()
         {
             // Arrange
@@ -98,10 +95,10 @@ public class NearbyConnectionsOptionsTests
 
             // Assert — deliberately shorter than ConnectTimeout: the accept window excludes the
             // remote user's decision, so only the handshake remains.
-            Assert.AreEqual(expected, actual);
+            Assert.Equal(expected, actual);
         }
 
-        [TestMethod]
+        [Fact]
         public void InboundRequestTimeout_IsThirtySeconds()
         {
             // Arrange
@@ -111,7 +108,7 @@ public class NearbyConnectionsOptionsTests
             var actual = new NearbyOptions().InboundRequestTimeout;
 
             // Assert
-            Assert.AreEqual(expected, actual);
+            Assert.Equal(expected, actual);
         }
     }
 }

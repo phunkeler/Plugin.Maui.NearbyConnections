@@ -11,17 +11,16 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// The session takes <see cref="IPlatformNearby"/> rather than the concrete implementation
 /// precisely so these can run on <c>net10.0</c>, where every <c>Platform*</c> start throws.
 /// </remarks>
-[TestCategory("Session")]
+[Trait("Category", "Session")]
 public class NearbyImplementationTests
 {
     // -------------------------------------------------------------------------
     // Preflight availability
     // -------------------------------------------------------------------------
 
-    [TestClass]
     public sealed class CheckAvailability : NearbyImplementationTests
     {
-        [TestMethod]
+        [Fact]
         public async Task Always_DelegatesToThePlatform()
         {
             // Arrange
@@ -29,14 +28,14 @@ public class NearbyImplementationTests
             var session = Create.Session(connections);
 
             // Act
-            var result = await session.CheckAvailabilityAsync(TestContext.CancellationToken);
+            var result = await session.CheckAvailabilityAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreEqual(NearbyAvailability.Ready, result);
-            Assert.AreEqual(1, connections.CheckAvailabilityCallCount);
+            Assert.Equal(NearbyAvailability.Ready, result);
+            Assert.Equal(1, connections.CheckAvailabilityCallCount);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task MultipleProblems_AreReportedTogether()
         {
             // The whole reason this is a [Flags] enum: a user with Bluetooth off AND permissions
@@ -51,15 +50,15 @@ public class NearbyImplementationTests
             var session = Create.Session(connections);
 
             // Act
-            var result = await session.CheckAvailabilityAsync(TestContext.CancellationToken);
+            var result = await session.CheckAvailabilityAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsTrue(result.HasFlag(NearbyAvailability.BluetoothDisabled));
-            Assert.IsTrue(result.HasFlag(NearbyAvailability.MissingPermissions));
-            Assert.IsFalse(result.HasFlag(NearbyAvailability.PlayServicesUnavailable));
+            Assert.True(result.HasFlag(NearbyAvailability.BluetoothDisabled));
+            Assert.True(result.HasFlag(NearbyAvailability.MissingPermissions));
+            Assert.False(result.HasFlag(NearbyAvailability.PlayServicesUnavailable));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ProblemFlags_DoNotCompareEqualToReady()
         {
             // Ready = 0 is what makes `result is NearbyAvailability.Ready` a valid readiness test.
@@ -74,13 +73,13 @@ public class NearbyImplementationTests
             var session = Create.Session(connections);
 
             // Act
-            var result = await session.CheckAvailabilityAsync(TestContext.CancellationToken);
+            var result = await session.CheckAvailabilityAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreNotEqual(NearbyAvailability.Ready, result);
+            Assert.NotEqual(NearbyAvailability.Ready, result);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DoesNotStartAdvertisingOrDiscovery()
         {
             // A preflight check must not have side effects: it reports state, it does not mutate it.
@@ -90,16 +89,16 @@ public class NearbyImplementationTests
             var session = Create.Session(connections);
 
             // Act
-            await session.CheckAvailabilityAsync(TestContext.CancellationToken);
+            await session.CheckAvailabilityAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsFalse(session.IsAdvertising);
-            Assert.IsFalse(session.IsDiscovering);
-            Assert.AreEqual(0, connections.AdvertiseCallCount);
-            Assert.AreEqual(0, connections.DiscoverCallCount);
+            Assert.False(session.IsAdvertising);
+            Assert.False(session.IsDiscovering);
+            Assert.Equal(0, connections.AdvertiseCallCount);
+            Assert.Equal(0, connections.DiscoverCallCount);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task CanceledToken_Throws()
         {
             // Arrange
@@ -109,21 +108,18 @@ public class NearbyImplementationTests
             await cts.CancelAsync();
 
             // Assert
-            await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            await Assert.ThrowsAsync<OperationCanceledException>(
                 () => session.CheckAvailabilityAsync(cts.Token));
         }
-
-        public TestContext TestContext { get; set; }
     }
 
     // -------------------------------------------------------------------------
     // Advertising / discovery toggles — decision 8: they are independent.
     // -------------------------------------------------------------------------
 
-    [TestClass]
     public sealed class Toggles : NearbyImplementationTests
     {
-        [TestMethod]
+        [Fact]
         public async Task StartAdvertisingAsync_SetsIsAdvertising_WithoutSettingIsDiscovering()
         {
             // Arrange
@@ -131,14 +127,14 @@ public class NearbyImplementationTests
             var session = Create.Session(connections);
 
             // Act
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsTrue(session.IsAdvertising);
-            Assert.IsFalse(session.IsDiscovering, "Advertising must not imply discovering — both sample pages toggle them separately.");
+            Assert.True(session.IsAdvertising);
+            Assert.False(session.IsDiscovering, "Advertising must not imply discovering — both sample pages toggle them separately.");
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StartDiscoveryAsync_SetsIsDiscovering_WithoutSettingIsAdvertising()
         {
             // Arrange
@@ -146,48 +142,48 @@ public class NearbyImplementationTests
             var session = Create.Session(connections);
 
             // Act
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsTrue(session.IsDiscovering);
-            Assert.IsFalse(session.IsAdvertising);
+            Assert.True(session.IsDiscovering);
+            Assert.False(session.IsAdvertising);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopAdvertisingAsync_ClearsIsAdvertising_AndLeavesDiscoveryRunning()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Act
-            await session.StopAdvertisingAsync(TestContext.CancellationToken);
+            await session.StopAdvertisingAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsFalse(session.IsAdvertising);
-            Assert.IsTrue(session.IsDiscovering, "Stopping one must not stop the other.");
+            Assert.False(session.IsAdvertising);
+            Assert.True(session.IsDiscovering, "Stopping one must not stop the other.");
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopAsync_ClearsBothToggles()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Act
-            await session.StopAsync(TestContext.CancellationToken);
+            await session.StopAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsFalse(session.IsAdvertising);
-            Assert.IsFalse(session.IsDiscovering);
+            Assert.False(session.IsAdvertising);
+            Assert.False(session.IsDiscovering);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StartAdvertisingAsync_CalledTwice_IsNoOp()
         {
             // Arrange
@@ -195,15 +191,14 @@ public class NearbyImplementationTests
             var session = Create.Session(connections);
 
             // Act
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsTrue(session.IsAdvertising);
-            Assert.AreEqual(1, connections.AdvertiseCallCount, "A second start must not reach the platform again.");
+            Assert.True(session.IsAdvertising);
+            // A second start must not reach the platform again.
+            Assert.Equal(1, connections.AdvertiseCallCount);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
     // -------------------------------------------------------------------------
@@ -213,10 +208,9 @@ public class NearbyImplementationTests
     // IsAdvertising/IsDiscovering flipping false.
     // -------------------------------------------------------------------------
 
-    [TestClass]
     public sealed class StartFailures : NearbyImplementationTests
     {
-        [TestMethod]
+        [Fact]
         public async Task AdvertiseStartFailure_ThrowsAndClearsIsAdvertising()
         {
             // Arrange
@@ -227,13 +221,13 @@ public class NearbyImplementationTests
             var session = Create.Session(connections);
 
             // Act & Assert
-            await Assert.ThrowsExactlyAsync<NearbyAdvertisingException>(
-                () => session.StartAdvertisingAsync(TestContext.CancellationToken));
+            await Assert.ThrowsAsync<NearbyAdvertisingException>(
+                () => session.StartAdvertisingAsync(TestContext.Current.CancellationToken));
 
-            Assert.IsFalse(session.IsAdvertising, "A failed start must not leave the session claiming to advertise.");
+            Assert.False(session.IsAdvertising, "A failed start must not leave the session claiming to advertise.");
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DiscoverStartFailure_ThrowsAndClearsIsDiscovering()
         {
             // Arrange
@@ -244,13 +238,13 @@ public class NearbyImplementationTests
             var session = Create.Session(connections);
 
             // Act & Assert
-            await Assert.ThrowsExactlyAsync<NearbyDiscoveryException>(
-                () => session.StartDiscoveryAsync(TestContext.CancellationToken));
+            await Assert.ThrowsAsync<NearbyDiscoveryException>(
+                () => session.StartDiscoveryAsync(TestContext.Current.CancellationToken));
 
-            Assert.IsFalse(session.IsDiscovering);
+            Assert.False(session.IsDiscovering);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AdvertiseStartFailure_IsRetryable()
         {
             // A failed start must clean up the dead pump so a retry reaches the platform again,
@@ -264,16 +258,16 @@ public class NearbyImplementationTests
             var session = Create.Session(connections);
 
             // Act
-            await Assert.ThrowsExactlyAsync<NearbyAdvertisingException>(
-                () => session.StartAdvertisingAsync(TestContext.CancellationToken));
-            await Assert.ThrowsExactlyAsync<NearbyAdvertisingException>(
-                () => session.StartAdvertisingAsync(TestContext.CancellationToken));
+            await Assert.ThrowsAsync<NearbyAdvertisingException>(
+                () => session.StartAdvertisingAsync(TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<NearbyAdvertisingException>(
+                () => session.StartAdvertisingAsync(TestContext.Current.CancellationToken));
 
             // Assert
-            Assert.AreEqual(2, connections.AdvertiseCallCount);
+            Assert.Equal(2, connections.AdvertiseCallCount);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AdvertiseFaultAfterSuccessfulStart_DoesNotThrowFromStartAdvertisingAsync()
         {
             // A late fault (e.g. the platform's radio drops mid-session) is a different failure
@@ -284,34 +278,34 @@ public class NearbyImplementationTests
             var connections = new FakeNearby();
             var session = Create.Session(connections);
 
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             // Act
             connections.FaultAdvertiseStream(new NearbyAdvertisingException("radio dropped"));
             await Wait.UntilAsync(() => !session.IsAdvertising);
 
             // Assert
-            Assert.IsFalse(session.IsAdvertising);
+            Assert.False(session.IsAdvertising);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DiscoverFaultAfterSuccessfulStart_DoesNotThrowFromStartDiscoveryAsync()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
 
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Act
             connections.FaultDiscoverStream(new NearbyDiscoveryException("radio dropped"));
             await Wait.UntilAsync(() => !session.IsDiscovering);
 
             // Assert
-            Assert.IsFalse(session.IsDiscovering);
+            Assert.False(session.IsDiscovering);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AdvertiseFaultAfterSuccessfulStart_PumpTakesLoggedPathAndSessionRestarts()
         {
             // The dead pump's own Cts/Task must not wedge a later restart: a fault that loses the
@@ -323,72 +317,69 @@ public class NearbyImplementationTests
             var connections = new FakeNearby();
             var session = Create.Session(connections);
 
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
             connections.FaultAdvertiseStream(new NearbyAdvertisingException("radio dropped"));
             await Wait.UntilAsync(() => !session.IsAdvertising);
 
             // Act
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsTrue(session.IsAdvertising);
-            Assert.AreEqual(2, connections.AdvertiseCallCount);
+            Assert.True(session.IsAdvertising);
+            Assert.Equal(2, connections.AdvertiseCallCount);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DiscoverFaultAfterSuccessfulStart_PumpTakesLoggedPathAndSessionRestarts()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
 
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
             connections.FaultDiscoverStream(new NearbyDiscoveryException("radio dropped"));
             await Wait.UntilAsync(() => !session.IsDiscovering);
 
             // Act
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsTrue(session.IsDiscovering);
-            Assert.AreEqual(2, connections.DiscoverCallCount);
+            Assert.True(session.IsDiscovering);
+            Assert.Equal(2, connections.DiscoverCallCount);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
     // -------------------------------------------------------------------------
     // Discovery projected onto the Devices collection.
     // -------------------------------------------------------------------------
 
-    [TestClass]
     public sealed class Discovery : NearbyImplementationTests
     {
-        [TestMethod]
+        [Fact]
         public async Task DeviceFound_AddsToDevices()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Act
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitDeviceFoundAsync(device);
 
             // Assert
-            Assert.HasCount(1, session.Devices);
-            Assert.AreSame(device, session.Devices[0]);
-            Assert.AreEqual(NearbyDeviceStatus.Visible, device.Status);
+            Assert.Single(session.Devices);
+            Assert.Same(device, session.Devices[0]);
+            Assert.Equal(NearbyDeviceStatus.Visible, device.Status);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DeviceFound_Twice_DoesNotDuplicate()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Act
             var device = new NearbyDevice("peer-1", "Alice");
@@ -396,16 +387,16 @@ public class NearbyImplementationTests
             await connections.EmitDeviceFoundAsync(device);
 
             // Assert
-            Assert.HasCount(1, session.Devices);
+            Assert.Single(session.Devices);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DeviceLost_RemovesVisibleDevice()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Act
             var device = new NearbyDevice("peer-1", "Alice");
@@ -413,10 +404,10 @@ public class NearbyImplementationTests
             await connections.EmitDeviceLostAsync(device);
 
             // Assert
-            Assert.IsEmpty(session.Devices);
+            Assert.Empty(session.Devices);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DeviceLost_DoesNotRemoveConnectedDevice()
         {
             // Going out of discovery range is not the same as disconnecting. Removing a connected
@@ -425,23 +416,23 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitDeviceFoundAsync(device);
 
             connections.ConnectResult = Create.Connection(device);
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
 
             // Act
             await connections.EmitDeviceLostAsync(device);
 
             // Assert
-            Assert.HasCount(1, session.Devices);
-            Assert.AreEqual(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
+            Assert.Single(session.Devices);
+            Assert.Equal(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopDiscoveryAsync_DrainsVisibleDevices()
         {
             // Otherwise the UI shows devices that are no longer being looked for, forever.
@@ -449,55 +440,52 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             await connections.EmitDeviceFoundAsync(new NearbyDevice("peer-1", "Alice"));
             await connections.EmitDeviceFoundAsync(new NearbyDevice("peer-2", "Bob"));
 
             // Act
-            await session.StopDiscoveryAsync(TestContext.CancellationToken);
+            await session.StopDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsEmpty(session.Devices);
+            Assert.Empty(session.Devices);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopDiscoveryAsync_KeepsConnectedDevices()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitDeviceFoundAsync(device);
             connections.ConnectResult = Create.Connection(device);
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
 
             // Act
-            await session.StopDiscoveryAsync(TestContext.CancellationToken);
+            await session.StopDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.HasCount(1, session.Devices);
+            Assert.Single(session.Devices);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
     // -------------------------------------------------------------------------
     // Inbound requests: accept / reject.
     // -------------------------------------------------------------------------
 
-    [TestClass]
     public sealed class InboundRequests : NearbyImplementationTests
     {
-        [TestMethod]
+        [Fact]
         public async Task RequestArriving_ReportsRequestReceived_AndSurfacesDevice()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
 
@@ -508,24 +496,24 @@ public class NearbyImplementationTests
             await recorder.WaitForAsync("peer-1", 2);
 
             // Assert
-            Assert.AreEqual(NearbyDeviceStatus.RequestReceived, session.StatusOf("peer-1"));
+            Assert.Equal(NearbyDeviceStatus.RequestReceived, session.StatusOf("peer-1"));
             Assert.Contains(device, session.Devices);
 
             // Added before Updated: a consumer must never see a status change for a device it has
             // not been told about.
-            Assert.AreSequenceEqual(
+            Assert.Equal(
                 new[] { NearbyDeviceChangeAction.Added, NearbyDeviceChangeAction.Updated },
                 recorder.For("peer-1").Select(c => c.Action).ToArray());
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AutoAccept_ConnectsWithoutEverReportingRequestReceived()
         {
             // Arrange
             var connections = new FakeNearby();
             var options = new NearbyOptions { AutoAcceptConnectionRequests = true };
             var session = Create.Session(connections, options);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
@@ -536,21 +524,21 @@ public class NearbyImplementationTests
 
             // Assert — the documented contract of auto-accept: the state is skipped, not merely
             // unreported.
-            Assert.AreEqual(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
-            Assert.DoesNotContain(
-                NearbyDeviceStatus.RequestReceived,
-                recorder.StatusesFor("peer-1"),
-                "RequestReceived must not be observable when requests are auto-accepted.");
+            Assert.Equal(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
+            // RequestReceived must not be observable when requests are auto-accepted.
+                Assert.DoesNotContain(
+                    NearbyDeviceStatus.RequestReceived,
+                    recorder.StatusesFor("peer-1"));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AutoAccept_WhenTheAcceptNeverSettles_DisposalCancelsIt()
         {
             // Arrange
             var connections = new FakeNearby();
             var options = new NearbyOptions { AutoAcceptConnectionRequests = true };
             var session = Create.Session(connections, options);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
             var accept = connections.CaptureNextAcceptToken();
             await connections.EmitRequestThatOnlyCancellationEndsAsync(new NearbyDevice("peer-1", "Alice"));
 
@@ -562,19 +550,19 @@ public class NearbyImplementationTests
             // platform never settles. Nothing awaits auto-accept today, so this is the only
             // observable effect; it is also what keeps a future disposal drain from hanging here.
             await Wait.UntilAsync(() => accept.Task.IsCompleted);
-            Assert.IsTrue(
+            Assert.True(
                 accept.Task.IsCanceled,
                 "Disposal must cancel a pending auto-accept, not leave it awaiting forever.");
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AutoAccept_LeavesNoPendingRequestToAnswer()
         {
             // Arrange
             var connections = new FakeNearby();
             var options = new NearbyOptions { AutoAcceptConnectionRequests = true };
             var session = Create.Session(connections, options);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
             var device = new NearbyDevice("peer-1", "Alice");
 
             // Act
@@ -583,17 +571,17 @@ public class NearbyImplementationTests
             // The session already answered, so there is nothing left for the application to accept.
 
             // Assert
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => session.AcceptAsync(device, TestContext.CancellationToken));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => session.AcceptAsync(device, TestContext.Current.CancellationToken));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AutoAccept_WhenAcceptFails_ResetsDeviceToVisible()
         {
             // Arrange
             var connections = new FakeNearby();
             var options = new NearbyOptions { AutoAcceptConnectionRequests = true };
             var session = Create.Session(connections, options);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
             var device = new NearbyDevice("peer-1", "Alice");
 
             // Act
@@ -605,11 +593,11 @@ public class NearbyImplementationTests
             // the advertise pump and stop advertising.
 
             // Assert
-            Assert.AreEqual(NearbyDeviceStatus.Visible, device.Status);
-            Assert.IsTrue(session.IsAdvertising);
+            Assert.Equal(NearbyDeviceStatus.Visible, device.Status);
+            Assert.True(session.IsAdvertising);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task UnansweredRequest_WhenTimeoutElapses_RejectsAndReturnsDeviceToVisible()
         {
             // Arrange
@@ -617,7 +605,7 @@ public class NearbyImplementationTests
             var timeout = TimeSpan.FromSeconds(30);
             var connections = new FakeNearby();
             var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
@@ -631,11 +619,11 @@ public class NearbyImplementationTests
             await recorder.WaitForAsync("peer-1", 3);
 
             // Assert
-            Assert.IsTrue(rejected, "An expired request must be rejected, to release the platform's handle.");
-            Assert.AreEqual(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
+            Assert.True(rejected, "An expired request must be rejected, to release the platform's handle.");
+            Assert.Equal(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ExpiredRequest_CannotBeAccepted()
         {
             // Arrange
@@ -643,7 +631,7 @@ public class NearbyImplementationTests
             var timeout = TimeSpan.FromSeconds(30);
             var connections = new FakeNearby();
             var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
@@ -655,11 +643,11 @@ public class NearbyImplementationTests
             await recorder.WaitForAsync("peer-1", 3);
 
             // Assert
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-                () => session.AcceptAsync(device, TestContext.CancellationToken));
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => session.AcceptAsync(device, TestContext.Current.CancellationToken));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task PendingRequest_PublishesExpiryForAConsumerCountdown()
         {
             // Arrange
@@ -667,7 +655,7 @@ public class NearbyImplementationTests
             var timeout = TimeSpan.FromSeconds(30);
             var connections = new FakeNearby();
             var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
@@ -678,17 +666,17 @@ public class NearbyImplementationTests
             await recorder.WaitForAsync("peer-1", 2);
 
             // Assert
-            Assert.AreEqual(expected, session.Current("peer-1")?.RequestExpiresAt);
+            Assert.Equal(expected, session.Current("peer-1")?.RequestExpiresAt);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AcceptedRequest_ClearsTheExpiry()
         {
             // Arrange
             var time = new FakeTimeProvider();
             var connections = new FakeNearby();
             var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = TimeSpan.FromSeconds(30) }, time);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
@@ -696,13 +684,13 @@ public class NearbyImplementationTests
             await recorder.WaitForAsync("peer-1", 2);
 
             // Act
-            await session.AcceptAsync(device, TestContext.CancellationToken);
+            await session.AcceptAsync(device, TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsNull(session.Current("peer-1")?.RequestExpiresAt);
+            Assert.Null(session.Current("peer-1")?.RequestExpiresAt);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AcceptedRequest_IsNotRejectedWhenTheOriginalTimeoutWouldHaveElapsed()
         {
             // Arrange
@@ -710,7 +698,7 @@ public class NearbyImplementationTests
             var timeout = TimeSpan.FromSeconds(30);
             var connections = new FakeNearby();
             var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
@@ -718,24 +706,24 @@ public class NearbyImplementationTests
 
             await connections.EmitRequestAsync(device, () => Create.Connection(device), onReject: () => rejected = true);
             await recorder.WaitForAsync("peer-1", 2);
-            await session.AcceptAsync(device, TestContext.CancellationToken);
+            await session.AcceptAsync(device, TestContext.Current.CancellationToken);
 
             // Act
             time.Advance(timeout * 2);
 
             // Assert
-            Assert.IsFalse(rejected, "A disarmed countdown must not reject an accepted request.");
-            Assert.AreEqual(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
+            Assert.False(rejected, "A disarmed countdown must not reject an accepted request.");
+            Assert.Equal(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task InfiniteTimeout_LeavesTheRequestOutstanding()
         {
             // Arrange
             var time = new FakeTimeProvider();
             var connections = new FakeNearby();
             var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = Timeout.InfiniteTimeSpan }, time);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
@@ -748,20 +736,19 @@ public class NearbyImplementationTests
             time.Advance(TimeSpan.FromHours(1));
 
             // Assert
-            Assert.IsFalse(rejected);
-            Assert.AreEqual(NearbyDeviceStatus.RequestReceived, session.StatusOf("peer-1"));
-            Assert.IsNull(
-                session.Current("peer-1")?.RequestExpiresAt,
-                "A request that does not expire must not publish an expiry instant.");
+            Assert.False(rejected);
+            Assert.Equal(NearbyDeviceStatus.RequestReceived, session.StatusOf("peer-1"));
+            // A request that does not expire must not publish an expiry instant.
+            Assert.Null(session.Current("peer-1")?.RequestExpiresAt);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AcceptAsync_ConnectsAndReportsConnected()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             var device = new NearbyDevice("peer-1", "Alice");
             var connection = Create.Connection(device);
@@ -770,14 +757,14 @@ public class NearbyImplementationTests
             await using var recorder = new ChangeRecorder(session);
 
             // Act
-            var result = await session.AcceptAsync(device, TestContext.CancellationToken);
+            var result = await session.AcceptAsync(device, TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreSame(connection, result);
-            Assert.AreEqual(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
-            Assert.AreEqual(ConnectionRole.Acceptor, session.Current("peer-1")!.Role);
-            Assert.IsTrue(session.TryGetConnection(device.Id, out var lookedUp));
-            Assert.AreSame(connection, lookedUp);
+            Assert.Same(connection, result);
+            Assert.Equal(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
+            Assert.Equal(ConnectionRole.Acceptor, session.Current("peer-1")!.Role);
+            Assert.True(session.TryGetConnection(device.Id, out var lookedUp));
+            Assert.Same(connection, lookedUp);
 
             // Wait for the Connected change specifically. A plain count reaches 1 as soon as any
             // change lands, which may be an earlier transition in the handshake.
@@ -787,7 +774,7 @@ public class NearbyImplementationTests
             Assert.Contains(NearbyDeviceStatus.Connected, recorder.StatusesFor("peer-1"));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task RejectAsync_DoesNotConnect()
         {
             // Security-relevant: rejecting must never produce a connection.
@@ -795,7 +782,7 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitRequestAsync(device, () => Create.Connection(device));
@@ -803,32 +790,32 @@ public class NearbyImplementationTests
             await using var recorder = new ChangeRecorder(session);
 
             // Act
-            await session.RejectAsync(device, TestContext.CancellationToken);
+            await session.RejectAsync(device, TestContext.Current.CancellationToken);
 
             // Assert
             Assert.DoesNotContain(NearbyDeviceStatus.Connected, recorder.StatusesFor("peer-1"));
-            Assert.IsFalse(session.TryGetConnection(device.Id, out _));
-            Assert.AreEqual(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
+            Assert.False(session.TryGetConnection(device.Id, out _));
+            Assert.Equal(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AcceptAsync_AfterReject_Throws()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             // Act
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitRequestAsync(device, () => Create.Connection(device));
-            await session.RejectAsync(device, TestContext.CancellationToken);
+            await session.RejectAsync(device, TestContext.Current.CancellationToken);
 
             // Assert
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => session.AcceptAsync(device, TestContext.CancellationToken));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => session.AcceptAsync(device, TestContext.Current.CancellationToken));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AcceptAsync_WithNoOutstandingRequest_Throws()
         {
             // Arrange
@@ -836,17 +823,17 @@ public class NearbyImplementationTests
             var session = Create.Session(connections);
 
             // Assert
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-                () => session.AcceptAsync(new NearbyDevice("peer-1", "Alice"), TestContext.CancellationToken));
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => session.AcceptAsync(new NearbyDevice("peer-1", "Alice"), TestContext.Current.CancellationToken));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AcceptAsync_WhenPlatformFails_ResetsDeviceToVisible()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitRequestAsync(
@@ -854,23 +841,21 @@ public class NearbyImplementationTests
                 () => throw new InvalidOperationException("handshake failed"));
 
             // Act
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => session.AcceptAsync(device, TestContext.CancellationToken));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => session.AcceptAsync(device, TestContext.Current.CancellationToken));
 
             // Assert
-            Assert.AreEqual(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"), "A failed handshake must not strand the row on Connecting.");
+            // A failed handshake must not strand the row on Connecting.
+            Assert.Equal(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
         }
-
-        public TestContext TestContext { get; set; }
     }
 
     // -------------------------------------------------------------------------
     // Outbound connect.
     // -------------------------------------------------------------------------
 
-    [TestClass]
     public sealed class Connect : NearbyImplementationTests
     {
-        [TestMethod]
+        [Fact]
         public async Task ConnectAsync_SetsConnectedStateAndReportsIt()
         {
             // Arrange
@@ -883,24 +868,24 @@ public class NearbyImplementationTests
             await using var recorder = new ChangeRecorder(session);
 
             // Act
-            var result = await session.ConnectAsync(device, TestContext.CancellationToken);
+            var result = await session.ConnectAsync(device, TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreSame(connection, result);
-            Assert.AreEqual(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
-            Assert.AreEqual(ConnectionRole.Initiator, session.Current("peer-1")!.Role);
-            Assert.IsTrue(session.TryGetConnection(device.Id, out _));
+            Assert.Same(connection, result);
+            Assert.Equal(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
+            Assert.Equal(ConnectionRole.Initiator, session.Current("peer-1")!.Role);
+            Assert.True(session.TryGetConnection(device.Id, out _));
 
             await Wait.UntilAsync(
                 () => recorder.StatusesFor("peer-1").Contains(NearbyDeviceStatus.Connected));
 
-            Assert.Contains(
-                NearbyDeviceStatus.Connected,
-                recorder.StatusesFor("peer-1"),
-                "Reaching Connected must be reported as a change, not only reflected in Devices.");
+            // Reaching Connected must be reported as a change, not only reflected in Devices.
+                Assert.Contains(
+                    NearbyDeviceStatus.Connected,
+                    recorder.StatusesFor("peer-1"));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ConnectAsync_WhenRejected_ResetsDeviceToVisible()
         {
             // Arrange
@@ -912,23 +897,21 @@ public class NearbyImplementationTests
             var device = new NearbyDevice("peer-1", "Alice");
 
             // Act
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => session.ConnectAsync(device, TestContext.CancellationToken));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => session.ConnectAsync(device, TestContext.Current.CancellationToken));
 
             // Assert
-            Assert.AreEqual(NearbyDeviceStatus.Visible, device.Status);
+            Assert.Equal(NearbyDeviceStatus.Visible, device.Status);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ConnectAsync_NullDevice_Throws()
         {
             // Arrange
             var session = Create.Session(new FakeNearby());
 
             // Assert
-            await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => session.ConnectAsync(null!, TestContext.CancellationToken));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => session.ConnectAsync(null!, TestContext.Current.CancellationToken));
         }
-
-        public TestContext TestContext { get; set; }
     }
 
     // -------------------------------------------------------------------------
@@ -936,10 +919,9 @@ public class NearbyImplementationTests
     // side ended it.
     // -------------------------------------------------------------------------
 
-    [TestClass]
     public sealed class Disconnect : NearbyImplementationTests
     {
-        [TestMethod]
+        [Fact]
         public async Task RemoteDisconnect_RaisesConnectionDroppedExactlyOnce()
         {
             // Arrange
@@ -949,7 +931,7 @@ public class NearbyImplementationTests
             var connection = Create.Connection(device);
             connections.ConnectResult = connection;
 
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
 
@@ -961,14 +943,12 @@ public class NearbyImplementationTests
             await Wait.UntilAsync(() => recorder.StatusesFor("peer-1").Any());
 
             // Assert
-            Assert.HasCount(
-                1,
-                recorder.StatusesFor("peer-1"),
-                "A duplicate drop was a previously fixed bug (P2-3).");
-            Assert.AreEqual(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
+            // A duplicate drop was a previously fixed bug (P2-3).
+            Assert.Single(recorder.StatusesFor("peer-1"));
+            Assert.Equal(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DisposeAsync_AfterADisconnect_LeavesTheRegistryEmpty()
         {
             // Arrange
@@ -978,7 +958,7 @@ public class NearbyImplementationTests
             var connection = Create.Connection(device);
             connections.ConnectResult = connection;
 
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
 
             // Act — StopAsync disposes each live connection but leaves _activeConnections for the
             // watcher to clear, so the watcher wakes mid-disposal and calls ResetToVisible after
@@ -989,13 +969,12 @@ public class NearbyImplementationTests
             await Wait.UntilAsync(() => session.Devices.Count > 0);
 
             // Assert
-            Assert.IsEmpty(
-                session.Devices,
-                "A watcher waking after disposal must not resurrect a row. Registry.Update returns "
-                    + "early for an absent id, which is what makes this hold — keep it that way.");
+            // A watcher waking after disposal must not resurrect a row. Registry.Update returns
+            // early for an absent id, which is what makes this hold — keep it that way.
+            Assert.Empty(session.Devices);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DisconnectAsync_ReportsTheDropExactlyOnce()
         {
             // Arrange
@@ -1004,25 +983,23 @@ public class NearbyImplementationTests
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = Create.Connection(device);
 
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
 
             // Act
-            await session.DisconnectAsync(device, TestContext.CancellationToken);
+            await session.DisconnectAsync(device, TestContext.Current.CancellationToken);
 
             // The registry is written before subscribers are published to, so StatusOf can already
             // read Visible while the recorder's channel is still undrained. Wait on the recorder.
             await Wait.UntilAsync(() => recorder.StatusesFor("peer-1").Any());
 
             // Assert
-            Assert.HasCount(
-                1,
-                recorder.StatusesFor("peer-1"),
-                "A local disconnect must be reported exactly like a remote one.");
+            // A local disconnect must be reported exactly like a remote one.
+            Assert.Single(recorder.StatusesFor("peer-1"));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DisconnectAsync_WhenNotConnected_IsNoOp()
         {
             // Arrange
@@ -1030,17 +1007,17 @@ public class NearbyImplementationTests
             var device = new NearbyDevice("peer-1", "Alice");
 
             // Act
-            await session.DisconnectAsync(device, TestContext.CancellationToken);
+            await session.DisconnectAsync(device, TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.AreEqual(NearbyDeviceStatus.Visible, device.Status);
+            Assert.Equal(NearbyDeviceStatus.Visible, device.Status);
         }
 
         // GAP: the reason a connection ended is no longer observable by consumers. It travelled on
         // NearbyConnectionChangedEventArgs.Reason, and a device back in Visible carries no reason.
         // EndReason now reaches logs only. This test asserts what a consumer CAN still see, and
         // exists to be rewritten when a reason is reattached to the transition.
-        [TestMethod]
+        [Fact]
         public async Task ReturnsDeviceToVisible()
         {
             // Arrange
@@ -1050,19 +1027,20 @@ public class NearbyImplementationTests
             connections.ConnectResult = Create.Connection(device);
 
             // Act
-            await session.ConnectAsync(device, TestContext.CancellationToken);
-            await session.DisconnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
+            await session.DisconnectAsync(device, TestContext.Current.CancellationToken);
             await Wait.UntilAsync(() => session.StatusOf("peer-1") is NearbyDeviceStatus.Visible);
 
             // Assert
-            Assert.AreEqual(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
-            Assert.IsNull(session.Current("peer-1")!.Role, "A disconnected device plays no role.");
+            Assert.Equal(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
+            // A disconnected device plays no role.
+            Assert.Null(session.Current("peer-1")!.Role);
         }
 
         // DiscoveryPageViewModel filters on "Visible or Connecting". A device left in any other
         // state after a drop silently vanishes from the discovery list — a capability regression
         // that no other test in this suite would catch.
-        [TestMethod]
+        [Fact]
         public async Task DroppedDevice_RejoinsTheDiscoveryFilter()
         {
             // Arrange
@@ -1072,19 +1050,19 @@ public class NearbyImplementationTests
             connections.ConnectResult = Create.Connection(device);
 
             // Act
-            await session.ConnectAsync(device, TestContext.CancellationToken);
-            await session.DisconnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
+            await session.DisconnectAsync(device, TestContext.Current.CancellationToken);
             await Wait.UntilAsync(() => session.StatusOf("peer-1") is not NearbyDeviceStatus.Connected);
 
             // Assert
-            Assert.IsTrue(
+            Assert.True(
                 session.StatusOf("peer-1") is NearbyDeviceStatus.Visible or NearbyDeviceStatus.Connecting,
                 $"A dropped device must rejoin the discovery filter, but was {session.StatusOf("peer-1")}.");
         }
 
         // Cancelled, TimedOut and Failed are branched per exception type rather than defaulted, so
         // a caller that withdraws is not reported as a failure.
-        [TestMethod]
+        [Fact]
         public async Task ConnectAsync_Cancelled_LeavesDeviceVisible()
         {
             // Arrange
@@ -1093,17 +1071,16 @@ public class NearbyImplementationTests
             var device = new NearbyDevice("peer-1", "Alice");
 
             // Act
-            await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => session.ConnectAsync(device, TestContext.CancellationToken));
+            await Assert.ThrowsAsync<OperationCanceledException>(() => session.ConnectAsync(device, TestContext.Current.CancellationToken));
 
             // Assert
-            Assert.AreEqual(
-                NearbyDeviceStatus.Visible,
-                session.StatusOf("peer-1"),
-                "A cancelled handshake must not strand the row on Connecting.");
-            Assert.IsNull(session.Current("peer-1")!.Role, "A device that is not connecting carries no role.");
+            // A cancelled handshake must not strand the row on Connecting.
+            Assert.Equal(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
+            // A device that is not connecting carries no role.
+            Assert.Null(session.Current("peer-1")!.Role);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DisconnectAsync_LeavesOtherConnectionsIntact()
         {
             // Arrange
@@ -1114,11 +1091,11 @@ public class NearbyImplementationTests
             var bob = new NearbyDevice("peer-2", "Bob");
 
             connections.ConnectResult = Create.Connection(alice);
-            await session.ConnectAsync(alice, TestContext.CancellationToken);
+            await session.ConnectAsync(alice, TestContext.Current.CancellationToken);
             connections.ConnectResult = Create.Connection(bob);
-            await session.ConnectAsync(bob, TestContext.CancellationToken);
+            await session.ConnectAsync(bob, TestContext.Current.CancellationToken);
 
-            await session.DisconnectAsync(alice, TestContext.CancellationToken);
+            await session.DisconnectAsync(alice, TestContext.Current.CancellationToken);
 
             // Alice's entry is removed on the Disconnected continuation, not inside DisconnectAsync
             // — the same asynchrony documented by StopAsync_ClearingDeviceState_IsNotSynchronous.
@@ -1127,21 +1104,18 @@ public class NearbyImplementationTests
             await Wait.UntilAsync(() => !session.TryGetConnection(alice.Id, out _));
 
             // Assert
-            Assert.AreEqual(NearbyDeviceStatus.Connected, session.StatusOf("peer-2"));
-            Assert.IsTrue(session.TryGetConnection(bob.Id, out _), "Disconnecting one device must not tear down the others.");
+            Assert.Equal(NearbyDeviceStatus.Connected, session.StatusOf("peer-2"));
+            Assert.True(session.TryGetConnection(bob.Id, out _), "Disconnecting one device must not tear down the others.");
         }
-
-        public TestContext TestContext { get; set; }
     }
 
     // -------------------------------------------------------------------------
     // Payload delivery — the stream survives untouched by this restructure.
     // -------------------------------------------------------------------------
 
-    [TestClass]
     public sealed class Payloads : NearbyImplementationTests
     {
-        [TestMethod]
+        [Fact]
         public async Task PayloadsFromMultipleConnections_AllArrive()
         {
             // Arrange
@@ -1155,9 +1129,9 @@ public class NearbyImplementationTests
             var bobChannel = Channel.CreateUnbounded<NearbyPayload>();
 
             connections.ConnectResult = Create.Connection(alice, aliceChannel);
-            var aliceConnection = await session.ConnectAsync(alice, TestContext.CancellationToken);
+            var aliceConnection = await session.ConnectAsync(alice, TestContext.Current.CancellationToken);
             connections.ConnectResult = Create.Connection(bob, bobChannel);
-            var bobConnection = await session.ConnectAsync(bob, TestContext.CancellationToken);
+            var bobConnection = await session.ConnectAsync(bob, TestContext.Current.CancellationToken);
 
             aliceChannel.Writer.TryWrite(new NearbyBytesPayload([1]));
             bobChannel.Writer.TryWrite(new NearbyBytesPayload([2]));
@@ -1168,67 +1142,62 @@ public class NearbyImplementationTests
             var bobCount = 0;
 
             // Act
-            await foreach (var _ in aliceConnection.ReceiveAsync(TestContext.CancellationToken))
+            await foreach (var _ in aliceConnection.ReceiveAsync(TestContext.Current.CancellationToken))
             {
                 aliceCount++;
             }
 
-            await foreach (var _ in bobConnection.ReceiveAsync(TestContext.CancellationToken))
+            await foreach (var _ in bobConnection.ReceiveAsync(TestContext.Current.CancellationToken))
             {
                 bobCount++;
             }
 
             // Assert
-            Assert.AreEqual(1, aliceCount);
-            Assert.AreEqual(1, bobCount);
+            Assert.Equal(1, aliceCount);
+            Assert.Equal(1, bobCount);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
     // -------------------------------------------------------------------------
     // Hazards flagged by the test-mining pass.
     // -------------------------------------------------------------------------
 
-    [TestClass]
     public sealed class ChangeStreams : NearbyImplementationTests
     {
-        public TestContext TestContext { get; set; } = null!;
-
-        [TestMethod]
+        [Fact]
         public async Task StartAdvertisingAsync_PublishesTrue()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.Current.CancellationToken);
 
             // Act
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsTrue(await changes.MoveNextAsync());
-            Assert.IsTrue(changes.Current);
+            Assert.True(await changes.MoveNextAsync());
+            Assert.True(changes.Current);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopAdvertisingAsync_PublishesFalse()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
-            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
+            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.Current.CancellationToken);
 
             // Act
-            await session.StopAdvertisingAsync(TestContext.CancellationToken);
+            await session.StopAdvertisingAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsTrue(await changes.MoveNextAsync());
-            Assert.IsFalse(changes.Current);
+            Assert.True(await changes.MoveNextAsync());
+            Assert.False(changes.Current);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopAdvertisingAsync_WhenNotAdvertising_PublishesNothing()
         {
             // A stop that stops nothing is not a transition. The channel is FIFO, so
@@ -1237,18 +1206,18 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.Current.CancellationToken);
 
             // Act
-            await session.StopAdvertisingAsync(TestContext.CancellationToken);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StopAdvertisingAsync(TestContext.Current.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsTrue(await changes.MoveNextAsync());
-            Assert.IsTrue(changes.Current, "The no-op stop must not have published false ahead of the real start.");
+            Assert.True(await changes.MoveNextAsync());
+            Assert.True(changes.Current, "The no-op stop must not have published false ahead of the real start.");
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AdvertiseStartFailure_PublishesTrueThenFalse()
         {
             // The flag is set before the platform confirms the start, so a failed start is a real
@@ -1257,20 +1226,20 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby { AdvertiseFault = new NearbyAdvertisingException("nope") };
             var session = Create.Session(connections);
-            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+            await using var changes = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.Current.CancellationToken);
 
             // Act
-            await Assert.ThrowsExactlyAsync<NearbyAdvertisingException>(
-                () => session.StartAdvertisingAsync(TestContext.CancellationToken));
+            await Assert.ThrowsAsync<NearbyAdvertisingException>(
+                () => session.StartAdvertisingAsync(TestContext.Current.CancellationToken));
 
             // Assert
-            Assert.IsTrue(await changes.MoveNextAsync());
-            Assert.IsTrue(changes.Current);
-            Assert.IsTrue(await changes.MoveNextAsync());
-            Assert.IsFalse(changes.Current);
+            Assert.True(await changes.MoveNextAsync());
+            Assert.True(changes.Current);
+            Assert.True(await changes.MoveNextAsync());
+            Assert.False(changes.Current);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AdvertiseFaultAfterSuccessfulStart_PublishesFalse_AndLeavesDiscoveryRunning()
         {
             // The finding-17 scenario: advertising dies mid-session with no caller involved.
@@ -1278,41 +1247,41 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
-            await using var advertising = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+            await using var advertising = session.AdvertisingChanges.GetAsyncEnumerator(TestContext.Current.CancellationToken);
 
             // Act
             connections.FaultAdvertiseStream(new NearbyAdvertisingException("radio dropped"));
 
             // Assert
-            Assert.IsTrue(await advertising.MoveNextAsync());
-            Assert.IsFalse(advertising.Current);
-            Assert.IsTrue(session.IsDiscovering, "Advertising and discovery are independent.");
+            Assert.True(await advertising.MoveNextAsync());
+            Assert.False(advertising.Current);
+            Assert.True(session.IsDiscovering, "Advertising and discovery are independent.");
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DiscoverFaultAfterSuccessfulStart_PublishesFalse_AndLeavesAdvertisingRunning()
         {
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
-            await using var discovery = session.DiscoveryChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+            await using var discovery = session.DiscoveryChanges.GetAsyncEnumerator(TestContext.Current.CancellationToken);
 
             // Act
             connections.FaultDiscoverStream(new NearbyDiscoveryException("radio dropped"));
 
             // Assert
-            Assert.IsTrue(await discovery.MoveNextAsync());
-            Assert.IsFalse(discovery.Current);
-            Assert.IsTrue(session.IsAdvertising, "Advertising and discovery are independent.");
+            Assert.True(await discovery.MoveNextAsync());
+            Assert.False(discovery.Current);
+            Assert.True(session.IsAdvertising, "Advertising and discovery are independent.");
         }
 
-        [TestMethod]
+        [Fact]
         public async Task DiscoveryRefresh_PublishesNothing_AndIsDiscoveringStaysTrue()
         {
             // A refresh restarts the underlying scan. Discovery never logically stopped, so the
@@ -1324,27 +1293,26 @@ public class NearbyImplementationTests
             var interval = TimeSpan.FromSeconds(30);
             var connections = new FakeNearby();
             var session = Create.Session(connections, new NearbyOptions { DiscoveryRefreshInterval = interval }, time);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
-            await using var changes = session.DiscoveryChanges.GetAsyncEnumerator(TestContext.CancellationToken);
+            await using var changes = session.DiscoveryChanges.GetAsyncEnumerator(TestContext.Current.CancellationToken);
 
             // Act
             time.Advance(interval);
             await Wait.UntilAsync(() => connections.DiscoverCallCount >= 2);
 
             // Assert
-            Assert.IsTrue(session.IsDiscovering, "Discovery does not stop across a refresh.");
+            Assert.True(session.IsDiscovering, "Discovery does not stop across a refresh.");
 
-            await session.StopDiscoveryAsync(TestContext.CancellationToken);
-            Assert.IsTrue(await changes.MoveNextAsync());
-            Assert.IsFalse(changes.Current, "The refresh must not have published a false/true blink before the real stop.");
+            await session.StopDiscoveryAsync(TestContext.Current.CancellationToken);
+            Assert.True(await changes.MoveNextAsync());
+            Assert.False(changes.Current, "The refresh must not have published a false/true blink before the real stop.");
         }
     }
 
-    [TestClass]
     public sealed class Hazards : NearbyImplementationTests
     {
-        [TestMethod]
+        [Fact]
         public async Task EnumeratingDevices_WhileCollectionMutates_DoesNotThrow()
         {
             // Ports the *hazard* behind ConnectionLifecycleAdversarialTests rather than the test:
@@ -1354,7 +1322,7 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             for (var i = 0; i < 50; i++)
             {
@@ -1367,7 +1335,7 @@ public class NearbyImplementationTests
                 {
                     await connections.EmitDeviceFoundAsync(new NearbyDevice($"peer-{i}", $"Device {i}"));
                 }
-            }, TestContext.CancellationToken);
+            }, TestContext.Current.CancellationToken);
 
             // Act — a consumer snapshotting the collection must not observe a torn enumeration.
             for (var pass = 0; pass < 50; pass++)
@@ -1378,10 +1346,10 @@ public class NearbyImplementationTests
             await mutating;
 
             // Assert
-            Assert.IsGreaterThanOrEqualTo(150, session.Devices.Count);
+            Assert.True(session.Devices.Count >= 150);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task AbandonedWatcher_DoesNotBreakTheSession()
         {
             // The structural win over events: a consumer cannot run code on the callback path, so a
@@ -1391,7 +1359,7 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             using var abandonedToken = new CancellationTokenSource();
             var abandoned = session.Devices.Changes.GetAsyncEnumerator(abandonedToken.Token);
@@ -1405,7 +1373,7 @@ public class NearbyImplementationTests
             connections.ConnectResult = Create.Connection(device);
 
             // Act
-            var connection = await session.ConnectAsync(device, TestContext.CancellationToken);
+            var connection = await session.ConnectAsync(device, TestContext.Current.CancellationToken);
             await abandonedToken.CancelAsync();
 
             // Expected: cancelling is how an abandoned watcher is torn down.
@@ -1418,12 +1386,12 @@ public class NearbyImplementationTests
             }
 
             // Assert
-            Assert.IsNotNull(connection);
-            Assert.AreEqual(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
+            Assert.NotNull(connection);
+            Assert.Equal(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
             await abandoned.DisposeAsync();
         }
 
-        [TestMethod]
+        [Fact]
         public async Task WatchCycles_LeaveTheSurvivingWatcherReceivingExactlyOnce()
         {
             // R-6, the leak class that motivated the whole restructure. Five enter/leave page
@@ -1434,7 +1402,7 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             for (var visit = 0; visit < 5; visit++)
             {
@@ -1447,17 +1415,15 @@ public class NearbyImplementationTests
             // Act
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = Create.Connection(device);
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
             await recorder.WaitForAsync("peer-1", 1);
 
             // Assert
-            Assert.HasCount(
-                1,
-                recorder.StatusesFor("peer-1").Where(st => st is NearbyDeviceStatus.Connected),
-                "Each change must reach a live watcher once, not once per past page visit.");
+            // Each change must reach a live watcher once, not once per past page visit.
+            Assert.Single(recorder.StatusesFor("peer-1"), st => st is NearbyDeviceStatus.Connected);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopAsync_RejectsOutstandingRequests()
         {
             // Otherwise the remote device waits on a request nobody will ever answer.
@@ -1465,7 +1431,7 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             var device = new NearbyDevice("peer-1", "Alice");
             var rejected = false;
@@ -1475,14 +1441,12 @@ public class NearbyImplementationTests
                 onReject: () => rejected = true);
 
             // Act
-            await session.StopAsync(TestContext.CancellationToken);
+            await session.StopAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsTrue(rejected);
-            Assert.IsEmpty(session.Devices);
+            Assert.True(rejected);
+            Assert.Empty(session.Devices);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
     // -------------------------------------------------------------------------
@@ -1499,10 +1463,9 @@ public class NearbyImplementationTests
     // stops delivering the state the consumer needs, with no compile error.
     // -------------------------------------------------------------------------
 
-    [TestClass]
     public sealed class BackgroundTeardown : NearbyImplementationTests
     {
-        [TestMethod]
+        [Fact]
         public async Task StopAsync_RaisesConnectionDropped_ForEveryLiveConnection()
         {
             // The zombie-Connected bug: without this, a consumer backgrounded mid-conversation
@@ -1512,17 +1475,17 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = Create.Connection(device);
 
-            await session.ConnectAsync(device, TestContext.CancellationToken);
-            Assert.AreEqual(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
+            Assert.Equal(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
 
             await using var recorder = new ChangeRecorder(session);
 
-            await session.StopAsync(TestContext.CancellationToken);
+            await session.StopAsync(TestContext.Current.CancellationToken);
 
             // Two independent async paths settle here: the registry publishes Removed, and the
             // detached WatchDisconnectAsync task clears _activeConnections once Disconnected
@@ -1540,11 +1503,11 @@ public class NearbyImplementationTests
                 .ToArray();
 
             // Assert
-            Assert.HasCount(1, removals);
-            Assert.IsFalse(session.TryGetConnection("peer-1", out _));
+            Assert.Single(removals);
+            Assert.False(session.TryGetConnection("peer-1", out _));
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopAsync_ClearsConnectedState_SoNoDeviceIsLeftReportingConnected()
         {
             // Devices is the state consumers bind to. A row still reading Connected after the OS
@@ -1553,15 +1516,15 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = Create.Connection(device);
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
 
-            await session.StopAsync(TestContext.CancellationToken);
+            await session.StopAsync(TestContext.Current.CancellationToken);
 
-            Assert.IsEmpty(session.Devices);
+            Assert.Empty(session.Devices);
 
             // Awaited, not asserted outright: the per-device clear happens in WatchDisconnectAsync,
             // which observes the connection's Disconnected task and therefore lands after StopAsync
@@ -1573,13 +1536,13 @@ public class NearbyImplementationTests
                 device.Status is NearbyDeviceStatus.Visible && !session.TryGetConnection(device.Id, out _));
 
             // Assert
-            Assert.AreNotEqual(NearbyDeviceStatus.Connected, device.Status);
-            Assert.IsFalse(
+            Assert.NotEqual(NearbyDeviceStatus.Connected, device.Status);
+            Assert.False(
                 session.TryGetConnection(device.Id, out _),
                 "A cleared device must not still resolve to a dead connection.");
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopAsync_ClearingDeviceState_IsNotSynchronous()
         {
             // Documents a real hazard rather than asserting desired behaviour. StopAsync clears the
@@ -1599,16 +1562,16 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = Create.Connection(device);
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
 
-            await session.StopAsync(TestContext.CancellationToken);
+            await session.StopAsync(TestContext.Current.CancellationToken);
 
-            Assert.IsEmpty(session.Devices, "The collection consumers bind to is cleared synchronously.");
-
+            // The collection consumers bind to is cleared synchronously.
+            Assert.Empty(session.Devices);
             // Wait on every condition asserted below, not just the first. Status and the connection
             // lookup are cleared on the same continuation but not atomically, so polling one and
             // asserting the other can observe the gap between them.
@@ -1618,11 +1581,12 @@ public class NearbyImplementationTests
                 device.Status is NearbyDeviceStatus.Visible && !session.TryGetConnection(device.Id, out _));
 
             // Assert
-            Assert.AreEqual(NearbyDeviceStatus.Visible, device.Status, "Per-device state is cleared, just asynchronously.");
-            Assert.IsFalse(session.TryGetConnection(device.Id, out _), "The connection lookup is cleared on the same continuation.");
+            // Per-device state is cleared, just asynchronously.
+            Assert.Equal(NearbyDeviceStatus.Visible, device.Status);
+            Assert.False(session.TryGetConnection(device.Id, out _), "The connection lookup is cleared on the same continuation.");
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopAsync_ClearsBothToggles_SoNeitherReportsScanningWhileSuspended()
         {
             // The second zombie state. While suspended nothing is advertising or scanning, so
@@ -1631,18 +1595,18 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Act
-            await session.StopAsync(TestContext.CancellationToken);
+            await session.StopAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsFalse(session.IsAdvertising);
-            Assert.IsFalse(session.IsDiscovering);
+            Assert.False(session.IsAdvertising);
+            Assert.False(session.IsDiscovering);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopAsync_LeavesSessionReusable_SoTheAppCanStartAgainOnForeground()
         {
             // Nothing restarts automatically: the app calls Start* again on foreground. That is
@@ -1651,20 +1615,21 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
-            await session.StopAsync(TestContext.CancellationToken);
-            Assert.IsFalse(session.IsDiscovering);
+            await session.StopAsync(TestContext.Current.CancellationToken);
+            Assert.False(session.IsDiscovering);
 
             // Act
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            Assert.IsTrue(session.IsDiscovering);
-            Assert.AreEqual(2, connections.DiscoverCallCount, "Restart must reach the platform, not be swallowed as a no-op.");
+            Assert.True(session.IsDiscovering);
+            // Restart must reach the platform, not be swallowed as a no-op.
+            Assert.Equal(2, connections.DiscoverCallCount);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task StopAsync_IsIdempotent_SoARepeatedBackgroundNotificationIsHarmless()
         {
             // DidEnterBackground can arrive more than once across a suspend/resume cycle, and the
@@ -1673,33 +1638,29 @@ public class NearbyImplementationTests
             // Arrange
             var connections = new FakeNearby();
             var session = Create.Session(connections);
-            await session.StartAdvertisingAsync(TestContext.CancellationToken);
-            await session.StartDiscoveryAsync(TestContext.CancellationToken);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
+            await session.StartDiscoveryAsync(TestContext.Current.CancellationToken);
 
             var device = new NearbyDevice("peer-1", "Alice");
             connections.ConnectResult = Create.Connection(device);
-            await session.ConnectAsync(device, TestContext.CancellationToken);
+            await session.ConnectAsync(device, TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
 
-            await session.StopAsync(TestContext.CancellationToken);
-            await session.StopAsync(TestContext.CancellationToken);
-            await session.StopAsync(TestContext.CancellationToken);
+            await session.StopAsync(TestContext.Current.CancellationToken);
+            await session.StopAsync(TestContext.Current.CancellationToken);
+            await session.StopAsync(TestContext.Current.CancellationToken);
 
             // Act
             await Wait.UntilAsync(() => recorder.For("peer-1")
                 .Any(c => c.Action is NearbyDeviceChangeAction.Removed));
 
             // Assert
-            Assert.HasCount(
-                1,
-                recorder.For("peer-1").Where(c => c.Action is NearbyDeviceChangeAction.Removed),
-                "A device must be reported removed once per connection, not once per StopAsync call.");
-            Assert.IsFalse(session.IsAdvertising);
-            Assert.IsFalse(session.IsDiscovering);
+            // A device must be reported removed once per connection, not once per StopAsync call.
+            Assert.Single(recorder.For("peer-1"), c => c.Action is NearbyDeviceChangeAction.Removed);
+            Assert.False(session.IsAdvertising);
+            Assert.False(session.IsDiscovering);
         }
-
-        public TestContext TestContext { get; set; }
     }
 
 }

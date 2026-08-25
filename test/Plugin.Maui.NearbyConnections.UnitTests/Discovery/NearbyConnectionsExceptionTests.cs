@@ -10,19 +10,18 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// exception, so they carry no <c>(message, inner)</c> overload and are excluded from
 /// <see cref="MessageAndInner_PreservesBoth"/>.
 /// </summary>
-[TestCategory("Discovery")]
+[Trait("Category", "Discovery")]
 public class NearbyConnectionsExceptionTests
 {
-    [TestClass]
     public sealed class Construction : NearbyConnectionsExceptionTests
     {
-        [TestMethod]
-        [DataRow(typeof(NearbyException), DisplayName = "Base")]
-        [DataRow(typeof(NearbyAdvertisingException), DisplayName = "Advertising")]
-        [DataRow(typeof(NearbyDiscoveryException), DisplayName = "Discovery")]
-        [DataRow(typeof(NearbyConnectionTimeoutException), DisplayName = "ConnectionTimeout")]
-        [DataRow(typeof(NearbyTransferException), DisplayName = "Transfer")]
-        [DataRow(typeof(NearbyTransferTimeoutException), DisplayName = "TransferTimeout")]
+        [Theory]
+        [InlineData(typeof(NearbyException), TestDisplayName = "Base")]
+        [InlineData(typeof(NearbyAdvertisingException), TestDisplayName = "Advertising")]
+        [InlineData(typeof(NearbyDiscoveryException), TestDisplayName = "Discovery")]
+        [InlineData(typeof(NearbyConnectionTimeoutException), TestDisplayName = "ConnectionTimeout")]
+        [InlineData(typeof(NearbyTransferException), TestDisplayName = "Transfer")]
+        [InlineData(typeof(NearbyTransferTimeoutException), TestDisplayName = "TransferTimeout")]
         public void MessageOnly_PreservesMessageAndDerivesFromNearbyException(Type exceptionType)
         {
             // Arrange
@@ -32,15 +31,15 @@ public class NearbyConnectionsExceptionTests
             var exception = (Exception)Activator.CreateInstance(exceptionType, message)!;
 
             // Assert
-            Assert.AreEqual(message, exception.Message);
-            Assert.IsInstanceOfType<NearbyException>(exception);
+            Assert.Equal(message, exception.Message);
+            Assert.IsAssignableFrom<NearbyException>(exception);
         }
 
-        [TestMethod]
-        [DataRow(typeof(NearbyException), DisplayName = "Base")]
-        [DataRow(typeof(NearbyAdvertisingException), DisplayName = "Advertising")]
-        [DataRow(typeof(NearbyDiscoveryException), DisplayName = "Discovery")]
-        [DataRow(typeof(NearbyTransferException), DisplayName = "Transfer")]
+        [Theory]
+        [InlineData(typeof(NearbyException), TestDisplayName = "Base")]
+        [InlineData(typeof(NearbyAdvertisingException), TestDisplayName = "Advertising")]
+        [InlineData(typeof(NearbyDiscoveryException), TestDisplayName = "Discovery")]
+        [InlineData(typeof(NearbyTransferException), TestDisplayName = "Transfer")]
         public void MessageAndInner_PreservesBoth(Type exceptionType)
         {
             // Arrange
@@ -51,8 +50,8 @@ public class NearbyConnectionsExceptionTests
             var exception = (Exception)Activator.CreateInstance(exceptionType, message, inner)!;
 
             // Assert
-            Assert.AreEqual(message, exception.Message);
-            Assert.AreSame(inner, exception.InnerException);
+            Assert.Equal(message, exception.Message);
+            Assert.Same(inner, exception.InnerException);
         }
     }
 }

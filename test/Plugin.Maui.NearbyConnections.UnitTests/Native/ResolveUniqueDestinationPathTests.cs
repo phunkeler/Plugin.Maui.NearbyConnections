@@ -8,13 +8,12 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// saw one file where it expected two, and nothing logged an error. Both platforms route inbound
 /// files through this method.
 /// </remarks>
-[TestCategory("Connections")]
+[Trait("Category", "Connections")]
 public class ResolveUniqueDestinationPathTests
 {
-    [TestClass]
     public sealed class WhenNameIsFree : ResolveUniqueDestinationPathTests
     {
-        [TestMethod]
+        [Fact]
         public void ReturnsTheNameUnchanged()
         {
             // Arrange
@@ -25,14 +24,13 @@ public class ResolveUniqueDestinationPathTests
             var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
             // Assert
-            Assert.AreEqual(Path.Combine(dir, "photo.jpg"), result);
+            Assert.Equal(Path.Combine(dir, "photo.jpg"), result);
         }
     }
 
-    [TestClass]
     public sealed class WhenNameIsTaken : ResolveUniqueDestinationPathTests
     {
-        [TestMethod]
+        [Fact]
         public void AppendsACounterBeforeTheExtension()
         {
             // " (1)" goes before ".jpg", not after — otherwise the file loses its extension and
@@ -47,10 +45,10 @@ public class ResolveUniqueDestinationPathTests
             var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
             // Assert
-            Assert.AreEqual(Path.Combine(dir, "photo (1).jpg"), result);
+            Assert.Equal(Path.Combine(dir, "photo (1).jpg"), result);
         }
 
-        [TestMethod]
+        [Fact]
         public void CountsUpPastMultipleCollisions()
         {
             // Arrange
@@ -64,10 +62,10 @@ public class ResolveUniqueDestinationPathTests
             var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
             // Assert
-            Assert.AreEqual(Path.Combine(dir, "photo (3).jpg"), result);
+            Assert.Equal(Path.Combine(dir, "photo (3).jpg"), result);
         }
 
-        [TestMethod]
+        [Fact]
         public void HandlesNamesWithNoExtension()
         {
             // Arrange
@@ -79,10 +77,10 @@ public class ResolveUniqueDestinationPathTests
             var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "README");
 
             // Assert
-            Assert.AreEqual(Path.Combine(dir, "README (1)"), result);
+            Assert.Equal(Path.Combine(dir, "README (1)"), result);
         }
 
-        [TestMethod]
+        [Fact]
         public void HandlesNamesWithMultipleDots()
         {
             // Only the final segment is the extension: "archive.tar.gz" must become
@@ -97,10 +95,10 @@ public class ResolveUniqueDestinationPathTests
             var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "archive.tar.gz");
 
             // Assert
-            Assert.AreEqual(Path.Combine(dir, "archive.tar (1).gz"), result);
+            Assert.Equal(Path.Combine(dir, "archive.tar (1).gz"), result);
         }
 
-        [TestMethod]
+        [Fact]
         public void ResultIsAlwaysAFreePath()
         {
             // The property that actually matters: whatever is returned must not already exist, or
@@ -118,12 +116,13 @@ public class ResolveUniqueDestinationPathTests
             for (var i = 0; i < TransferCount; i++)
             {
                 var next = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
-                Assert.IsFalse(File.Exists(next), $"Iteration {i} returned an existing path: {next}");
+                Assert.False(File.Exists(next), $"Iteration {i} returned an existing path: {next}");
                 temp.Touch(next);
             }
 
             // Assert
-            Assert.HasCount(TransferCount, Directory.GetFiles(dir), "Ten transfers should have produced ten distinct files.");
+            // Ten transfers should have produced ten distinct files.
+            Assert.Equal(TransferCount, Directory.GetFiles(dir).Length);
         }
     }
 }
