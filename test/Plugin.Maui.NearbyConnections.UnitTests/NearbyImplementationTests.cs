@@ -1450,7 +1450,8 @@ public class NearbyImplementationTests
     }
 
     // -------------------------------------------------------------------------
-    // Backgrounding teardown (see docs/DECISIONS.md — "Product scope").
+    // Backgrounding teardown (see docs/ARCHITECTURE.md section 5 — the migration map holds the
+    // product-scope record).
     //
     // On iOS, AppLifecycleObserver calls StopAsync when the app enters the
     // background, because MultipeerConnectivity does not survive suspension and

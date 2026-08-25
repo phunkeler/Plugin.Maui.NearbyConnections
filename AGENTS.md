@@ -322,8 +322,8 @@ whose underlying platform handle is already dead. `RequestReceived` is bounded b
 
 **Neither guarantee covers work the session starts on its own behalf** — auto-accept, request
 expiry, disconnect watchers, inbound file copies. Nothing awaits those, so disposal cannot tell
-whether they finished. `docs/CONCURRENCY.md` diagrams that third category, records which sites are
-drained today, and is the place to read before adding another `_ = SomeAsync(...)`.
+whether they finished. `docs/ARCHITECTURE.md` section 3 (contracts C6 and C7) names that third
+category and its owners, and is the place to read before adding another `_ = SomeAsync(...)`.
 
 ### Drain, then release
 
@@ -347,8 +347,8 @@ Two consequences bind new code:
   are constants, not `NearbyOptions` knobs: they exist so disposal terminates, and no consumer
   scenario wants a different value.
 
-`docs/CONCURRENCY.md` lists the four drain sites and explains why the rule is prose rather than a
-shared type.
+`docs/ARCHITECTURE.md` section 3 (contract C7) and section 4 (the teardown order) list the drain
+sites and explain why the rule is prose rather than a shared type.
 
 Platform code lives in platform partials, never `#if` in shared logic. When shared code needs a
 platform-specific step, the sanctioned mechanism is the **platform hook pair**: shared code declares
@@ -572,9 +572,9 @@ specification. It is declared in prose, not as a type, on purpose.
 
 - `docs/DEVICE-LIFECYCLE.md` — device lifecycle states and platform capability gaps
 - `docs/PAYLOAD-DELIVERY.md` — why payloads are delivered as events, not an async stream
-- `docs/CONCURRENCY.md` — which async work the session owns, who awaits it, and what disposal may
-  assume. Diagrams the task layers behind inbound payloads, and lists the sites where nothing
-  awaits the work yet.
+- `docs/ARCHITECTURE.md` — the architecture authority: consumer stories, the public surface, the
+  contracts (C1–C7, including which async work the session owns and what disposal may assume),
+  the internal decomposition, and the migration work list (section 5).
 - `docs/LOGGING.md` — the consumer-facing level contract, categories, and EventIds. **Adding or
   re-levelling a log message means updating that table** — it is the published contract, not a
   summary of the code.

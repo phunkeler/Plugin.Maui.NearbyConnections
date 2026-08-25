@@ -12,10 +12,10 @@ in a commit, rather than working around it.
 |---|---|
 | Know the rule | `.claude/rules/naming.md` |
 | Know why the rule exists | This document |
-| Know what is still undecided | [Open questions](#open-questions), then `docs/PLATFORM-ABSTRACTION-REVIEW.md` §3 |
-| Know the architecture | `AGENTS.md` |
+| Know what is still undecided | [Open questions](#open-questions), then `docs/ARCHITECTURE.md` §5 |
+| Know the architecture | `docs/ARCHITECTURE.md`, then `AGENTS.md` for the as-is shape |
 | Know a platform gotcha | `AGENTS.md` → *The things people get wrong*, and `docs/DEVICE-LIFECYCLE.md` |
-| Know the outstanding work list | `docs/PLATFORM-ABSTRACTION-REVIEW.md` §3 (GitHub issues were bulk-closed and left closed) |
+| Know the outstanding work list | `docs/ARCHITECTURE.md` §5, the migration map (GitHub issues were bulk-closed and left closed) |
 
 ---
 
@@ -50,29 +50,6 @@ The phrase "Nearby Connections" survives **only** where it names Google's actual
 GOOD  Android uses Google Nearby Connections.
 BAD   Nearby Connections is the abstraction exposed by this library.
 ```
-
-### The rename gate
-
-The plugin has been renamed twice already (`NearbyConnections` → `NearbyDevices`, 2026-07-22,
-reverted 2026-07-26). The revert's decision record concluded the recurring issue is *"not a naming
-problem — it's a decision-commitment problem."* Two prior renames were driven by recurring doubt,
-not new external evidence, so a third chosen by more analysis alone is unlikely to stick.
-
-Hence the guard, which is binding:
-
-> A final name is executed **exactly once**, as a single coordinated change spanning code, NuGet
-> package ID (new package plus a deprecation pointer on the old), GitHub repo, docs, CI, and the
-> Sonar key — then locked through 1.0. **Any rename proposal before 1.0 that is not this one-shot
-> coordinated change is rejected by default.**
-
-`NearbyConnections` is the current name because it is the only identity matching what actually
-shipped — not because it won on merit. It stays disqualified as a *final* name: it is Google's
-vocabulary, and §Vocabulary bans vendor terms from the contract.
-
-**If the project moves to a new repository and a new package**, the orphaning constraint disappears
-and the eventual target (`Plugin.Maui.Nearby`) can be adopted directly. That is the most likely path
-to this section becoming moot. Tracked in issue #52, which is closed — the repo's issue tracker was
-bulk-closed and left closed, so the live work list is `docs/PLATFORM-ABSTRACTION-REVIEW.md` §3.
 
 ---
 
@@ -135,6 +112,16 @@ that looks correct, compiles, and has no effect. Naming the platform at the call
 The machine-checkable form is that **all three PublicAPI baselines stay identical**. Before this
 rule, `Topology` existed only on `net10.0-android` and `EncryptionPreference` only on `net10.0-ios`,
 so shared code could not set them without `#if`.
+
+### The escape-hatch policy (decision D4)
+
+**Named platform scopes or nothing, opened on the first concrete request.** A one-platform
+capability with no concrete requester stays off the surface. When a real consumer asks for one, it
+opens as a named scope (`options.Android.X`, `options.Apple.X`), never as a silent shared member. A
+raw-handle hatch — any member that exposes an SDK object such as an `MCPeerID` — stays refused: it
+breaks the `Native/` quarantine, and it would break every consumer at the MultipeerConnectivity
+exit. `docs/ARCHITECTURE.md` §1 lists the refused stories and the capabilities that wait for a
+requester.
 
 ## Why `NearbyDevice` is an immutable record with a flat `Status`
 

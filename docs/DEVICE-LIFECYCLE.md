@@ -9,8 +9,8 @@ guarantees, where they diverge, and which behaviour the plugin supplies itself.
 
 > **`INearby` is the source of truth for the API.** This document explains platform behaviour and
 > the reasoning behind the model; it does not define the surface. Gaps 2, 3, and 4 are closed. Gap 1
-> (a uniform failure reason) remains open — see `docs/PLATFORM-ABSTRACTION-REVIEW.md` §3 for the
-> tracking home, not the GitHub issues.
+> (a uniform failure reason) is settled by `docs/ARCHITECTURE.md` §2 (decision D1) and lands with
+> stage M4 — §5 there is the tracking home, not the GitHub issues.
 
 ---
 

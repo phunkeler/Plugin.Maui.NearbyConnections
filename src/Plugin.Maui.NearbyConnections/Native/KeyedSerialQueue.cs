@@ -39,8 +39,8 @@ namespace Plugin.Maui.NearbyConnections;
 /// </item>
 /// </list>
 /// <para>
-/// See <c>docs/CONCURRENCY.md</c> for how this queue relates to channel delivery, and for the limit
-/// on work that arrives after a drain starts.
+/// See <c>docs/ARCHITECTURE.md</c> section 3 (contracts C6 and C7) for how this queue relates to
+/// channel delivery, and for the limit on work that arrives after a drain starts.
 /// </para>
 /// </remarks>
 /// <param name="onError">
