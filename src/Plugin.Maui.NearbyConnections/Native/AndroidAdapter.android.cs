@@ -700,10 +700,20 @@ sealed partial class AndroidAdapter : IPlatformAdapter
         }
     }
 
-    /// <inheritdoc/>
-    public string StagingDirectory => Path.Combine(FileSystem.CacheDirectory, PlatformBridge.StagingDirectoryName);
+    string? _stagingDirectory;
 
-    public void SweepStaging() => _bridge.SweepStagingDirectory(StagingDirectory);
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Per instance: each adapter stages into its own subdirectory of the shared staging root, so
+    /// two platform instances in one process cannot collide (re-assessment fix 6 — the last
+    /// process-wide mutable fact). Disposal sweeps the whole root, orphans included.
+    /// </remarks>
+    public string StagingDirectory => _stagingDirectory ??= Path.Combine(
+        FileSystem.CacheDirectory,
+        PlatformBridge.StagingDirectoryName,
+        Guid.NewGuid().ToString("N"));
+
+    public void SweepStaging() => _bridge.SweepStagingDirectory(Path.Combine(FileSystem.CacheDirectory, PlatformBridge.StagingDirectoryName));
 
     public void Dispose()
     {

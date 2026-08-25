@@ -17,7 +17,7 @@ sealed partial class IosAdapter : IPlatformAdapter
         _logger = bridge.Logger;
     }
 
-    static long s_nextPayloadId;
+    long _nextPayloadId;
 
     readonly ConcurrentDictionary<string, IDisposable> _progressObservers = [];
     readonly Lock _sessionLock = new();
@@ -346,7 +346,7 @@ sealed partial class IosAdapter : IPlatformAdapter
         using var transfer = new OutgoingTransfer(progress, _bridge.Options.TransferInactivityTimeout, _bridge.TimeProvider);
         var resourceName = nsUrl.LastPathComponent ?? Path.GetFileName(uri);
         var sendTask = session.SendResourceAsync(nsUrl, resourceName, peerID, out var nsProgress);
-        var payloadId = Interlocked.Increment(ref s_nextPayloadId);
+        var payloadId = Interlocked.Increment(ref _nextPayloadId);
 
         IDisposable? observer = null;
 
@@ -426,10 +426,20 @@ sealed partial class IosAdapter : IPlatformAdapter
         return Task.FromResult(NearbyAvailability.Ready);
     }
 
-    /// <inheritdoc/>
-    public string StagingDirectory => Path.Combine(FileSystem.CacheDirectory, PlatformBridge.StagingDirectoryName);
+    string? _stagingDirectory;
 
-    public void SweepStaging() => _bridge.SweepStagingDirectory(StagingDirectory);
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Per instance: each adapter stages into its own subdirectory of the shared staging root, so
+    /// two platform instances in one process cannot collide (re-assessment fix 6 — the last
+    /// process-wide mutable fact). Disposal sweeps the whole root, orphans included.
+    /// </remarks>
+    public string StagingDirectory => _stagingDirectory ??= Path.Combine(
+        FileSystem.CacheDirectory,
+        PlatformBridge.StagingDirectoryName,
+        Guid.NewGuid().ToString("N"));
+
+    public void SweepStaging() => _bridge.SweepStagingDirectory(Path.Combine(FileSystem.CacheDirectory, PlatformBridge.StagingDirectoryName));
 
     public void Dispose()
     {

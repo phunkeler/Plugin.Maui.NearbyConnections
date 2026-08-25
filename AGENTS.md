@@ -521,9 +521,10 @@ unit suite, deliberately:
   runtimes; the deliverable is TRX results (in `artifacts/`, surfaced as CI checks), not a
   coverage delta. Do not add a coverage step to the device jobs — it will not work.
 - **The device suite runs serially** — `AssemblyMarker.cs` carries
-  `[assembly: CollectionBehavior(DisableTestParallelization = true)]`. The adapters' `StagingDirectory`
-  is static and process-wide, and every `DisposeAsync` sweeps it, so a test disposing its platform
-  deletes whatever another test staged. Nearly every test disposes one via `await using var platform`.
+  `[assembly: CollectionBehavior(DisableTestParallelization = true)]`. Each adapter stages into its
+  own `StagingDirectory` subdirectory, but every `DisposeAsync` sweeps the shared staging root —
+  orphans included — so a test disposing its platform deletes whatever another test staged.
+  Nearly every test disposes one via `await using var platform`.
   Do not re-enable parallelism to speed the suite up: it runs in a couple of seconds, and the failure
   it buys back is an intermittent `FileNotFoundException` in a *different* test than the one at fault,
   reproducing only on slower API levels.

@@ -748,7 +748,10 @@ sealed partial class PlatformBridge : IPlatformNearby
 
         try
         {
-            files = Directory.GetFiles(directory);
+            // Per-instance staging subdirectories included: the sweep runs against the shared
+            // staging root at disposal, so orphaned subdirectories from a crashed prior run are
+            // collected too. One file at a time, so one locked file does not strand the rest.
+            files = Directory.GetFiles(directory, "*", SearchOption.AllDirectories);
         }
         catch (DirectoryNotFoundException)
         {
@@ -769,6 +772,18 @@ sealed partial class PlatformBridge : IPlatformNearby
             catch (Exception ex)
             {
                 LogFileDeleteFailed(file, ex);
+            }
+        }
+
+        foreach (var subdirectory in Directory.GetDirectories(directory))
+        {
+            try
+            {
+                Directory.Delete(subdirectory, recursive: false);
+            }
+            catch (Exception ex)
+            {
+                LogFileDeleteFailed(subdirectory, ex);
             }
         }
     }
