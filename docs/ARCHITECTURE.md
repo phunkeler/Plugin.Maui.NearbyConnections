@@ -1029,7 +1029,7 @@ Section 2 lands whole, because its pieces prove each other. *(Settles D1 and D3.
 - Rewrite the sample: `NearbyIngestionService` (236 lines) becomes the section 2 loop, the
   initializer-service ritual is deleted, and the README teaches the new shape.
 
-### M5 — The adapter seam
+### M5 — The adapter seam — done (2026-08-25, commits `c979901`, `8d73cfd`, `ea30c72`, `36dd7c7`, `3c1ea5e`, `a46c282`, `b2333d8`)
 
 The largest change, after the extractions shrank it (D5, re-assessment fix 7, adopted in
 section 4). The internal sub-sequence, each step green on all three TFMs:
