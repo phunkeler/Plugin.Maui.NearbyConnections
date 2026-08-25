@@ -90,40 +90,30 @@ prompts happen when your app decides.
 `UseNearby()` needs logging registered, which `MauiApp.CreateBuilder()` already does. It also
 registers `TimeProvider.System` if your app has not registered a `TimeProvider` of its own.
 
-### Start watching before the first connection
+### Consume every connection, from anywhere, at any time
 
-`INearby` is a lazy singleton: DI constructs it the first time something resolves it. `Devices.Changes`
-does not replay. A watcher that starts on the first page navigation therefore misses every change
-before that point, and inbound payloads arrive with no consumer.
-
-Resolve `INearby` during startup if your app must observe every connection from launch. Register an
-`IMauiInitializeService`, which MAUI runs inside `Build()`:
+`nearby.Connections` is a broadcast stream: each enumeration first yields every connection still
+open, then each connection as it opens. Starting late loses nothing — a connection opened before
+your consumer even existed is replayed to it, with its unread payloads still buffered.
 
 ```csharp
-public sealed class NearbyIngestionService(INearby nearby) : IMauiInitializeService
+// Anywhere, any time — no initializer ritual, nothing missed by starting late.
+await foreach (var connection in nearby.Connections.WithCancellation(appToken))
 {
-    public void Initialize(IServiceProvider services) => _ = WatchAsync();
+    _ = ConsumeAsync(connection);
+}
 
-    async Task WatchAsync()
+async Task ConsumeAsync(NearbyConnection connection)
+{
+    await foreach (var payload in connection.ReceiveAsync())
     {
-        await foreach (var change in nearby.Devices.Changes)
-        {
-            // Open a receive loop per connected device.
-        }
+        Handle(payload);
     }
 }
 ```
 
-```csharp
-// Registration order does not matter: whichever caller resolves INearby first constructs it,
-// and every later resolution gets that same instance.
-builder.Services.TryAddEnumerable(
-    ServiceDescriptor.Singleton<IMauiInitializeService, NearbyIngestionService>());
-```
-
-Use `TryAddEnumerable`. MAUI invokes these through `GetServices<T>()`, so a duplicate registration
-starts two watchers and processes every payload twice. `samples/NearbyChat/Services/NearbyIngestionService.cs`
-is the complete version.
+`samples/NearbyChat/Services/NearbyIngestionService.cs` is the complete version — an ordinary DI
+singleton whose constructor starts the loop.
 
 ## 2. Platform configuration
 
@@ -269,23 +259,28 @@ var connected = nearby.Devices.Where(d => d.Status is NearbyDeviceStatus.Connect
 
 ### Accept inbound connection requests
 
-A device asking to connect appears with `Status == RequestReceived`:
+Inbound requests arrive on `nearby.Requests` — a broadcast stream that replays the requests still
+outstanding, then follows live arrivals. The accept and reject decision lives on the request:
 
 ```csharp
-await foreach (var change in nearby.Devices.Changes.WithCancellation(cancellationToken))
+await foreach (var request in nearby.Requests.WithCancellation(pageToken))
 {
-    if (change.Device.Status is NearbyDeviceStatus.RequestReceived)
+    if (await ConfirmWithUserAsync(request.RemoteDevice))
     {
-        // Accept to establish the connection, or RejectAsync to decline.
-        NearbyConnection connection = await nearby.AcceptAsync(change.Device);
+        NearbyConnection connection = await request.AcceptAsync();
+    }
+    else
+    {
+        await request.RejectAsync();
     }
 }
 ```
 
 **Requests expire.** If nobody answers within `NearbyOptions.InboundRequestTimeout` (default 30
-seconds), the library rejects the request and the device returns to `Visible`. Nothing throws — no
-one is awaiting an unanswered request — but a later `AcceptAsync` for it throws
-`InvalidOperationException`, so handle that if your UI can be slow to respond.
+seconds), the library rejects the request and the device returns to `Visible`. The request's
+`Expired` task completes — await it to dismiss a prompt — and a late `AcceptAsync` or
+`RejectAsync` throws `NearbyRequestExpiredException`, so handle that if your UI can be slow to
+respond.
 
 The expiry exists because neither platform withdraws a stale request, and on iOS the *asking* device
 gives up on its own schedule. Without it, a prompt can outlive the attempt behind it and accepting
@@ -317,23 +312,19 @@ the call throws and the device returns to `Visible`. It never gets stuck mid-han
 
 ### Know when a connection opens or closes
 
-Every lifecycle transition arrives on one stream, as a change to the device's `Status`:
+An opened connection arrives on `nearby.Connections` (above). A closed one completes its own
+`Disconnected` task, carrying why it ended:
 
 ```csharp
-await foreach (var change in nearby.Devices.Changes.WithCancellation(cancellationToken))
-{
-    var device = change.Device;
-
-    if (change.Action is not NearbyDeviceChangeAction.Removed
-        && device.Status is NearbyDeviceStatus.Connected
-        && nearby.TryGetConnection(device.Id, out var connection))
-    {
-        StartConsuming(connection);
-    }
-}
+NearbyEndReason reason = await connection.Disconnected;
 ```
 
-Three things to know about this loop:
+Every lifecycle transition also arrives on `nearby.Devices.Changes` as a change to the device's
+`Status`, with `NearbyDeviceChange.Reason` carrying the locally-observed reason where one exists.
+That stream is for state — binding, dashboards, presence — while `Connections` and `Requests`
+deliver the things your code must handle.
+
+Three things to know about the `Devices.Changes` loop:
 
 **Changes do not arrive on the UI thread.** `INearby` has no UI thread affinity and marshals
 nothing for you. Platform callbacks are drained by an internal pump, so changes reach your loop on
@@ -368,19 +359,16 @@ Because the loop body is `async`, you can await inside it. An event handler coul
 `break`, and the watcher is gone. A page that watches with its navigation token cannot leak the way
 an undetached `+=` handler could.
 
-> **Start watching before the first connection exists.** `Changes` does not replay. A consumer that
-> starts a receive loop must already be running by the time a connection opens, or it never starts
-> one for that connection and the peer's messages silently never arrive. Registering it as a DI
-> singleton is *not* sufficient, because singletons are constructed on first resolution, so a
-> consumer resolved only by a page opened after connecting is built too late. Register it as an
-> `IMauiInitializeService`, which MAUI constructs during `Build()`. A late starter can recover the
-> current state by reading `nearby.Devices` before it begins watching. See
-> [`docs/PAYLOAD-DELIVERY.md`](https://github.com/phunkeler/Plugin.Maui.NearbyConnections/blob/main/docs/PAYLOAD-DELIVERY.md#your-consumer-must-be-constructed-before-the-first-connection).
+> **`Changes` does not replay — and does not need to.** The snapshot is the catch-up: read
+> `nearby.Devices` for the current state, then watch `Changes` for what happens next. Deliverables
+> are different: `nearby.Requests` and `nearby.Connections` replay what is still outstanding, so a
+> payload consumer or a request prompt that starts late misses nothing that still matters.
 
 ## 4. Send and receive data
 
-Get a `NearbyConnection` from `AcceptAsync`, from `ConnectAsync`, or by looking one up with
-`nearby.TryGetConnection(device.Id, out var connection)` while the device is connected.
+Get a `NearbyConnection` from the `nearby.Connections` stream, from `request.AcceptAsync`, from
+`ConnectAsync`, or by looking one up with `nearby.TryGetConnection(device.Id, out var connection)`
+while the device is connected — all of them hand you the same instance.
 
 ### Send bytes
 

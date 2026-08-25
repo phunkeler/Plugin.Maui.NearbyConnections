@@ -51,13 +51,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<ChatMessageStore>();
         builder.Services.AddSingleton<ConnectionTracker>();
 
-        // Inbound payload ingestion must be running before the first connection is established,
-        // because ConnectionEstablished does not replay. IMauiInitializeService runs during
-        // Build(), so being attached in time is a property of the type rather than a side effect of
-        // who resolves it. TryAddEnumerable because MAUI invokes these via GetServices<T>() and a
-        // duplicate registration would double every inbound message.
-        builder.Services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IMauiInitializeService, NearbyIngestionService>());
+        // Inbound payload ingestion. No initializer ritual: INearby.Connections replays the
+        // connections still open, and an unconsumed connection buffers its payloads — a consumer
+        // that starts late misses nothing. App's constructor resolves this once at startup.
+        builder.Services.AddSingleton<NearbyIngestionService>();
 
         builder.Services.AddTransientWithShellRoute<AdvertisingPage, AdvertisingPageViewModel>();
         builder.Services.AddTransientWithShellRoute<ConnectionsPage, ConnectionsPageViewModel>();

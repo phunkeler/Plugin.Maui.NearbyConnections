@@ -9,19 +9,17 @@ using Plugin.Maui.NearbyConnections;
 namespace NearbyChat.Services;
 
 /// <summary>
-/// The app's single inbound-payload consumer: drains every connection's receive stream, persists
-/// each payload as a <see cref="ChatMessage"/>, and fans it out as a domain message.
+/// The app's single inbound-payload consumer: watches <see cref="INearby.Connections"/>, drains
+/// every connection's receive stream, persists each payload as a <see cref="ChatMessage"/>, and
+/// fans it out as a domain message.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Why this implements <see cref="IMauiInitializeService"/>.</strong>
-/// <see cref="INearbyDevices.Changes"/> does not replay, so this watcher must be running before
-/// the first connection is established. MAUI calls <see cref="Initialize"/> during
-/// <c>MauiAppBuilder.Build()</c>, which guarantees that. Resolving <see cref="INearby"/> in the
-/// constructor also constructs the plugin's singleton if it is not already alive — DI resolution is
-/// idempotent, so it does not matter whether <c>AddNearby</c> or this initializer runs first;
-/// whichever asks for it first builds it, and every later resolution (from either) gets that same
-/// instance.
+/// <strong>No startup ritual.</strong> <see cref="INearby.Connections"/> replays the connections
+/// still open before following live ones, and an unconsumed connection buffers its payloads until
+/// a consumer arrives — so this service can start whenever it is constructed and misses nothing.
+/// The app resolves it once at startup (see <c>App</c>), which keeps ingestion running for the
+/// life of the app.
 /// </para>
 /// <para>
 /// <strong>Persistence.</strong> This singleton holds the singleton
@@ -30,89 +28,43 @@ namespace NearbyChat.Services;
 /// dependency, and this class would then have to resolve one scope per payload instead.
 /// </para>
 /// </remarks>
-public sealed partial class NearbyIngestionService(
-    INearby nearby,
-    ChatMessageStore store,
-    IMessenger messenger,
-    ILogger<NearbyIngestionService> logger) : IMauiInitializeService
+public sealed partial class NearbyIngestionService
 {
-    readonly INearby _nearby = nearby ?? throw new ArgumentNullException(nameof(nearby));
-    readonly ChatMessageStore _store = store ?? throw new ArgumentNullException(nameof(store));
-    readonly IMessenger _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
-    readonly ILogger<NearbyIngestionService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    readonly INearby _nearby;
+    readonly ChatMessageStore _store;
+    readonly IMessenger _messenger;
+    readonly ILogger<NearbyIngestionService> _logger;
 
-    int _initialized;
-
-    /// <summary>
-    /// Attaches the session subscriptions. Called once by MAUI during <c>Build()</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// This runs inside <c>MauiAppBuilder.Build()</c>, before <c>Application.Current</c> exists, so
-    /// everything it touches must be resolvable that early. In particular, do not register
-    /// <c>IDispatcher</c> with a factory that reads <c>Application.Current</c> — MAUI registers a
-    /// perfectly good one, and an override like <c>Application.Current?.Dispatcher ?? throw</c>
-    /// turns startup resolution into a crash.
-    /// </para>
-    /// <para>
-    /// The <paramref name="services"/> parameter is part of the framework contract and is
-    /// deliberately unused: every dependency arrives by constructor injection, so this type never
-    /// performs service location. The watch loop is never cancelled — this singleton lives as long
-    /// as the app, which is the whole point.
-    /// </para>
-    /// </remarks>
-    public void Initialize(IServiceProvider services)
+    public NearbyIngestionService(
+        INearby nearby,
+        ChatMessageStore store,
+        IMessenger messenger,
+        ILogger<NearbyIngestionService> logger)
     {
-        // MAUI invokes IMauiInitializeService registrations via GetServices<T>(), so a duplicate
-        // registration would subscribe twice and deliver every payload twice.
-        if (Interlocked.Exchange(ref _initialized, 1) != 0)
-        {
-            return;
-        }
+        _nearby = nearby ?? throw new ArgumentNullException(nameof(nearby));
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        _ = WatchDevicesAsync();
+        // The watch loop is never cancelled — this singleton lives as long as the app, which is
+        // the whole point.
+        _ = WatchConnectionsAsync();
     }
 
     /// <summary>
-    /// Drives ingestion off the session's change stream: opens a receive loop for every device that
-    /// reaches Connected, and clears the chat session for every one that leaves it.
+    /// The section 2 receive loop: one consumer per connection, started as the stream yields it.
     /// </summary>
-    /// <remarks>
-    /// The stream reports status transitions, not connection events, so this tracks which devices
-    /// it has already started a loop for. Without that, a device that changes any other way while
-    /// connected — a display name arriving late, for instance — would start a second consumer for
-    /// the same connection and every payload would be processed twice.
-    /// </remarks>
-    async Task WatchDevicesAsync()
+    async Task WatchConnectionsAsync()
     {
-        var consuming = new HashSet<string>(StringComparer.Ordinal);
-
         try
         {
-            await foreach (var change in _nearby.Devices.Changes)
+            await foreach (var connection in _nearby.Connections)
             {
-                var device = change.Device;
+                connection.InboundProgress = new InboundProgressRelay(_messenger, connection.RemoteDevice);
 
-                var isConnected = change.Action is not NearbyDeviceChangeAction.Removed
-                    && device.Status is NearbyDeviceStatus.Connected;
-
-                if (isConnected)
-                {
-                    if (consuming.Add(device.Id)
-                        && _nearby.TryGetConnection(device.Id, out var connection))
-                    {
-                        connection.InboundProgress = new InboundProgressRelay(_messenger, connection.RemoteDevice);
-
-                        // One consumer per connection, started as the connection opens. The loop
-                        // ends by itself when the peer disconnects, so it needs no cancellation
-                        // token and no cleanup.
-                        _ = ConsumePayloadsAsync(connection);
-                    }
-                }
-                else if (consuming.Remove(device.Id))
-                {
-                    _store.Clear(device.Id);
-                }
+                // One consumer per connection. The receive loop ends by itself when the peer
+                // disconnects, so it needs no cancellation token and no cleanup.
+                _ = ConsumePayloadsAsync(connection);
             }
         }
         catch (Exception ex)
@@ -132,6 +84,9 @@ public sealed partial class NearbyIngestionService(
             {
                 await ProcessPayloadAsync(connection.RemoteDevice, payload).ConfigureAwait(false);
             }
+
+            // A cleanly ended stream is the disconnect: the chat session for this device is over.
+            _store.Clear(connection.RemoteDevice.Id);
         }
         catch (Exception ex)
         {
@@ -224,7 +179,7 @@ public sealed partial class NearbyIngestionService(
     [LoggerMessage(EventId = 3, Level = LogLevel.Error, Message = "Failed to materialize an inbound payload from {DeviceId}; it was dropped.")]
     partial void LogMaterializeFailed(string deviceId, Exception exception);
 
-    [LoggerMessage(EventId = 4, Level = LogLevel.Error, Message = "Device watching ended; no further inbound payloads will be consumed.")]
+    [LoggerMessage(EventId = 4, Level = LogLevel.Error, Message = "Connection watching ended; no further inbound payloads will be consumed.")]
     partial void LogWatchEnded(Exception exception);
 
     sealed class InboundProgressRelay(IMessenger messenger, NearbyDevice device) : IProgress<NearbyTransferProgress>

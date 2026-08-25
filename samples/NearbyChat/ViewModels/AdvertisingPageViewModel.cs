@@ -13,6 +13,11 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     readonly INearby _nearby;
     readonly ILogger<AdvertisingPageViewModel> _logger;
 
+    // The newest request per device, fed by the Requests watch below. Concurrent because the
+    // watch writes on a thread-pool thread and the row commands read on the UI thread.
+    readonly System.Collections.Concurrent.ConcurrentDictionary<string, NearbyConnectionRequest> _requests
+        = new(StringComparer.Ordinal);
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ToggleAdvertisingCommand))]
     public partial bool IsBusy { get; set; }
@@ -102,10 +107,17 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
 
         IsAdvertising = _nearby.IsAdvertising;
 
+        // The section 2 request loop: replay hands over the requests already outstanding, then
+        // live ones follow. Ending the enumeration on navigation is the only cleanup.
+        _ = WatchRequestsAsync(NavigationToken);
+
         var devices = new NearbyDeviceCollection<AdvertisedDeviceViewModel>(
             _nearby,
             action => Dispatcher.Dispatch(action),
-            project: device => new AdvertisedDeviceViewModel(device, _nearby, _logger),
+            project: device => new AdvertisedDeviceViewModel(
+                device,
+                requestFor: id => _requests.TryGetValue(id, out var request) ? request : null,
+                _logger),
             filter: static device => device.Status is NearbyDeviceStatus.RequestReceived,
             update: static (row, device) => row.Update(device));
 
@@ -121,6 +133,8 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
     {
         base.NavigatedFrom();
 
+        _requests.Clear();
+
         if (AdvertisedDevices is { } devices)
         {
             devices.CollectionChanged -= OnAdvertisedDevicesChanged;
@@ -128,6 +142,21 @@ public partial class AdvertisingPageViewModel : BasePageViewModel
 
             AdvertisedDevices = null;
             OnPropertyChanged(nameof(AdvertisedDevices));
+        }
+    }
+
+    async Task WatchRequestsAsync(CancellationToken navigationToken)
+    {
+        try
+        {
+            await foreach (var request in _nearby.Requests.WithCancellation(navigationToken))
+            {
+                _requests[request.RemoteDevice.Id] = request;
+            }
+        }
+        catch (OperationCanceledException) when (navigationToken.IsCancellationRequested)
+        {
+            // The user navigated away; the enumeration ending is the cleanup.
         }
     }
 

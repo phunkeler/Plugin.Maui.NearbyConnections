@@ -10,19 +10,19 @@ namespace NearbyChat.ViewModels;
 /// </summary>
 public partial class AdvertisedDeviceViewModel : NearbyDeviceViewModel
 {
-    readonly INearby _nearby;
+    readonly Func<string, NearbyConnectionRequest?> _requestFor;
     readonly ILogger _logger;
 
     public AdvertisedDeviceViewModel(
         NearbyDevice device,
-        INearby nearby,
+        Func<string, NearbyConnectionRequest?> requestFor,
         ILogger logger)
         : base(device)
     {
-        ArgumentNullException.ThrowIfNull(nearby);
+        ArgumentNullException.ThrowIfNull(requestFor);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _nearby = nearby;
+        _requestFor = requestFor;
         _logger = logger;
     }
 
@@ -47,13 +47,25 @@ public partial class AdvertisedDeviceViewModel : NearbyDeviceViewModel
     {
         FailureReason = null;
 
+        if (_requestFor(Device.Id) is not { } request)
+        {
+            FailureReason = "The request expired before it was accepted.";
+            return;
+        }
+
         try
         {
-            await _nearby.AcceptAsync(Device, cancellationToken);
+            await request.AcceptAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // The user cancelled. Say nothing — they already know.
+        }
+        catch (NearbyRequestExpiredException ex)
+        {
+            LogAcceptFailed(_logger, Device.Id, ex);
+
+            FailureReason = "The request expired before it was accepted.";
         }
         catch (NearbyConnectionTimeoutException ex)
         {
@@ -72,9 +84,15 @@ public partial class AdvertisedDeviceViewModel : NearbyDeviceViewModel
     [RelayCommand]
     async Task Decline(CancellationToken cancellationToken)
     {
+        if (_requestFor(Device.Id) is not { } request)
+        {
+            // Declining a request that already went away reaches the outcome the user asked for.
+            return;
+        }
+
         try
         {
-            await _nearby.RejectAsync(Device, cancellationToken);
+            await request.RejectAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

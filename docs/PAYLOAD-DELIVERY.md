@@ -198,77 +198,42 @@ Stated plainly, because these are real:
 | Cost | Impact |
 | --- | --- |
 | **One consumer per connection** | Multiple interested components require an application-level fan-out (a messenger, an event, a subject). ~3 lines, as in the sample. |
-| **Manual loop management** | Someone must start the `await foreach` per connection and keep it running. Typically a single service watching `Devices.Changes`. |
-| **Consumer must exist before the connection does** | `Devices.Changes` does not replay — see below. |
+| **Manual loop management** | Someone must start the `await foreach` per connection and keep it running. Typically a single service watching `nearby.Connections`. |
 | **No LINQ-over-events ergonomics** | Not an issue in practice — the loop body is where processing goes. |
 
-### Your consumer must be constructed before the first connection
+### Your consumer may start whenever it likes
 
-`Devices.Changes` does not replay. A consumer that starts watching after a connection is already
-established never sees the transition, so it never starts a loop for it: inbound payloads are
-written to a channel nobody reads and the peer's messages **silently never arrive** — no exception,
-no log, just nothing. (A late starter *can* recover by reading `nearby.Devices` and opening a loop
-for anything already `Connected` — but it has to know to do that.)
-
-This bites hardest with DI. Registering the consumer as a singleton is not enough: the container
-constructs a singleton lazily, on first resolution. If the only thing that resolves it is a page or
-ViewModel opened *after* connecting, it is constructed too late and misses the transition that would
-have started its loop.
-
-**Use MAUI's startup hook, `IMauiInitializeService`.** MAUI calls `Initialize` during
-`MauiAppBuilder.Build()`, so "runs at startup" becomes a property of the type rather than a side
-effect of who happens to inject it:
+`nearby.Connections` replays: each enumeration first yields every connection still open, then each
+connection as it opens. A connection established before your consumer existed is handed to it on
+its first iteration, with its unread payloads still buffered in the receive channel — so a late
+start loses nothing. One service owns the loop:
 
 ```csharp
-public sealed class NearbyIngestionService(INearby nearby /* , … */) : IMauiInitializeService
+public sealed class NearbyIngestionService
 {
-    public void Initialize(IServiceProvider services) => _ = WatchAsync();
+    public NearbyIngestionService(INearby nearby /* , … */) => _ = WatchAsync(nearby);
 
-    async Task WatchAsync()
+    static async Task WatchAsync(INearby nearby)
     {
-        // Changes reports status transitions, not connection events, so track which devices
-        // already have a loop: without this, any later change to a connected device starts a
-        // second consumer and every payload is handled twice.
-        var consuming = new HashSet<string>(StringComparer.Ordinal);
-
-        await foreach (var change in nearby.Devices.Changes)
+        await foreach (var connection in nearby.Connections)
         {
-            var device = change.Device;
-
-            if (change.Action is not NearbyDeviceChangeAction.Removed
-                && device.Status is NearbyDeviceStatus.Connected)
-            {
-                if (consuming.Add(device.Id)
-                    && nearby.TryGetConnection(device.Id, out var connection))
-                {
-                    _ = ConsumePayloadsAsync(connection);
-                }
-            }
-            else
-            {
-                consuming.Remove(device.Id);
-            }
+            _ = ConsumePayloadsAsync(connection);
         }
     }
 }
 
-// TryAddEnumerable: MAUI invokes these via GetServices<T>(), so a duplicate
-// registration would start two watchers and deliver every payload twice.
-builder.Services.TryAddEnumerable(
-    ServiceDescriptor.Singleton<IMauiInitializeService, NearbyIngestionService>());
+builder.Services.AddSingleton<NearbyIngestionService>();
 ```
 
-Avoid the tempting shortcut of injecting the consumer into `App`'s constructor purely to force it
-into existence. It works, but it is a load-bearing side effect: the parameter is unused, so the next
-person to clean up "an unused dependency" silently reintroduces the bug.
+The container constructs a singleton lazily, on first resolution, so something still has to resolve
+it once — the sample injects it into `App`'s constructor. That timing stopped being load-bearing
+when `Connections` gained replay: a consumer resolved late catches up.
 
 ### Keep ingestion separate from send/query
 
-Give the startup-critical loop its own type. If one service owns both payload ingestion *and* the
-send/query API a ViewModel calls, then that service is startup-critical, and every consumer of the
-send API inherits a lifetime constraint it has no reason to care about. Split them: only the
-ingestion service needs `IMauiInitializeService`, and the send service goes back to being an
-ordinary lazily-resolved singleton.
+Give the payload loop its own type. If one service owns both payload ingestion *and* the send/query
+API a ViewModel calls, every consumer of the send API inherits the ingestion loop's lifetime for no
+reason. Split them, and both stay ordinary lazily-resolved singletons.
 
 ### Persistence: scope per payload
 

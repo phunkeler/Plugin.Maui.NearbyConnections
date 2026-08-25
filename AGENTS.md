@@ -206,7 +206,8 @@ The division is not between discovery and connection phases but between *state* 
 
 | Shape | Used for | Why |
 |---|---|---|
-| State + deltas — `Devices` (snapshot) and `Devices.Changes` | Device presence and connection lifecycle | Presence *is* state, not a sequence of occurrences: the current set is readable at any time, so a consumer that starts late does not have to reconstruct it from history. `Changes` carries deltas rather than whole-list snapshots so nobody re-diffs on every transition. Every connection lifecycle transition arrives here — there are no separate connection events. |
+| State + deltas — `Devices` (snapshot) and `Devices.Changes` | Device presence and connection lifecycle | Presence *is* state, not a sequence of occurrences: the current set is readable at any time, so a consumer that starts late does not have to reconstruct it from history. `Changes` carries deltas rather than whole-list snapshots so nobody re-diffs on every transition, and it does not replay — the snapshot is the catch-up. |
+| Delivery streams — `INearby.Requests` and `INearby.Connections` | Inbound requests and opened connections | Deliverables *arrive* and must be handled. Each enumeration replays what is still outstanding, then follows live, each item exactly once per enumerator (contract C3 in `docs/ARCHITECTURE.md`). Accept and reject live on the request object; a dead request throws `NearbyRequestExpiredException`. |
 | Stream — `NearbyConnection.ReceiveAsync` | Inbound payloads | Payloads are ordered, unbounded, and consumed once. The loop body is the seam where consumer async work goes, and it is awaited before the next payload is taken — a `void`-returning `EventHandler` cannot express that. See `docs/PAYLOAD-DELIVERY.md`. |
 
 All async delivery is backed by `System.Threading.Channels`. Platform callbacks write into an
@@ -296,7 +297,7 @@ follows. So every await on a TCS is also bounded by a deadline the plugin owns:
 | Operation | Bounded by |
 |---|---|
 | `ConnectAsync` | `ConnectTimeout` (30s), via `PlatformNearby.AwaitHandshakeAsync` |
-| `AcceptAsync` | `AcceptTimeout` (15s), via the same helper — the window excludes the remote user's decision, so it is shorter by default |
+| `NearbyConnectionRequest.AcceptAsync` | `AcceptTimeout` (15s), via the same helper — the window excludes the remote user's decision, so it is shorter by default |
 | `SendAsync` (file) | `TransferInactivityTimeout`, via `OutgoingTransfer.InactivityToken` |
 | `StartAdvertisingAsync` / `StartDiscoveryAsync` | `started` resolves on both branches; iOS adds `Apple.StartFailureGraceWindow` |
 
