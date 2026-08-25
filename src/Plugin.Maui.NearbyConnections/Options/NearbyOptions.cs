@@ -7,9 +7,9 @@ namespace Plugin.Maui.NearbyConnections;
 /// <remarks>
 /// Configure this type in the delegate passed to
 /// <see cref="MauiAppBuilderExtensions"/>.<c>UseNearby</c> or
-/// <see cref="ServiceCollectionExtensions"/>.<c>AddNearby</c>. The library reads the resolved
-/// instance once, when the session is created — changing a property afterward has no defined
-/// effect.
+/// <see cref="ServiceCollectionExtensions"/>.<c>AddNearby</c>. The library validates the options
+/// and captures an immutable copy before that call returns — changing a property afterward has no
+/// effect on the session.
 /// </remarks>
 public sealed partial class NearbyOptions
 {
@@ -255,4 +255,32 @@ public sealed partial class NearbyOptions
     /// </para>
     /// </remarks>
     public bool AutoAcceptConnectionRequests { get; set; }
+
+    /// <summary>
+    /// Returns a copy of this instance, including the platform scopes. The session holds the copy,
+    /// so the caller's instance stays free to mutate without effect (contract C5: the configured
+    /// options have one owner — the snapshot).
+    /// </summary>
+    internal NearbyOptions Snapshot()
+    {
+        var copy = new NearbyOptions
+        {
+            DisplayName = DisplayName,
+            ServiceId = ServiceId,
+            DiscoveryRefreshInterval = DiscoveryRefreshInterval,
+            ConnectTimeout = ConnectTimeout,
+            AcceptTimeout = AcceptTimeout,
+            InboundRequestTimeout = InboundRequestTimeout,
+            TransferInactivityTimeout = TransferInactivityTimeout,
+            AutoAcceptConnectionRequests = AutoAcceptConnectionRequests,
+        };
+
+        copy.Android.Topology = Android.Topology;
+        copy.Android.UseLowPower = Android.UseLowPower;
+        copy.Android.ConnectionType = Android.ConnectionType;
+        copy.Apple.EncryptionPreference = Apple.EncryptionPreference;
+        copy.Apple.StartFailureGraceWindow = Apple.StartFailureGraceWindow;
+
+        return copy;
+    }
 }

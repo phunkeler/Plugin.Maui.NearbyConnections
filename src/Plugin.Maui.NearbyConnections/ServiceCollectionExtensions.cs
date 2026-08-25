@@ -90,6 +90,10 @@ public static partial class ServiceCollectionExtensions
         configure?.Invoke(options);
         NearbyOptionsValidator.Validate(options);
 
+        // Snapshot after validation: the session owns this copy, so a caller who kept the
+        // configured instance cannot mutate the session's configuration past the validator.
+        options = options.Snapshot();
+
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<INearby>(sp =>
         {
