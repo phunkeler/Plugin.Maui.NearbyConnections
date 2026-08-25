@@ -1,9 +1,9 @@
 # Architecture
 
-> **Status: working draft.** This document is being built one layer at a time, top to
-> bottom. Each section is marked **Proposed** until the maintainer approves it, then the
-> marker is removed. Layers: consumer stories → public surface → contracts and invariants →
-> internal decomposition → migration map.
+> **Status: approved design, 2026-08-25.** Sections 1–4 state the target architecture, from
+> consumer stories down to internal decomposition. Section 5 is the migration work list from
+> the as-is code to that target. Implementation follows the section 5 stages, and each stage
+> updates this document when it lands.
 
 ## Table of contents
 
@@ -19,15 +19,18 @@
   - [The surface map](#the-surface-map)
   - [What changes against today's surface](#what-changes-against-todays-surface)
   - [The stories, re-proven against this surface](#the-stories-re-proven-against-this-surface)
+  - [The stream grammars](#the-stream-grammars)
   - [Decided for this layer](#decided-for-this-layer-1)
 - [3. Contracts and invariants](#3-contracts-and-invariants)
   - [The contract map](#the-contract-map)
   - [The contracts, with owners and enforcement](#the-contracts-with-owners-and-enforcement)
   - [What changed against today](#what-changed-against-today)
   - [Decided for this layer](#decided-for-this-layer-2)
-- [4. Internal decomposition — Proposed](#4-internal-decomposition--proposed)
+- [4. Internal decomposition](#4-internal-decomposition)
   - [The target component map](#the-target-component-map)
   - [The layers, and why each boundary sits where it does](#the-layers-and-why-each-boundary-sits-where-it-does)
+  - [Component archetypes and names](#component-archetypes-and-names)
+  - [Death policies](#death-policies)
   - [Fact ownership (the C5 table)](#fact-ownership-the-c5-table)
   - [What this closes](#what-this-closes)
   - [Decided for this layer](#decided-for-this-layer-3)
@@ -40,7 +43,20 @@
   - [Prior art: the shapes this design converges on](#prior-art-the-shapes-this-design-converges-on)
   - [Adopted from the survey: the per-connection adapter object](#adopted-from-the-survey-the-per-connection-adapter-object)
   - [Survey learnings: adopted and declined](#survey-learnings-adopted-and-declined)
-- 5\. Migration map — pending, written when section 4 is approved
+- [5. Migration map](#5-migration-map)
+  - [The rules of the migration](#the-rules-of-the-migration)
+  - [The stages](#the-stages)
+  - [M0 — Groundwork](#m0--groundwork)
+  - [M1 — The two correctness fixes](#m1--the-two-correctness-fixes)
+  - [M2 — One owner for the connection table](#m2--one-owner-for-the-connection-table)
+  - [M3 — Session components](#m3--session-components)
+  - [M4 — The public surface](#m4--the-public-surface)
+  - [M5 — The adapter seam](#m5--the-adapter-seam)
+  - [M6 — Stream payloads](#m6--stream-payloads)
+  - [The 1.0 gate](#the-10-gate)
+  - [The decision list, dispositioned](#the-decision-list-dispositioned)
+  - [Open items at implementation](#open-items-at-implementation)
+  - [Superseded documents](#superseded-documents)
 
 ## 1. Consumer stories
 
@@ -258,6 +274,24 @@ await foreach (var request in nearby.Requests.WithCancellation(pageToken))
 
 S1, S3, S4, S6, and S7 already passed and are untouched by these changes.
 
+### The stream grammars
+
+Each public stream promises its item sequence as a grammar, pinned by a unit test — the
+lesson from Rx, whose durable core is its grammar, not its type names. A grammar covers one
+stream's shape only. It never promises ordering across streams.
+
+```text
+Devices.Changes    := change*            ends only by cancellation
+Requests           := replayed* live*    each request exactly once per enumerator
+Connections        := replayed* live*    the same instance ConnectAsync / AcceptAsync return
+ReceiveAsync       := payload* end       end = disconnect, after the buffered tail
+AdvertisingChanges := bool*              the item is the new value (DiscoveryChanges alike)
+```
+
+Writing these forced one contract sharp: a `Requests` enumerator may yield a request whose
+expiry then wins the race — the grammar's "exactly once" is delivery, not validity, and the
+`Expired` task plus the typed exception carry the validity story.
+
 ### Decided for this layer
 
 1. **Stale requests: both mechanisms, each solving a different half.**
@@ -333,7 +367,7 @@ flowchart TD
    the next session's registry, which would make that promise false. Stop therefore joins
    the set with the same constant bound disposal uses.
 
-## 4. Internal decomposition — Proposed
+## 4. Internal decomposition
 
 This layer gives every responsibility a named home, so that new work lands in a component
 instead of growing the two largest classes. The shape is judged by the contracts: each
@@ -344,11 +378,11 @@ its one owner (C5).
 
 ```mermaid
 flowchart TD
-    API["Public surface (section 2)"] --> FAC["Facade — NearbyImplementation<br/>public ops, state gate, session stop token,<br/>pumps, auto-accept policy"]
+    API["Public surface (section 2)"] --> FAC["Facade — Nearby<br/>public ops, state gate, session stop token,<br/>pumps, auto-accept policy"]
     FAC --> REG["Registry + its change broadcast<br/>device state and deltas"]
     FAC --> DELIV["DeliveryBroadcast ×2<br/>Requests / Connections replay — C3"]
-    FAC --> EXP["RequestExpiryTracker — C2<br/>atomic claim"]
-    FAC --> REF["DiscoveryRefreshLoop"]
+    FAC --> EXP["RequestRegistry — C2<br/>atomic claim"]
+    FAC --> REF["DiscoveryRefresher"]
     FAC --> JOIN["SessionTaskSet — C6"]
     FAC -->|"IPlatformNearby"| BR["Bridge — one sealed class, not partial<br/>channels, handshake ledger,<br/>connection table, staging,<br/>KeyedSerialQueue, release order — C7"]
     BR -->|"IPlatformAdapter"| AND["Android adapter"]
@@ -365,9 +399,17 @@ upward path is its channels, which the facade's pumps drain on thread-pool threa
 is what makes C4 true, and it is what keeps `Native/` free of session references at the
 MultipeerConnectivity exit.
 
+The inbound path is one named pipeline — **adapter → channel → pump → owner → broadcast** —
+and device ids, not objects, are the routing key between its stages. Both are client-go's
+lessons: its `Reflector → DeltaFIFO → Indexer → workqueue` chain stays readable a decade on
+because the stages are named, and its queues carry keys because objects change while keys
+stay stable. The two sequence views below each walk this pipeline end to end.
+
 ### The layers, and why each boundary sits where it does
 
-**Facade.** Keeps only its one reason to change: how public operations map onto platform
+**Facade — the `Nearby` class** (today `NearbyImplementation`; the rename is settled under
+*Component archetypes and names* below). Keeps only its one reason to change: how public
+operations map onto platform
 streams. The pump machine and the eight-line auto-accept policy stay inline — extracting
 them would create components with no independent reason to change. Everything else moves
 out. Auto-accept's contract is explicit: the policy never calls `Track`, never publishes to
@@ -380,15 +422,15 @@ facade — the components below act through delegates the facade injects.
 **Session components, constructed by the facade.** Each owns its state, its timer, and its
 failure modes, and each is testable alone on `net10.0`:
 
-- `RequestExpiryTracker` — owns "an inbound request is outstanding for X", its expiry timer,
+- `RequestRegistry` — owns "an inbound request is outstanding for X", its expiry timer,
   and the atomic claim that settles accept, reject, and expiry. `Track(request)` records the
   fact. `TryClaim(deviceId)` resolves it, and exactly one caller wins: a winning accept or
   reject proceeds, a losing one throws `NearbyRequestExpiredException`, and a losing expiry
   timer returns without effect. Expiry effects — the reject, the `Expired` completion, the
   registry transition, the change publish — run inside an `onExpired` delegate the facade
-  injects, so device-state mutation keeps one path. The tracker is constructed with the
+  injects, so device-state mutation keeps one path. The component is constructed with the
   options snapshot, the `TimeProvider`, and that delegate. The C2 enforcement point.
-- `DiscoveryRefreshLoop` — owns the refresh interval, the settle window, and eviction.
+- `DiscoveryRefresher` — owns the refresh interval, the settle window, and eviction.
   Exposes `Start()`, `CancelAsync()`, and `DrainAsync()`. The facade injects one refresh
   delegate that stops and restarts the discover pump under the facade's state gate — the gate
   never leaves the facade. Eviction goes through the registry's own generation API.
@@ -400,10 +442,11 @@ failure modes, and each is testable alone on `net10.0`:
   that replay what is still outstanding, then live arrivals. Same watcher pattern as
   `ChangeBroadcast`, plus the handover rule below. It holds no fact state — only a
   per-enumerator handover guard. Each instance is constructed with a snapshot delegate: the
-  tracker's outstanding set for requests, `IPlatformNearby.SnapshotConnections()` for
-  connections.
-- `NearbyDeviceRegistry` and `ChangeBroadcast` — unchanged. They are the proof extraction
-  works: both are recent extractions and both are the best-bounded components in the tree.
+  request registry's outstanding set for requests, `IPlatformNearby.SnapshotConnections()`
+  for connections.
+- `DeviceRegistry` (today `NearbyDeviceRegistry`) and `ChangeBroadcast` — behaviorally
+  unchanged. They are the proof extraction works: both are recent extractions and both are
+  the best-bounded components in the tree.
 
 **The handover rule (C3).** At enumeration start the delivery enumerator subscribes first,
 then reads the snapshot through its delegate, yields the snapshot, then yields live items and
@@ -439,19 +482,69 @@ in-band frame on Android, the native carrier on iOS. The bridge owns the platfor
 contract — an inbound stream arrives as a name-and-stream pair, assembled into
 `NearbyStreamPayload` and delivered through the connection's receive channel. The in-band
 frame format is a wire contract between peers of different plugin versions and is settled
-before S8 ships (decision list, `ARCHITECTURE-DECOMPOSITION-DEFENSE.md`).
+before S8 ships (section 5, stage M6).
+
+### Component archetypes and names
+
+Four archetypes cover every session component. Each archetype has one naming form, and the
+name answers the reader's first question: does this thing own a fact?
+
+| Archetype | Owns a fact? | Naming form | Members |
+|---|---|---|---|
+| **Fact owner** | Yes — holds it, serializes it, bounds its liveness | `<Fact>Registry` | `DeviceRegistry` · `RequestRegistry` |
+| **View** | No — fans a fact out, dies with its enumerators | `<Kind>Broadcast` | `ChangeBroadcast` · `DeliveryBroadcast<T>` |
+| **Duty** | No — runs one recurring responsibility | agent noun | `DiscoveryRefresher` |
+| **Mechanism** | No — reusable structure, no domain knowledge | structural noun | `KeyedSerialQueue` · `SessionTaskSet` |
+
+Renames this settles: `RequestExpiryTracker` → `RequestRegistry` (the name follows the
+fact, not the timer — expiry is the liveness duty every fact owner carries),
+`DiscoveryRefreshLoop` → `DiscoveryRefresher` (the duty survives if the loop becomes a
+timer callback), `NearbyImplementation` → `Nearby` (the standard `IFoo`/`Foo` pair —
+"Implementation" names nothing), `PlatformNearby` → `PlatformBridge`, and
+`NearbyDeviceRegistry` → `DeviceRegistry` (the `Nearby` prefix is collision armor for
+*public* types in a MAUI app — internal types do not wear it, and every other internal
+component is already bare). `PeerLookup` is
+the one grandfathered exception: by the scheme it is a fact owner, but it sits in
+`Native/`, has never slipped, and renaming it buys the least. Internal names never appear
+in the PublicAPI baselines, so these renames have zero consumer impact. Prior art:
+Kubernetes client internals name by role (`Reflector`, `Informer`, `Indexer`) and stay
+readable; Rx names by mechanism and needs a decoder ring.
+
+### Death policies
+
+Every long-lived component declares what its failure means, from a closed set — the
+supervision lesson from Erlang/OTP, without the supervision machinery. No policy is
+*restart* in 1.0: restarting against shared state has no failing test behind it. The set:
+
+- **Degrade loudly** — stop, flip the observable state, report on the change stream.
+- **Fail soft** — absorb the failure, log it, continue.
+
+| Component | On death |
+|---|---|
+| A pump (in `Nearby`) | Degrade loudly: the flag goes `false`, the change stream reports it |
+| `DiscoveryRefresher` | Degrade loudly: refreshing stops, discovery itself continues, logged |
+| A `RequestRegistry` timer | Fail soft: claim and force-expire the request, logged |
+| A `SessionTaskSet` member | Fail soft: logged, the set shrinks |
+| Bridge and adapter callbacks | Fail soft: absorb, log — see *Failure interleavings* |
+
+The repo's gold standard already exists — the iOS backgrounding teardown fails loudly:
+flags observably `false`, devices observably changed. These policies make that standard
+total, and each policy line is testable.
 
 ### Fact ownership (the C5 table)
 
 Every fact has one owning component that holds and serializes it. Mutators route through the
-owner's API. Everyone else reads or derives.
+owner's API. Everyone else reads or derives. Serialization by ownership takes exactly two
+sanctioned forms in this design — *lock-owned* (the registry's lock) and *lane-owned*
+(`KeyedSerialQueue`'s per-key lanes), the structural single-writer lesson from Netty's
+channel-pinned event loops. A mutation path that uses neither form fails review.
 
 | Fact | Owner | Everyone else |
 |---|---|---|
 | Device presence, status, and the device change stream | Registry, its broadcast included | The facade and its injected delegates mutate through the registry's API. UI reads snapshots and deltas. |
 | "Device X has a live connection" | Bridge connection table — `deviceId` → (`NearbyConnection`, `IPlatformConnection`) | Facade queries `TryGetConnection` and reads `SnapshotConnections()` through `IPlatformNearby`. `NearbyDevice.Status == Connected` is a derived view. `Disconnected` is a derived signal. |
 | "Advertising / discovery started" | Bridge — `Step` resolves or faults it, on both branches | Facade pumps await it. The pump faults it only when the pump itself fails before `Step` runs — the one documented backstop, harmless late writes absorbed by `TrySet*`. |
-| "Inbound request outstanding for X" | `RequestExpiryTracker` — the atomic claim settles accept, reject, or expiry, and exactly one wins | Handshake ledger holds only the accept-in-progress TCS. Registry status is a derived view. Auto-accept never creates the fact. |
+| "Inbound request outstanding for X" | `RequestRegistry` — the atomic claim settles accept, reject, or expiry, and exactly one wins | Handshake ledger holds only the accept-in-progress TCS. Registry status is a derived view. Auto-accept never creates the fact. |
 | Live session tasks (auto-accept, disconnect watchers) | `SessionTaskSet` | `StopAsync` and `DisposeAsync` join it. A bare task discard outside the two owning types fails review (C6). |
 | Peer identity and platform handles | `PeerLookup` | Nothing above `Native/` sees a platform identifier. The shared half mints ids for the scripted adapter too. |
 | Inbound file staging path | Bridge, per instance | No process-wide static remains |
@@ -493,12 +586,17 @@ guard, and the guard dies with the enumerator.
 2. **The handover rule is the C3 mechanism.** Subscribe, snapshot, dedupe by reference, then
    live. Decided here because both alternative orders fail C3.
 3. **One atomic claim settles accept, reject, and expiry.** The claim lives in
-   `RequestExpiryTracker` and runs at operation entry, not at the connected callback.
+   `RequestRegistry` and runs at operation entry, not at the connected callback.
 4. **Teardown order is fixed:** cancel the session stop token, stop the pumps under the gate,
    dispose connections, reject pending requests, join the task set outside the gate, clear
    the registry, return. A join timeout is logged.
 5. **The bridge never calls a session component.** The channels are the only upward path.
    This is the C4 enforcement and the migration boundary in one rule.
+6. **The systems-survey increments are adopted, and none adds a component:** a death
+   policy per long-lived component (degrade loudly or fail soft — no restarts in 1.0), the
+   two sanctioned single-writer forms in the C5 table, one grammar line per public stream
+   in section 2 with a pinning test each, the named inbound pipeline, and the archetype
+   naming scheme with its five renames.
 
 ### The seam in detail
 
@@ -521,53 +619,64 @@ classDiagram
         +ConnectAsync(device)
         +StopAsync()
     }
-    class NearbyImplementation {
+    class Nearby {
+        <<Facade+Supervisor>>
         -stateGate
         -stopToken
         -pumps
         -autoAcceptPolicy
+        onDeath pump: degrade loudly — flag false, change published
     }
-    class NearbyDeviceRegistry {
+    class DeviceRegistry {
+        <<FactOwner>>
         -devices
         +Apply(change)
         +Snapshot()
     }
     class DeliveryBroadcast~T~ {
+        <<View>>
         -watchers
         -snapshotDelegate
         +Publish(item)
         +Subscribe() : IAsyncEnumerable~T~
+        grammar: replayed* live*
     }
-    class RequestExpiryTracker {
+    class RequestRegistry {
+        <<FactOwner>>
         -outstanding
         -timers
         -onExpired
         +Track(request)
         +TryClaim(deviceId) : ClaimResult
+        onDeath timer: fail soft — claim and force-expire, logged
     }
-    class DiscoveryRefreshLoop {
+    class DiscoveryRefresher {
+        <<Duty>>
         -refreshTimer
         -settleWindow
         -refreshDelegate
         +Start()
         +CancelAsync()
         +DrainAsync()
+        onDeath: degrade loudly — refresh stops, discovery continues, logged
     }
     class SessionTaskSet {
+        <<Mechanism>>
         +Add(task)
         +JoinAsync(bound)
+        onDeath member task: fail soft — logged, set shrinks
     }
-    INearby <|.. NearbyImplementation
-    NearbyImplementation --> NearbyDeviceRegistry : owns device state
-    NearbyImplementation --> DeliveryBroadcast~T~ : one for requests, one for connections
-    NearbyImplementation --> RequestExpiryTracker : C2, atomic claim
-    NearbyImplementation --> DiscoveryRefreshLoop : injects the refresh delegate
-    NearbyImplementation --> SessionTaskSet : C6, joined by Stop and Dispose
-    NearbyImplementation --> IPlatformNearby : awaits streams
+    INearby <|.. Nearby
+    Nearby --> DeviceRegistry : owns device state
+    Nearby --> DeliveryBroadcast~T~ : one for requests, one for connections
+    Nearby --> RequestRegistry : C2, atomic claim
+    Nearby --> DiscoveryRefresher : injects the refresh delegate
+    Nearby --> SessionTaskSet : C6, joined by Stop and Dispose
+    Nearby --> IPlatformNearby : awaits streams
 ```
 
 `DeliveryBroadcast<T>` holds no fact state. At enumeration start it subscribes, reads the
-current outstanding set through its snapshot delegate (`RequestExpiryTracker` for requests,
+current outstanding set through its snapshot delegate (`RequestRegistry` for requests,
 `SnapshotConnections()` for connections), yields it, then yields live arrivals with the
 handover guard suppressing the one possible duplicate. One fact, one owner, two views — C5
 holds, and C3's "exactly once" holds with it.
@@ -655,7 +764,7 @@ sequenceDiagram
     participant AD as Adapter
     participant BR as Bridge
     participant FAC as Facade pump
-    participant EX as ExpiryTracker
+    participant RR as RequestRegistry
     participant REG as Registry
     participant DB as DeliveryBroadcast
     participant VM as Consumer
@@ -665,12 +774,12 @@ sequenceDiagram
     BR->>BR: assemble request core, write advertise channel
     BR-->>FAC: pump drains the channel (thread pool — C4)
     FAC->>FAC: attach session effects to the request
-    FAC->>EX: Track(request)
+    FAC->>RR: Track(request)
     FAC->>REG: status = RequestReceived (+ change)
     FAC->>DB: Publish(request)
     DB-->>VM: request (replayed or live)
     VM->>FAC: request.AcceptAsync() — the facade-wired continuation
-    FAC->>EX: TryClaim(deviceId) — the arbiter
+    FAC->>RR: TryClaim(deviceId) — the arbiter
     FAC->>BR: respond(accept): ledger TCS + AcceptTimeout deadline (C1)
     BR->>AD: RespondAsync(deviceId, accept)
     AD->>SDK: accept
@@ -685,13 +794,13 @@ sequenceDiagram
 
 If the SDK never sends the connected callback, the `AcceptTimeout` deadline faults the
 ledger TCS and `AcceptAsync` throws — contract C1. If the consumer never answers, the
-tracker's timer claims the fact at `InboundRequestTimeout`, and the facade's `onExpired`
-delegate rejects the request, completes `Expired`, and reports `RequestExpired` on the
-change stream — contract C2. If accept and expiry race, `TryClaim` picks exactly one winner:
-a losing accept throws `NearbyRequestExpiredException`, and a losing timer does nothing.
-With auto-accept enabled, none of the tracker or `Requests` steps occur — the facade accepts
-directly, the task is owned by `SessionTaskSet`, and the connection arrives through
-`Connections`.
+request registry's timer claims the fact at `InboundRequestTimeout`, and the facade's
+`onExpired` delegate rejects the request, completes `Expired`, and reports `RequestExpired`
+on the change stream — contract C2. If accept and expiry race, `TryClaim` picks exactly one
+winner: a losing accept throws `NearbyRequestExpiredException`, and a losing timer does
+nothing. With auto-accept enabled, none of the request-registry or `Requests` steps occur —
+the facade accepts directly, the task is owned by `SessionTaskSet`, and the connection
+arrives through `Connections`.
 
 #### Sequence view — teardown (StopAsync, contracts C6 and C7)
 
@@ -801,3 +910,209 @@ next reviewer does not rediscover them.
 | Byte-pipe receive surface with backpressure | `IDuplexPipe`, `PipeReader` | **Declined.** Both SDKs push payloads regardless of consumer readiness, so a pipe would present backpressure the library cannot exert on the radio. Delivery-first design (C3) is the honest fix for unconsumed buffering. |
 | Typed feature collections as the escape hatch | `ConnectionContext.Features` | **Declined** in favor of named platform scopes. A feature bag hides platform divergence at the call site — the first principle wants it visible. |
 | In-band goodbye frame to attribute remote close | Application-level protocols | **Declined.** Only plugin-to-plugin peers would send it, so the reason would lie whenever the remote peer is not this library. Remote close stays collapsed into `Disconnected`. |
+| Declared failure policy per worker | Erlang/OTP supervision trees | **Adopted** as the death-policy table — degrade loudly or fail soft, no restarts in 1.0. |
+| Serialization by ownership, structurally | Netty's channel-pinned event loops | **Adopted as principle**: the C5 table names the two sanctioned single-writer forms, lock-owned and lane-owned. No restructuring — the registry's lock is already correct. |
+| A formal per-stream grammar | Rx's `OnNext* (OnError\|OnCompleted)?` | **Adopted**: one grammar line per public stream (section 2), each pinned by a test. |
+| Named pipeline stages, keys flowing between them | client-go's `Reflector → DeltaFIFO → Indexer → workqueue` | **Adopted**: the inbound pipeline is named, and device ids — not objects — are the routing key. |
+
+## 5. Migration map
+
+This section is the work list. It sequences the path from today's code to the shape sections
+1–4 fixed, dispositions every decision the 2026-08-25 re-assessment raised, and absorbs what
+is still live from the five root-level review documents — which it then supersedes. When a
+stage lands, its entry here gains a done mark and a commit reference. This resolves decision
+D9: findings live here, not in a floating review document and not in closed GitHub issues.
+
+### The rules of the migration
+
+- **Every stage ends green.** All three TFMs build warning-free, and the unit suite passes
+  via `dotnet run`. A stage that touches a platform partial runs that platform's device
+  suite.
+- **Every public-surface stage leaves the three PublicAPI baselines byte-identical** and
+  passes the naming checks in `.claude/rules/naming.md` section 10.
+- **`AGENTS.md` is updated in the same commit as the change it describes.** It documents the
+  as-is, so it must never describe a shape that no longer exists.
+- **A stage is one reviewable unit.** Stages may span several commits, but no commit leaves
+  the build depending on a later stage.
+
+### The stages
+
+```mermaid
+flowchart TD
+    M0["M0 Groundwork<br/>docs, references, policy"] --> M1["M1 Correctness fixes<br/>options snapshot, handshake abandon"]
+    M1 --> M2["M2 One connection table<br/>bridge owns, facade queries"]
+    M2 --> M3["M3 Session components<br/>RequestRegistry, DiscoveryRefresher,<br/>SessionTaskSet, renames"]
+    M3 --> M4["M4 Public surface<br/>Connections, Requests, Reason,<br/>grammars, sample rewrite"]
+    M4 --> M5["M5 Adapter seam<br/>IPlatformAdapter, IPlatformConnection,<br/>bridge, staging"]
+    M5 --> M6["M6 Stream payloads<br/>story S8"]
+    M6 --> GATE["1.0 gate"]
+    D8["D8 settled: xUnit v3 + NSubstitute<br/>migration precedes M1"] -.-> M1
+```
+
+The order preserves the re-assessment's reasoning: correctness before restructure (M1 decides
+what table removal means on failure paths, so it precedes M2), and the small extractions
+before the seam (M2–M3 shrink what M5 moves). M4 sits between them because its two streams
+need M3's components — `Requests` replays from `RequestRegistry`, `Connections` snapshots
+through the connection table M2 unified — and because landing the surface early lets the
+sample and README teach the final shape for the longest time before 1.0. M6 is additive and
+may ship in 1.0 or the first minor after — its wire contract is settled before it ships
+either way.
+
+### M0 — Groundwork
+
+No behavior changes. This stage gives every later stage a place to be tracked and makes every
+written contract resolvable. *(Re-assessment fix 1.)*
+
+- Repair the dangling references. `AGENTS.md` and `Native/KeyedSerialQueue.cs` cite
+  `docs/CONCURRENCY.md`, which does not exist — both now cite this document, section 3
+  (contracts C6 and C7) and section 4 (the teardown order). The unit test
+  `NearbyImplementationTests.cs` cites `docs/DECISIONS.md` — it now cites this section.
+  `DESIGN-PRINCIPLES.md` and `docs/DEVICE-LIFECYCLE.md` cite
+  `docs/PLATFORM-ABSTRACTION-REVIEW.md` — both now cite this section, per D9.
+- Record the escape-hatch policy (D4) in `DESIGN-PRINCIPLES.md` as written policy: *named
+  platform scopes or nothing, opened on the first concrete request.* A raw-handle hatch stays
+  refused.
+- Delete the five superseded root-level documents listed under *Superseded documents* below.
+  None was ever committed, so this section is their only surviving record.
+
+### M1 — The two correctness fixes
+
+- **Snapshot the options at registration** (D7, re-assessment fix 2). `AddNearby` validates,
+  then captures an immutable copy. One owner for the configuration fact — the C5 table's last
+  row becomes true, and the public doc sentence that already promises it stops lying.
+- **Abandon on every failed handshake exit** (re-assessment fix 3). The catch-all exit of
+  `AwaitHandshakeAsync` runs the same abandon-and-release the deadline exit runs, with the
+  device test that proves it. This is the one candidate correctness defect in the as-is code,
+  and it lands before M2 because it defines what "remove from the table" means on a failure
+  path.
+
+### M2 — One owner for the connection table
+
+The bridge owns the table, the facade queries it (D6, re-assessment fix 4). The facade's
+`_activeConnections` is deleted. `TryGetConnection`, `SnapshotConnections()`, and the
+`StopAsync` enumeration go through `IPlatformNearby`. The table empties inside
+`ReleaseConnectionAsync`, before disposal returns, which closes the stale-`TryGetConnection`
+window. The disconnect watcher keeps only its registry transition.
+
+### M3 — Session components
+
+The facade sheds everything that is not its one reason to change. *(Re-assessment fix 5 plus
+section 3's decided item.)*
+
+- Extract `RequestRegistry` — born under its target name, with the atomic claim
+  (`TryClaim`), the expiry timer, and the `onExpired` delegate from section 4. The expiry
+  logic that lives inline in the facade today moves here.
+- Extract `DiscoveryRefresher` — born under its target name, with `Start()`, `CancelAsync()`,
+  `DrainAsync()`, and the injected refresh delegate.
+- Add `SessionTaskSet`, and route every session-owned task through it. `StopAsync` and
+  `DisposeAsync` both join it — C6 gains its missing half.
+- Fix the teardown order as section 4 states it: cancel, stop pumps, dispose connections,
+  reject requests, join, clear.
+- Rename `NearbyDeviceRegistry` → `DeviceRegistry` and `NearbyImplementation` → `Nearby`.
+  Internal renames, zero PublicAPI impact.
+
+### M4 — The public surface
+
+Section 2 lands whole, because its pieces prove each other. *(Settles D1 and D3.)*
+
+- Add `DeliveryBroadcast<T>` with the handover rule, and expose `INearby.Connections` and
+  `INearby.Requests`.
+- Make `NearbyConnectionRequest` public: `RemoteDevice`, `AcceptAsync`, `RejectAsync`, the
+  `Expired` task, and the sealed `NearbyRequestExpiredException`.
+- Remove `INearby.AcceptAsync` and `INearby.RejectAsync`.
+- Add `NearbyDeviceChange.Reason` (nullable, init-only) and complete `Disconnected` with the
+  same reason set. Final case names are checked against the naming rules here (open item 4).
+- Pin the five stream grammars from section 2 with one unit test each.
+- Update all three PublicAPI baselines — byte-identical — and re-run the naming checks.
+- Rewrite the sample: `NearbyIngestionService` (236 lines) becomes the section 2 loop, the
+  initializer-service ritual is deleted, and the README teaches the new shape.
+
+### M5 — The adapter seam
+
+The largest change, after the extractions shrank it (D5, re-assessment fix 7, adopted in
+section 4). The internal sub-sequence, each step green on all three TFMs:
+
+1. Declare `IPlatformAdapter` and `IPlatformConnection`.
+2. Extract the Android and iOS adapters behind them, one platform at a time.
+3. Hoist the six duplicated behaviors into the bridge, one behavior per commit.
+4. Relocate the SDK-typed device-test entry points into the adapters — the device suite then
+   constructs an adapter-bridge pair and asserts the same channel, ledger, and registry
+   effects.
+5. Collapse the `PlatformNearby` partials into one sealed `PlatformBridge` (the rename lands
+   with the collapse), add the throwing `net10.0` adapter and the scripted test adapter, and
+   delete `PlatformNearby.net.cs`.
+6. Instance-scope the staging path and the payload counter (re-assessment fix 6) — the last
+   process-wide mutable fact.
+
+`PeerLookup` keeps its name and its partial split. After this stage, the
+MultipeerConnectivity exit is one new adapter against a compiler-checked contract.
+
+### M6 — Stream payloads
+
+Story S8. `OpenStreamAsync(name)` on the connection and on `IPlatformConnection`,
+`NearbyStreamPayload` through `ReceiveAsync`, the name carried in-band on Android and
+natively on iOS. Additive to the surface, so it may land after the 1.0 tag without breaking
+anything. Two decisions settled 2026-08-25:
+
+- **The in-band frame is accepted as a cross-version wire contract.** That the Android frame
+  binds peers across plugin versions is acceptable for now. The frame format itself is
+  defined when this stage starts.
+- **Teardown is minimal viable.** The consumer owns an open `System.IO.Stream`, so the
+  library bounds only teardown's drain — `TransferInactivityTimeout` does not apply to S8
+  streams. Richer stream lifecycle handling is deliberately deferred and revisited after M6
+  ships.
+
+### The 1.0 gate
+
+The tag is cut only when every check below passes. These are the acceptance criteria the
+whole document was built against.
+
+- Every section 1 story is correct consumer code in about ten lines, with no timing ritual.
+  The section 2 snippets compile and run as written.
+- Every fact in the C5 table has exactly one owner in the code, verified against the table.
+- All three PublicAPI baselines are byte-identical, and every naming check in
+  `.claude/rules/naming.md` section 10 returns clean.
+- The five grammar tests pass, one per public stream.
+- No document or code comment references a file that does not exist.
+- The MultipeerConnectivity exit is demonstrably one adapter: nothing in `Native/` outside
+  the iOS adapter names an MPC type.
+
+### The decision list, dispositioned
+
+The re-assessment's eleven decisions, each settled by an earlier section, slotted into a
+stage, or held open on purpose. This table is their durable record.
+
+| # | Decision | Disposition |
+|---|---|---|
+| D1 | Does a device change carry a failure reason? | **Settled** — section 2: nullable init-only `Reason`, locally-observed facts only. Lands in M4. |
+| D2 | One log category forever? | **Settled** (2026-08-25) — keep the single category `Plugin.Maui.NearbyConnections.INearby`. This table is the required writing. The question is closed. |
+| D3 | Does 1.0 ship a connection-delivery seam? | **Settled** — section 2: `INearby.Connections`, a stream, not a second collection. Lands in M4. |
+| D4 | Escape-hatch policy? | **Settled** — section 1's refusals. Recorded in `DESIGN-PRINCIPLES.md` in M0. |
+| D5 | Adopt the adapter seam? | **Settled** — section 4, decided item 1. Lands in M5. |
+| D6 | Which side owns the connection table? | **Settled** — section 4's C5 table: the bridge. Lands in M2. |
+| D7 | Snapshot the options at registration? | **Settled** — section 4's C5 table. Lands in M1. |
+| D8 | Migrate the unit suite to xUnit v3? | **Settled** (2026-08-25) — migrate to the latest xUnit v3 and adopt NSubstitute, before M1 starts, because every stage adds tests. The hand-written stream-timing doubles (`FakeNearby`, `FaultingDevices`) stay — no mocking library expresses stream timing. NSubstitute covers the simpler seams. |
+| D9 | Where does the work list live? | **Settled** — here. The floating review documents are deleted in M0. |
+| D10 | The `net10.0` stub's meaning | **Settled** — subsumed by D5: the scripted adapter closes the test gap, the shipping stub keeps throwing. Lands in M5. |
+| D11 | `StartFailureGraceWindow` | **Open, untouched** — stays an open question in `DESIGN-PRINCIPLES.md`. Nothing in this design moves it. |
+
+### Open items at implementation
+
+The maintainer settled four of the five original items on 2026-08-25, and each is recorded
+where it lands: D2 and D8 in the decision table above, the S8 wire contract and stream
+teardown in M6. One item remains:
+
+1. **Final `Reason` case names.** Checked against the naming rules when M4 lands.
+
+### Superseded documents
+
+Five documents drove this design and are spent by it. None was ever committed — deleting
+them in M0 removes the files outright, and this section is their surviving record.
+
+| Document | What it held | Where it lives now |
+|---|---|---|
+| `ARCHITECTURE-REVIEW.md` (2026-08-24) | The DI/SOLID/structure review | Its verdicts fed the re-assessment. Surviving substance: sections 3–4. |
+| `ARCHITECTURE-REASSESSMENT.md` (2026-08-25) | As-is component map, overlap register, fixes 1–7, decisions D1–D11 | Fixes → stages M0–M5. Decisions → the table above. The as-is evidence served its purpose. |
+| `ARCHITECTURE-DECOMPOSITION-DEFENSE.md` | The adversarial pass over section 4 | Its amendments are merged into section 4. |
+| `INTERNAL-DECOMPOSITION.md` | The amended section 4 draft that pass produced | Merged into section 4. |
+| `ARCHITECTURE-INCREMENTS.md` | The systems-survey increments, attacked and defended | Adopted into section 4, decided item 6, and the survey-learnings table. |
