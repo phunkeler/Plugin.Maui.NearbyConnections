@@ -188,7 +188,20 @@ sealed partial class PlatformNearby : IPlatformNearby
         }
         catch
         {
+            // Same abandon-and-release the deadline exit runs: a handshake that exits through a
+            // cancelled caller or a faulted platform call must not leave the platform holding a
+            // half-open connection nothing will ever finish.
             _connectionTcs.TryRemove(device.Id, out _);
+
+            try
+            {
+                await PlatformAbandonConnectAsync(device).ConfigureAwait(false);
+            }
+            catch (Exception abandonEx)
+            {
+                LogWriteError(nameof(PlatformAbandonConnectAsync), device.Id, abandonEx);
+            }
+
             throw;
         }
     }
