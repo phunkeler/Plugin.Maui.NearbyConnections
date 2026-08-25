@@ -20,7 +20,7 @@ public class DisposeTests : DeviceTest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await platform.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
         _ = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
-        var (tcs, _) = platform._connectionTcs["endpoint-1"];
+        var (tcs, _) = platform._connectionTcs[platform.PeerLookup.DeviceIdFor("endpoint-1")];
 
         // Act
         await platform.DisposeAsync();

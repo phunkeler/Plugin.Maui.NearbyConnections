@@ -14,13 +14,13 @@ public class PayloadRoutingTests : DeviceTest
         // Arrange — a live connection, and a payload GMS hands over ownership of.
         await using var platform = Create.PlatformNearby();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+        var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
         byte[] expected = [1, 2, 3];
         var payload = Payload.FromBytes(expected);
 
         // Act
-        platform.OnPayloadReceived(id, payload);
-        await platform.OnPayloadTransferUpdate(id, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success));
+        platform.OnPayloadReceived(endpointId, payload);
+        await platform.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success));
 
         // Assert
         var received = await Receive.FirstAsync(connection, cts.Token);
@@ -36,15 +36,15 @@ public class PayloadRoutingTests : DeviceTest
         // returning to GMS at the copy's first await, which is when GMS delivers the next update.
         await using var platform = Create.PlatformNearby();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+        var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
         var file = Create.FilePayload(new byte[512 * 1024], $"ordering-{Guid.NewGuid():N}.bin");
         var bytes = Payload.FromBytes([1, 2, 3]);
 
         // Act
-        platform.OnPayloadReceived(id, file);
-        platform.OnPayloadReceived(id, bytes);
-        var fileUpdate = platform.OnPayloadTransferUpdate(id, Create.TransferUpdate(file.Id, PayloadTransferUpdate.Status.Success));
-        await platform.OnPayloadTransferUpdate(id, Create.TransferUpdate(bytes.Id, PayloadTransferUpdate.Status.Success));
+        platform.OnPayloadReceived(endpointId, file);
+        platform.OnPayloadReceived(endpointId, bytes);
+        var fileUpdate = platform.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(file.Id, PayloadTransferUpdate.Status.Success));
+        await platform.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(bytes.Id, PayloadTransferUpdate.Status.Success));
         await fileUpdate;
 
         // Assert

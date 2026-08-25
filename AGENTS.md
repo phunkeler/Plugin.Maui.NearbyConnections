@@ -506,6 +506,12 @@ unit suite, deliberately:
   Do not re-enable parallelism to speed the suite up: it runs in a couple of seconds, and the failure
   it buys back is an intermittent `FileNotFoundException` in a *different* test than the one at fault,
   reproducing only on slower API levels.
+- **On Android, a device id and an endpoint id are both `string` and are not interchangeable.**
+  A callback stands in for GMS, so it takes the endpoint id; the registry, `_activeConnections`, and
+  `_connectionTcs` take the device id. `Create.ConnectedAsync` returns both for that reason. Passing
+  a device id to a callback compiles and then mints a *second* id for it, so the payload routes to a
+  connection nobody holds and the test times out rather than failing where the mistake is. iOS
+  cannot hit this: its callbacks take `MCPeerID` objects, so the compiler separates the two.
 - **Pass the device explicitly.** DeviceRunners' booted-simulator auto-detection is unreliable;
   `scripts/device-tests.ps1` always passes `-p:DeviceRunnersDevice=<id>`. Do the same in any manual
   `dotnet test` invocation.

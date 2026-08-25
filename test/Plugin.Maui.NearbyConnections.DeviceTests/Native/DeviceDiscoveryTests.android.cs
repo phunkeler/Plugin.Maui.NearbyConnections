@@ -48,7 +48,7 @@ public class DeviceDiscoveryTests : DeviceTest
         // Arrange — a connected peer that stops advertising is NOT lost; only its advertisement is.
         await using var platform = Create.PlatformNearby();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (_, deviceId) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+        var (_, _, deviceId) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
         // Act
         platform.OnEndpointLost("endpoint-1");

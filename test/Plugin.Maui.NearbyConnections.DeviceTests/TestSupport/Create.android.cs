@@ -105,8 +105,19 @@ partial class Create
     /// <param name="platform">The platform whose callback establishes the connection.</param>
     /// <param name="displayName">The remote device's display name, as GMS reports it.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
-    /// <returns>The connection, and the platform-side endpoint id it is keyed by.</returns>
-    internal static async Task<(NearbyConnection Connection, string Id)> ConnectedAsync(
+    /// <returns>
+    /// The connection, the endpoint id GMS reports it under, and the device id this library minted
+    /// for it.
+    /// <para>
+    /// <b>Both ids are returned because they are not interchangeable.</b> Pass
+    /// <c>EndpointId</c> to anything that stands in for a GMS callback — <c>OnPayloadReceived</c>,
+    /// <c>OnPayloadTransferUpdate</c>, <c>OnDisconnected</c>, <c>OnEndpointLost</c> — because that
+    /// is what the SDK really hands over. Use <c>DeviceId</c> for assertions against the registry,
+    /// <c>_activeConnections</c>, or <c>_connectionTcs</c>. Passing a device id to a callback mints
+    /// a second id for it, and the payload then routes to a connection nobody holds.
+    /// </para>
+    /// </returns>
+    internal static async Task<(NearbyConnection Connection, string EndpointId, string DeviceId)> ConnectedAsync(
         PlatformNearby platform,
         string displayName,
         CancellationToken cancellationToken)
@@ -122,6 +133,6 @@ partial class Create
         platform._connectionTcs[deviceId] = (tcs, CancellationToken.None);
         platform.OnConnectionResult(endpointId, Resolution());
 
-        return (await tcs.Task.WaitAsync(cancellationToken), deviceId);
+        return (await tcs.Task.WaitAsync(cancellationToken), endpointId, deviceId);
     }
 }

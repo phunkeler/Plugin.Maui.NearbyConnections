@@ -14,17 +14,17 @@ public class TransferUpdateTests : DeviceTest
         // Arrange — live connection with a pending inbound payload.
         await using var platform = Create.PlatformNearby();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+        var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
         var reported = new TaskCompletionSource<NearbyTransferProgress>(TaskCreationOptions.RunContinuationsAsynchronously);
         connection.InboundProgress = new Progress<NearbyTransferProgress>(p => reported.TrySetResult(p));
 
         var payload = Payload.FromBytes([1, 2, 3]);
-        platform.OnPayloadReceived(id, payload);
+        platform.OnPayloadReceived(endpointId, payload);
 
         // Act
         await platform.OnPayloadTransferUpdate(
-            id, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.InProgress, total: 3, transferred: 1));
+            endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.InProgress, total: 3, transferred: 1));
 
         var update = await reported.Task.WaitAsync(cts.Token);
 
@@ -40,7 +40,7 @@ public class TransferUpdateTests : DeviceTest
         // Arrange — live connection and a real file behind a real Java file handle.
         await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+        var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
         byte[] expected = [10, 20, 30];
         var sourcePath = Path.Combine(Path.GetTempPath(), $"devtest-{Guid.NewGuid():N}.bin");
@@ -49,9 +49,9 @@ public class TransferUpdateTests : DeviceTest
         var payload = Payload.FromFile(javaFile);
 
         // Act — receipt then success, the order GMS delivers them; the platform owns the payload.
-        platform.OnPayloadReceived(id, payload);
+        platform.OnPayloadReceived(endpointId, payload);
         await platform.OnPayloadTransferUpdate(
-            id, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
+            endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
 
         var received = await Receive.FirstAsync(connection, cts.Token);
 
@@ -67,7 +67,7 @@ public class TransferUpdateTests : DeviceTest
         // Arrange — the collision the reservation exists for: one peer sends photo.bin twice.
         await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+        var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
         byte[] first = [1, 1, 1];
         byte[] second = [2, 2, 2];
@@ -80,9 +80,9 @@ public class TransferUpdateTests : DeviceTest
             using var javaFile = new Java.IO.File(sourcePath);
             var payload = Payload.FromFile(javaFile);
 
-            platform.OnPayloadReceived(id, payload);
+            platform.OnPayloadReceived(endpointId, payload);
             await platform.OnPayloadTransferUpdate(
-                id, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
+                endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
         }
 
         var received = await Receive.TakeAsync(connection, 2, cts.Token);
@@ -100,16 +100,16 @@ public class TransferUpdateTests : DeviceTest
         // Arrange — a delivered file the consumer never moved out of staging.
         var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+        var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
         var sourcePath = Path.Combine(Path.GetTempPath(), $"devtest-{Guid.NewGuid():N}.bin");
         await File.WriteAllBytesAsync(sourcePath, [7, 7, 7], cts.Token);
         using var javaFile = new Java.IO.File(sourcePath);
         var payload = Payload.FromFile(javaFile);
 
-        platform.OnPayloadReceived(id, payload);
+        platform.OnPayloadReceived(endpointId, payload);
         await platform.OnPayloadTransferUpdate(
-            id, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
+            endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
 
         var received = await Receive.FirstAsync(connection, cts.Token);
         var stagedPath = Assert.IsType<NearbyFilePayload>(received).FileResult.FullPath;
@@ -134,12 +134,12 @@ public class TransferUpdateTests : DeviceTest
         // that disposing mid-copy stays clean — no orphan, no throw, no hang.
         var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var (_, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+        var (_, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
         var payload = Create.FilePayload(new byte[4 * 1024 * 1024], $"drain-{Guid.NewGuid():N}.bin");
 
-        platform.OnPayloadReceived(id, payload);
+        platform.OnPayloadReceived(endpointId, payload);
         var copy = platform.OnPayloadTransferUpdate(
-            id, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success));
+            endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success));
 
         // Act
         await platform.DisposeAsync();

@@ -13,14 +13,14 @@ public class DisconnectTests : DeviceTest
         // Arrange — a live connection established through the real callback path.
         await using var platform = Create.PlatformNearby();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (connection, id) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
+        var (connection, endpointId, deviceId) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
         // Act
-        platform.OnDisconnected(id);
+        platform.OnDisconnected(endpointId);
 
         // Assert
         await connection.Disconnected.WaitAsync(cts.Token);
-        Assert.False(platform._activeConnections.ContainsKey(id));
-        Assert.False(platform.PeerLookup.TryGetDevice(id, out _));
+        Assert.False(platform._activeConnections.ContainsKey(deviceId));
+        Assert.False(platform.PeerLookup.TryGetDevice(deviceId, out _));
     }
 }
