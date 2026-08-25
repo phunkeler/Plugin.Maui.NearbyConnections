@@ -96,7 +96,7 @@ sealed partial class NearbyImplementation
         }
 
         if (_connections.TryGetConnection(device.Id, out _)
-            || _pendingRequests.ContainsKey(device.Id))
+            || _requests.Contains(device.Id))
         {
             return;
         }
@@ -118,8 +118,7 @@ sealed partial class NearbyImplementation
             return;
         }
 
-        var expiresAt = ArmRequestExpiry(device);
-        _pendingRequests[device.Id] = request;
+        var expiresAt = _requests.Track(request);
         _registry.AddIfAbsent(device);
 
         Transition(
@@ -129,46 +128,19 @@ sealed partial class NearbyImplementation
             expiresAt);
     }
 
-    DateTimeOffset? ArmRequestExpiry(NearbyDevice device)
+    /// <summary>
+    /// The expiry effects <see cref="RequestRegistry"/> runs for a request whose timer won the
+    /// claim: reject, reset the device row, and log — all session-side, so device-state mutation
+    /// keeps one path. Never throws.
+    /// </summary>
+    async Task RunRequestExpiryAsync(NearbyConnectionRequest request)
     {
-        var timeout = _options.InboundRequestTimeout;
+        var device = request.RemoteDevice;
 
-        if (timeout == Timeout.InfiniteTimeSpan)
-        {
-            return null;
-        }
-
-        var cts = new CancellationTokenSource();
-        _requestExpiries[device.Id] = cts;
-        _ = ExpireRequestAfterAsync(device, timeout, cts.Token);
-
-        return _timeProvider.GetUtcNow() + timeout;
-    }
-
-    void DisarmRequestExpiry(string deviceId)
-    {
-        if (!_requestExpiries.TryRemove(deviceId, out var cts))
-        {
-            return;
-        }
-
-        cts.Cancel();
-        cts.Dispose();
-    }
-
-    async Task ExpireRequestAfterAsync(NearbyDevice device, TimeSpan timeout, CancellationToken cancellationToken)
-    {
         try
         {
-            await Task.Delay(timeout, _timeProvider, cancellationToken).ConfigureAwait(false);
-
-            if (!_pendingRequests.TryRemove(device.Id, out var request))
-            {
-                return;
-            }
-
             LogHandshakeEnded(device.Id, EndReason.RequestExpired);
-            LogInboundRequestExpired(device.Id, timeout.TotalSeconds);
+            LogInboundRequestExpired(device.Id, _options.InboundRequestTimeout.TotalSeconds);
 
             try
             {
@@ -180,15 +152,6 @@ sealed partial class NearbyImplementation
             }
 
             ResetToVisible(device);
-
-            if (_requestExpiries.TryRemove(device.Id, out var spent))
-            {
-                spent.Dispose();
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Answered, or the session stopped. Whoever cancelled owns the disposal.
         }
         catch (Exception ex)
         {

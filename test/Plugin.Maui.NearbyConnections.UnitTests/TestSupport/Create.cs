@@ -72,6 +72,31 @@ static class Create
         => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>
+    /// An inbound connection request with inert accept and reject callbacks, for tests that track
+    /// the request itself rather than what answering it produces.
+    /// </summary>
+    public static NearbyConnectionRequest Request(NearbyDevice? device = null)
+        => new(
+            device ?? Device(),
+            accept: _ => Task.FromResult(Connection()),
+            reject: _ => Task.CompletedTask);
+
+    /// <summary>
+    /// The request registry on a fake clock, with the expiry effects delegate a test observes.
+    /// </summary>
+    /// <param name="time">The clock the expiry timers run on.</param>
+    /// <param name="onExpired">Receives each request whose timer wins the claim.</param>
+    /// <param name="options">Options carrying <see cref="NearbyOptions.InboundRequestTimeout"/>.</param>
+    public static RequestRegistry RequestRegistry(
+        FakeTimeProvider time,
+        Func<NearbyConnectionRequest, Task>? onExpired = null,
+        NearbyOptions? options = null)
+        => new(
+            options ?? new NearbyOptions(),
+            time,
+            onExpired ?? (static _ => Task.CompletedTask));
+
+    /// <summary>
     /// The queue that orders per-peer work, with an error handler that discards what it receives.
     /// </summary>
     /// <param name="onError">

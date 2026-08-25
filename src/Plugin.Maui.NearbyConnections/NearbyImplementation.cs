@@ -14,10 +14,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
 
     readonly NearbyDeviceRegistry _registry = new();
     readonly SemaphoreSlim _stateGate = new(1, 1);
-    readonly ConcurrentDictionary<string, NearbyConnectionRequest> _pendingRequests
-        = new(StringComparer.Ordinal);
-    readonly ConcurrentDictionary<string, CancellationTokenSource> _requestExpiries
-        = new(StringComparer.Ordinal);
+    readonly RequestRegistry _requests;
 
     // Not volatile: the setters below take a ref to these, and ref-to-volatile is CS0420.
     // Interlocked.Exchange is a full fence, so every write is already published.
@@ -45,6 +42,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         _options = options;
         _logger = logger;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _requests = new RequestRegistry(options, _timeProvider, RunRequestExpiryAsync);
 
         _advertise = new PumpState(
             start: (started, ct) => PumpAdvertiseAsync(_connections.AdvertiseAsync(started, ct), started, ct),
@@ -256,12 +254,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
                 }
             }
 
-            foreach (var (deviceId, _) in _requestExpiries.ToArray())
-            {
-                DisarmRequestExpiry(deviceId);
-            }
-
-            foreach (var (_, request) in _pendingRequests.ToArray())
+            foreach (var request in _requests.ClaimAll())
             {
                 try
                 {
@@ -273,7 +266,6 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
                 }
             }
 
-            _pendingRequests.Clear();
             _registry.Clear();
         }
         finally
@@ -312,14 +304,13 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(device);
 
-        if (!_pendingRequests.TryRemove(device.Id, out var request))
+        if (!_requests.TryClaim(device.Id, out var request))
         {
             throw new InvalidOperationException(
                 $"No connection request is outstanding for device '{device.Id}'. " +
                 $"A request can only be accepted once, and only before it expires.");
         }
 
-        DisarmRequestExpiry(device.Id);
         Transition(device, NearbyDeviceStatus.Connecting, ConnectionRole.Acceptor);
 
         try
@@ -342,13 +333,12 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(device);
 
-        if (!_pendingRequests.TryRemove(device.Id, out var request))
+        if (!_requests.TryClaim(device.Id, out var request))
         {
             throw new InvalidOperationException(
                 $"No connection request is outstanding for device '{device.Id}'. A request can only be rejected once, and only before it expires.");
         }
 
-        DisarmRequestExpiry(device.Id);
         await request.RejectAsync(cancellationToken).ConfigureAwait(false);
         LogHandshakeEnded(device.Id, EndReason.LocalRejected);
         ResetToVisible(device);
