@@ -206,8 +206,7 @@ sealed partial class AndroidAdapter : IPlatformAdapter
         try
         {
             var device = _bridge.PeerLookup.Record(_bridge.PeerLookup.DeviceIdFor(endpointId), info.EndpointName);
-            _bridge.LogDeviceFound(device.Id, device.DisplayName);
-            _bridge.WriteDeviceFound(device);
+            _bridge.OnDeviceFound(device);
         }
         catch (Exception ex)
         {
@@ -219,25 +218,7 @@ sealed partial class AndroidAdapter : IPlatformAdapter
     {
         try
         {
-            var deviceId = _bridge.PeerLookup.DeviceIdFor(endpointId);
-
-            if (_bridge._activeConnections.ContainsKey(deviceId))
-            {
-                if (_bridge.PeerLookup.TryGetDevice(deviceId, out var existingDevice))
-                {
-                    _bridge.LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
-                }
-
-                return;
-            }
-
-            var device = _bridge.PeerLookup.Remove(deviceId);
-            _bridge.LogDeviceLost(deviceId, device?.DisplayName);
-
-            if (device is not null)
-            {
-                _bridge.WriteDeviceLost(device);
-            }
+            _bridge.OnDeviceLost(_bridge.PeerLookup.DeviceIdFor(endpointId));
         }
         catch (Exception ex)
         {

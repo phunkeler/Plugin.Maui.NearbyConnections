@@ -214,10 +214,7 @@ sealed class IosAdapter : IPlatformAdapter
         try
         {
             var device = _bridge.PeerLookup.Track(peerID);
-
-            _bridge.LogDeviceFound(device.Id, device.DisplayName);
-
-            _bridge.WriteDeviceFound(device);
+            _bridge.OnDeviceFound(device);
         }
         catch (Exception ex)
         {
@@ -229,25 +226,7 @@ sealed class IosAdapter : IPlatformAdapter
     {
         try
         {
-            var id = _bridge.PeerLookup.DeviceIdFor(peerID);
-
-            if (_bridge._activeConnections.ContainsKey(id))
-            {
-                if (_bridge.PeerLookup.TryGetDevice(id, out var existingDevice))
-                {
-                    _bridge.LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
-                }
-                return;
-            }
-
-            var device = _bridge.PeerLookup.Remove(id);
-
-            _bridge.LogDeviceLost(id, device?.DisplayName);
-
-            if (device is not null)
-            {
-                _bridge.WriteDeviceLost(device);
-            }
+            _bridge.OnDeviceLost(_bridge.PeerLookup.DeviceIdFor(peerID));
         }
         catch (Exception ex)
         {

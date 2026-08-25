@@ -25,6 +25,43 @@ sealed partial class PlatformNearby
     internal void WriteDeviceLost(NearbyDevice device)
         => WriteDeviceEvent(device, found: false, nameof(WriteDeviceLost));
 
+    /// <summary>
+    /// The shared found-device handling: log it and write the discovery event. The adapter has
+    /// already recorded the peer in <see cref="PeerLookup"/> — that half stays platform-side,
+    /// because each SDK hands over a different identifier.
+    /// </summary>
+    internal void OnDeviceFound(NearbyDevice device)
+    {
+        LogDeviceFound(device.Id, device.DisplayName);
+        WriteDeviceFound(device);
+    }
+
+    /// <summary>
+    /// The shared lost-device handling, with the connected-device suppression written once: a
+    /// connected device that stops advertising is not lost, so its row must not be removed.
+    /// </summary>
+    internal void OnDeviceLost(string deviceId)
+    {
+        if (_activeConnections.ContainsKey(deviceId))
+        {
+            if (PeerLookup.TryGetDevice(deviceId, out var existingDevice))
+            {
+                LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
+            }
+
+            return;
+        }
+
+        var device = PeerLookup.Remove(deviceId);
+
+        LogDeviceLost(deviceId, device?.DisplayName);
+
+        if (device is not null)
+        {
+            WriteDeviceLost(device);
+        }
+    }
+
     void WriteDeviceEvent(NearbyDevice device, bool found, string writer)
     {
         try
