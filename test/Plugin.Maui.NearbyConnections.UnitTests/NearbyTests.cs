@@ -598,6 +598,45 @@ public class NearbyTests
         }
 
         [Fact]
+        public async Task RejectedRequest_ReportsItsReasonOnTheChangeStream()
+        {
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
+            var device = new NearbyDevice("peer-1", "Alice");
+            await connections.EmitRequestAsync(device, () => Create.Connection(device));
+            await using var recorder = new ChangeRecorder(session);
+
+            // Act
+            await session.RejectAsync(device, TestContext.Current.CancellationToken);
+            await Wait.UntilAsync(() => recorder.For("peer-1").Count > 0);
+
+            // Assert
+            Assert.Contains(
+                recorder.For("peer-1"),
+                c => c.Reason == NearbyEndReason.RequestRejected);
+        }
+
+        [Fact]
+        public async Task StopAsync_CompletesDisconnectedWithSessionStopped()
+        {
+            // Arrange
+            var connections = new FakeNearby();
+            var session = Create.Session(connections);
+            var device = new NearbyDevice("peer-1", "Alice");
+            connections.ConnectResult = Create.Connection(device);
+            var connection = await session.ConnectAsync(device, TestContext.Current.CancellationToken);
+
+            // Act
+            await session.StopAsync(TestContext.Current.CancellationToken);
+            var reason = await connection.Disconnected;
+
+            // Assert
+            Assert.Equal(NearbyEndReason.SessionStopped, reason);
+        }
+
+        [Fact]
         public async Task StopAsync_CancelsAPendingAutoAccept_SoItCannotWriteIntoTheNextSession()
         {
             // Stop promises a return to the initial state. An auto-accept that survived a stop

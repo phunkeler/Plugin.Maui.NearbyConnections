@@ -141,6 +141,7 @@ sealed partial class PlatformNearby : IPlatformNearby
         {
             try
             {
+                connection.DisposeReason = NearbyEndReason.SessionStopped;
                 await connection.DisposeAsync().ConfigureAwait(false);
             }
             catch (Exception ex)

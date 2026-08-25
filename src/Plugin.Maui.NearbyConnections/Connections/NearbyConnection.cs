@@ -26,7 +26,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     readonly Func<byte[], CancellationToken, Task> _sendBytes;
     readonly Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> _sendFile;
     readonly Func<ValueTask> _dispose;
-    readonly TaskCompletionSource _disconnectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    readonly TaskCompletionSource<NearbyEndReason> _disconnectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     readonly CancellationTokenSource _disconnectedCts = new();
 
     int _disposeGuard;
@@ -41,21 +41,23 @@ public sealed class NearbyConnection : IAsyncDisposable
     public NearbyDevice RemoteDevice { get; }
 
     /// <summary>
-    /// Gets a task that completes once this connection terminates.
+    /// Gets a task that completes once this connection terminates, carrying why it ended.
     /// </summary>
     /// <value>
-    /// A <see cref="Task"/> that completes when the connection ends, from either side and for any
-    /// reason.
+    /// A task that completes when the connection ends, from either side and for any reason. Its
+    /// result is the locally-observed reason: <see cref="NearbyEndReason.DisconnectedByLocal"/>
+    /// for a local disconnect, <see cref="NearbyEndReason.SessionStopped"/> when the session
+    /// stopped, and <see cref="NearbyEndReason.Disconnected"/> when the remote device closed the
+    /// connection or the link was lost — the platforms cannot tell those two apart.
     /// </value>
     /// <remarks>
     /// Safe to await alongside <see cref="ReceiveAsync(CancellationToken)"/> — it does not consume
     /// the receive stream. <b>Never faults or is canceled:</b> a dropped connection is not an error
-    /// at this boundary, so this task always completes successfully and carries no information
-    /// about why the connection ended. Continuations are queued to the thread pool, never run
-    /// inline on the platform callback that ended the connection — contrast
-    /// <see cref="DisconnectedToken"/>, whose registrations do run inline.
+    /// at this boundary, so this task always completes successfully. Continuations are queued to
+    /// the thread pool, never run inline on the platform callback that ended the connection —
+    /// contrast <see cref="DisconnectedToken"/>, whose registrations do run inline.
     /// </remarks>
-    public Task Disconnected => _disconnectedTcs.Task;
+    public Task<NearbyEndReason> Disconnected => _disconnectedTcs.Task;
 
     /// <summary>
     /// Gets a cancellation token that is canceled once this connection terminates.
@@ -410,6 +412,10 @@ public sealed class NearbyConnection : IAsyncDisposable
             return;
         }
 
+        // Record the local reason before the platform release runs: the release path completes
+        // the same source with Disconnected, and the first completion wins.
+        _disconnectedTcs.TrySetResult(DisposeReason);
+
         await _dispose().ConfigureAwait(false);
         CompleteReceive();
 
@@ -425,9 +431,18 @@ public sealed class NearbyConnection : IAsyncDisposable
         // consumer would have to reach for WaitHandle deliberately.
     }
 
-    internal void CompleteReceive()
+    /// <summary>
+    /// The reason a local disposal reports through <see cref="Disconnected"/>. Defaults to
+    /// <see cref="NearbyEndReason.DisconnectedByLocal"/>; session teardown sets
+    /// <see cref="NearbyEndReason.SessionStopped"/> before it disposes the connection.
+    /// </summary>
+    internal NearbyEndReason DisposeReason { get; set; } = NearbyEndReason.DisconnectedByLocal;
+
+    internal void CompleteReceive() => CompleteReceive(NearbyEndReason.Disconnected);
+
+    internal void CompleteReceive(NearbyEndReason reason)
     {
-        _disconnectedTcs.TrySetResult();
+        _disconnectedTcs.TrySetResult(reason);
         _receiveChannel.Writer.TryComplete();
         _disconnectedCts.Cancel();
     }

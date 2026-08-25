@@ -115,6 +115,7 @@ sealed class DeviceRegistry : INearbyDevices
     /// Produces the new snapshot from the current one. Runs under the lock, so it must be pure and
     /// must not call back into the session.
     /// </param>
+    /// <param name="reason">The reason the published change carries, or <see langword="null"/> for none.</param>
     /// <returns>
     /// The updated device, or <see langword="null"/> if no device with that id is present.
     /// </returns>
@@ -122,7 +123,10 @@ sealed class DeviceRegistry : INearbyDevices
     /// Read-modify-write under one lock, rather than a caller reading and then writing: two platform
     /// callbacks racing on the same device would otherwise interleave and lose one of the writes.
     /// </remarks>
-    public NearbyDevice? Update(string id, Func<NearbyDevice, NearbyDevice> update)
+    public NearbyDevice? Update(
+        string id,
+        Func<NearbyDevice, NearbyDevice> update,
+        NearbyEndReason? reason = null)
     {
         NearbyDeviceChange change;
 
@@ -149,7 +153,7 @@ sealed class DeviceRegistry : INearbyDevices
 
             _devices[id] = updated;
             Rebuild();
-            change = new NearbyDeviceChange(NearbyDeviceChangeAction.Updated, updated);
+            change = new NearbyDeviceChange(NearbyDeviceChangeAction.Updated, updated) { Reason = reason };
         }
 
         Publish(change);
@@ -160,7 +164,7 @@ sealed class DeviceRegistry : INearbyDevices
     /// Removes a device and publishes <see cref="NearbyDeviceChangeAction.Removed"/> if it was
     /// present.
     /// </summary>
-    public bool Remove(string id)
+    public bool Remove(string id, NearbyEndReason? reason = null)
     {
         NearbyDeviceChange change;
 
@@ -172,7 +176,7 @@ sealed class DeviceRegistry : INearbyDevices
             }
 
             Rebuild();
-            change = new NearbyDeviceChange(NearbyDeviceChangeAction.Removed, removed);
+            change = new NearbyDeviceChange(NearbyDeviceChangeAction.Removed, removed) { Reason = reason };
         }
 
         Publish(change);
@@ -188,7 +192,7 @@ sealed class DeviceRegistry : INearbyDevices
     /// to know which devices went away, and <see cref="NearbyDeviceChangeAction"/> has no bulk case
     /// precisely so that every change names its device.
     /// </remarks>
-    public void RemoveWhere(Func<NearbyDevice, bool> predicate)
+    public void RemoveWhere(Func<NearbyDevice, bool> predicate, NearbyEndReason? reason = null)
     {
         List<NearbyDeviceChange> changes = [];
 
@@ -201,7 +205,7 @@ sealed class DeviceRegistry : INearbyDevices
             {
                 if (predicate(device) && _devices.Remove(device.Id))
                 {
-                    changes.Add(new NearbyDeviceChange(NearbyDeviceChangeAction.Removed, device));
+                    changes.Add(new NearbyDeviceChange(NearbyDeviceChangeAction.Removed, device) { Reason = reason });
                 }
             }
 
@@ -222,7 +226,8 @@ sealed class DeviceRegistry : INearbyDevices
     /// <summary>
     /// Removes every device.
     /// </summary>
-    public void Clear() => RemoveWhere(static _ => true);
+    /// <param name="reason">The reason each removal reports, or <see langword="null"/> for none.</param>
+    public void Clear(NearbyEndReason? reason = null) => RemoveWhere(static _ => true, reason);
 
     /// <summary>
     /// Marks every device currently known as belonging to the previous discovery generation, so
@@ -260,7 +265,8 @@ sealed class DeviceRegistry : INearbyDevices
     /// than on a level, so elapsed silence carries no information about whether a device is still
     /// there. A completed discovery pass does.
     /// </remarks>
-    public void EvictUnconfirmed() => RemoveWhere(device => _unconfirmed.Contains(device.Id));
+    public void EvictUnconfirmed()
+        => RemoveWhere(device => _unconfirmed.Contains(device.Id), NearbyEndReason.LostFromDiscovery);
 
     /// <summary>
     /// Rebuilds the read snapshot. Caller must hold <see cref="_gate"/>.

@@ -50,7 +50,7 @@ sealed partial class Nearby
         EventId = 1010,
         Level = LogLevel.Debug,
         Message = "The handshake with device {DeviceId} ended before a connection was established: {Reason}.")]
-    partial void LogHandshakeEnded(string deviceId, EndReason reason);
+    partial void LogHandshakeEnded(string deviceId, NearbyEndReason reason);
 
     [LoggerMessage(
         EventId = 1011,

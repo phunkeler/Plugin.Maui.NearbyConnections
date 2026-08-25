@@ -2,18 +2,19 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class Nearby
 {
-    static EndReason ReasonFor(Exception exception) => exception switch
+    static NearbyEndReason ReasonFor(Exception exception) => exception switch
     {
-        OperationCanceledException => EndReason.Cancelled,
-        NearbyConnectionTimeoutException => EndReason.TimedOut,
-        _ => EndReason.Failed,
+        OperationCanceledException => NearbyEndReason.Cancelled,
+        NearbyConnectionTimeoutException => NearbyEndReason.TimedOut,
+        _ => NearbyEndReason.Failed,
     };
 
     void Transition(
         NearbyDevice device,
         NearbyDeviceStatus status,
         ConnectionRole? role,
-        DateTimeOffset? requestExpiresAt = null)
+        DateTimeOffset? requestExpiresAt = null,
+        NearbyEndReason? reason = null)
         => _registry.Update(
             device.Id,
             current => current.Status == status
@@ -25,7 +26,8 @@ sealed partial class Nearby
                     Status = status,
                     Role = role,
                     RequestExpiresAt = requestExpiresAt,
-                });
+                },
+            reason);
 
     async Task PumpAdvertiseAsync(
         IAsyncEnumerable<NearbyConnectionRequest> stream,
@@ -104,7 +106,7 @@ sealed partial class Nearby
         if (_registry.TryGet(device.Id, out var known)
             && known.Status is NearbyDeviceStatus.Visible)
         {
-            _registry.Remove(device.Id);
+            _registry.Remove(device.Id, NearbyEndReason.LostFromDiscovery);
         }
     }
 
@@ -139,7 +141,7 @@ sealed partial class Nearby
 
         try
         {
-            LogHandshakeEnded(device.Id, EndReason.RequestExpired);
+            LogHandshakeEnded(device.Id, NearbyEndReason.RequestExpired);
             LogInboundRequestExpired(device.Id, _options.InboundRequestTimeout.TotalSeconds);
 
             try
@@ -151,7 +153,7 @@ sealed partial class Nearby
                 LogInboundRequestExpiryRejectFailed(device.Id, ex);
             }
 
-            ResetToVisible(device);
+            ResetToVisible(device, NearbyEndReason.RequestExpired);
         }
         catch (Exception ex)
         {
@@ -174,7 +176,7 @@ sealed partial class Nearby
             var reason = ReasonFor(ex);
             LogHandshakeEnded(device.Id, reason);
             LogAutoAcceptFailed(device.Id, ex);
-            ResetToVisible(device);
+            ResetToVisible(device, reason);
         }
     }
 
@@ -189,7 +191,7 @@ sealed partial class Nearby
     {
         try
         {
-            await connection.Disconnected.ConfigureAwait(false);
+            var reason = await connection.Disconnected.ConfigureAwait(false);
 
             // The platform's table clears itself on release; this watcher keeps only the registry
             // transition. When the platform already holds a NEWER connection for the device, that
@@ -203,7 +205,7 @@ sealed partial class Nearby
             // No disposal guard needed: ResetToVisible reaches the registry through Update, which
             // returns early for an id it does not hold. Disposal clears the registry first, so a
             // watcher waking afterwards finds nothing to update and cannot resurrect a row.
-            ResetToVisible(device);
+            ResetToVisible(device, reason);
         }
         catch (Exception ex)
         {
@@ -211,8 +213,8 @@ sealed partial class Nearby
         }
     }
 
-    void ResetToVisible(NearbyDevice device)
-        => Transition(device, NearbyDeviceStatus.Visible, role: null);
+    void ResetToVisible(NearbyDevice device, NearbyEndReason? reason = null)
+        => Transition(device, NearbyDeviceStatus.Visible, role: null, requestExpiresAt: null, reason);
 
     /// <summary>
     /// Re-arms the session stop token after a stop. Runs under the state gate in the start

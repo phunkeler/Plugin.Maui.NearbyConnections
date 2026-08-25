@@ -425,6 +425,55 @@ public class NearbyConnectionTests
             // Assert
             Assert.True(connection.Disconnected.IsCompleted);
         }
+
+        [Fact]
+        public async Task LocalDispose_ReportsDisconnectedByLocal()
+        {
+            // Arrange
+            var connection = Create.Connection(dispose: () => ValueTask.CompletedTask);
+
+            // Act
+            await connection.DisposeAsync();
+
+            // Assert
+            Assert.Equal(NearbyEndReason.DisconnectedByLocal, await connection.Disconnected);
+        }
+
+        [Fact]
+        public async Task PlatformRelease_ReportsDisconnected()
+        {
+            // The release path is how a remote close or a link loss reaches the connection.
+
+            // Arrange
+            var connection = Create.Connection();
+
+            // Act
+            connection.CompleteReceive();
+
+            // Assert
+            Assert.Equal(NearbyEndReason.Disconnected, await connection.Disconnected);
+        }
+
+        [Fact]
+        public async Task FirstCompletionWins_LocalDisposeBeatsTheReleaseThatFollowsIt()
+        {
+            // A local dispose triggers the platform release, which completes the same source with
+            // Disconnected — the reason recorded first must survive.
+
+            // Arrange
+            NearbyConnection? connection = null;
+            connection = Create.Connection(dispose: () =>
+            {
+                connection!.CompleteReceive();
+                return ValueTask.CompletedTask;
+            });
+
+            // Act
+            await connection.DisposeAsync();
+
+            // Assert
+            Assert.Equal(NearbyEndReason.DisconnectedByLocal, await connection.Disconnected);
+        }
     }
 
     public sealed class DisconnectedToken : NearbyConnectionTests

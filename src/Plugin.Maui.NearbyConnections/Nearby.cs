@@ -271,6 +271,7 @@ sealed partial class Nearby : INearby, IAsyncDisposable
             {
                 try
                 {
+                    connection.DisposeReason = NearbyEndReason.SessionStopped;
                     await connection.DisposeAsync().ConfigureAwait(false);
                 }
                 catch (Exception ex)
@@ -307,7 +308,7 @@ sealed partial class Nearby : INearby, IAsyncDisposable
 
         try
         {
-            _registry.Clear();
+            _registry.Clear(NearbyEndReason.SessionStopped);
         }
         finally
         {
@@ -335,7 +336,7 @@ sealed partial class Nearby : INearby, IAsyncDisposable
         {
             var reason = ReasonFor(ex);
             LogHandshakeEnded(device.Id, reason);
-            ResetToVisible(device);
+            ResetToVisible(device, reason);
             throw;
         }
     }
@@ -364,7 +365,7 @@ sealed partial class Nearby : INearby, IAsyncDisposable
         {
             var reason = ReasonFor(ex);
             LogHandshakeEnded(device.Id, reason);
-            ResetToVisible(device);
+            ResetToVisible(device, reason);
             throw;
         }
     }
@@ -381,8 +382,8 @@ sealed partial class Nearby : INearby, IAsyncDisposable
         }
 
         await request.RejectAsync(cancellationToken).ConfigureAwait(false);
-        LogHandshakeEnded(device.Id, EndReason.LocalRejected);
-        ResetToVisible(device);
+        LogHandshakeEnded(device.Id, NearbyEndReason.RequestRejected);
+        ResetToVisible(device, NearbyEndReason.RequestRejected);
     }
 
     /// <inheritdoc/>
