@@ -959,7 +959,7 @@ sample and README teach the final shape for the longest time before 1.0. M6 is a
 may ship in 1.0 or the first minor after — its wire contract is settled before it ships
 either way.
 
-### M0 — Groundwork
+### M0 — Groundwork — done (2026-08-25, commit `6a5b524`)
 
 No behavior changes. This stage gives every later stage a place to be tracked and makes every
 written contract resolvable. *(Re-assessment fix 1.)*
