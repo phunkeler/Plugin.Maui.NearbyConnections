@@ -57,6 +57,7 @@
   - [The decision list, dispositioned](#the-decision-list-dispositioned)
   - [Open items at implementation](#open-items-at-implementation)
   - [Superseded documents](#superseded-documents)
+  - [After the gate — the trim](#after-the-gate--the-trim)
 
 ## 1. Consumer stories
 
@@ -972,8 +973,9 @@ written contract resolvable. *(Re-assessment fix 1.)*
 - Record the escape-hatch policy (D4) in `DESIGN-PRINCIPLES.md` as written policy: *named
   platform scopes or nothing, opened on the first concrete request.* A raw-handle hatch stays
   refused.
-- Delete the five superseded root-level documents listed under *Superseded documents* below.
-  None was ever committed, so this section is their only surviving record.
+- The five superseded root-level documents listed under *Superseded documents* below stay at
+  the repo root, untracked, while the stages land — they are the evidence base the stages
+  cite. They are deleted in the post-gate trim, not here.
 
 ### M1 — The two correctness fixes
 
@@ -1092,7 +1094,7 @@ stage, or held open on purpose. This table is their durable record.
 | D6 | Which side owns the connection table? | **Settled** — section 4's C5 table: the bridge. Lands in M2. |
 | D7 | Snapshot the options at registration? | **Settled** — section 4's C5 table. Lands in M1. |
 | D8 | Migrate the unit suite to xUnit v3? | **Settled** (2026-08-25) — migrate to the latest xUnit v3 and adopt NSubstitute, before M1 starts, because every stage adds tests. The hand-written stream-timing doubles (`FakeNearby`, `FaultingDevices`) stay — no mocking library expresses stream timing. NSubstitute covers the simpler seams. |
-| D9 | Where does the work list live? | **Settled** — here. The floating review documents are deleted in M0. |
+| D9 | Where does the work list live? | **Settled** — here. The floating review documents stay through implementation and are deleted in the post-gate trim. |
 | D10 | The `net10.0` stub's meaning | **Settled** — subsumed by D5: the scripted adapter closes the test gap, the shipping stub keeps throwing. Lands in M5. |
 | D11 | `StartFailureGraceWindow` | **Open, untouched** — stays an open question in `DESIGN-PRINCIPLES.md`. Nothing in this design moves it. |
 
@@ -1106,8 +1108,9 @@ teardown in M6. One item remains:
 
 ### Superseded documents
 
-Five documents drove this design and are spent by it. None was ever committed — deleting
-them in M0 removes the files outright, and this section is their surviving record.
+Five documents drove this design and are spent by it. None was ever committed. They stay at
+the repo root, untracked, until the migration completes — the stages cite them as evidence —
+and the post-gate trim then deletes them outright. This section is their surviving record.
 
 | Document | What it held | Where it lives now |
 |---|---|---|
@@ -1116,3 +1119,18 @@ them in M0 removes the files outright, and this section is their surviving recor
 | `ARCHITECTURE-DECOMPOSITION-DEFENSE.md` | The adversarial pass over section 4 | Its amendments are merged into section 4. |
 | `INTERNAL-DECOMPOSITION.md` | The amended section 4 draft that pass produced | Merged into section 4. |
 | `ARCHITECTURE-INCREMENTS.md` | The systems-survey increments, attacked and defended | Adopted into section 4, decided item 6, and the survey-learnings table. |
+
+### After the gate — the trim
+
+When the 1.0 gate passes, this document changes role: from design story plus work list to
+the repository's durable architecture reference. The trim, one final commit:
+
+- **Delete the five superseded documents** from the repo root. **Warning: none was ever
+  committed, so this deletion is permanent** — the table above is their record.
+- **Trim this document.** Sections 1–4 stay as the reference, with as-is/target framing
+  rewritten as plain description — the target is now the code. Section 5 collapses to what
+  keeps earning its place: the dispositioned decision table, the superseded-documents
+  record, and a completion note per stage. The stage prose goes — the commits are its
+  record.
+- **Re-point `AGENTS.md`** at this document as the architecture authority, and fold or
+  retire whatever its own architecture section duplicates.
