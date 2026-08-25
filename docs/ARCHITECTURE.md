@@ -1013,7 +1013,7 @@ section 3's decided item.)*
 - Rename `NearbyDeviceRegistry` → `DeviceRegistry` and `NearbyImplementation` → `Nearby`.
   Internal renames, zero PublicAPI impact.
 
-### M4 — The public surface
+### M4 — The public surface — done (2026-08-25, commits `82d640e`, `1735720`, `cab74ce`, `76e02c2`)
 
 Section 2 lands whole, because its pieces prove each other. *(Settles D1 and D3.)*
 
@@ -1102,9 +1102,13 @@ stage, or held open on purpose. This table is their durable record.
 
 The maintainer settled four of the five original items on 2026-08-25, and each is recorded
 where it lands: D2 and D8 in the decision table above, the S8 wire contract and stream
-teardown in M6. One item remains:
+teardown in M6. The last item closed with M4:
 
-1. **Final `Reason` case names.** Checked against the naming rules when M4 lands.
+1. **Final `Reason` case names — settled** (2026-08-25, commit `82d640e`). The public enum is
+   `NearbyEndReason`: `RequestRejected` (was the internal `LocalRejected`), `Cancelled`,
+   `TimedOut`, `RequestExpired`, `Failed`, `Disconnected`, `DisconnectedByLocal`,
+   `SessionStopped`, `LostFromDiscovery`. All pass the naming checks — no vendor vocabulary,
+   `Nearby`-prefixed type, cases name locally-observed facts.
 
 ### Superseded documents
 
