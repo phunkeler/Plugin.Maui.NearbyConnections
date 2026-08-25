@@ -988,7 +988,7 @@ written contract resolvable. *(Re-assessment fix 1.)*
   and it lands before M2 because it defines what "remove from the table" means on a failure
   path.
 
-### M2 — One owner for the connection table
+### M2 — One owner for the connection table — done (2026-08-25, commit `2ed24fa`)
 
 The bridge owns the table, the facade queries it (D6, re-assessment fix 4). The facade's
 `_activeConnections` is deleted. `TryGetConnection`, `SnapshotConnections()`, and the
