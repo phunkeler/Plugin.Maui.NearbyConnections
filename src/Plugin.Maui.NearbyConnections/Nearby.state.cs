@@ -120,6 +120,12 @@ sealed partial class Nearby
             return;
         }
 
+        // Attach the session half before the request becomes claimable or visible: the public
+        // answer operations must run the claim and the registry effects from their first caller.
+        request.AttachSession(
+            ct => AcceptRequestAsync(request, ct),
+            ct => RejectRequestAsync(request, ct));
+
         var expiresAt = _requests.Track(request);
         _registry.AddIfAbsent(device);
 
@@ -128,6 +134,8 @@ sealed partial class Nearby
             NearbyDeviceStatus.RequestReceived,
             role: null,
             expiresAt);
+
+        _requestDeliveries.Publish(request);
     }
 
     /// <summary>
@@ -141,12 +149,15 @@ sealed partial class Nearby
 
         try
         {
+            request.MarkExpired();
             LogHandshakeEnded(device.Id, NearbyEndReason.RequestExpired);
             LogInboundRequestExpired(device.Id, _options.InboundRequestTimeout.TotalSeconds);
 
             try
             {
-                await request.RejectAsync(CancellationToken.None).ConfigureAwait(false);
+                // The core, not the public operation: the timer already won the claim, so the
+                // public path would refuse this reject as no longer outstanding.
+                await request.RejectCore(CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -168,7 +179,9 @@ sealed partial class Nearby
 
         try
         {
-            var connection = await request.AcceptAsync(stopToken).ConfigureAwait(false);
+            // The platform core directly: auto-accept never tracks the request, so there is no
+            // claim to run and INearby.Requests never yields it.
+            var connection = await request.AcceptCore(stopToken).ConfigureAwait(false);
             OnConnected(device, connection, ConnectionRole.Acceptor);
         }
         catch (Exception ex)
@@ -185,6 +198,7 @@ sealed partial class Nearby
         _registry.AddIfAbsent(device);
         Transition(device, NearbyDeviceStatus.Connected, role);
         _tasks.Add(WatchDisconnectAsync(device, connection));
+        _connectionDeliveries.Publish(connection);
     }
 
     async Task WatchDisconnectAsync(NearbyDevice device, NearbyConnection connection)

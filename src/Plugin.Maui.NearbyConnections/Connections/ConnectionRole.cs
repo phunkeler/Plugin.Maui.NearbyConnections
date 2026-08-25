@@ -13,7 +13,7 @@ public enum ConnectionRole
 
     /// <summary>
     /// The local device accepted an inbound request, through
-    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>.
+    /// <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/>.
     /// </summary>
     Acceptor,
 }

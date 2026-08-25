@@ -10,7 +10,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <para>
 /// Obtain an instance from
 /// <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/>,
-/// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>, or
+/// <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/>, or
 /// <see cref="INearby.TryGetConnection(string, out NearbyConnection)"/> — all three return the same
 /// instance for a given remote device.
 /// </para>

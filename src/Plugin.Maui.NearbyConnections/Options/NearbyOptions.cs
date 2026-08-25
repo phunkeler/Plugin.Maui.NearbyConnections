@@ -141,7 +141,7 @@ public sealed partial class NearbyOptions
     public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// Gets or sets how long <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>
+    /// Gets or sets how long <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/>
     /// waits for a connection before the attempt is abandoned.
     /// </summary>
     /// <value>
@@ -175,10 +175,12 @@ public sealed partial class NearbyOptions
     /// <remarks>
     /// <para>
     /// Alone among the three timeouts, this one bounds state rather than an operation. Nothing
-    /// throws when it elapses, because no caller is waiting: the library rejects the request and the
-    /// device returns to <see cref="NearbyDeviceStatus.Visible"/>. A later
-    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> for that device throws
-    /// <see cref="InvalidOperationException"/>, as it does for any request no longer outstanding.
+    /// throws when it elapses, because no caller is waiting: the library rejects the request, the
+    /// request's <see cref="NearbyConnectionRequest.Expired"/> task completes, and the device
+    /// returns to <see cref="NearbyDeviceStatus.Visible"/>. A later
+    /// <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/> throws
+    /// <see cref="NearbyRequestExpiredException"/>, as it does for any request no longer
+    /// outstanding.
     /// </para>
     /// <para>
     /// The remote device's own timeout is not observable: neither platform transmits it. So this
@@ -218,7 +220,7 @@ public sealed partial class NearbyOptions
     /// <summary>
     /// Gets or sets a value that indicates whether inbound connection requests are accepted
     /// automatically, without the application calling
-    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>.
+    /// <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/>.
     /// </summary>
     /// <value>
     /// <see langword="true"/> to accept every inbound request as it arrives; otherwise,
@@ -229,8 +231,8 @@ public sealed partial class NearbyOptions
     /// When this is <see langword="false"/>, an inbound request moves the device to
     /// <see cref="NearbyDeviceStatus.RequestReceived"/>, reported through
     /// <see cref="INearbyDevices.Changes"/>, and the application must answer it with
-    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> or
-    /// <see cref="INearby.RejectAsync(NearbyDevice, CancellationToken)"/> before
+    /// <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/> or
+    /// <see cref="NearbyConnectionRequest.RejectAsync(CancellationToken)"/> before
     /// <see cref="InboundRequestTimeout"/> elapses. Once it does, the library rejects the request
     /// and the device returns to <see cref="NearbyDeviceStatus.Visible"/>. Raise
     /// <see cref="InboundRequestTimeout"/> to allow a longer answering window —
@@ -243,9 +245,8 @@ public sealed partial class NearbyOptions
     /// <see cref="NearbyDeviceStatus.RequestReceived"/> is never observed — the device moves from
     /// <see cref="NearbyDeviceStatus.Visible"/> through
     /// <see cref="NearbyDeviceStatus.Connecting"/> to <see cref="NearbyDeviceStatus.Connected"/>
-    /// with that state skipped. Calling
-    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> at that point throws
-    /// <see cref="InvalidOperationException"/>, because no request is outstanding.
+    /// with that state skipped, and <see cref="INearby.Requests"/> never yields — the connection
+    /// arrives through <see cref="INearby.Connections"/> instead.
     /// </para>
     /// <para>
     /// <b>This accepts every request from any device that knows the service identifier.</b> Neither

@@ -364,66 +364,47 @@ public interface INearby
     Task<NearbyConnection> ConnectAsync(NearbyDevice device, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Accepts an outstanding connection request from the specified device.
+    /// Gets the broadcast stream of inbound connection requests: every request still outstanding
+    /// first, then each request as it arrives, each exactly once per enumerator.
     /// </summary>
-    /// <param name="device">The device whose connection request to accept.</param>
-    /// <param name="cancellationToken">
-    /// A <see cref="CancellationToken"/> to observe while waiting for the connection to be
-    /// established.
-    /// </param>
-    /// <returns>
-    /// A <see cref="Task{TResult}"/> that represents the asynchronous operation. The value of its
-    /// <see cref="Task{TResult}.Result"/> property is the established
-    /// <see cref="NearbyConnection"/>.
-    /// </returns>
+    /// <value>
+    /// A broadcast stream — every enumeration observes every request, independently of the
+    /// others. Answer a request with
+    /// <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/> or
+    /// <see cref="NearbyConnectionRequest.RejectAsync(CancellationToken)"/>.
+    /// </value>
     /// <remarks>
-    /// A device with an outstanding request has a <see cref="NearbyDevice.Status"/> of
-    /// <see cref="NearbyDeviceStatus.RequestReceived"/>, reported through
-    /// <see cref="INearbyDevices.Changes"/>. A request can be accepted only once, and only before
-    /// it expires.
+    /// <para>
+    /// Starting late loses nothing that still matters: enumeration replays the outstanding
+    /// requests before following live arrivals. A replayed request can still lose its race with
+    /// <see cref="NearbyOptions.InboundRequestTimeout"/> — delivery is exactly-once, validity is
+    /// the request's own story, told by <see cref="NearbyConnectionRequest.Expired"/> and the
+    /// typed <see cref="NearbyRequestExpiredException"/>.
+    /// </para>
+    /// <para>
+    /// With <see cref="NearbyOptions.AutoAcceptConnectionRequests"/> enabled this stream never
+    /// yields — the session answers on the application's behalf and the connection arrives
+    /// through <see cref="Connections"/>.
+    /// </para>
     /// </remarks>
-    /// <exception cref="ArgumentNullException">
-    /// <paramref name="device"/> is <see langword="null"/>.
-    /// </exception>
-    /// <exception cref="InvalidOperationException">
-    /// The device has no outstanding connection request.
-    /// </exception>
-    /// <exception cref="NearbyException">
-    /// The platform failed to complete the connection.
-    /// </exception>
-    /// <exception cref="NearbyConnectionTimeoutException">
-    /// The connection was not established within <see cref="NearbyOptions.AcceptTimeout"/> of this
-    /// call. That interval is shorter than <see cref="NearbyOptions.ConnectTimeout"/> by default,
-    /// because the decision to accept is already made and only the handshake remains — a remote
-    /// device that leaves range mid-handshake reports no terminal result on either platform.
-    /// </exception>
-    /// <exception cref="OperationCanceledException">
-    /// <paramref name="cancellationToken"/> was canceled before the connection was established.
-    /// </exception>
-    Task<NearbyConnection> AcceptAsync(NearbyDevice device, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<NearbyConnectionRequest> Requests { get; }
 
     /// <summary>
-    /// Rejects an outstanding connection request from the specified device.
+    /// Gets the broadcast stream of established connections: every connection currently open
+    /// first, then each connection as it opens, each exactly once per enumerator.
     /// </summary>
-    /// <param name="device">The device whose connection request to reject.</param>
-    /// <param name="cancellationToken">
-    /// A <see cref="CancellationToken"/> to observe while signaling the rejection.
-    /// </param>
-    /// <returns>
-    /// A <see cref="Task"/> that represents the asynchronous operation. The task completes when
-    /// the rejection has been signaled to the platform.
-    /// </returns>
+    /// <value>
+    /// A broadcast stream — every enumeration observes every connection, independently of the
+    /// others. It yields the same instance <see cref="ConnectAsync(NearbyDevice, CancellationToken)"/>
+    /// and <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/> return.
+    /// </value>
     /// <remarks>
-    /// The device returns to the <see cref="NearbyDeviceStatus.Visible"/> state. A request can be
-    /// rejected only once, and only before it expires.
+    /// This is a stream, not a second collection — it holds no state of its own, so it cannot
+    /// disagree with <see cref="Devices"/>. A consumer that starts late receives the connections
+    /// still open and misses nothing that still matters. Consume each connection's payloads with
+    /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/>.
     /// </remarks>
-    /// <exception cref="ArgumentNullException">
-    /// <paramref name="device"/> is <see langword="null"/>.
-    /// </exception>
-    /// <exception cref="InvalidOperationException">
-    /// The device has no outstanding connection request.
-    /// </exception>
-    Task RejectAsync(NearbyDevice device, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<NearbyConnection> Connections { get; }
 
     /// <summary>
     /// Gets the established connection to a device, if one exists.

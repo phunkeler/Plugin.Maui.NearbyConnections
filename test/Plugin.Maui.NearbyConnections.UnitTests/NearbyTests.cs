@@ -556,8 +556,11 @@ public class NearbyTests
         }
 
         [Fact]
-        public async Task AutoAccept_LeavesNoPendingRequestToAnswer()
+        public async Task AutoAccept_NeverYieldsOnTheRequestStream()
         {
+            // With auto-accept the session already answered, so INearby.Requests must stay silent
+            // — the connection arrives through INearby.Connections instead.
+
             // Arrange
             var connections = new FakeNearby();
             var options = new NearbyOptions { AutoAcceptConnectionRequests = true };
@@ -567,11 +570,13 @@ public class NearbyTests
 
             // Act
             await connections.EmitRequestAsync(device, () => Create.Connection(device));
-
-            // The session already answered, so there is nothing left for the application to accept.
+            var connection = await Take.FirstAsync(session.Connections, TestContext.Current.CancellationToken);
+            using var silent = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
 
             // Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(() => session.AcceptAsync(device, TestContext.Current.CancellationToken));
+            Assert.Equal("peer-1", connection.RemoteDevice.Id);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => Take.FirstAsync(session.Requests, silent.Token));
         }
 
         [Fact]
@@ -609,7 +614,8 @@ public class NearbyTests
             await using var recorder = new ChangeRecorder(session);
 
             // Act
-            await session.RejectAsync(device, TestContext.Current.CancellationToken);
+            var request = await Take.FirstAsync(session.Requests, TestContext.Current.CancellationToken);
+            await request.RejectAsync(TestContext.Current.CancellationToken);
             await Wait.UntilAsync(() => recorder.For("peer-1").Count > 0);
 
             // Assert
@@ -702,13 +708,16 @@ public class NearbyTests
             await connections.EmitRequestAsync(device, () => Create.Connection(device));
             await recorder.WaitForAsync("peer-1", 2);
 
+            var request = await Take.FirstAsync(session.Requests, TestContext.Current.CancellationToken);
+
             // Act
             time.Advance(timeout);
             await recorder.WaitForAsync("peer-1", 3);
 
             // Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => session.AcceptAsync(device, TestContext.Current.CancellationToken));
+            await request.Expired.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+            await Assert.ThrowsAsync<NearbyRequestExpiredException>(
+                () => request.AcceptAsync(TestContext.Current.CancellationToken));
         }
 
         [Fact]
@@ -746,9 +755,10 @@ public class NearbyTests
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitRequestAsync(device, () => Create.Connection(device));
             await recorder.WaitForAsync("peer-1", 2);
+            var request = await Take.FirstAsync(session.Requests, TestContext.Current.CancellationToken);
 
             // Act
-            await session.AcceptAsync(device, TestContext.Current.CancellationToken);
+            await request.AcceptAsync(TestContext.Current.CancellationToken);
 
             // Assert
             Assert.Null(session.Current("peer-1")?.RequestExpiresAt);
@@ -770,7 +780,8 @@ public class NearbyTests
 
             await connections.EmitRequestAsync(device, () => Create.Connection(device), onReject: () => rejected = true);
             await recorder.WaitForAsync("peer-1", 2);
-            await session.AcceptAsync(device, TestContext.Current.CancellationToken);
+            var request = await Take.FirstAsync(session.Requests, TestContext.Current.CancellationToken);
+            await request.AcceptAsync(TestContext.Current.CancellationToken);
 
             // Act
             time.Advance(timeout * 2);
@@ -819,9 +830,10 @@ public class NearbyTests
             await connections.EmitRequestAsync(device, () => connection);
 
             await using var recorder = new ChangeRecorder(session);
+            var request = await Take.FirstAsync(session.Requests, TestContext.Current.CancellationToken);
 
             // Act
-            var result = await session.AcceptAsync(device, TestContext.Current.CancellationToken);
+            var result = await request.AcceptAsync(TestContext.Current.CancellationToken);
 
             // Assert
             Assert.Same(connection, result);
@@ -852,9 +864,10 @@ public class NearbyTests
             await connections.EmitRequestAsync(device, () => Create.Connection(device));
 
             await using var recorder = new ChangeRecorder(session);
+            var request = await Take.FirstAsync(session.Requests, TestContext.Current.CancellationToken);
 
             // Act
-            await session.RejectAsync(device, TestContext.Current.CancellationToken);
+            await request.RejectAsync(TestContext.Current.CancellationToken);
 
             // Assert
             Assert.DoesNotContain(NearbyDeviceStatus.Connected, recorder.StatusesFor("peer-1"));
@@ -873,22 +886,12 @@ public class NearbyTests
             // Act
             var device = new NearbyDevice("peer-1", "Alice");
             await connections.EmitRequestAsync(device, () => Create.Connection(device));
-            await session.RejectAsync(device, TestContext.Current.CancellationToken);
+            var request = await Take.FirstAsync(session.Requests, TestContext.Current.CancellationToken);
+            await request.RejectAsync(TestContext.Current.CancellationToken);
 
             // Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(() => session.AcceptAsync(device, TestContext.Current.CancellationToken));
-        }
-
-        [Fact]
-        public async Task AcceptAsync_WithNoOutstandingRequest_Throws()
-        {
-            // Arrange
-            var connections = new FakeNearby();
-            var session = Create.Session(connections);
-
-            // Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => session.AcceptAsync(new NearbyDevice("peer-1", "Alice"), TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<NearbyRequestExpiredException>(
+                () => request.AcceptAsync(TestContext.Current.CancellationToken));
         }
 
         [Fact]
@@ -903,9 +906,11 @@ public class NearbyTests
             await connections.EmitRequestAsync(
                 device,
                 () => throw new InvalidOperationException("handshake failed"));
+            var request = await Take.FirstAsync(session.Requests, TestContext.Current.CancellationToken);
 
             // Act
-            await Assert.ThrowsAsync<InvalidOperationException>(() => session.AcceptAsync(device, TestContext.Current.CancellationToken));
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => request.AcceptAsync(TestContext.Current.CancellationToken));
 
             // Assert
             // A failed handshake must not strand the row on Connecting.

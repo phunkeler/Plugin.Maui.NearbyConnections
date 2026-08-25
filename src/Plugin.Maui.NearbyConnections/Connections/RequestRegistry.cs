@@ -82,10 +82,37 @@ sealed class RequestRegistry(
         return true;
     }
 
+    /// <summary>
+    /// Atomically claims <paramref name="request"/> itself, cancelling its expiry timer. Unlike
+    /// the id-keyed overload, this one never claims a newer request that replaced
+    /// <paramref name="request"/> for the same device — a stale request object loses cleanly.
+    /// </summary>
+    /// <param name="request">The exact request instance to claim.</param>
+    /// <returns><see langword="true"/> when this caller won the claim.</returns>
+    public bool TryClaim(NearbyConnectionRequest request)
+    {
+        var deviceId = request.RemoteDevice.Id;
+
+        if (!_outstanding.TryRemove(new KeyValuePair<string, NearbyConnectionRequest>(deviceId, request)))
+        {
+            return false;
+        }
+
+        DisarmTimer(deviceId);
+        return true;
+    }
+
     /// <summary>Reports whether a request is outstanding for <paramref name="deviceId"/>.</summary>
     /// <param name="deviceId">The device to check.</param>
     /// <returns><see langword="true"/> when a request is outstanding.</returns>
     public bool Contains(string deviceId) => _outstanding.ContainsKey(deviceId);
+
+    /// <summary>
+    /// Snapshots the outstanding requests at the moment of the call — the delivery replay set
+    /// (contract C3).
+    /// </summary>
+    /// <returns>The outstanding requests, possibly empty.</returns>
+    public NearbyConnectionRequest[] Snapshot() => [.. _outstanding.Values];
 
     /// <summary>
     /// Claims every outstanding request at once — the teardown path. All timers are cancelled.

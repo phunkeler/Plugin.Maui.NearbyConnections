@@ -71,10 +71,10 @@ sealed class FaultingDevices : INearby, INearbyDevices
     public Task<NearbyConnection> ConnectAsync(NearbyDevice device, CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
-    public Task<NearbyConnection> AcceptAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<NearbyConnectionRequest> Requests
         => throw new NotSupportedException();
 
-    public Task RejectAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<NearbyConnection> Connections
         => throw new NotSupportedException();
 
     public Task DisconnectAsync(NearbyDevice device, CancellationToken cancellationToken = default)

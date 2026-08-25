@@ -98,7 +98,7 @@ public sealed record NearbyDevice
     /// <remarks>
     /// Still <see langword="null"/> in <see cref="NearbyDeviceStatus.RequestReceived"/> — the local
     /// device is not yet an acceptor until
-    /// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/> is called.
+    /// <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/> is called.
     /// </remarks>
     public ConnectionRole? Role { get; init; }
 

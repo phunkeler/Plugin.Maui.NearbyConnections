@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// <see cref="NearbyOptions.ConnectTimeout"/> for
 /// <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/>, or
 /// <see cref="NearbyOptions.AcceptTimeout"/> for
-/// <see cref="INearby.AcceptAsync(NearbyDevice, CancellationToken)"/>.
+/// <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/>.
 /// </summary>
 /// <remarks>
 /// The handshake started but never reached a terminal result — most often because the remote device

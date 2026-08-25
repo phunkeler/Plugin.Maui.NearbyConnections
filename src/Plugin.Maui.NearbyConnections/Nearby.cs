@@ -30,6 +30,8 @@ sealed partial class Nearby : INearby, IAsyncDisposable
     readonly ChangeBroadcast<bool> _discoveryChanges = new();
     readonly DiscoveryRefresher _refresher;
     readonly SessionTaskSet _tasks;
+    readonly DeliveryBroadcast<NearbyConnectionRequest> _requestDeliveries;
+    readonly DeliveryBroadcast<NearbyConnection> _connectionDeliveries;
 
     // The session stop token: StopAsync cancels it (DisposeAsync stops through StopAsync), so no
     // session-owned task survives a stop into the next session. Re-armed by the next start.
@@ -53,6 +55,11 @@ sealed partial class Nearby : INearby, IAsyncDisposable
         _timeProvider = timeProvider ?? TimeProvider.System;
         _requests = new RequestRegistry(options, _timeProvider, RunRequestExpiryAsync);
         _tasks = new SessionTaskSet(_timeProvider, onError: ex => LogSessionTaskFailed(ex));
+
+        // The delivery streams read their replay sets from the facts' owners (C3's handover rule):
+        // outstanding requests from the request registry, open connections from the platform table.
+        _requestDeliveries = new DeliveryBroadcast<NearbyConnectionRequest>(() => _requests.Snapshot());
+        _connectionDeliveries = new DeliveryBroadcast<NearbyConnection>(() => _connections.SnapshotConnections());
         _refresher = new DiscoveryRefresher(
             options.DiscoveryRefreshInterval,
             _timeProvider,
@@ -129,6 +136,12 @@ sealed partial class Nearby : INearby, IAsyncDisposable
             }
         }
     }
+
+    /// <inheritdoc/>
+    public IAsyncEnumerable<NearbyConnectionRequest> Requests => _requestDeliveries.Stream;
+
+    /// <inheritdoc/>
+    public IAsyncEnumerable<NearbyConnection> Connections => _connectionDeliveries.Stream;
 
     /// <inheritdoc/>
     public IAsyncEnumerable<bool> AdvertisingChanges => _advertisingChanges.Stream;
@@ -284,7 +297,10 @@ sealed partial class Nearby : INearby, IAsyncDisposable
             {
                 try
                 {
-                    await request.RejectAsync(CancellationToken.None).ConfigureAwait(false);
+                    // The stop already claimed the request, so the public path would refuse the
+                    // reject; the session stopping is also what completes the request's Expired.
+                    request.MarkExpired();
+                    await request.RejectCore(CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -341,23 +357,26 @@ sealed partial class Nearby : INearby, IAsyncDisposable
         }
     }
 
-    /// <inheritdoc/>
-    public async Task<NearbyConnection> AcceptAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// The session half of <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/>,
+    /// attached to each request its pump surfaces: the atomic claim, the registry transitions,
+    /// and the delivery publish around the platform core.
+    /// </summary>
+    async Task<NearbyConnection> AcceptRequestAsync(NearbyConnectionRequest request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(device);
+        var device = request.RemoteDevice;
 
-        if (!_requests.TryClaim(device.Id, out var request))
+        if (!_requests.TryClaim(request))
         {
-            throw new InvalidOperationException(
-                $"No connection request is outstanding for device '{device.Id}'. " +
-                $"A request can only be accepted once, and only before it expires.");
+            throw new NearbyRequestExpiredException(
+                $"The request from device '{device.Id}' is no longer outstanding — it expired or was already answered.");
         }
 
         Transition(device, NearbyDeviceStatus.Connecting, ConnectionRole.Acceptor);
 
         try
         {
-            var connection = await request.AcceptAsync(cancellationToken).ConfigureAwait(false);
+            var connection = await request.AcceptCore(cancellationToken).ConfigureAwait(false);
             OnConnected(device, connection, ConnectionRole.Acceptor);
             return connection;
         }
@@ -370,18 +389,18 @@ sealed partial class Nearby : INearby, IAsyncDisposable
         }
     }
 
-    /// <inheritdoc/>
-    public async Task RejectAsync(NearbyDevice device, CancellationToken cancellationToken = default)
+    /// <summary>The session half of <see cref="NearbyConnectionRequest.RejectAsync(CancellationToken)"/>.</summary>
+    async Task RejectRequestAsync(NearbyConnectionRequest request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(device);
+        var device = request.RemoteDevice;
 
-        if (!_requests.TryClaim(device.Id, out var request))
+        if (!_requests.TryClaim(request))
         {
-            throw new InvalidOperationException(
-                $"No connection request is outstanding for device '{device.Id}'. A request can only be rejected once, and only before it expires.");
+            throw new NearbyRequestExpiredException(
+                $"The request from device '{device.Id}' is no longer outstanding — it expired or was already answered.");
         }
 
-        await request.RejectAsync(cancellationToken).ConfigureAwait(false);
+        await request.RejectCore(cancellationToken).ConfigureAwait(false);
         LogHandshakeEnded(device.Id, NearbyEndReason.RequestRejected);
         ResetToVisible(device, NearbyEndReason.RequestRejected);
     }
