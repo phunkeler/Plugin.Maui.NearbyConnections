@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 
 namespace Plugin.Maui.NearbyConnections;
 
@@ -115,7 +114,7 @@ sealed partial class PeerLookup
 
         // The weak table is this platform's native-to-id map: an MCPeerID has no stable string form
         // to key it by, so peer object identity is the mapping.
-        var deviceId = Convert.ToHexString(RandomNumberGenerator.GetBytes(8));
+        var deviceId = MintDeviceId();
 
         _deviceIds.AddOrUpdate(peerID, deviceId);
 

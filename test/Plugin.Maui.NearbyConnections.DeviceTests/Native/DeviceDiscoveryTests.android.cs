@@ -19,7 +19,7 @@ public class DeviceDiscoveryTests : DeviceTest
         // Assert
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
         Assert.True(found.Found);
-        Assert.True(platform.PeerLookup.TryGetDevice("endpoint-1", out var tracked));
+        Assert.True(platform.PeerLookup.TryGetDevice(found.Device.Id, out var tracked));
         Assert.Equal("Alice", tracked.DisplayName);
     }
 
@@ -39,7 +39,7 @@ public class DeviceDiscoveryTests : DeviceTest
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
         Assert.False(lost.Found);
         Assert.Equal(found.Device.Id, lost.Device.Id);
-        Assert.False(platform.PeerLookup.TryGetDevice("endpoint-1", out _));
+        Assert.False(platform.PeerLookup.TryGetDevice(found.Device.Id, out _));
     }
 
     [Fact]
@@ -48,13 +48,13 @@ public class DeviceDiscoveryTests : DeviceTest
         // Arrange — a connected peer that stops advertising is NOT lost; only its advertisement is.
         await using var platform = Create.PlatformNearby();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        await Create.ConnectedAsync(platform, "Alice", cts.Token);
+        var (_, deviceId) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
         // Act
         platform.OnEndpointLost("endpoint-1");
 
         // Assert
-        Assert.True(platform.PeerLookup.TryGetDevice("endpoint-1", out _));
+        Assert.True(platform.PeerLookup.TryGetDevice(deviceId, out _));
         Assert.False(platform._discoverChannel.Reader.TryRead(out _));
     }
 }

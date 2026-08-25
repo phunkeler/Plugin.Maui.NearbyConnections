@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Plugin.Maui.NearbyConnections;
@@ -20,6 +21,56 @@ sealed partial class PeerLookup
     /// <see cref="DisplayNameRules"/>.
     /// </remarks>
     internal const int MaxDisplayNameBytes = 64;
+
+    /// <summary>
+    /// The size of a device id in bytes, rendered as twice as many hex characters.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Eight bytes, balancing collision resistance against cost. Nearby Connections supports a
+    /// handful of simultaneous peers and Multipeer Connectivity caps a session at eight, so the
+    /// realistic population is tens of ids per session. By the birthday bound, 64 bits gives a
+    /// collision probability around 1e-16 at a hundred peers and 2.7e-08 at a million — orders of
+    /// magnitude below the radio failures this library already has to tolerate.
+    /// </para>
+    /// <para>
+    /// A wider id buys nothing here. A narrower one, or a counter, would be enumerable: an id that
+    /// increments tells an observer how many peers this session has seen and lets two logs be lined
+    /// up against each other. Randomness is what keeps the id inert.
+    /// </para>
+    /// <para>
+    /// Cost is not a factor at this size. Minting is paid once per peer discovered — never per
+    /// payload, per callback, or per log line — and measures a few hundred nanoseconds.
+    /// </para>
+    /// </remarks>
+    internal const int DeviceIdBytes = 8;
+
+    /// <summary>
+    /// Mints a device id. The single definition of the identifier's shape, on every platform.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The id is generated, never derived.</b> It is not a hash, an encoding, or a transformation
+    /// of anything either SDK supplied, which is what lets the public contract be identical on
+    /// Android and iOS: opaque, session-scoped, uncorrelatable, and carrying no identity data.
+    /// </para>
+    /// <para>
+    /// Deriving could not promise that on both platforms. Android exposes nothing device-specific to
+    /// derive from except the display name, and an id derived from a display name both collides
+    /// same-named devices and puts identity data back into the identifier. iOS could derive from the
+    /// archived <c>MCPeerID</c>, and did — but that archive contains the display name, so the id was
+    /// a reversible pseudonym of a low-entropy string and needed a salt to be safe. Generating makes
+    /// the whole problem absent rather than mitigated.
+    /// </para>
+    /// <para>
+    /// <see cref="RandomNumberGenerator"/> rather than <see cref="Random"/>: the id is a
+    /// security-relevant token on a surface that faces unauthenticated peers, and a predictable
+    /// sequence would let an observer correlate or anticipate ids. The cost difference is irrelevant
+    /// at one call per discovered peer.
+    /// </para>
+    /// </remarks>
+    internal static string MintDeviceId()
+        => Convert.ToHexString(RandomNumberGenerator.GetBytes(DeviceIdBytes));
 
     /// <summary>
     /// Records what a platform callback saw for <paramref name="key"/>, and returns the device the

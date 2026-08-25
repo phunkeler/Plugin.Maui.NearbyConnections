@@ -5,7 +5,7 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class PlatformNearby
 {
-    readonly ConcurrentDictionary<long, (string EndpointId, Payload Payload)> _incomingPayloads = [];
+    readonly ConcurrentDictionary<long, (string DeviceId, Payload Payload)> _incomingPayloads = [];
     readonly ConcurrentDictionary<long, OutgoingTransfer> _outgoingTransfers = [];
 
     IConnectionsClient? _advertiseClient;
@@ -25,7 +25,7 @@ sealed partial class PlatformNearby
                     OnConnectionInitiatedAsync,
                     OnConnectionResult,
                     OnDisconnected,
-                    (endpointId, ex) => LogCallbackError(nameof(ConnectionLifecycleCallback.OnConnectionInitiated), endpointId, ex)),
+                    (endpointId, ex) => LogCallbackError(nameof(ConnectionLifecycleCallback.OnConnectionInitiated), PeerLookup.DeviceIdFor(endpointId), ex)),
                 new AdvertisingOptions.Builder()
                     .SetStrategy(_options.ToPlatformStrategy())
                     .SetLowPower(_options.Android.UseLowPower)
@@ -50,18 +50,19 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var device = PeerLookup.Record(endpointId, connectionInfo.EndpointName);
+            var deviceId = PeerLookup.DeviceIdFor(endpointId);
+            var device = PeerLookup.Record(deviceId, connectionInfo.EndpointName);
 
             if (connectionInfo.IsIncomingConnection)
             {
                 LogConnectionRequestReceived(device.Id, device.DisplayName);
 
-                var tcs = RegisterConnectionTcs(endpointId, CancellationToken.None);
+                var tcs = RegisterConnectionTcs(deviceId, CancellationToken.None);
                 var request = new NearbyConnectionRequest(
                     device,
                     accept: ct =>
                     {
-                        AttachConnectionTcsToken(endpointId, ct);
+                        AttachConnectionTcsToken(deviceId, ct);
 
                         return AwaitHandshakeAsync(
                             device,
@@ -72,7 +73,7 @@ sealed partial class PlatformNearby
                     },
                     reject: ct =>
                     {
-                        _connectionTcs.TryRemove(endpointId, out _);
+                        _connectionTcs.TryRemove(deviceId, out _);
                         return PlatformRespondToConnectionAsync(device, accept: false);
                     });
 
@@ -85,8 +86,10 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnConnectionInitiatedAsync), endpointId, ex);
-            FaultConnectionTcs(endpointId, ex);
+            var deviceId = PeerLookup.DeviceIdFor(endpointId);
+
+            LogCallbackError(nameof(OnConnectionInitiatedAsync), deviceId, ex);
+            FaultConnectionTcs(deviceId, ex);
         }
     }
 
@@ -94,17 +97,19 @@ sealed partial class PlatformNearby
     {
         try
         {
+            var deviceId = PeerLookup.DeviceIdFor(endpointId);
+
             LogConnectionResult(
-                endpointId,
+                deviceId,
                 resolution.Status.StatusCode,
                 resolution.Status.StatusMessage ?? string.Empty,
                 resolution.Status.IsSuccess);
 
             if (resolution.Status.IsSuccess)
             {
-                if (!PeerLookup.TryGetDevice(endpointId, out var device))
+                if (!PeerLookup.TryGetDevice(deviceId, out var device))
                 {
-                    FaultConnectionTcs(endpointId, new NearbyException($"Device not found in manager for endpoint '{endpointId}' after successful connection."));
+                    FaultConnectionTcs(deviceId, new NearbyException($"Device not found in manager for device '{deviceId}' after successful connection."));
                     return;
                 }
 
@@ -113,26 +118,26 @@ sealed partial class PlatformNearby
                 var connection = new NearbyConnection(
                     device,
                     receiveChannel,
-                    sendBytes: (data, ct) => PlatformSendBytesAsync(endpointId, data, ct),
-                    sendFile: (fileUri, progress, ct) => PlatformSendFileAsync(endpointId, fileUri, progress, ct),
-                    dispose: () => PlatformDisconnectEndpointAsync(endpointId));
+                    sendBytes: (data, ct) => PlatformSendBytesAsync(deviceId, data, ct),
+                    sendFile: (fileUri, progress, ct) => PlatformSendFileAsync(deviceId, fileUri, progress, ct),
+                    dispose: () => PlatformDisconnectEndpointAsync(deviceId));
 
-                ResolveConnectionTcs(endpointId, connection);
+                ResolveConnectionTcs(deviceId, connection);
             }
             else
             {
-                if (PeerLookup.Remove(endpointId) is { } lostDevice)
+                if (PeerLookup.Remove(deviceId) is { } lostDevice)
                 {
                     WriteDeviceLost(lostDevice);
                 }
 
-                FaultConnectionTcs(endpointId, new NearbyException(
-                    $"Connection to endpoint '{endpointId}' failed: {resolution.Status.StatusMessage} (code {resolution.Status.StatusCode})."));
+                FaultConnectionTcs(deviceId, new NearbyException(
+                    $"Connection to device '{deviceId}' failed: {resolution.Status.StatusMessage} (code {resolution.Status.StatusCode})."));
             }
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnConnectionResult), endpointId, ex);
+            LogCallbackError(nameof(OnConnectionResult), PeerLookup.DeviceIdFor(endpointId), ex);
         }
     }
 
@@ -140,15 +145,17 @@ sealed partial class PlatformNearby
     {
         try
         {
-            LogDeviceDisconnected(endpointId);
+            var deviceId = PeerLookup.DeviceIdFor(endpointId);
+
+            LogDeviceDisconnected(deviceId);
 
             // A GMS callback: the signature is fixed, so the release is tracked rather than awaited.
-            ReleaseConnectionFromCallback(endpointId);
-            PeerLookup.Remove(endpointId);
+            ReleaseConnectionFromCallback(deviceId);
+            PeerLookup.Remove(deviceId);
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnDisconnected), endpointId, ex);
+            LogCallbackError(nameof(OnDisconnected), PeerLookup.DeviceIdFor(endpointId), ex);
         }
     }
 
@@ -188,13 +195,13 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var device = PeerLookup.Record(endpointId, info.EndpointName);
+            var device = PeerLookup.Record(PeerLookup.DeviceIdFor(endpointId), info.EndpointName);
             LogDeviceFound(device.Id, device.DisplayName);
             WriteDeviceFound(device);
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnEndpointFound), endpointId, ex);
+            LogCallbackError(nameof(OnEndpointFound), PeerLookup.DeviceIdFor(endpointId), ex);
         }
     }
 
@@ -202,9 +209,11 @@ sealed partial class PlatformNearby
     {
         try
         {
-            if (_activeConnections.ContainsKey(endpointId))
+            var deviceId = PeerLookup.DeviceIdFor(endpointId);
+
+            if (_activeConnections.ContainsKey(deviceId))
             {
-                if (PeerLookup.TryGetDevice(endpointId, out var existingDevice))
+                if (PeerLookup.TryGetDevice(deviceId, out var existingDevice))
                 {
                     LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
                 }
@@ -212,8 +221,8 @@ sealed partial class PlatformNearby
                 return;
             }
 
-            var device = PeerLookup.Remove(endpointId);
-            LogDeviceLost(endpointId, device?.DisplayName);
+            var device = PeerLookup.Remove(deviceId);
+            LogDeviceLost(deviceId, device?.DisplayName);
 
             if (device is not null)
             {
@@ -222,7 +231,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnEndpointLost), endpointId, ex);
+            LogCallbackError(nameof(OnEndpointLost), PeerLookup.DeviceIdFor(endpointId), ex);
         }
     }
 
@@ -232,12 +241,14 @@ sealed partial class PlatformNearby
     {
         try
         {
-            LogPayloadReceived(endpointId, payload.Id, payload.PayloadType);
-            _incomingPayloads.TryAdd(payload.Id, (endpointId, payload));
+            var deviceId = PeerLookup.DeviceIdFor(endpointId);
+
+            LogPayloadReceived(deviceId, payload.Id, payload.PayloadType);
+            _incomingPayloads.TryAdd(payload.Id, (deviceId, payload));
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnPayloadReceived), endpointId, ex);
+            LogCallbackError(nameof(OnPayloadReceived), PeerLookup.DeviceIdFor(endpointId), ex);
         }
     }
 
@@ -245,7 +256,9 @@ sealed partial class PlatformNearby
     {
         try
         {
-            LogPayloadTransferUpdate(endpointId, update.PayloadId, update.TransferStatus, update.TotalBytes, update.BytesTransferred);
+            var deviceId = PeerLookup.DeviceIdFor(endpointId);
+
+            LogPayloadTransferUpdate(deviceId, update.PayloadId, update.TransferStatus, update.TotalBytes, update.BytesTransferred);
 
             if (_outgoingTransfers.TryGetValue(update.PayloadId, out var outgoingTransfer))
             {
@@ -261,7 +274,7 @@ sealed partial class PlatformNearby
 
             if (update.TransferStatus == PayloadTransferUpdate.Status.InProgress
                 && _incomingPayloads.TryGetValue(update.PayloadId, out var inboundEntry)
-                && _activeConnections.TryGetValue(inboundEntry.EndpointId, out var inboundConn))
+                && _activeConnections.TryGetValue(inboundEntry.DeviceId, out var inboundConn))
             {
                 inboundConn.InboundProgress?.Report(new NearbyTransferProgress(
                     payloadId: update.PayloadId,
@@ -275,23 +288,23 @@ sealed partial class PlatformNearby
                 var payloadId = update.PayloadId;
 
                 await _workQueue
-                    .Enqueue(endpointId, () => OnIncomingPayloadSuccess(endpointId, payloadId))
+                    .Enqueue(deviceId, () => OnIncomingPayloadSuccess(deviceId, payloadId))
                     .ConfigureAwait(false);
             }
             else if (update.TransferStatus is PayloadTransferUpdate.Status.Failure or PayloadTransferUpdate.Status.Canceled
                 && _incomingPayloads.TryRemove(update.PayloadId, out var deadEntry))
             {
-                LogIncomingPayloadProcessingFailed(endpointId, update.PayloadId);
+                LogIncomingPayloadProcessingFailed(deviceId, update.PayloadId);
                 DisposeIncomingPayload(deadEntry.Payload);
             }
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnPayloadTransferUpdate), endpointId, ex);
+            LogCallbackError(nameof(OnPayloadTransferUpdate), PeerLookup.DeviceIdFor(endpointId), ex);
         }
     }
 
-    async Task OnIncomingPayloadSuccess(string endpointId, long payloadId)
+    async Task OnIncomingPayloadSuccess(string deviceId, long payloadId)
     {
         if (!_incomingPayloads.TryRemove(payloadId, out var entry))
         {
@@ -302,7 +315,7 @@ sealed partial class PlatformNearby
         // CompleteReceive, and DisposeAsync disposes every active connection, so disposing the
         // session cancels an in-flight copy too. Without a live connection the copied file has
         // nowhere to go, so skip the work rather than copy a file WritePayload will drop.
-        var copyToken = _activeConnections.TryGetValue(endpointId, out var connection)
+        var copyToken = _activeConnections.TryGetValue(deviceId, out var connection)
             ? connection.DisconnectedToken
             : new CancellationToken(canceled: true);
 
@@ -314,13 +327,13 @@ sealed partial class PlatformNearby
 
         if (nearbyPayload is not null)
         {
-            WritePayload(endpointId, nearbyPayload);
+            WritePayload(deviceId, nearbyPayload);
         }
         else if (!copyToken.IsCancellationRequested)
         {
             // A cancelled copy already logged its own teardown message. Reporting it again as a
             // processing failure would raise a routine disconnect to Error.
-            LogIncomingPayloadProcessingFailed(endpointId, payloadId);
+            LogIncomingPayloadProcessingFailed(deviceId, payloadId);
         }
 
         DisposeIncomingPayload(entry.Payload);
@@ -408,6 +421,13 @@ sealed partial class PlatformNearby
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (!PeerLookup.TryGetEndpointId(device.Id, out var endpointId))
+        {
+            FaultConnectionTcs(device.Id, new NearbyException(
+                $"Cannot connect: device '{device.DisplayName}' (Id={device.Id}) is not currently visible. Ensure it is actively advertising and within range."));
+            return;
+        }
+
         try
         {
             // Must be awaited HERE, not returned directly
@@ -415,19 +435,19 @@ sealed partial class PlatformNearby
                 .GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
                 .RequestConnectionAsync(
                     _options.DisplayName,
-                    device.Id,
+                    endpointId,
                     new AdvertiseCallback(
                         OnConnectionInitiatedAsync,
                         OnConnectionResult,
                         OnDisconnected,
-                        (endpointId, ex) => LogCallbackError(nameof(ConnectionLifecycleCallback.OnConnectionInitiated), endpointId, ex))).ConfigureAwait(false);
+                        (endpointId, ex) => LogCallbackError(nameof(ConnectionLifecycleCallback.OnConnectionInitiated), PeerLookup.DeviceIdFor(endpointId), ex))).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             try
             {
                 NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
-                    .DisconnectFromEndpoint(device.Id);
+                    .DisconnectFromEndpoint(endpointId);
             }
             catch (Exception disconnectEx)
             {
@@ -435,20 +455,26 @@ sealed partial class PlatformNearby
             }
 
             FaultConnectionTcs(device.Id, new NearbyException(
-                $"Failed to initiate connection to endpoint '{device.Id}'.", ex));
+                $"Failed to initiate connection to device '{device.Id}'.", ex));
         }
     }
 
     Task PlatformRespondToConnectionAsync(NearbyDevice device, bool accept)
     {
+        if (!PeerLookup.TryGetEndpointId(device.Id, out var endpointId))
+        {
+            throw new NearbyException(
+                $"Cannot respond to the connection request from device '{device.Id}': the platform no longer tracks it.");
+        }
+
         var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
 
         return accept
-            ? client.AcceptConnectionAsync(device.Id, new ConnectionCallback(
+            ? client.AcceptConnectionAsync(endpointId, new ConnectionCallback(
                 OnPayloadReceived,
                 OnPayloadTransferUpdate,
-                (endpointId, ex) => LogCallbackError(nameof(PayloadCallback.OnPayloadTransferUpdate), endpointId, ex)))
-            : client.RejectConnectionAsync(device.Id);
+                (callbackEndpointId, ex) => LogCallbackError(nameof(PayloadCallback.OnPayloadTransferUpdate), PeerLookup.DeviceIdFor(callbackEndpointId), ex)))
+            : client.RejectConnectionAsync(endpointId);
     }
 
     async Task PlatformAbandonConnectAsync(NearbyDevice device)
@@ -463,29 +489,33 @@ sealed partial class PlatformNearby
         }
     }
 
-    async ValueTask PlatformDisconnectEndpointAsync(string endpointId)
+    async ValueTask PlatformDisconnectEndpointAsync(string deviceId)
     {
-        LogDisconnecting(endpointId, PeerLookup.TryGetDevice(endpointId, out var d)
+        LogDisconnecting(deviceId, PeerLookup.TryGetDevice(deviceId, out var d)
             ? d.DisplayName
             : null);
 
-        var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
-        client.DisconnectFromEndpoint(endpointId);
-        await ReleaseConnectionAsync(endpointId).ConfigureAwait(false);
-        PeerLookup.Remove(endpointId);
+        if (PeerLookup.TryGetEndpointId(deviceId, out var endpointId))
+        {
+            var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
+            client.DisconnectFromEndpoint(endpointId);
+        }
+
+        await ReleaseConnectionAsync(deviceId).ConfigureAwait(false);
+        PeerLookup.Remove(deviceId);
     }
 
     async Task PlatformSendBytesAsync(
-        string endpointId,
+        string deviceId,
         byte[] data,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!_activeConnections.ContainsKey(endpointId))
+        if (!_activeConnections.ContainsKey(deviceId) || !PeerLookup.TryGetEndpointId(deviceId, out var endpointId))
         {
             throw new NearbyException(
-                $"Cannot send bytes: no active connection for endpoint '{endpointId}'.");
+                $"Cannot send bytes: no active connection for device '{deviceId}'.");
         }
 
         using var payload = Payload.FromBytes(data);
@@ -497,24 +527,24 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            LogSendBytesFailed(endpointId, ex);
+            LogSendBytesFailed(deviceId, ex);
             throw new NearbyTransferException(
-                $"Failed to send bytes to endpoint '{endpointId}'.", ex);
+                $"Failed to send bytes to device '{deviceId}'.", ex);
         }
     }
 
     async Task PlatformSendFileAsync(
-        string endpointId,
+        string deviceId,
         string uri,
         IProgress<NearbyTransferProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!_activeConnections.ContainsKey(endpointId))
+        if (!_activeConnections.ContainsKey(deviceId) || !PeerLookup.TryGetEndpointId(deviceId, out var endpointId))
         {
             throw new NearbyException(
-                $"Cannot send file: no active connection for endpoint '{endpointId}'.");
+                $"Cannot send file: no active connection for device '{deviceId}'.");
         }
 
         using var androidUri = TryCreateUri(uri);
@@ -539,7 +569,7 @@ sealed partial class PlatformNearby
             }
             catch (Exception ex)
             {
-                LogWriteError(nameof(PlatformSendFileAsync), endpointId, ex);
+                LogWriteError(nameof(PlatformSendFileAsync), deviceId, ex);
             }
         }
 
@@ -575,15 +605,15 @@ sealed partial class PlatformNearby
         {
             Report(NearbyTransferStatus.Failure);
 
-            throw TransferInactivityTimeoutException(endpointId);
+            throw TransferInactivityTimeoutException(deviceId);
         }
         catch (Exception ex) when (ex is not OperationCanceledException and not NearbyException)
         {
             Report(NearbyTransferStatus.Failure);
 
-            LogSendFileFailed(endpointId, null, ex);
+            LogSendFileFailed(deviceId, null, ex);
             throw new NearbyTransferException(
-                $"Failed to send file to endpoint '{endpointId}'.", ex);
+                $"Failed to send file to device '{deviceId}'.", ex);
         }
         finally
         {
@@ -692,7 +722,7 @@ sealed partial class PlatformNearby
         // Runs after PlatformQuiesceConnectionAsync, so no copy is still reading these.
         foreach (var (payloadId, entry) in _incomingPayloads)
         {
-            if (entry.EndpointId == peerId
+            if (entry.DeviceId == peerId
                 && _incomingPayloads.TryRemove(payloadId, out var removed))
             {
                 DisposeIncomingPayload(removed.Payload);

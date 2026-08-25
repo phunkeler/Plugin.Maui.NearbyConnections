@@ -75,22 +75,27 @@ partial class Create
 #pragma warning restore CS0618
 
     /// <summary>
-    /// A handshake pending on the advertise channel: the platform has a registered
-    /// <c>_connectionTcs</c> entry for <paramref name="id"/> awaiting a connection result.
+    /// A handshake pending on the advertise channel, registered the way the platform registers one:
+    /// keyed by the device id minted for <paramref name="endpointId"/>, not by the endpoint id.
     /// </summary>
     /// <param name="platform">The platform to register the pending handshake on.</param>
-    /// <param name="id">The endpoint id the handshake is keyed by.</param>
+    /// <param name="endpointId">The endpoint id GMS would report the peer under.</param>
     /// <param name="displayName">The remote device's display name, as GMS reports it.</param>
-    /// <returns>The source the platform will resolve or fault.</returns>
-    internal static TaskCompletionSource<NearbyConnection> PendingHandshake(
-        PlatformNearby platform, string id = "endpoint-1", string displayName = "Alice")
+    /// <returns>
+    /// The source the platform will resolve or fault, and the device id it is registered under —
+    /// the value every assertion should use, since the endpoint id no longer keys anything above
+    /// <c>Native/</c>.
+    /// </returns>
+    internal static (TaskCompletionSource<NearbyConnection> Tcs, string DeviceId) PendingHandshake(
+        PlatformNearby platform, string endpointId = "endpoint-1", string displayName = "Alice")
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var deviceId = platform.PeerLookup.DeviceIdFor(endpointId);
 
-        platform.PeerLookup.Record(id, displayName);
-        platform._connectionTcs[id] = (tcs, CancellationToken.None);
+        platform.PeerLookup.Record(deviceId, displayName);
+        platform._connectionTcs[deviceId] = (tcs, CancellationToken.None);
 
-        return tcs;
+        return (tcs, deviceId);
     }
 
     /// <summary>
@@ -107,12 +112,16 @@ partial class Create
         CancellationToken cancellationToken)
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-        const string id = "endpoint-1";
+        const string endpointId = "endpoint-1";
 
-        platform.PeerLookup.Record(id, displayName);
-        platform._connectionTcs[id] = (tcs, CancellationToken.None);
-        platform.OnConnectionResult(id, Resolution());
+        // Registered under the minted device id, matching what the platform does: the endpoint id
+        // reaches only the callback, and everything downstream keys on the device id.
+        var deviceId = platform.PeerLookup.DeviceIdFor(endpointId);
 
-        return (await tcs.Task.WaitAsync(cancellationToken), id);
+        platform.PeerLookup.Record(deviceId, displayName);
+        platform._connectionTcs[deviceId] = (tcs, CancellationToken.None);
+        platform.OnConnectionResult(endpointId, Resolution());
+
+        return (await tcs.Task.WaitAsync(cancellationToken), deviceId);
     }
 }

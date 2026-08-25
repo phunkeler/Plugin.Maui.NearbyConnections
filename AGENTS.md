@@ -103,14 +103,15 @@ This is the failure mode to watch for, because it feels like diligence.
 /// </param>
 ```
 
-That doc comment is accurate, honest, and helpful. It is also the bug report. `NearbyDevice.Id` is a
-raw Google endpoint token on one platform and a 16-character hex string on the other, so a consumer
-who logs it, displays it, stores it, or writes a test asserting its shape gets different behaviour
-per platform. Writing the split down tells the consumer to handle it. It does not spare them the
-work — it moves the work to them, which is the opposite of what they installed this package for.
+That doc comment was accurate, honest, and helpful. It was also the bug report. `NearbyDevice.Id` was
+a raw Google endpoint token on one platform and a 16-character hex string on the other, so a consumer
+who logged it, displayed it, stored it, or wrote a test asserting its shape got different behaviour
+per platform. Writing the split down told the consumer to handle it. It did not spare them the work
+— it moved the work to them, which is the opposite of what they installed this package for.
 
-(That example is live, not historical: unifying `Id` behind a library-minted identifier is in
-progress at the time of writing. The doc comment above is the one currently shipping.)
+`Id` is now minted by this library on both platforms, and each SDK's own identifier is confined to
+`Native/`. The doc comment above is gone, which is the point: the abstraction absorbed the
+difference instead of describing it.
 
 **A sentence of the form "X on Android, Y on iOS" in a public doc is a design smell.** Read it as an
 unfinished abstraction until proven otherwise. Sometimes it is genuinely the best available answer.
@@ -126,9 +127,8 @@ When the platforms differ, there are exactly three honest options.
    on both (see *Two termination guarantees*). Consumers get a device set and a delta stream, not
    GMS's endpoint callbacks and MPC's session-state transitions. Inbound payloads arrive through one
    channel-backed stream, though one platform copies files asynchronously and the other synchronously
-   on a delegate queue. The target state for `NearbyDevice.Id` is the same treatment: an identifier
-   this library mints, identical in shape on both platforms, with each SDK's own identifier confined
-   to `Native/`.
+   on a delegate queue. `NearbyDevice.Id` is an identifier this library mints, identical in shape on
+   both platforms, with each SDK's own identifier confined to `Native/`.
 
 2. **Name it, when the capability genuinely exists on one platform only.** Put it behind a platform
    scope so the divergence is impossible to miss at the call site: `options.Android.Topology`, not

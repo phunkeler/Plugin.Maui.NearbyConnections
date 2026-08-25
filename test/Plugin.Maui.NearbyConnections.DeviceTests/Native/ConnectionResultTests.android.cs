@@ -12,7 +12,7 @@ public class ConnectionResultTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby();
-        var tcs = Create.PendingHandshake(platform);
+        var (tcs, deviceId) = Create.PendingHandshake(platform);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
@@ -21,7 +21,7 @@ public class ConnectionResultTests : DeviceTest
         // Assert
         var connection = await tcs.Task.WaitAsync(cts.Token);
         Assert.Equal("Alice", connection.RemoteDevice.DisplayName);
-        Assert.True(platform._activeConnections.ContainsKey("endpoint-1"));
+        Assert.True(platform._activeConnections.ContainsKey(deviceId));
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public class ConnectionResultTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby();
-        var tcs = Create.PendingHandshake(platform);
+        var (tcs, deviceId) = Create.PendingHandshake(platform);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
@@ -37,7 +37,7 @@ public class ConnectionResultTests : DeviceTest
 
         // Assert
         await Assert.ThrowsAsync<NearbyException>(() => tcs.Task.WaitAsync(cts.Token));
-        Assert.False(platform._activeConnections.ContainsKey("endpoint-1"));
+        Assert.False(platform._activeConnections.ContainsKey(deviceId));
     }
 
     // A failed handshake drops the native endpoint, so the device must be reported lost too.
@@ -51,7 +51,7 @@ public class ConnectionResultTests : DeviceTest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         platform.OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
-        Create.PendingHandshake(platform);
+        var (_, deviceId) = Create.PendingHandshake(platform);
 
         // Act
         platform.OnConnectionResult("endpoint-1", Create.Resolution(ConnectionsStatusCodes.StatusConnectionRejected));
@@ -60,6 +60,6 @@ public class ConnectionResultTests : DeviceTest
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
         Assert.False(lost.Found);
         Assert.Equal(found.Device.Id, lost.Device.Id);
-        Assert.False(platform.PeerLookup.TryGetDevice("endpoint-1", out _));
+        Assert.False(platform.PeerLookup.TryGetDevice(deviceId, out _));
     }
 }
