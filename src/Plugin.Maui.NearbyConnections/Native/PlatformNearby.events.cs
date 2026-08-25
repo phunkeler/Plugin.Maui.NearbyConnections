@@ -229,6 +229,28 @@ sealed partial class PlatformNearby
         }
     }
 
+    /// <summary>
+    /// The shared connection assembly, written once: builds the receive channel, wires the
+    /// adapter's platform half into a <see cref="NearbyConnection"/>, and resolves the pending
+    /// handshake. Both platforms' terminal success callbacks route through this.
+    /// </summary>
+    /// <param name="device">The connected remote device.</param>
+    /// <param name="sendBytes">The adapter's byte-send for this link.</param>
+    /// <param name="sendFile">The adapter's file-send for this link.</param>
+    /// <param name="dispose">The adapter's disconnect-and-release for this link.</param>
+    internal void CompleteHandshake(
+        NearbyDevice device,
+        Func<byte[], CancellationToken, Task> sendBytes,
+        Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> sendFile,
+        Func<ValueTask> dispose)
+    {
+        var receiveChannel = NewChannel<NearbyPayload>(singleReader: true);
+
+        var connection = new NearbyConnection(device, receiveChannel, sendBytes, sendFile, dispose);
+
+        ResolveConnectionTcs(device.Id, connection);
+    }
+
     internal void ResolveConnectionTcs(string deviceId, NearbyConnection connection)
     {
         try

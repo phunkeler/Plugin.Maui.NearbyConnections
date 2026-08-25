@@ -472,10 +472,8 @@ sealed class IosAdapter : IPlatformAdapter
             {
                 case MCSessionState.Connected:
                     var connectedDevice = _bridge.PeerLookup.Track(peerID);
-                    var receiveChannel = PlatformNearby.NewChannel<NearbyPayload>(singleReader: true);
-                    var connection = new NearbyConnection(
+                    _bridge.CompleteHandshake(
                         connectedDevice,
-                        receiveChannel,
                         sendBytes: (data, ct) => SendBytesAsync(id, data, ct),
                         sendFile: (fileUri, progress, ct) => SendFileAsync(id, fileUri, progress, ct),
                         dispose: async () =>
@@ -496,8 +494,6 @@ sealed class IosAdapter : IPlatformAdapter
                             await _bridge.ReleaseConnectionAsync(id).ConfigureAwait(false);
                             DisposeSessionIfIdle();
                         });
-
-                    _bridge.ResolveConnectionTcs(id, connection);
                     break;
 
                 case MCSessionState.NotConnected:

@@ -123,16 +123,11 @@ sealed partial class AndroidAdapter : IPlatformAdapter
                     return;
                 }
 
-                var receiveChannel = PlatformNearby.NewChannel<NearbyPayload>(singleReader: true);
-
-                var connection = new NearbyConnection(
+                _bridge.CompleteHandshake(
                     device,
-                    receiveChannel,
                     sendBytes: (data, ct) => SendBytesAsync(deviceId, data, ct),
                     sendFile: (fileUri, progress, ct) => SendFileAsync(deviceId, fileUri, progress, ct),
                     dispose: () => DisconnectEndpointAsync(deviceId));
-
-                _bridge.ResolveConnectionTcs(deviceId, connection);
             }
             else
             {
