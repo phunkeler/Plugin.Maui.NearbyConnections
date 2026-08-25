@@ -102,7 +102,7 @@ public static partial class ServiceCollectionExtensions
 
             var connections = CreatePlatformNearby(timeProvider, options, logger);
 
-            return new NearbyImplementation(connections, options, logger, timeProvider);
+            return new Nearby(connections, options, logger, timeProvider);
         });
 
         return services;

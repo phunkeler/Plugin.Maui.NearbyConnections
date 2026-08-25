@@ -22,7 +22,7 @@ public class AppLifecycleObserverTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby();
-        var session = new NearbyImplementation(platform, new NearbyOptions { ServiceId = "devtest" }, NullLogger.Instance);
+        var session = new Nearby(platform, new NearbyOptions { ServiceId = "devtest" }, NullLogger.Instance);
         var observer = new AppLifecycleObserver(session, NullLogger.Instance);
 
         // Act — the real notification the OS posts on backgrounding.
@@ -48,7 +48,7 @@ public class AppLifecycleObserverTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby();
-        var session = new NearbyImplementation(platform, new NearbyOptions { ServiceId = "devtest" }, NullLogger.Instance);
+        var session = new Nearby(platform, new NearbyOptions { ServiceId = "devtest" }, NullLogger.Instance);
         var observer = new AppLifecycleObserver(session, NullLogger.Instance);
 
         // Act — dispose twice, then post: a stale registration would invoke a disposed observer.

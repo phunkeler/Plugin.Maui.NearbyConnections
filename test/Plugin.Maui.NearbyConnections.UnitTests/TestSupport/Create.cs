@@ -43,7 +43,7 @@ static class Create
     /// The session under test, over a <see cref="FakeNearby"/> platform. Takes no dispatcher: every
     /// member of <see cref="INearby"/> is callable from any thread.
     /// </summary>
-    public static NearbyImplementation Session(
+    public static Nearby Session(
         FakeNearby platform,
         NearbyOptions? options = null,
         TimeProvider? timeProvider = null)
@@ -102,7 +102,7 @@ static class Create
     /// <param name="settleWindow">The eviction delay after each refresh. Defaults to one second.</param>
     public static DiscoveryRefresher Refresher(
         FakeTimeProvider time,
-        NearbyDeviceRegistry registry,
+        DeviceRegistry registry,
         Func<CancellationToken, Task<bool>> refreshAsync,
         TimeSpan? interval = null,
         Action<Exception>? onFailed = null,

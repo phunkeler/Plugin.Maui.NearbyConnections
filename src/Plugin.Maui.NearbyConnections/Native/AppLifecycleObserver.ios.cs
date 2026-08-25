@@ -43,14 +43,14 @@ sealed partial class AppLifecycleObserver : IAsyncDisposable
     /// </remarks>
     static readonly TimeSpan s_tearDownDrainTimeout = TimeSpan.FromSeconds(5);
 
-    readonly NearbyImplementation _session;
+    readonly Nearby _session;
     readonly ILogger _logger;
 
     NSObject? _backgroundRegistration;
     Task? _tearDown;
     int _disposeGuard;
 
-    internal AppLifecycleObserver(NearbyImplementation session, ILogger logger)
+    internal AppLifecycleObserver(Nearby session, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(logger);

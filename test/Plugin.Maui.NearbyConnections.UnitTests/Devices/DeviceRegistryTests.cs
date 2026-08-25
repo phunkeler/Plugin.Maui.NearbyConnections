@@ -1,19 +1,19 @@
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
 /// <summary>
-/// Tests for <see cref="NearbyDeviceRegistry"/>, the thread-safe device store that replaced the
+/// Tests for <see cref="DeviceRegistry"/>, the thread-safe device store that replaced the
 /// dispatcher-marshalled <c>ObservableCollection</c>.
 /// </summary>
 [Trait("Category", "Devices")]
-public class NearbyDeviceRegistryTests
+public class DeviceRegistryTests
 {
-    public sealed class Membership : NearbyDeviceRegistryTests
+    public sealed class Membership : DeviceRegistryTests
     {
         [Fact]
         public void AddIfAbsent_NewDevice_AddsIt()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             var device = Create.Device("a");
 
             // Act
@@ -30,7 +30,7 @@ public class NearbyDeviceRegistryTests
         public void AddIfAbsent_ExistingDevice_KeepsTheIncumbent()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             var connected = Create.Device("a", status: NearbyDeviceStatus.Connected);
             registry.AddIfAbsent(connected);
 
@@ -47,7 +47,7 @@ public class NearbyDeviceRegistryTests
         public void Remove_AbsentDevice_ReturnsFalse()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
 
             // Act
             var result = registry.Remove("nope");
@@ -60,7 +60,7 @@ public class NearbyDeviceRegistryTests
         public void RemoveWhere_RemovesOnlyMatches()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             registry.AddIfAbsent(Create.Device("visible"));
             registry.AddIfAbsent(Create.Device("connected", status: NearbyDeviceStatus.Connected));
 
@@ -76,7 +76,7 @@ public class NearbyDeviceRegistryTests
         public void Update_AbsentDevice_ReturnsNull()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
 
             // Act
             var result = registry.Update("nope", d => d with { Status = NearbyDeviceStatus.Connected });
@@ -89,7 +89,7 @@ public class NearbyDeviceRegistryTests
         public void Update_ReplacesTheStoredSnapshot()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             registry.AddIfAbsent(Create.Device("a"));
 
             // Act
@@ -106,7 +106,7 @@ public class NearbyDeviceRegistryTests
         public void Enumerating_WhileMutating_DoesNotThrow()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             registry.AddIfAbsent(Create.Device("a"));
 
             // Act
@@ -125,13 +125,13 @@ public class NearbyDeviceRegistryTests
         }
     }
 
-    public sealed class Changes : NearbyDeviceRegistryTests
+    public sealed class Changes : DeviceRegistryTests
     {
         [Fact]
         public async Task Add_PublishesAdded()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             await using var watch = new ChangeRecorder(registry.Changes);
 
             // Act
@@ -149,7 +149,7 @@ public class NearbyDeviceRegistryTests
         public async Task AddIfAbsent_WhenAlreadyPresent_PublishesNothing()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             registry.AddIfAbsent(Create.Device("a"));
             await using var watch = new ChangeRecorder(registry.Changes);
 
@@ -169,7 +169,7 @@ public class NearbyDeviceRegistryTests
         public async Task Update_ThatChangesNothing_PublishesNothing()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             registry.AddIfAbsent(Create.Device("a"));
             await using var watch = new ChangeRecorder(registry.Changes);
 
@@ -186,7 +186,7 @@ public class NearbyDeviceRegistryTests
         public async Task RemoveWhere_PublishesOneChangePerDevice()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             registry.AddIfAbsent(Create.Device("a"));
             registry.AddIfAbsent(Create.Device("b"));
             await using var watch = new ChangeRecorder(registry.Changes);
@@ -207,7 +207,7 @@ public class NearbyDeviceRegistryTests
         public async Task EveryWatcher_ReceivesEveryChange()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             await using var first = new ChangeRecorder(registry.Changes);
             await using var second = new ChangeRecorder(registry.Changes);
 
@@ -235,7 +235,7 @@ public class NearbyDeviceRegistryTests
         public async Task GetAsyncEnumerator_SubscribesBeforeTheFirstRead()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             var cts = new CancellationTokenSource();
             var enumerator = registry.Changes.GetAsyncEnumerator(cts.Token);
 
@@ -255,7 +255,7 @@ public class NearbyDeviceRegistryTests
         public async Task ChangesBeforeSubscribing_AreNotReplayed()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             registry.AddIfAbsent(Create.Device("early"));
 
             await using var watch = new ChangeRecorder(registry.Changes);
@@ -277,7 +277,7 @@ public class NearbyDeviceRegistryTests
         public async Task EndingAnEnumeration_StopsDelivery()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             await using var watch = new ChangeRecorder(registry.Changes);
             registry.AddIfAbsent(Create.Device("a"));
             await watch.WaitForAsync(1);
@@ -301,7 +301,7 @@ public class NearbyDeviceRegistryTests
         public async Task AWatcherThatNeverReads_DoesNotBlockPublishing()
         {
             // Arrange
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             using var cts = new CancellationTokenSource();
             var enumerator = registry.Changes.GetAsyncEnumerator(cts.Token);
 

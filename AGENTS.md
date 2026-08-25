@@ -191,13 +191,13 @@ be made deliberately and written down, not made by default.
 
 One public interface, registered as a DI singleton (one radio, one native session):
 
-- **`INearby`** — the only public entry point, implemented by `NearbyImplementation`
-  (`NearbyImplementation.{cs,state.cs,log.cs}`, at the project root alongside the
+- **`INearby`** — the only public entry point, implemented by `Nearby`
+  (`Nearby.{cs,state.cs,log.cs}`, at the project root alongside the
   interface). Owns device state and the change stream. **It takes no dispatcher and has no UI
   thread affinity** — every member is callable from any thread.
 - **`IPlatformNearby`** — internal. The raw platform streams, implemented by a single
   `sealed partial class` split across `Native/PlatformNearby.{shared,android,ios,net}.cs`.
-  The `net10.0` target throws `PlatformNotSupportedException`, which is why `NearbyImplementation` depends
+  The `net10.0` target throws `PlatformNotSupportedException`, which is why `Nearby` depends
   on the interface rather than the concrete type — otherwise it is untestable off-device.
 
 ### State vs. streams — the split that matters
@@ -238,9 +238,9 @@ connection drops.
 
 **Changes arrive on a thread-pool thread, not the platform's callback thread and never the UI
 thread.** The SDK callback writes into a `PlatformNearby` channel; the pumps in
-`NearbyImplementation.state.cs` drain it with `await foreach … ConfigureAwait(false)`, and every
+`Nearby.state.cs` drain it with `await foreach … ConfigureAwait(false)`, and every
 registry write plus `Publish` happens on the reading side of that boundary. Every channel here is
-built without `AllowSynchronousContinuations` — the registry's in `NearbyDeviceRegistry.Subscribe`,
+built without `AllowSynchronousContinuations` — the registry's in `DeviceRegistry.Subscribe`,
 the platform's in `PlatformNearby.NewChannel` — so a consumer's continuation is queued rather than
 run inline on the publisher. That is fixed, not configurable: it was briefly a `NearbyOptions` knob,
 and exposing it only offered consumers a way to stall the SDK's own callback dispatch with a slow
@@ -271,8 +271,8 @@ session keeps no table of its own: `TryGetConnection` and `SnapshotConnections()
 `IPlatformNearby` are the read path, `NearbyDevice.Status == Connected` is a derived view, and the
 table empties inside the release path, before disposal returns. (C5 in `docs/ARCHITECTURE.md`.)
 
-**All device-state mutation goes through `NearbyImplementation.state.cs`**, which records it in
-`NearbyDeviceRegistry`. The registry is thread-safe by construction — reads take an immutable
+**All device-state mutation goes through `Nearby.state.cs`**, which records it in
+`DeviceRegistry`. The registry is thread-safe by construction — reads take an immutable
 snapshot, writes are serialised by a lock — so platform callbacks record what they saw on whatever
 thread they arrived on. Nothing in the library marshals to a UI thread except
 `NearbyDeviceCollection<TRow>`.
@@ -357,7 +357,7 @@ sites and explain why the rule is prose rather than a shared type.
 
 Platform code lives in platform partials, never `#if` in shared logic. When shared code needs a
 platform-specific step, the sanctioned mechanism is the **platform hook pair**: shared code declares
-a `partial void` (e.g. `PlatformInitializeLifecycleObserver` in `NearbyImplementation.cs`), exactly
+a `partial void` (e.g. `PlatformInitializeLifecycleObserver` in `Nearby.cs`), exactly
 one platform file implements it, and on every other platform the call compiles to nothing — no
 `#if`, no stub file, no unused parameter.
 
@@ -370,12 +370,12 @@ claim — if translation logic starts appearing outside `Native/`, the abstracti
 ```
 src/Plugin.Maui.NearbyConnections/
 ├── INearby.cs                     facade — at the root because it spans every domain
-├── NearbyImplementation.{cs,state.cs,log.cs}
+├── Nearby.{cs,state.cs,log.cs}
 ├── NearbyException.cs             root exception — at the root for the same reason
 ├── MauiAppBuilderExtensions.cs               registration entry points, beside the facade
 ├── ServiceCollectionExtensions.cs
 ├── Connections/   NearbyConnection, request, role, ControlMessage, connect timeout
-├── Devices/       NearbyDevice (immutable record), INearbyDevices + NearbyDeviceRegistry,
+├── Devices/       NearbyDevice (immutable record), INearbyDevices + DeviceRegistry,
 │                  NearbyDeviceChange(+Action), NearbyDeviceCollection<TRow>, status,
 │                  EndReason (internal — log-only)
 ├── Discovery/     availability + advertising/discovery failures
@@ -408,7 +408,7 @@ File-scoped namespaces are convention, not enforced.
 - `CancellationToken` on every public async method that does I/O.
 - Logging via source-generated `ILogger` partial methods in `*.log.cs`, never string interpolation.
   Give every `[LoggerMessage]` an explicit `EventId`/`EventName` — ranges are reserved per owning
-  type (documented at the top of `NearbyImplementation.log.cs`) so an id is stable across edits and
+  type (documented at the top of `Nearby.log.cs`) so an id is stable across edits and
   never reused once shipped. Pass the `Exception` object on an `Error`-level method, never
   `ex.Message` — the trailing-`Exception`-parameter form is what lets a structured sink capture the
   stack trace and type. Use the instance form (`partial void LogXxx(...)` against a captured

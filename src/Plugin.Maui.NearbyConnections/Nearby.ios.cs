@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbyImplementation
+sealed partial class Nearby
 {
     AppLifecycleObserver? _lifecycleObserver;
 

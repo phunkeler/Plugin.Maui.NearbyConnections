@@ -17,7 +17,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// anything awaitable — so it cannot deadlock with a consumer.
 /// </para>
 /// </remarks>
-sealed class NearbyDeviceRegistry : INearbyDevices
+sealed class DeviceRegistry : INearbyDevices
 {
     readonly Lock _gate = new();
     readonly Dictionary<string, NearbyDevice> _devices = new(StringComparer.Ordinal);

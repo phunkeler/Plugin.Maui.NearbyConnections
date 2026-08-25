@@ -2,7 +2,7 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 
 /// <summary>
 /// Tests for <see cref="ChangeBroadcast{T}"/>, the fan-out behind every broadcast stream in the
-/// library. Asserted directly rather than through <see cref="NearbyDeviceRegistry"/>, because
+/// library. Asserted directly rather than through <see cref="DeviceRegistry"/>, because
 /// watcher release is not observable from a consumer-visible surface: an abandoned watcher fails
 /// silently, by buffering forever rather than by misbehaving.
 /// </summary>

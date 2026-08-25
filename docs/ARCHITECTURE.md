@@ -408,8 +408,8 @@ stay stable. The two sequence views below each walk this pipeline end to end.
 
 ### The layers, and why each boundary sits where it does
 
-**Facade — the `Nearby` class** (today `NearbyImplementation`; the rename is settled under
-*Component archetypes and names* below). Keeps only its one reason to change: how public
+**Facade — the `Nearby` class** (renamed from `NearbyImplementation` in stage M3; the reasoning
+is under *Component archetypes and names* below). Keeps only its one reason to change: how public
 operations map onto platform
 streams. The pump machine and the eight-line auto-accept policy stay inline — extracting
 them would create components with no independent reason to change. Everything else moves
@@ -445,8 +445,8 @@ failure modes, and each is testable alone on `net10.0`:
   per-enumerator handover guard. Each instance is constructed with a snapshot delegate: the
   request registry's outstanding set for requests, `IPlatformNearby.SnapshotConnections()`
   for connections.
-- `DeviceRegistry` (today `NearbyDeviceRegistry`) and `ChangeBroadcast` — behaviorally
-  unchanged. They are the proof extraction works: both are recent extractions and both are
+- `DeviceRegistry` (renamed from `NearbyDeviceRegistry` in stage M3) and `ChangeBroadcast` —
+  behaviorally unchanged. They are the proof extraction works: both are recent extractions and both are
   the best-bounded components in the tree.
 
 **The handover rule (C3).** At enumeration start the delivery enumerator subscribes first,

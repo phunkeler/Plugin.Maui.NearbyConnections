@@ -23,7 +23,7 @@ public class DiscoveryRefresherTests
             var time = new FakeTimeProvider();
             var refresher = Create.Refresher(
                 time,
-                new NearbyDeviceRegistry(),
+                new DeviceRegistry(),
                 _ => { refreshes++; return Task.FromResult(true); },
                 Interval,
                 settleWindow: Settle);
@@ -51,7 +51,7 @@ public class DiscoveryRefresherTests
             var time = new FakeTimeProvider();
             var refresher = Create.Refresher(
                 time,
-                new NearbyDeviceRegistry(),
+                new DeviceRegistry(),
                 _ => { refreshes++; return Task.FromResult(false); },
                 Interval,
                 settleWindow: Settle);
@@ -75,7 +75,7 @@ public class DiscoveryRefresherTests
             var time = new FakeTimeProvider();
             var refresher = Create.Refresher(
                 time,
-                new NearbyDeviceRegistry(),
+                new DeviceRegistry(),
                 _ => { refreshes++; return Task.FromResult(true); },
                 interval: null);
 
@@ -95,7 +95,7 @@ public class DiscoveryRefresherTests
         public async Task DeviceNotReconfirmed_IsEvictedAfterTheSettleWindow()
         {
             // Arrange — a visible device the refreshed pass does not re-report.
-            var registry = new NearbyDeviceRegistry();
+            var registry = new DeviceRegistry();
             registry.AddIfAbsent(Create.Device("peer-1"));
             var time = new FakeTimeProvider();
             var refresher = Create.Refresher(
@@ -131,7 +131,7 @@ public class DiscoveryRefresherTests
             var time = new FakeTimeProvider();
             var refresher = Create.Refresher(
                 time,
-                new NearbyDeviceRegistry(),
+                new DeviceRegistry(),
                 _ => { refreshes++; throw new InvalidOperationException("radio broke"); },
                 Interval,
                 onFailed: failures.Add,

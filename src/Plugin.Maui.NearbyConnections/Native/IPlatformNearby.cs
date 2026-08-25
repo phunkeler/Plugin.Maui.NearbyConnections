@@ -19,7 +19,7 @@ namespace Plugin.Maui.NearbyConnections;
 /// on whatever thread it arrived on, and writes it into a channel.
 /// </para>
 /// <para>
-/// This thread never reaches an application. <see cref="NearbyImplementation"/> drains those
+/// This thread never reaches an application. <see cref="Nearby"/> drains those
 /// channels and republishes on a thread-pool thread, which is what the public
 /// <see cref="INearbyDevices.Changes"/> and
 /// <see cref="NearbyConnection.ReceiveAsync(CancellationToken)"/> contracts promise. Do not

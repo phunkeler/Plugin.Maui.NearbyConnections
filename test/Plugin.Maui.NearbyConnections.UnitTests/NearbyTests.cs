@@ -5,20 +5,20 @@ using Microsoft.Extensions.Time.Testing;
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
 /// <summary>
-/// Behavioural tests for <see cref="NearbyImplementation"/>.
+/// Behavioural tests for <see cref="Nearby"/>.
 /// </summary>
 /// <remarks>
 /// The session takes <see cref="IPlatformNearby"/> rather than the concrete implementation
 /// precisely so these can run on <c>net10.0</c>, where every <c>Platform*</c> start throws.
 /// </remarks>
 [Trait("Category", "Session")]
-public class NearbyImplementationTests
+public class NearbyTests
 {
     // -------------------------------------------------------------------------
     // Preflight availability
     // -------------------------------------------------------------------------
 
-    public sealed class CheckAvailability : NearbyImplementationTests
+    public sealed class CheckAvailability : NearbyTests
     {
         [Fact]
         public async Task Always_DelegatesToThePlatform()
@@ -117,7 +117,7 @@ public class NearbyImplementationTests
     // Advertising / discovery toggles — decision 8: they are independent.
     // -------------------------------------------------------------------------
 
-    public sealed class Toggles : NearbyImplementationTests
+    public sealed class Toggles : NearbyTests
     {
         [Fact]
         public async Task StartAdvertisingAsync_SetsIsAdvertising_WithoutSettingIsDiscovering()
@@ -208,7 +208,7 @@ public class NearbyImplementationTests
     // IsAdvertising/IsDiscovering flipping false.
     // -------------------------------------------------------------------------
 
-    public sealed class StartFailures : NearbyImplementationTests
+    public sealed class StartFailures : NearbyTests
     {
         [Fact]
         public async Task AdvertiseStartFailure_ThrowsAndClearsIsAdvertising()
@@ -353,7 +353,7 @@ public class NearbyImplementationTests
     // Discovery projected onto the Devices collection.
     // -------------------------------------------------------------------------
 
-    public sealed class Discovery : NearbyImplementationTests
+    public sealed class Discovery : NearbyTests
     {
         [Fact]
         public async Task DeviceFound_AddsToDevices()
@@ -477,7 +477,7 @@ public class NearbyImplementationTests
     // Inbound requests: accept / reject.
     // -------------------------------------------------------------------------
 
-    public sealed class InboundRequests : NearbyImplementationTests
+    public sealed class InboundRequests : NearbyTests
     {
         [Fact]
         public async Task RequestArriving_ReportsRequestReceived_AndSurfacesDevice()
@@ -878,7 +878,7 @@ public class NearbyImplementationTests
     // Outbound connect.
     // -------------------------------------------------------------------------
 
-    public sealed class Connect : NearbyImplementationTests
+    public sealed class Connect : NearbyTests
     {
         [Fact]
         public async Task ConnectAsync_SetsConnectedStateAndReportsIt()
@@ -944,7 +944,7 @@ public class NearbyImplementationTests
     // side ended it.
     // -------------------------------------------------------------------------
 
-    public sealed class Disconnect : NearbyImplementationTests
+    public sealed class Disconnect : NearbyTests
     {
         [Fact]
         public async Task RemoteDisconnect_RaisesConnectionDroppedExactlyOnce()
@@ -1138,7 +1138,7 @@ public class NearbyImplementationTests
     // Payload delivery — the stream survives untouched by this restructure.
     // -------------------------------------------------------------------------
 
-    public sealed class Payloads : NearbyImplementationTests
+    public sealed class Payloads : NearbyTests
     {
         [Fact]
         public async Task PayloadsFromMultipleConnections_AllArrive()
@@ -1187,7 +1187,7 @@ public class NearbyImplementationTests
     // Hazards flagged by the test-mining pass.
     // -------------------------------------------------------------------------
 
-    public sealed class ChangeStreams : NearbyImplementationTests
+    public sealed class ChangeStreams : NearbyTests
     {
         [Fact]
         public async Task StartAdvertisingAsync_PublishesTrue()
@@ -1335,7 +1335,7 @@ public class NearbyImplementationTests
         }
     }
 
-    public sealed class Hazards : NearbyImplementationTests
+    public sealed class Hazards : NearbyTests
     {
         [Fact]
         public async Task EnumeratingDevices_WhileCollectionMutates_DoesNotThrow()
@@ -1489,7 +1489,7 @@ public class NearbyImplementationTests
     // stops delivering the state the consumer needs, with no compile error.
     // -------------------------------------------------------------------------
 
-    public sealed class BackgroundTeardown : NearbyImplementationTests
+    public sealed class BackgroundTeardown : NearbyTests
     {
         [Fact]
         public async Task StopAsync_RaisesConnectionDropped_ForEveryLiveConnection()

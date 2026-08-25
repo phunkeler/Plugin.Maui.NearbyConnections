@@ -450,7 +450,7 @@ to fix while here).
 Neither platform expires a pending inbound request. Because it is entirely plugin-owned, it is
 uniform for free: one timer, one `EndReason.RequestExpired`, identical on both platforms.
 
-**Implemented** in `NearbyImplementation.state.cs` (`ArmRequestExpiry`, `ExpireRequestAfterAsync`),
+**Implemented** in `Nearby.state.cs` (`ArmRequestExpiry`, `ExpireRequestAfterAsync`),
 bounded by `NearbyOptions.InboundRequestTimeout` (30s default, `Timeout.InfiniteTimeSpan` disables).
 Three decisions worth knowing:
 

@@ -36,7 +36,7 @@ namespace Plugin.Maui.NearbyConnections;
 sealed class DiscoveryRefresher(
     TimeSpan? interval,
     TimeProvider timeProvider,
-    NearbyDeviceRegistry registry,
+    DeviceRegistry registry,
     Func<CancellationToken, Task<bool>> refreshAsync,
     Action<Exception> onFailed,
     TimeSpan? settleWindow = null)

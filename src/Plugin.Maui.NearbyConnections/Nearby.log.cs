@@ -2,11 +2,11 @@ namespace Plugin.Maui.NearbyConnections;
 
 // EventId ranges (stable across edits — assign the next free id in a type's range rather than
 // renumbering; never reuse an id once shipped):
-//   NearbyImplementation (this file)        1000-1099
+//   Nearby (this file)        1000-1099
 //   PlatformNearby                          2000-2099
 //   iOS peer bookkeeping (PeerLookup — peer keys, handle
 //     tracking; AppLifecycleObserver)                   3000-3099
-sealed partial class NearbyImplementation
+sealed partial class Nearby
 {
     // -------------------------------------------------------------------------
     // Pump failures

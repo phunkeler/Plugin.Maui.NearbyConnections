@@ -61,7 +61,7 @@ message text. Ranges are allocated per owning type:
 
 | Range | Owner |
 |---|---|
-| 1000–1099 | `NearbyImplementation` — session lifecycle |
+| 1000–1099 | `Nearby` — session lifecycle |
 | 2000–2099 | `PlatformNearby` — the platform layer |
 | 3000–3009 | `PeerLookup` — iOS device ids and handle tracking |
 | 3010–3099 | `AppLifecycleObserver` — iOS background teardown |

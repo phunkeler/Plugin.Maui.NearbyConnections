@@ -4,7 +4,7 @@ partial class Create
 {
     /// <summary>
     /// The real platform type on iOS, wired with a real <see cref="PeerLookup"/> — the same shape
-    /// <see cref="NearbyImplementation"/> constructs it with in the shipped app.
+    /// <see cref="Nearby"/> constructs it with in the shipped app.
     /// </summary>
     /// <param name="options">Options to wire the platform with, or <see langword="null"/> for the suite defaults.</param>
     /// <returns>The platform under test.</returns>

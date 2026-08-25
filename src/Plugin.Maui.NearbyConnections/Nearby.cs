@@ -1,6 +1,6 @@
 namespace Plugin.Maui.NearbyConnections;
 
-sealed partial class NearbyImplementation : INearby, IAsyncDisposable
+sealed partial class Nearby : INearby, IAsyncDisposable
 {
     /// <summary>
     /// Bounds the teardown join on session-owned tasks. A constant rather than a
@@ -17,7 +17,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     readonly ILogger _logger;
     readonly TimeProvider _timeProvider;
 
-    readonly NearbyDeviceRegistry _registry = new();
+    readonly DeviceRegistry _registry = new();
     readonly SemaphoreSlim _stateGate = new(1, 1);
     readonly RequestRegistry _requests;
 
@@ -37,7 +37,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
 
     int _disposeGuard;
 
-    internal NearbyImplementation(
+    internal Nearby(
         IPlatformNearby connections,
         NearbyOptions options,
         ILogger logger,
@@ -78,7 +78,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     /// </summary>
     /// <remarks>
     /// On iOS this constructs the observer described on
-    /// <c>NearbyImplementation.ios.cs</c>'s <c>_lifecycleObserver</c> field — no Android
+    /// <c>Nearby.ios.cs</c>'s <c>_lifecycleObserver</c> field — no Android
     /// counterpart exists because the platform gives no equivalent backgrounding signal this
     /// session needs to react to.
     /// </remarks>

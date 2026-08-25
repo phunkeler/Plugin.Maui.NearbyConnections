@@ -3,7 +3,7 @@ using System.Threading.Channels;
 namespace Plugin.Maui.NearbyConnections.UnitTests;
 
 /// <summary>
-/// A controllable <see cref="IPlatformNearby"/> for driving <see cref="NearbyImplementation"/> from
+/// A controllable <see cref="IPlatformNearby"/> for driving <see cref="Nearby"/> from
 /// tests: emit discovery events and inbound requests on demand, and decide what connecting does.
 /// </summary>
 /// <remarks>
