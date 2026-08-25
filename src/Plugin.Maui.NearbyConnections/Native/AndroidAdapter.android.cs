@@ -578,33 +578,23 @@ sealed partial class AndroidAdapter : IPlatformAdapter
                 status));
         }
 
-        try
+        // The send and the completion await run as one task, so a failed hand-off to GMS flows
+        // through the same shared catch ladder as a failed transfer.
+        async Task SendThenAwaitCompletionAsync()
         {
             await client.SendPayloadAsync(endpointId, filePayload).ConfigureAwait(false);
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken,
-                transfer.InactivityToken);
-            using var ctr = linkedCts.Token.Register(() => _ = CancelPayloadLoggedAsync());
-            await transfer.Completion.WaitAsync(linkedCts.Token).ConfigureAwait(false);
+            await transfer.Completion.ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            Report(NearbyTransferStatus.Canceled);
-            throw;
-        }
-        catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
-        {
-            Report(NearbyTransferStatus.Failure);
 
-            throw _bridge.TransferInactivityTimeoutException(deviceId);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException and not NearbyException)
+        try
         {
-            Report(NearbyTransferStatus.Failure);
-
-            _bridge.LogSendFileFailed(deviceId, null, ex);
-            throw new NearbyTransferException(
-                $"Failed to send file to device '{deviceId}'.", ex);
+            await _bridge.AwaitFileTransferAsync(
+                deviceId,
+                transfer,
+                SendThenAwaitCompletionAsync(),
+                Report,
+                cancelPlatformTransfer: () => _ = CancelPayloadLoggedAsync(),
+                cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -612,12 +602,6 @@ sealed partial class AndroidAdapter : IPlatformAdapter
             transfer.Dispose();
             filePayload.Close();
             filePayload.Dispose();
-
-            // A terminal GMS update can fault transfer.Completion after this caller has already
-            // left the await on one of the catch paths above, leaving the fault unobserved and
-            // surfacing later on the finalizer thread. Observing it here retires that. The iOS
-            // sibling does the same at the end of its own PlatformSendFileAsync.
-            _ = transfer.Completion.Exception;
         }
     }
 

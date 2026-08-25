@@ -389,36 +389,19 @@ sealed class IosAdapter : IPlatformAdapter
 
         try
         {
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken, transfer.InactivityToken);
-            using var ctr = linkedCts.Token.Register(() => nsProgress?.Cancel());
-
-            await sendTask.WaitAsync(linkedCts.Token).ConfigureAwait(false);
+            await _bridge.AwaitFileTransferAsync(
+                deviceId,
+                transfer,
+                sendTask,
+                Report,
+                cancelPlatformTransfer: () => nsProgress?.Cancel(),
+                cancellationToken).ConfigureAwait(false);
 
             Report(NearbyTransferStatus.Success);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            Report(NearbyTransferStatus.Canceled);
-            throw;
-        }
-        catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
-        {
-            Report(NearbyTransferStatus.Failure);
-            throw _bridge.TransferInactivityTimeoutException(deviceId);
-        }
-        catch (Exception ex) when (ex is not NearbyException)
-        {
-            Report(NearbyTransferStatus.Failure);
-            _bridge.LogSendFileFailed(deviceId, null, ex);
-
-            throw new NearbyTransferException(
-                $"Failed to send file to '{deviceId}'.", ex);
         }
         finally
         {
             observer?.Dispose();
-            _ = transfer.Completion.Exception;
         }
     }
 

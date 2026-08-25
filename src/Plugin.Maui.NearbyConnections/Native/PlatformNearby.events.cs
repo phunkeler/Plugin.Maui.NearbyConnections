@@ -80,6 +80,67 @@ sealed partial class PlatformNearby
     }
 
     /// <summary>
+    /// The shared terminal shape of an outbound file transfer, written once so the catch ladder
+    /// cannot drift per platform: awaits <paramref name="completion"/> under the caller's token
+    /// and the transfer's inactivity deadline, reports the terminal status from the last observed
+    /// progress, cancels the platform's own transfer when either token fires, and observes an
+    /// unobserved completion fault so it cannot surface on the finalizer thread.
+    /// </summary>
+    /// <remarks>
+    /// A foreign <see cref="OperationCanceledException"/> — neither the caller's token nor the
+    /// inactivity deadline — is wrapped as a transfer failure on both platforms. That settles the
+    /// one behavioral divergence the 2026-08-24 review found between the two former catch ladders.
+    /// </remarks>
+    /// <param name="deviceId">The device the transfer targets, for the timeout and the log.</param>
+    /// <param name="transfer">The transfer whose deadline and completion fault this owns.</param>
+    /// <param name="completion">Completes when the platform finishes the send, or faults.</param>
+    /// <param name="report">Reports the terminal status to the caller's progress.</param>
+    /// <param name="cancelPlatformTransfer">Cancels the platform's own transfer.</param>
+    /// <param name="cancellationToken">The caller's token.</param>
+    internal async Task AwaitFileTransferAsync(
+        string deviceId,
+        OutgoingTransfer transfer,
+        Task completion,
+        Action<NearbyTransferStatus> report,
+        Action cancelPlatformTransfer,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken, transfer.InactivityToken);
+            using var ctr = linkedCts.Token.Register(cancelPlatformTransfer);
+
+            await completion.WaitAsync(linkedCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            report(NearbyTransferStatus.Canceled);
+            throw;
+        }
+        catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
+        {
+            report(NearbyTransferStatus.Failure);
+            throw TransferInactivityTimeoutException(deviceId);
+        }
+        catch (Exception ex) when (ex is not NearbyException)
+        {
+            report(NearbyTransferStatus.Failure);
+            LogSendFileFailed(deviceId, null, ex);
+
+            throw new NearbyTransferException(
+                $"Failed to send file to device '{deviceId}'.", ex);
+        }
+        finally
+        {
+            // A terminal platform update can fault the completion after the caller already left
+            // the await on a catch path above, leaving the fault unobserved and surfacing later
+            // on the finalizer thread. Observing it here retires that.
+            _ = transfer.Completion.Exception;
+        }
+    }
+
+    /// <summary>
     /// Faults the current advertise channel with a start failure, so the grace window or the pump
     /// observes it. Returns <see langword="false"/> when the fault was dropped — log that.
     /// </summary>
