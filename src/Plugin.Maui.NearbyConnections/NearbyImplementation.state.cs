@@ -214,96 +214,47 @@ sealed partial class NearbyImplementation
     void ResetToVisible(NearbyDevice device)
         => Transition(device, NearbyDeviceStatus.Visible, role: null);
 
-    void StartRefreshLoop()
+    /// <summary>
+    /// One gated discovery restart, run by <see cref="DiscoveryRefresher"/> each interval. Returns
+    /// <see langword="false"/> when discovery stopped, which ends the refresh loop. The state gate
+    /// never leaves the facade — the refresher only calls this delegate.
+    /// </summary>
+    async Task<bool> RefreshDiscoveryOnceAsync(CancellationToken cancellationToken)
     {
-        if (_options.DiscoveryRefreshInterval is not { } interval)
-        {
-            return;
-        }
-
-        var cts = new CancellationTokenSource();
-
-        _refreshCts = cts;
-        _refreshTask = RefreshDiscoveryLoopAsync(interval, cts.Token);
-    }
-
-    void CancelRefreshLoop() => _refreshCts?.Cancel();
-
-    async Task DrainRefreshLoopAsync()
-    {
-        var cts = _refreshCts;
-        var task = _refreshTask;
-
-        _refreshCts = null;
-        _refreshTask = null;
-
-        if (task is not null)
-        {
-            await task.ConfigureAwait(false);
-        }
-
-        cts?.Dispose();
-    }
-
-    async Task RefreshDiscoveryLoopAsync(TimeSpan interval, CancellationToken cancellationToken)
-    {
-        using var timer = new PeriodicTimer(interval, _timeProvider);
+        await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            if (!IsDiscovering)
             {
-                await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-
-                try
-                {
-                    if (!IsDiscovering)
-                    {
-                        return;
-                    }
-
-                    _registry.BeginGeneration();
-
-                    // Discovery does not logically stop across a refresh, so the flag stays true
-                    // and DiscoveryChanges publishes nothing. StartPump's SetFlag(true) below is
-                    // then a no-op rather than the back half of a false/true blink.
-                    await StopPumpAsync(_discover, clearFlag: false).ConfigureAwait(false);
-
-                    var started = StartPump(_discover);
-
-                    try
-                    {
-                        await started.Task.ConfigureAwait(false);
-                    }
-                    catch
-                    {
-                        await StopPumpAsync(_discover).ConfigureAwait(false);
-                        throw;
-                    }
-                }
-                finally
-                {
-                    _stateGate.Release();
-                }
-
-                await EvictAfterSettleAsync(cancellationToken).ConfigureAwait(false);
+                return false;
             }
-        }
-        catch (OperationCanceledException)
-        {
-            // Discovery stopped, or the session was disposed.
-        }
-        catch (Exception ex)
-        {
-            LogRefreshDiscoveryFailed(ex);
-        }
-    }
 
-    async Task EvictAfterSettleAsync(CancellationToken cancellationToken)
-    {
-        await Task.Delay(s_refreshSettleWindow, _timeProvider, cancellationToken).ConfigureAwait(false);
+            _registry.BeginGeneration();
 
-        _registry.EvictUnconfirmed();
+            // Discovery does not logically stop across a refresh, so the flag stays true
+            // and DiscoveryChanges publishes nothing. StartPump's SetFlag(true) below is
+            // then a no-op rather than the back half of a false/true blink.
+            await StopPumpAsync(_discover, clearFlag: false).ConfigureAwait(false);
+
+            var started = StartPump(_discover);
+
+            try
+            {
+                await started.Task.ConfigureAwait(false);
+            }
+            catch
+            {
+                await StopPumpAsync(_discover).ConfigureAwait(false);
+                throw;
+            }
+
+            return true;
+        }
+        finally
+        {
+            _stateGate.Release();
+        }
     }
 
     static TaskCompletionSource StartPump(PumpState pump)

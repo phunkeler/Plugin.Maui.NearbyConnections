@@ -82,6 +82,30 @@ static class Create
             reject: _ => Task.CompletedTask);
 
     /// <summary>
+    /// The discovery refresher on a fake clock, over a real registry.
+    /// </summary>
+    /// <param name="time">The clock the interval and settle window run on.</param>
+    /// <param name="registry">The registry evicted after each settle window.</param>
+    /// <param name="refreshAsync">The refresh delegate — return <see langword="false"/> to end the loop.</param>
+    /// <param name="interval">The refresh interval, or <see langword="null"/> to make <c>Start</c> a no-op.</param>
+    /// <param name="onFailed">Receives the failure that ended the loop early.</param>
+    /// <param name="settleWindow">The eviction delay after each refresh. Defaults to one second.</param>
+    public static DiscoveryRefresher Refresher(
+        FakeTimeProvider time,
+        NearbyDeviceRegistry registry,
+        Func<CancellationToken, Task<bool>> refreshAsync,
+        TimeSpan? interval = null,
+        Action<Exception>? onFailed = null,
+        TimeSpan? settleWindow = null)
+        => new(
+            interval,
+            time,
+            registry,
+            refreshAsync,
+            onFailed ?? (static _ => { }),
+            settleWindow ?? TimeSpan.FromSeconds(1));
+
+    /// <summary>
     /// The request registry on a fake clock, with the expiry effects delegate a test observes.
     /// </summary>
     /// <param name="time">The clock the expiry timers run on.</param>

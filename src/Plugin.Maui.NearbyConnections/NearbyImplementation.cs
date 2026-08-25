@@ -2,8 +2,6 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyImplementation : INearby, IAsyncDisposable
 {
-    static readonly TimeSpan s_refreshSettleWindow = TimeSpan.FromSeconds(2);
-
     readonly PumpState _advertise;
     readonly PumpState _discover;
     readonly CancellationTokenSource _disposing = new();
@@ -23,9 +21,8 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
 
     readonly ChangeBroadcast<bool> _advertisingChanges = new();
     readonly ChangeBroadcast<bool> _discoveryChanges = new();
+    readonly DiscoveryRefresher _refresher;
 
-    CancellationTokenSource? _refreshCts;
-    Task? _refreshTask;
     int _disposeGuard;
 
     internal NearbyImplementation(
@@ -43,6 +40,12 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         _logger = logger;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _requests = new RequestRegistry(options, _timeProvider, RunRequestExpiryAsync);
+        _refresher = new DiscoveryRefresher(
+            options.DiscoveryRefreshInterval,
+            _timeProvider,
+            _registry,
+            RefreshDiscoveryOnceAsync,
+            onFailed: ex => LogRefreshDiscoveryFailed(ex));
 
         _advertise = new PumpState(
             start: (started, ct) => PumpAdvertiseAsync(_connections.AdvertiseAsync(started, ct), started, ct),
@@ -191,7 +194,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
                     throw;
                 }
 
-                StartRefreshLoop();
+                _refresher.Start();
             }
         }
         finally
@@ -203,7 +206,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     /// <inheritdoc/>
     public async Task StopDiscoveryAsync(CancellationToken cancellationToken = default)
     {
-        CancelRefreshLoop();
+        await _refresher.CancelAsync().ConfigureAwait(false);
 
         await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -220,13 +223,13 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
             _stateGate.Release();
         }
 
-        await DrainRefreshLoopAsync().ConfigureAwait(false);
+        await _refresher.DrainAsync().ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
-        CancelRefreshLoop();
+        await _refresher.CancelAsync().ConfigureAwait(false);
 
         await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -273,7 +276,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
             _stateGate.Release();
         }
 
-        await DrainRefreshLoopAsync().ConfigureAwait(false);
+        await _refresher.DrainAsync().ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
