@@ -144,4 +144,27 @@ interface IPlatformNearby : IAsyncDisposable
     /// <param name="cancellationToken">A token to cancel the check.</param>
     /// <returns>A task resolving to the current availability.</returns>
     Task<NearbyAvailability> CheckAvailabilityAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Looks up the live connection for <paramref name="deviceId"/>, if the platform holds one.
+    /// </summary>
+    /// <remarks>
+    /// The platform's connection table is the one owner of the fact "device X has a live
+    /// connection" — see the C5 table in <c>docs/ARCHITECTURE.md</c> section 4. The session
+    /// queries it here instead of keeping a second table of its own.
+    /// </remarks>
+    /// <param name="deviceId">The device id minted by this library.</param>
+    /// <param name="connection">The live connection, when one exists.</param>
+    /// <returns><see langword="true"/> when the platform holds a live connection for the device.</returns>
+    bool TryGetConnection(string deviceId, [NotNullWhen(true)] out NearbyConnection? connection);
+
+    /// <summary>
+    /// Snapshots the live connections at the moment of the call.
+    /// </summary>
+    /// <remarks>
+    /// The array is a copy: it does not track later opens or releases. This is the read path for
+    /// teardown, and later for the delivery replay set (contract C3).
+    /// </remarks>
+    /// <returns>The live connections, possibly empty.</returns>
+    NearbyConnection[] SnapshotConnections();
 }

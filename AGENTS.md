@@ -266,6 +266,11 @@ background is a product decision belonging to the app, not the library — and t
 Doze, iOS background limits) terminates the session anyway, with the callbacks flowing back through
 the plugin as disconnection events.
 
+**The platform's connection table is the one owner of "device X has a live connection".** The
+session keeps no table of its own: `TryGetConnection` and `SnapshotConnections()` on
+`IPlatformNearby` are the read path, `NearbyDevice.Status == Connected` is a derived view, and the
+table empties inside the release path, before disposal returns. (C5 in `docs/ARCHITECTURE.md`.)
+
 **All device-state mutation goes through `NearbyImplementation.state.cs`**, which records it in
 `NearbyDeviceRegistry`. The registry is thread-safe by construction — reads take an immutable
 snapshot, writes are serialised by a lock — so platform callbacks record what they saw on whatever

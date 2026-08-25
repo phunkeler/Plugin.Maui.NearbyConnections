@@ -18,8 +18,6 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         = new(StringComparer.Ordinal);
     readonly ConcurrentDictionary<string, CancellationTokenSource> _requestExpiries
         = new(StringComparer.Ordinal);
-    readonly ConcurrentDictionary<string, NearbyConnection> _activeConnections
-        = new(StringComparer.Ordinal);
 
     // Not volatile: the setters below take a ref to these, and ref-to-volatile is CS0420.
     // Interlocked.Exchange is a full fence, so every write is already published.
@@ -246,7 +244,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
                 await StopPumpAsync(_discover).ConfigureAwait(false);
             }
 
-            foreach (var (_, connection) in _activeConnections.ToArray())
+            foreach (var connection in _connections.SnapshotConnections())
             {
                 try
                 {
@@ -360,7 +358,10 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     public bool TryGetConnection(string deviceId, [NotNullWhen(true)] out NearbyConnection? connection)
     {
         ArgumentNullException.ThrowIfNull(deviceId);
-        return _activeConnections.TryGetValue(deviceId, out connection);
+
+        // The platform's connection table is the one owner of this fact (C5); the session holds
+        // no table of its own.
+        return _connections.TryGetConnection(deviceId, out connection);
     }
 
     /// <inheritdoc/>
@@ -368,7 +369,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(device);
 
-        if (!_activeConnections.TryGetValue(device.Id, out var connection))
+        if (!_connections.TryGetConnection(device.Id, out var connection))
         {
             return;
         }

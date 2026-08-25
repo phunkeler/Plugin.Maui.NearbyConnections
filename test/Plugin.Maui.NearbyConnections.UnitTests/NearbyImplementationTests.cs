@@ -960,9 +960,9 @@ public class NearbyImplementationTests
 
             await session.ConnectAsync(device, TestContext.Current.CancellationToken);
 
-            // Act — StopAsync disposes each live connection but leaves _activeConnections for the
-            // watcher to clear, so the watcher wakes mid-disposal and calls ResetToVisible after
-            // _registry.Clear() has already run.
+            // Act — StopAsync disposes each live connection, and the platform's own table clears
+            // on release, so the disconnect watcher wakes mid-disposal and calls ResetToVisible
+            // after _registry.Clear() has already run.
             await session.DisposeAsync();
 
             // Give the watcher every chance to run and re-add the row.
@@ -1489,8 +1489,8 @@ public class NearbyImplementationTests
             await session.StopAsync(TestContext.Current.CancellationToken);
 
             // Two independent async paths settle here: the registry publishes Removed, and the
-            // detached WatchDisconnectAsync task clears _activeConnections once Disconnected
-            // completes. Waiting on the change alone races the second, so wait for both.
+            // platform's connection table clears once Disconnected completes (the release path).
+            // Waiting on the change alone races the second, so wait for both.
             await Wait.UntilAsync(() => recorder.For("peer-1")
                 .Any(c => c.Action is NearbyDeviceChangeAction.Removed)
                 && !session.TryGetConnection("peer-1", out _));

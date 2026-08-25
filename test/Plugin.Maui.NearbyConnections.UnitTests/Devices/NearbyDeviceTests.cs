@@ -156,7 +156,7 @@ public class NearbyDeviceTests
     {
         // The load-bearing guarantee. Id-only equality replaces the record's generated member-wise
         // equality, so a device that merely changed status stays the same device: registries and
-        // _activeConnections key on id, and an identity that shifted mid-lifecycle would strand
+        // the platform's connection table key on id, and an identity that shifted mid-lifecycle would strand
         // every existing entry. Generated equality would break every assertion below.
         [Fact]
         public void HashCodeAndEquality_AreStable_AcrossStateTransitions()

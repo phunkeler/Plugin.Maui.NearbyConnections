@@ -103,6 +103,16 @@ sealed partial class PlatformNearby : IPlatformNearby
         => PlatformCheckAvailabilityAsync(cancellationToken);
 
     /// <inheritdoc/>
+    public bool TryGetConnection(string deviceId, [NotNullWhen(true)] out NearbyConnection? connection)
+    {
+        ArgumentNullException.ThrowIfNull(deviceId);
+        return _activeConnections.TryGetValue(deviceId, out connection);
+    }
+
+    /// <inheritdoc/>
+    public NearbyConnection[] SnapshotConnections() => [.. _activeConnections.Values];
+
+    /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)

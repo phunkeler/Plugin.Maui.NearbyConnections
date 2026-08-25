@@ -130,6 +130,31 @@ public class PlatformNearbyTests
         }
 
         [Fact]
+        public async Task ExposesConnectionThroughTheSeam()
+        {
+            // The platform table is the one owner of "device X has a live connection" (C5); the
+            // session queries these two members instead of keeping a second table.
+
+            // Arrange
+            var platform = Create.PlatformNearby();
+            var device = Create.Device("peer-1", "Alice");
+
+            var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
+            platform._connectionTcs["peer-1"] = (tcs, CancellationToken.None);
+
+            var connection = Create.Connection(device: device);
+
+            // Act
+            platform.ResolveConnectionTcs("peer-1", connection);
+            await tcs.Task;
+
+            // Assert
+            Assert.True(platform.TryGetConnection("peer-1", out var lookedUp));
+            Assert.Same(connection, lookedUp);
+            Assert.Same(connection, Assert.Single(platform.SnapshotConnections()));
+        }
+
+        [Fact]
         public async Task FaultConnectionTcs_FaultsTheTcsWithGivenException()
         {
             // Arrange

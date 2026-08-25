@@ -95,7 +95,7 @@ sealed partial class NearbyImplementation
             return;
         }
 
-        if (_activeConnections.ContainsKey(device.Id)
+        if (_connections.TryGetConnection(device.Id, out _)
             || _pendingRequests.ContainsKey(device.Id))
         {
             return;
@@ -217,7 +217,6 @@ sealed partial class NearbyImplementation
 
     void OnConnected(NearbyDevice device, NearbyConnection connection, ConnectionRole role)
     {
-        _activeConnections[device.Id] = connection;
         _registry.AddIfAbsent(device);
         Transition(device, NearbyDeviceStatus.Connected, role);
         _ = WatchDisconnectAsync(device, connection);
@@ -229,8 +228,11 @@ sealed partial class NearbyImplementation
         {
             await connection.Disconnected.ConfigureAwait(false);
 
-            if (!_activeConnections.TryRemove(
-                    new KeyValuePair<string, NearbyConnection>(device.Id, connection)))
+            // The platform's table clears itself on release; this watcher keeps only the registry
+            // transition. When the platform already holds a NEWER connection for the device, that
+            // connection's own watcher owns the row — resetting here would clobber it.
+            if (_connections.TryGetConnection(device.Id, out var current)
+                && !ReferenceEquals(current, connection))
             {
                 return;
             }

@@ -17,6 +17,33 @@ sealed class FakeNearby : IPlatformNearby
     Channel<NearbyConnectionRequest> _requests = Channel.CreateUnbounded<NearbyConnectionRequest>();
     Channel<NearbyDeviceEvent> _deviceEvents = Channel.CreateUnbounded<NearbyDeviceEvent>();
 
+    /// <summary>
+    /// The fake's connection table — the platform side owns "device X has a live connection", so
+    /// the fake tracks what its own <see cref="ConnectAsync"/> and emitted accepts produced.
+    /// Mirrors the real platform: registered before the caller observes the connection, removed
+    /// when the connection's <see cref="NearbyConnection.Disconnected"/> completes (the fake's
+    /// stand-in for the release path).
+    /// </summary>
+    readonly System.Collections.Concurrent.ConcurrentDictionary<string, NearbyConnection> _connections
+        = new(StringComparer.Ordinal);
+
+    public bool TryGetConnection(string deviceId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out NearbyConnection? connection)
+        => _connections.TryGetValue(deviceId, out connection);
+
+    public NearbyConnection[] SnapshotConnections() => [.. _connections.Values];
+
+    void RegisterConnection(string deviceId, NearbyConnection connection)
+    {
+        _connections[deviceId] = connection;
+        _ = RemoveOnDisconnectAsync(deviceId, connection);
+    }
+
+    async Task RemoveOnDisconnectAsync(string deviceId, NearbyConnection connection)
+    {
+        await connection.Disconnected.ConfigureAwait(false);
+        _connections.TryRemove(new KeyValuePair<string, NearbyConnection>(deviceId, connection));
+    }
+
     /// <summary>Gets how many times advertising was started, to assert repeat starts are no-ops.</summary>
     public int AdvertiseCallCount { get; private set; }
 
@@ -114,8 +141,13 @@ sealed class FakeNearby : IPlatformNearby
             return Task.FromException<NearbyConnection>(ConnectFault);
         }
 
-        return Task.FromResult(ConnectResult ?? throw new InvalidOperationException(
-            $"{nameof(ConnectResult)} was not set on the fake."));
+        var connection = ConnectResult ?? throw new InvalidOperationException(
+            $"{nameof(ConnectResult)} was not set on the fake.");
+
+        // Registered before the caller observes it, mirroring ResolveConnectionTcs.
+        RegisterConnection(device.Id, connection);
+
+        return Task.FromResult(connection);
     }
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
@@ -151,7 +183,9 @@ sealed class FakeNearby : IPlatformNearby
             {
                 try
                 {
-                    return Task.FromResult(onAccept());
+                    var connection = onAccept();
+                    RegisterConnection(device.Id, connection);
+                    return Task.FromResult(connection);
                 }
                 catch (Exception ex)
                 {
