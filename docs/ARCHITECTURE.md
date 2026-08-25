@@ -977,7 +977,7 @@ written contract resolvable. *(Re-assessment fix 1.)*
   the repo root, untracked, while the stages land — they are the evidence base the stages
   cite. They are deleted in the post-gate trim, not here.
 
-### M1 — The two correctness fixes
+### M1 — The two correctness fixes — done (2026-08-25, commits `54306aa`, `a596fe8`)
 
 - **Snapshot the options at registration** (D7, re-assessment fix 2). `AddNearby` validates,
   then captures an immutable copy. One owner for the configuration fact — the C5 table's last
