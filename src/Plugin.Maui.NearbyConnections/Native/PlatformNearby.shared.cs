@@ -201,16 +201,16 @@ sealed partial class PlatformNearby : IPlatformNearby
             $"Transfer stalled: no progress received for {_options.TransferInactivityTimeout}.");
     }
 
-    void ReleaseConnectionFromCallback(string peerId)
+    void ReleaseConnectionFromCallback(string deviceId)
     {
-        var release = ReleaseConnectionAsync(peerId);
+        var release = ReleaseConnectionAsync(deviceId);
 
         if (release.IsCompletedSuccessfully)
         {
             return;
         }
 
-        _ = Await(release, peerId);
+        _ = Await(release, deviceId);
 
         async Task Await(ValueTask pending, string id)
         {

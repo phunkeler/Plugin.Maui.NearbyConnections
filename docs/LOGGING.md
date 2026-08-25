@@ -63,7 +63,7 @@ message text. Ranges are allocated per owning type:
 |---|---|
 | 1000–1099 | `NearbyImplementation` — session lifecycle |
 | 2000–2099 | `PlatformNearby` — the platform layer |
-| 3000–3009 | `PeerLookup` — iOS peer keys and handle tracking |
+| 3000–3009 | `PeerLookup` — iOS device ids and handle tracking |
 | 3010–3099 | `AppLifecycleObserver` — iOS background teardown |
 
 These IDs are worth wiring an alert to:

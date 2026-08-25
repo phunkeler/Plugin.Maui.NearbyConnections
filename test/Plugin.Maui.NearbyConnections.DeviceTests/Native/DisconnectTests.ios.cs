@@ -12,12 +12,12 @@ public class DisconnectTests : DeviceTest
     {
         // Arrange — a live connection established through the real callback path.
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (connection, id) = await Create.ConnectedAsync(platform, peerId, cts.Token);
+        var (connection, id) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         // Act
-        platform.OnPeerStateChanged(peerId, MCSessionState.NotConnected);
+        platform.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
 
         // Assert
         await connection.Disconnected.WaitAsync(cts.Token);
@@ -30,9 +30,9 @@ public class DisconnectTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (connection, id) = await Create.ConnectedAsync(platform, peerId, cts.Token);
+        var (connection, id) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         // Act
         await connection.DisposeAsync();

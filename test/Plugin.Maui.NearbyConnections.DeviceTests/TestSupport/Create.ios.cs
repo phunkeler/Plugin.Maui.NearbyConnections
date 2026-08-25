@@ -48,16 +48,16 @@ partial class Create
 
     /// <summary>
     /// A handshake pending on the advertise channel: the platform has a registered
-    /// <c>_connectionTcs</c> entry for <paramref name="peerId"/> awaiting a session-state change.
+    /// <c>_connectionTcs</c> entry for <paramref name="peerID"/> awaiting a session-state change.
     /// </summary>
     /// <param name="platform">The platform to register the pending handshake on.</param>
-    /// <param name="peerId">The remote peer the handshake is keyed by.</param>
+    /// <param name="peerID">The remote peer the handshake is keyed by.</param>
     /// <returns>The source the platform will resolve or fault, and the peer key it is stored under.</returns>
     internal static (TaskCompletionSource<NearbyConnection> Tcs, string Id) PendingHandshake(
-        PlatformNearby platform, MCPeerID peerId)
+        PlatformNearby platform, MCPeerID peerID)
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var id = platform.PeerLookup.PeerKey(peerId);
+        var id = platform.PeerLookup.DeviceIdFor(peerID);
 
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
 
@@ -69,19 +69,19 @@ partial class Create
     /// reaching into the connection's own state.
     /// </summary>
     /// <param name="platform">The platform whose callback establishes the connection.</param>
-    /// <param name="peerId">The remote peer the connection is keyed by.</param>
+    /// <param name="peerID">The remote peer the connection is keyed by.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <returns>The connection, and the platform-side peer id it is keyed by.</returns>
     internal static async Task<(NearbyConnection Connection, string Id)> ConnectedAsync(
         PlatformNearby platform,
-        MCPeerID peerId,
+        MCPeerID peerID,
         CancellationToken cancellationToken)
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var id = platform.PeerLookup.PeerKey(peerId);
+        var id = platform.PeerLookup.DeviceIdFor(peerID);
 
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
-        platform.OnPeerStateChanged(peerId, MCSessionState.Connected);
+        platform.OnPeerStateChanged(peerID, MCSessionState.Connected);
 
         return (await tcs.Task.WaitAsync(cancellationToken), id);
     }

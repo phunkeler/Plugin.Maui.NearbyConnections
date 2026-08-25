@@ -68,7 +68,23 @@ the one in use. Do not widen the exemption to save characters.
 
 **Never prefix a method with `Nearby`.** The type already carries it.
 
-## 4. Every public async method is bounded and cancellable
+## 4. Identifiers on the public surface are this library's, not a platform's
+
+`NearbyDevice.Id` is minted by `PeerLookup.MintDeviceId`: 8 bytes from
+`RandomNumberGenerator`, rendered as 16 hex characters, identical in shape on every platform.
+
+- **Never publish a platform identifier.** Google's endpoint id and Apple's `MCPeerID` stay inside
+  `PeerLookup`. A device id is meaningless to either SDK, so translate at the edge —
+  `DeviceIdFor` on the way in, `TryGetEndpointId` / `TryGetHandle` on the way out.
+- **Never derive an id from peer-supplied data.** A display name collides across same-named devices
+  and puts identity data into the identifier. This was a real defect: the id was once a hash of an
+  archived `MCPeerID`, whose archive contains the display name.
+- **Name the concept `deviceId` everywhere above `Native/`.** `peerId` is Apple-flavoured and
+  `endpointId` is Google-flavoured; both name the same thing and both are wrong outside the partial
+  that talks to that SDK. Inside a platform partial, `endpointId` and `peerID` are correct — they
+  are that SDK's own value.
+
+## 5. Every public async method is bounded and cancellable
 
 - Suffix `Async`.
 - Take a `CancellationToken` when the method does I/O.
@@ -77,14 +93,14 @@ the one in use. Do not widen the exemption to save characters.
 - Name a timeout option for what it bounds: `ConnectTimeout`, `AcceptTimeout`,
   `InboundRequestTimeout`, `TransferInactivityTimeout`.
 
-## 5. Errors are typed exceptions
+## 6. Errors are typed exceptions
 
 Throw `NearbyException` or one of its sealed subclasses at the public boundary. Never return `null`
 to signal failure.
 
 File each subclass under the folder its domain owns, not beside the base type.
 
-## 6. Platform divergence is named, never hidden
+## 7. Platform divergence is named, never hidden
 
 A setter that silently does nothing on the current platform is a defect. Put a platform-divergent
 option behind a named platform scope, so the divergence is visible at the call site.
@@ -99,7 +115,7 @@ rule. An option that exists on one TFM only forces consumers into `#if`.
 
 Document platform divergence on the member itself, in its XML docs.
 
-## 7. `Native/` is the quarantine
+## 8. `Native/` is the quarantine
 
 - **No `public` types in `Native/`.** Public *members* of an internal type are fine — the rule is
   about the type's own accessibility.
@@ -109,7 +125,7 @@ Document platform divergence on the member itself, in its XML docs.
 - `Native/` is this plugin's translation layer. `Platforms/` is the MAUI SDK's reserved folder.
   They are different things. Do not rename `Native/` to `Platform/`.
 
-## 8. Folders state the model
+## 9. Folders state the model
 
 ```
 Connections/  a connection and its lifecycle
@@ -130,7 +146,7 @@ sit at the project root, because each spans every domain.
 
 The unit test project mirrors this layout.
 
-## 9. Verify before you claim
+## 10. Verify before you claim
 
 These are reproducible. Run them rather than asserting conformance.
 
@@ -150,6 +166,11 @@ grep -rnE "^\s*public\s+(sealed\s+|abstract\s+|static\s+|partial\s+|readonly\s+|
 # No Nearby-prefixed methods (expect no output)
 grep -rE "\.Nearby[A-Za-z]+Async\(" src/Plugin.Maui.NearbyConnections/
 
+# No platform identifier vocabulary outside the partial that owns it (expect no output)
+grep -rn "peerId" src/Plugin.Maui.NearbyConnections/
+grep -rn "endpointId" src/Plugin.Maui.NearbyConnections/ --include="*.cs" \
+  | grep -v "PlatformNearby.android.cs" | grep -v "PeerLookup.android.cs"
+
 # All three baselines identical (expect no output)
 diff src/Plugin.Maui.NearbyConnections/PublicAPI/net10.0/PublicAPI.Unshipped.txt \
      src/Plugin.Maui.NearbyConnections/PublicAPI/net10.0-android/PublicAPI.Unshipped.txt
@@ -160,7 +181,7 @@ diff src/Plugin.Maui.NearbyConnections/PublicAPI/net10.0/PublicAPI.Unshipped.txt
 The public API surface is build-enforced. When RS0016 fires, add the listed lines to
 `PublicAPI/{tfm}/PublicAPI.Unshipped.txt`. **Never suppress the analyzer to go green.**
 
-## 10. Open questions stay open
+## 11. Open questions stay open
 
 `DESIGN-PRINCIPLES.md` → *Open questions* lists what is deliberately undecided. Raise those. Do not
 resolve one silently in a commit.

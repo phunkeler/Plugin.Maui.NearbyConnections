@@ -16,14 +16,14 @@ public class PeerIdentityTests : DeviceTest
         using var alice2 = new MCPeerID("Alice");
 
         // Act
-        var key1a = lookup.PeerKey(alice1);
-        var key1b = lookup.PeerKey(alice1);
-        var key2 = lookup.PeerKey(alice2);
+        var key1a = lookup.DeviceIdFor(alice1);
+        var key1b = lookup.DeviceIdFor(alice1);
+        var key2 = lookup.DeviceIdFor(alice2);
 
         // Assert
         Assert.Equal(key1a, key1b);
         Assert.NotEqual(key1a, key2);
-        Assert.Equal(16, key1a.Length); // hex of a truncated SHA-256 (8 bytes)
+        Assert.Equal(16, key1a.Length); // hex of 8 minted random bytes
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class PeerIdentityTests : DeviceTest
         var lookup = Create.PeerLookup();
 
         // Act
-        var key = lookup.PeerKey(null!);
+        var key = lookup.DeviceIdFor(null!);
 
         // Assert
         Assert.Equal(string.Empty, key);
@@ -59,17 +59,17 @@ public class PeerIdentityTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
 
         // Act
-        var device = platform.PeerLookup.Track(peerId);
+        var device = platform.PeerLookup.Track(peerID);
         var hadHandle = platform.PeerLookup.TryGetHandle(device.Id, out var handle);
         platform.PeerLookup.Remove(device.Id);
         var hasHandleAfterRemove = platform.PeerLookup.TryGetHandle(device.Id, out _);
 
         // Assert
         Assert.True(hadHandle);
-        Assert.Same(peerId, handle);
+        Assert.Same(peerID, handle);
         Assert.False(hasHandleAfterRemove);
     }
 }

@@ -22,12 +22,12 @@ public class AcceptTimeoutTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby(Options(TimeSpan.FromSeconds(1)));
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         platform.DidReceiveInvitationFromPeer(
             advertiser: null!,
-            peerID: peerId,
+            peerID: peerID,
             context: null,
             invitationHandler: (_, _) => { });
 
@@ -45,12 +45,12 @@ public class AcceptTimeoutTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby(Options(TimeSpan.FromSeconds(1)));
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         platform.DidReceiveInvitationFromPeer(
             advertiser: null!,
-            peerID: peerId,
+            peerID: peerID,
             context: null,
             invitationHandler: (_, _) => { });
 
@@ -70,13 +70,13 @@ public class AcceptTimeoutTests : DeviceTest
         // Arrange — MPC holds the invitation open until its handler is resolved. The timeout path
         // must release it, or the remote side is left waiting on a dead offer.
         await using var platform = Create.PlatformNearby(Options(TimeSpan.FromSeconds(1)));
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var accepted = new List<bool>();
 
         platform.DidReceiveInvitationFromPeer(
             advertiser: null!,
-            peerID: peerId,
+            peerID: peerID,
             context: null,
             invitationHandler: (accept, _) => accepted.Add(accept));
 

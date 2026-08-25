@@ -12,14 +12,14 @@ public class PayloadRoutingTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (connection, _) = await Create.ConnectedAsync(platform, peerId, cts.Token);
+        var (connection, _) = await Create.ConnectedAsync(platform, peerID, cts.Token);
         byte[] expected = [1, 2, 3];
         using var data = NSData.FromArray(expected);
 
         // Act
-        platform.OnDataReceived(data, peerId);
+        platform.OnDataReceived(data, peerID);
 
         // Assert
         var received = await Receive.FirstAsync(connection, cts.Token);

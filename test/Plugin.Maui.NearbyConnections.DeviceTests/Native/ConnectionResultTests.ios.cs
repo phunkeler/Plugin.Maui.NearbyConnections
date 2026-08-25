@@ -12,12 +12,12 @@ public class ConnectionResultTests : DeviceTest
     {
         // Arrange — Connected with NO prior Connecting: iOS does not guarantee that waypoint.
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
-        var (tcs, id) = Create.PendingHandshake(platform, peerId);
+        using var peerID = Create.PeerId("Alice");
+        var (tcs, id) = Create.PendingHandshake(platform, peerID);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.OnPeerStateChanged(peerId, MCSessionState.Connected);
+        platform.OnPeerStateChanged(peerID, MCSessionState.Connected);
 
         // Assert
         var connection = await tcs.Task.WaitAsync(cts.Token);
@@ -30,12 +30,12 @@ public class ConnectionResultTests : DeviceTest
     {
         // Arrange — straight to NotConnected with no prior Connecting: the documented latent-hang path.
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
-        var (tcs, id) = Create.PendingHandshake(platform, peerId);
+        using var peerID = Create.PeerId("Alice");
+        var (tcs, id) = Create.PendingHandshake(platform, peerID);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.OnPeerStateChanged(peerId, MCSessionState.NotConnected);
+        platform.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
 
         // Assert
         await Assert.ThrowsAsync<NearbyException>(() => tcs.Task.WaitAsync(cts.Token));
@@ -50,14 +50,14 @@ public class ConnectionResultTests : DeviceTest
     {
         // Arrange — a discovered peer whose Found event is drained, then a failed handshake.
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        platform.FoundPeer(browser: null!, peerID: peerId, info: null);
+        platform.FoundPeer(browser: null!, peerID: peerID, info: null);
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
-        var (_, id) = Create.PendingHandshake(platform, peerId);
+        var (_, id) = Create.PendingHandshake(platform, peerID);
 
         // Act
-        platform.OnPeerStateChanged(peerId, MCSessionState.NotConnected);
+        platform.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
 
         // Assert
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);

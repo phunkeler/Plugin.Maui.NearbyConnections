@@ -14,9 +14,9 @@ public class ResourceTransferTests : DeviceTest
     {
         // Arrange — a live connection and a real source file where MPC would have staged it.
         await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (connection, _) = await Create.ConnectedAsync(platform, peerId, cts.Token);
+        var (connection, _) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         byte[] expected = [10, 20, 30];
         var sourcePath = Path.Combine(Path.GetTempPath(), $"devtest-{Guid.NewGuid():N}.bin");
@@ -24,7 +24,7 @@ public class ResourceTransferTests : DeviceTest
 
         // Act
         using var sourceUrl = NSUrl.FromFilename(sourcePath);
-        platform.OnResourceFinished("photo.bin", peerId, sourceUrl, error: null);
+        platform.OnResourceFinished("photo.bin", peerID, sourceUrl, error: null);
 
         var received = await Receive.FirstAsync(connection, cts.Token);
 
@@ -40,13 +40,13 @@ public class ResourceTransferTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (connection, _) = await Create.ConnectedAsync(platform, peerId, cts.Token);
+        var (connection, _) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         // Act
         using var error = new NSError((NSString)"devtest", code: 42);
-        platform.OnResourceFinished("photo.bin", peerId, localUrl: null, error);
+        platform.OnResourceFinished("photo.bin", peerID, localUrl: null, error);
 
         // Assert
         await Receive.AssertNothingReceivedAsync(connection);
@@ -57,9 +57,9 @@ public class ResourceTransferTests : DeviceTest
     {
         // Arrange — a live connection with an inbound-progress observer attached.
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (connection, _) = await Create.ConnectedAsync(platform, peerId, cts.Token);
+        var (connection, _) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         var reported = new TaskCompletionSource<NearbyTransferProgress>(TaskCreationOptions.RunContinuationsAsynchronously);
         connection.InboundProgress = new Progress<NearbyTransferProgress>(p => reported.TrySetResult(p));
@@ -67,7 +67,7 @@ public class ResourceTransferTests : DeviceTest
         using var progress = NSProgress.FromTotalUnitCount(100);
 
         // Act — the real KVO registration fires when the native progress advances.
-        platform.OnResourceStarted("photo.bin", peerId, progress);
+        platform.OnResourceStarted("photo.bin", peerID, progress);
         progress.CompletedUnitCount = 50;
 
         // Assert
@@ -82,9 +82,9 @@ public class ResourceTransferTests : DeviceTest
     {
         // Arrange — the collision the reservation exists for: one peer sends photo.bin twice.
         await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (connection, _) = await Create.ConnectedAsync(platform, peerId, cts.Token);
+        var (connection, _) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         byte[] first = [1, 1, 1];
         byte[] second = [2, 2, 2];
@@ -98,7 +98,7 @@ public class ResourceTransferTests : DeviceTest
             await File.WriteAllBytesAsync(sourcePath, content, cts.Token);
 
             using var sourceUrl = NSUrl.FromFilename(sourcePath);
-            platform.OnResourceFinished("photo.bin", peerId, sourceUrl, error: null);
+            platform.OnResourceFinished("photo.bin", peerID, sourceUrl, error: null);
         }
 
         foreach (var received in await Receive.TakeAsync(connection, 2, cts.Token))
@@ -117,15 +117,15 @@ public class ResourceTransferTests : DeviceTest
     {
         // Arrange — a delivered file the consumer never moved out of staging.
         var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (connection, _) = await Create.ConnectedAsync(platform, peerId, cts.Token);
+        var (connection, _) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         var sourcePath = Path.Combine(Path.GetTempPath(), $"devtest-{Guid.NewGuid():N}.bin");
         await File.WriteAllBytesAsync(sourcePath, [7, 7, 7], cts.Token);
 
         using var sourceUrl = NSUrl.FromFilename(sourcePath);
-        platform.OnResourceFinished("photo.bin", peerId, sourceUrl, error: null);
+        platform.OnResourceFinished("photo.bin", peerID, sourceUrl, error: null);
 
         var received = await Receive.FirstAsync(connection, cts.Token);
         var stagedPath = Assert.IsType<NearbyFilePayload>(received).FileResult.FullPath;

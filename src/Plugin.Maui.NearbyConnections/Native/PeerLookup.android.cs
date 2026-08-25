@@ -53,11 +53,11 @@ sealed partial class PeerLookup
     public bool TryGetEndpointId(string deviceId, [NotNullWhen(true)] out string? endpointId)
         => _endpointByDeviceId.TryGetValue(deviceId, out endpointId);
 
-    partial void PlatformRemove(string key)
+    partial void PlatformRemove(string deviceId)
     {
         // Both directions, or the reverse map grows for the session and a peer rediscovered under a
         // fresh endpoint id resolves against a stale entry.
-        if (_endpointByDeviceId.TryRemove(key, out var endpointId))
+        if (_endpointByDeviceId.TryRemove(deviceId, out var endpointId))
         {
             _deviceIdByEndpoint.TryRemove(endpointId, out _);
         }

@@ -11,12 +11,12 @@ public class DeviceDiscoveryTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
-        var id = platform.PeerLookup.PeerKey(peerId);
+        using var peerID = Create.PeerId("Alice");
+        var id = platform.PeerLookup.DeviceIdFor(peerID);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.FoundPeer(browser: null!, peerID: peerId, info: null);
+        platform.FoundPeer(browser: null!, peerID: peerID, info: null);
 
         // Assert
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
@@ -30,14 +30,14 @@ public class DeviceDiscoveryTests : DeviceTest
     {
         // Arrange — a peer already discovered, and its Found event drained off the channel.
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
-        var id = platform.PeerLookup.PeerKey(peerId);
+        using var peerID = Create.PeerId("Alice");
+        var id = platform.PeerLookup.DeviceIdFor(peerID);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        platform.FoundPeer(browser: null!, peerID: peerId, info: null);
+        platform.FoundPeer(browser: null!, peerID: peerID, info: null);
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
 
         // Act
-        platform.LostPeer(browser: null!, peerID: peerId);
+        platform.LostPeer(browser: null!, peerID: peerID);
 
         // Assert
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
@@ -51,12 +51,12 @@ public class DeviceDiscoveryTests : DeviceTest
     {
         // Arrange — a connected peer that stops advertising is NOT lost; only its advertisement is.
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var (_, id) = await Create.ConnectedAsync(platform, peerId, cts.Token);
+        var (_, id) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         // Act
-        platform.LostPeer(browser: null!, peerID: peerId);
+        platform.LostPeer(browser: null!, peerID: peerID);
 
         // Assert
         Assert.True(platform.PeerLookup.TryGetDevice(id, out _));

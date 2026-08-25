@@ -12,13 +12,13 @@ public class ConnectionInitiatedTests : DeviceTest
     {
         // Arrange
         await using var platform = Create.PlatformNearby();
-        using var peerId = Create.PeerId("Alice");
+        using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
         platform.DidReceiveInvitationFromPeer(
             advertiser: null!,
-            peerID: peerId,
+            peerID: peerID,
             context: null,
             invitationHandler: (_, _) => { });
 

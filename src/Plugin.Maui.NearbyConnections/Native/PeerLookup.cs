@@ -73,20 +73,20 @@ sealed partial class PeerLookup
         => Convert.ToHexString(RandomNumberGenerator.GetBytes(DeviceIdBytes));
 
     /// <summary>
-    /// Records what a platform callback saw for <paramref name="key"/>, and returns the device the
+    /// Records what a platform callback saw for <paramref name="deviceId"/>, and returns the device the
     /// library publishes for it.
     /// </summary>
-    /// <param name="key">The peer's session-scoped identifier.</param>
+    /// <param name="deviceId">The device id this library minted for the peer.</param>
     /// <param name="displayName">
     /// The name as the remote device supplied it. Sanitized here — see <see cref="Sanitize"/>.
     /// </param>
     /// <returns>
-    /// The device now stored for <paramref name="key"/> — the existing instance if there was one.
+    /// The device now stored for <paramref name="deviceId"/> — the existing instance if there was one.
     /// </returns>
     /// <remarks>
     /// <para>
     /// <b>The first name wins, for the life of the session.</b> A later callback reporting a
-    /// different name for the same key is discarded, and the original instance is returned
+    /// different name for the same device id is discarded, and the original instance is returned
     /// unchanged. Both platforms re-report a peer routinely — Android on every
     /// <c>OnEndpointFound</c>, iOS on every <c>Track</c> — so a device that starts advertising a new
     /// name mid-session keeps displaying the name it was first seen under.
@@ -96,15 +96,15 @@ sealed partial class PeerLookup
     /// pins it. The name is attacker-chosen and unverified — see <see cref="Sanitize"/> — so letting
     /// it change would let a peer relabel itself in a consumer's user interface after the user has
     /// already decided to trust it under one name. Pinning removes that moving target. It does not
-    /// make the name trustworthy, and it is never identity: <paramref name="key"/> is.
+    /// make the name trustworthy, and it is never identity: <paramref name="deviceId"/> is.
     /// </para>
     /// <para>
     /// <b>Do not change this to adopt the newer name</b> without changing that test deliberately.
     /// It reads as a defect on inspection, and has been reported as one.
     /// </para>
     /// </remarks>
-    public NearbyDevice Record(string key, string? displayName)
-        => _peers.GetOrAdd(key, static (k, name) => new NearbyDevice(k, name), Sanitize(displayName));
+    public NearbyDevice Record(string deviceId, string? displayName)
+        => _peers.GetOrAdd(deviceId, static (id, name) => new NearbyDevice(id, name), Sanitize(displayName));
 
     /// <summary>
     /// Makes a remote-supplied display name safe to log and to render, by removing characters that
@@ -207,16 +207,16 @@ sealed partial class PeerLookup
                 or UnicodeCategory.Format
                 or UnicodeCategory.PrivateUse;
 
-    public bool TryGetDevice(string key, [NotNullWhen(true)] out NearbyDevice? device)
-        => _peers.TryGetValue(key, out device);
+    public bool TryGetDevice(string deviceId, [NotNullWhen(true)] out NearbyDevice? device)
+        => _peers.TryGetValue(deviceId, out device);
 
     public bool IsEmpty => _peers.IsEmpty;
 
-    public NearbyDevice? Remove(string key)
+    public NearbyDevice? Remove(string deviceId)
     {
-        PlatformRemove(key);
+        PlatformRemove(deviceId);
 
-        return _peers.TryRemove(key, out var device)
+        return _peers.TryRemove(deviceId, out var device)
             ? device
             : null;
     }
@@ -227,7 +227,7 @@ sealed partial class PeerLookup
         _peers.Clear();
     }
 
-    partial void PlatformRemove(string key);
+    partial void PlatformRemove(string deviceId);
 
     partial void PlatformClear();
 }

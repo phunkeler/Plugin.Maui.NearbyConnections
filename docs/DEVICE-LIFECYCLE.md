@@ -68,7 +68,7 @@ Measured against the current source, both candidate words are vendor terms:
 
 | Term | Owner | Occurrences in `src/` |
 |---|---|---|
-| `Peer` | **Apple** — `MCPeerID`, `MCNearbyServiceBrowser`, MPC docs throughout | 36 × `MCPeerID`, plus `PeerKey`/`PeerId` |
+| `Peer` | **Apple** — `MCPeerID`, `MCNearbyServiceBrowser`, MPC docs throughout | 36 × `MCPeerID`, plus `PeerLookup` |
 | `Endpoint` | **Google** — `EndpointId`, `DiscoveredEndpointInfo`, `EndpointDiscoveryCallback` | 27 × `EndpointId`, plus callbacks |
 
 Both are therefore **disqualified** for public API. `Peer` is the more dangerous of the two because
@@ -82,7 +82,7 @@ it *sounds* generic while being specifically MPC's term.
 3. **Zero rename cost.** `NearbyDevice` is published API since preview.1. Keeping it means the
    rename table shrinks and the `Devices` naming stays consistent rather than flip-flopping.
 
-**Internal code keeps `Peer`.** `PeerLookup` and its `PeerKey`/`GetLocalPeerId` members are
+**Internal code keeps `Peer`.** `PeerLookup` and its `GetLocalPeerId`/`TryGetHandle` members are
 `internal`, never seen by a consumer, and sit at the layer that genuinely talks to `MCPeerID`. Using
 the platform's word there is *correct*, not a leak. The rule is: public says `Device`, internal says
 `Peer`, and the public/internal boundary is the enforcement mechanism.
@@ -415,19 +415,19 @@ where `Connecting` hangs forever with neither terminal callback arriving.
 
 `MCSession` is torn down by `DisposeSessionIfIdle`, shared by the `NotConnected` callback and the
 control frame — the two ways a peer departs. Idleness is read from `_activeConnections` and
-`_connectionTcs`, not from `Peers` and not from `MCSession.ConnectedPeers`. Not `ConnectedPeers`,
+`_connectionTcs`, not from `PeerLookup` and not from `MCSession.ConnectedPeers`. Not `ConnectedPeers`,
 because a peer that announced its departure by control frame remains there until MPC notices the
-drop, so reading it would report the session as still busy and leak it. Not `Peers`, because a
+drop, so reading it would report the session as still busy and leak it. Not `PeerLookup`, because a
 disconnected peer deliberately stays tracked so the session can show it as `Visible` and reconnect
 to it — waiting for that registry to empty would keep an unused session alive.
 
 > **Regression note (2026-08-17).** The graceful-departure paths — the connection's `dispose`
 > callback, the received `Disconnect` control frame, and rejecting an inbound request — used to call
-> `Peers.Remove`, dropping the peer's `MCPeerID` handle while the session kept the row `Visible`.
+> `PeerLookup.Remove`, dropping the peer's `MCPeerID` handle while the session kept the row `Visible`.
 > A later `ConnectAsync` then failed with "not currently visible" until discovery re-found the peer,
 > and never at all when `DiscoveryRefreshInterval` was `null`. Android was unaffected because it
-> invites by endpoint id. Only the `NotConnected` branch, which also reports the loss through
-> `WriteDeviceLost`, removes the peer now.
+> resolves the peer's endpoint id from `PeerLookup` at the moment it invites. Only the
+> `NotConnected` branch, which also reports the loss through `WriteDeviceLost`, removes the peer now.
 
 `INearby.DisconnectAsync(device)` is the public verb on both platforms.
 

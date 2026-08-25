@@ -717,12 +717,12 @@ sealed partial class PlatformNearby
             || await Permissions.CheckStatusAsync<Permissions.NearbyWifiDevices>().ConfigureAwait(false) == PermissionStatus.Granted;
     }
 
-    partial void PlatformReleaseConnection(string peerId)
+    partial void PlatformReleaseConnection(string deviceId)
     {
         // Runs after PlatformQuiesceConnectionAsync, so no copy is still reading these.
         foreach (var (payloadId, entry) in _incomingPayloads)
         {
-            if (entry.DeviceId == peerId
+            if (entry.DeviceId == deviceId
                 && _incomingPayloads.TryRemove(payloadId, out var removed))
             {
                 DisposeIncomingPayload(removed.Payload);

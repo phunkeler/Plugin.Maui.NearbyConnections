@@ -29,7 +29,7 @@ sealed partial class PeerLookup
 
     public NearbyDevice Track(MCPeerID peerID)
     {
-        var key = PeerKey(peerID);
+        var key = DeviceIdFor(peerID);
         _handles[key] = peerID;
         var device = Record(key, peerID.DisplayName);
 
@@ -40,8 +40,8 @@ sealed partial class PeerLookup
         return device;
     }
 
-    public bool TryGetHandle(string key, [NotNullWhen(true)] out MCPeerID? handle)
-        => _handles.TryGetValue(key, out handle);
+    public bool TryGetHandle(string deviceId, [NotNullWhen(true)] out MCPeerID? handle)
+        => _handles.TryGetValue(deviceId, out handle);
 
     /// <summary>
     /// The display name for <paramref name="peerID"/>, safe to log and to render.
@@ -68,7 +68,7 @@ sealed partial class PeerLookup
             return null;
         }
 
-        return SafeDisplayName(PeerKey(peerID), peerID);
+        return SafeDisplayName(DeviceIdFor(peerID), peerID);
     }
 
     /// <summary>
@@ -79,9 +79,9 @@ sealed partial class PeerLookup
     /// <c>{DeviceId}</c> property. It also keeps the call cheap enough not to trip CA1873, which
     /// flags work evaluated before the logger decides the level is enabled.
     /// </remarks>
-    public string? SafeDisplayName(string key, MCPeerID? peerID)
+    public string? SafeDisplayName(string deviceId, MCPeerID? peerID)
     {
-        if (TryGetDevice(key, out var device))
+        if (TryGetDevice(deviceId, out var device))
         {
             return device.DisplayName;
         }
@@ -90,8 +90,7 @@ sealed partial class PeerLookup
     }
 
     /// <summary>
-    /// The device id for <paramref name="peerID"/>, minted on first sight and stable for as long as
-    /// this lookup holds the peer.
+    /// The device id for a Multipeer Connectivity peer, minted on first sight.
     /// </summary>
     /// <remarks>
     /// The iOS half of the identity contract: it turns a platform handle into the same kind of
@@ -100,7 +99,7 @@ sealed partial class PeerLookup
     /// against the peer object rather than against anything the peer supplied — see
     /// <see cref="_deviceIds"/>.
     /// </remarks>
-    public string PeerKey(MCPeerID peerID)
+    public string DeviceIdFor(MCPeerID peerID)
     {
         if (peerID is null)
         {
@@ -121,11 +120,11 @@ sealed partial class PeerLookup
         return deviceId;
     }
 
-    partial void PlatformRemove(string key)
+    partial void PlatformRemove(string deviceId)
     {
-        LogRemovingRemotePeer(Logger, key);
+        LogRemovingRemotePeer(Logger, deviceId);
 
-        if (_handles.TryRemove(key, out var handle))
+        if (_handles.TryRemove(deviceId, out var handle))
         {
             handle.Dispose();
         }
@@ -145,20 +144,14 @@ sealed partial class PeerLookup
     }
 
     [LoggerMessage(
-        EventId = 3000,
-        Level = LogLevel.Error,
-        Message = "Failed to derive a peer key from the archived peer. Using a random session key instead.")]
-    static partial void LogFailedToDerivePeerKey(ILogger logger, Exception error);
-
-    [LoggerMessage(
         EventId = 3030,
         Level = LogLevel.Trace,
-        Message = "Tracking remote peer: Key={Key}, DisplayName={DisplayName}")]
-    static partial void LogTrackingRemotePeer(ILogger logger, string key, string? displayName);
+        Message = "Tracking remote peer: DeviceId={DeviceId}, DisplayName={DisplayName}")]
+    static partial void LogTrackingRemotePeer(ILogger logger, string deviceId, string? displayName);
 
     [LoggerMessage(
         EventId = 3031,
         Level = LogLevel.Trace,
-        Message = "Removing remote peer: Key={Key}")]
-    static partial void LogRemovingRemotePeer(ILogger logger, string key);
+        Message = "Removing remote peer: DeviceId={DeviceId}")]
+    static partial void LogRemovingRemotePeer(ILogger logger, string deviceId);
 }

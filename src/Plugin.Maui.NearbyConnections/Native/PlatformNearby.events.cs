@@ -81,7 +81,7 @@ sealed partial class PlatformNearby
     }
 
     /// <summary>
-    /// Registers a pending handshake for <paramref name="peerId"/> and returns the source the
+    /// Registers a pending handshake for <paramref name="deviceId"/> and returns the source the
     /// platform's terminal callback will resolve or fault.
     /// </summary>
     /// <remarks>
@@ -97,12 +97,12 @@ sealed partial class PlatformNearby
     /// </para>
     /// </remarks>
     internal TaskCompletionSource<NearbyConnection> RegisterConnectionTcs(
-        string peerId,
+        string deviceId,
         CancellationToken cancellationToken)
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        _connectionTcs[peerId] = (tcs, cancellationToken);
+        _connectionTcs[deviceId] = (tcs, cancellationToken);
 
         return tcs;
     }
@@ -112,42 +112,42 @@ sealed partial class PlatformNearby
     /// platform that learns the caller's token only after the request has been surfaced. Leaves a
     /// handshake that has already completed alone.
     /// </summary>
-    internal void AttachConnectionTcsToken(string peerId, CancellationToken cancellationToken)
+    internal void AttachConnectionTcsToken(string deviceId, CancellationToken cancellationToken)
     {
-        if (_connectionTcs.TryGetValue(peerId, out var entry))
+        if (_connectionTcs.TryGetValue(deviceId, out var entry))
         {
-            _connectionTcs.TryUpdate(peerId, (entry.Tcs, cancellationToken), entry);
+            _connectionTcs.TryUpdate(deviceId, (entry.Tcs, cancellationToken), entry);
         }
     }
 
-    internal void ResolveConnectionTcs(string peerId, NearbyConnection connection)
+    internal void ResolveConnectionTcs(string deviceId, NearbyConnection connection)
     {
         try
         {
-            if (_connectionTcs.TryRemove(peerId, out var entry))
+            if (_connectionTcs.TryRemove(deviceId, out var entry))
             {
-                _activeConnections[peerId] = connection;
+                _activeConnections[deviceId] = connection;
                 entry.Tcs.TrySetResult(connection);
             }
         }
         catch (Exception ex)
         {
-            LogWriteError(nameof(ResolveConnectionTcs), peerId, ex);
+            LogWriteError(nameof(ResolveConnectionTcs), deviceId, ex);
         }
     }
 
-    internal void FaultConnectionTcs(string peerId, Exception ex)
+    internal void FaultConnectionTcs(string deviceId, Exception ex)
     {
         try
         {
-            if (_connectionTcs.TryRemove(peerId, out var entry))
+            if (_connectionTcs.TryRemove(deviceId, out var entry))
             {
                 entry.Tcs.TrySetException(ex);
             }
         }
         catch (Exception innerEx)
         {
-            LogWriteError(nameof(FaultConnectionTcs), peerId, innerEx);
+            LogWriteError(nameof(FaultConnectionTcs), deviceId, innerEx);
         }
     }
 
@@ -182,21 +182,21 @@ sealed partial class PlatformNearby
     /// <c>TryRemove</c> guard means <c>CompleteReceive</c> runs at most once per connection.
     /// </para>
     /// </remarks>
-    internal async ValueTask ReleaseConnectionAsync(string peerId)
+    internal async ValueTask ReleaseConnectionAsync(string deviceId)
     {
-        if (_activeConnections.TryRemove(peerId, out var connection))
+        if (_activeConnections.TryRemove(deviceId, out var connection))
         {
             connection.CompleteReceive();
         }
 
-        _unobservedWarned.TryRemove(peerId, out _);
+        _unobservedWarned.TryRemove(deviceId, out _);
 
-        if (!await _workQueue.DrainAsync(peerId, DrainTimeout).ConfigureAwait(false))
+        if (!await _workQueue.DrainAsync(deviceId, DrainTimeout).ConfigureAwait(false))
         {
-            LogConnectionDrainTimedOut(peerId, DrainTimeout.TotalSeconds);
+            LogConnectionDrainTimedOut(deviceId, DrainTimeout.TotalSeconds);
         }
 
-        PlatformReleaseConnection(peerId);
+        PlatformReleaseConnection(deviceId);
     }
 
     /// <summary>
@@ -204,28 +204,28 @@ sealed partial class PlatformNearby
     /// in-flight work has stopped. Implemented on Android to drop the peer's staged payload
     /// handles and on iOS to drop its KVO progress observers.
     /// </summary>
-    partial void PlatformReleaseConnection(string peerId);
+    partial void PlatformReleaseConnection(string deviceId);
 
-    internal void WritePayload(string peerId, NearbyPayload payload)
+    internal void WritePayload(string deviceId, NearbyPayload payload)
     {
         try
         {
-            if (!_activeConnections.TryGetValue(peerId, out var connection))
+            if (!_activeConnections.TryGetValue(deviceId, out var connection))
             {
-                LogWritePayloadNoConnection(peerId);
+                LogWritePayloadNoConnection(deviceId);
                 return;
             }
 
-            if (!connection.IsBeingConsumed && _unobservedWarned.TryAdd(peerId, 0))
+            if (!connection.IsBeingConsumed && _unobservedWarned.TryAdd(deviceId, 0))
             {
-                LogPayloadArrivedUnobserved(peerId);
+                LogPayloadArrivedUnobserved(deviceId);
             }
 
             connection.TryWritePayload(payload);
         }
         catch (Exception ex)
         {
-            LogWriteError(nameof(WritePayload), peerId, ex);
+            LogWriteError(nameof(WritePayload), deviceId, ex);
         }
     }
 

@@ -44,7 +44,7 @@ flowchart LR
     end
 
     subgraph plugin["Plugin"]
-        WP["WritePayload(peerId, payload)"]
+        WP["WritePayload(deviceId, payload)"]
         CH[("Receive channel<br/><b>unbounded</b>, single-reader")]
     end
 

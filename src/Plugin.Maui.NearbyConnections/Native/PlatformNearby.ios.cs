@@ -165,7 +165,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(DidReceiveInvitationFromPeer), PeerLookup.PeerKey(peerID), ex);
+            LogCallbackError(nameof(DidReceiveInvitationFromPeer), PeerLookup.DeviceIdFor(peerID), ex);
         }
     }
 
@@ -211,7 +211,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(FoundPeer), PeerLookup.PeerKey(peerID), ex);
+            LogCallbackError(nameof(FoundPeer), PeerLookup.DeviceIdFor(peerID), ex);
         }
     }
 
@@ -219,7 +219,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = PeerLookup.PeerKey(peerID);
+            var id = PeerLookup.DeviceIdFor(peerID);
 
             if (_activeConnections.ContainsKey(id))
             {
@@ -241,7 +241,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(LostPeer), PeerLookup.PeerKey(peerID), ex);
+            LogCallbackError(nameof(LostPeer), PeerLookup.DeviceIdFor(peerID), ex);
         }
     }
 
@@ -287,7 +287,7 @@ sealed partial class PlatformNearby
 #pragma warning restore CA1822, S2325
 
     Task PlatformSendBytesAsync(
-        string peerId,
+        string deviceId,
         byte[] bytes,
         CancellationToken cancellationToken)
     {
@@ -304,9 +304,9 @@ sealed partial class PlatformNearby
             throw new NearbyException("No active session. Ensure a connection has been established before sending data.");
         }
 
-        if (!PeerLookup.TryGetHandle(peerId, out var peerID))
+        if (!PeerLookup.TryGetHandle(deviceId, out var peerID))
         {
-            throw new NearbyException($"No peer found for device: Id={peerId}");
+            throw new NearbyException($"No peer found for device: Id={deviceId}");
         }
 
         using var nsData = NSData.FromArray(bytes);
@@ -315,7 +315,7 @@ sealed partial class PlatformNearby
         if (error is not null)
         {
             var nsErrorException = new NSErrorException(error);
-            var name = PeerLookup.SafeDisplayName(peerId, peerID);
+            var name = PeerLookup.SafeDisplayName(deviceId, peerID);
 
             LogSendBytesFailed(name, nsErrorException);
             throw new NearbyTransferException($"Failed to send bytes to '{name}': {error.LocalizedDescription}", nsErrorException);
@@ -325,7 +325,7 @@ sealed partial class PlatformNearby
     }
 
     async Task PlatformSendFileAsync(
-        string peerId,
+        string deviceId,
         string uri,
         IProgress<NearbyTransferProgress>? progress,
         CancellationToken cancellationToken)
@@ -343,9 +343,9 @@ sealed partial class PlatformNearby
             throw new NearbyException("No active session. Ensure a connection has been established before sending data.");
         }
 
-        if (!PeerLookup.TryGetHandle(peerId, out var peerID))
+        if (!PeerLookup.TryGetHandle(deviceId, out var peerID))
         {
-            throw new NearbyException($"No peer found for device: Id={peerId}");
+            throw new NearbyException($"No peer found for device: Id={deviceId}");
         }
 
         using var nsUrl = NSUrl.FromFilename(uri);
@@ -368,7 +368,7 @@ sealed partial class PlatformNearby
                         var total = nsProgress.TotalUnitCount;
                         var transferred = (long)(nsProgress.FractionCompleted * total);
 
-                        LogResourceTransferProgress(peerId, "Outbound", payloadId, total, transferred);
+                        LogResourceTransferProgress(deviceId, "Outbound", payloadId, total, transferred);
 
                         transfer.OnUpdate(new NearbyTransferProgress(
                             payloadId: payloadId,
@@ -378,7 +378,7 @@ sealed partial class PlatformNearby
                     }
                     catch (Exception ex)
                     {
-                        LogCallbackError(nameof(PlatformSendFileAsync), peerId, ex);
+                        LogCallbackError(nameof(PlatformSendFileAsync), deviceId, ex);
                     }
                 });
         }
@@ -416,15 +416,15 @@ sealed partial class PlatformNearby
         catch (OperationCanceledException) when (transfer.InactivityToken.IsCancellationRequested)
         {
             Report(NearbyTransferStatus.Failure);
-            throw TransferInactivityTimeoutException(peerId);
+            throw TransferInactivityTimeoutException(deviceId);
         }
         catch (Exception ex) when (ex is not NearbyException)
         {
             Report(NearbyTransferStatus.Failure);
-            LogSendFileFailed(peerId, null, ex);
+            LogSendFileFailed(deviceId, null, ex);
 
             throw new NearbyTransferException(
-                $"Failed to send file to '{peerId}'.", ex);
+                $"Failed to send file to '{deviceId}'.", ex);
         }
         finally
         {
@@ -490,7 +490,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = PeerLookup.PeerKey(peerID);
+            var id = PeerLookup.DeviceIdFor(peerID);
             var name = PeerLookup.SafeDisplayName(id, peerID);
 
             LogPeerStateChanged(id, name, state);
@@ -549,7 +549,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnPeerStateChanged), PeerLookup.PeerKey(peerID), ex);
+            LogCallbackError(nameof(OnPeerStateChanged), PeerLookup.DeviceIdFor(peerID), ex);
         }
     }
 
@@ -557,7 +557,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = PeerLookup.PeerKey(peerID);
+            var id = PeerLookup.DeviceIdFor(peerID);
             var name = PeerLookup.SafeDisplayName(id, peerID);
 
             LogDataReceived(id, name, (long)data.Length);
@@ -576,17 +576,17 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnDataReceived), PeerLookup.PeerKey(peerID), ex);
+            LogCallbackError(nameof(OnDataReceived), PeerLookup.DeviceIdFor(peerID), ex);
         }
     }
 
-    void HandleControlMessage(string peerId, ControlMessageType type)
+    void HandleControlMessage(string deviceId, ControlMessageType type)
     {
         switch (type)
         {
             case ControlMessageType.Disconnect:
-                LogPeerDisconnectRequested(peerId);
-                ReleaseConnectionFromCallback(peerId);
+                LogPeerDisconnectRequested(deviceId);
+                ReleaseConnectionFromCallback(deviceId);
                 DisposeSessionIfIdle();
                 break;
             default:
@@ -623,7 +623,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = PeerLookup.PeerKey(fromPeer);
+            var id = PeerLookup.DeviceIdFor(fromPeer);
             var name = PeerLookup.SafeDisplayName(id, fromPeer);
 
             LogResourceReceiveStarted(id, name, resourceName);
@@ -654,7 +654,7 @@ sealed partial class PlatformNearby
                     }
                     catch (Exception ex)
                     {
-                        LogCallbackError(nameof(OnResourceStarted), PeerLookup.PeerKey(fromPeer), ex);
+                        LogCallbackError(nameof(OnResourceStarted), PeerLookup.DeviceIdFor(fromPeer), ex);
                     }
                 });
 
@@ -662,17 +662,17 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnResourceStarted), PeerLookup.PeerKey(fromPeer), ex);
+            LogCallbackError(nameof(OnResourceStarted), PeerLookup.DeviceIdFor(fromPeer), ex);
         }
     }
 
-    static string ObserverKey(string peerId, string resourceName) => $"{peerId}{resourceName}";
+    static string ObserverKey(string deviceId, string resourceName) => $"{deviceId}{resourceName}";
 
-    partial void PlatformReleaseConnection(string peerId) => RemoveProgressObserversFor(peerId);
+    partial void PlatformReleaseConnection(string deviceId) => RemoveProgressObserversFor(deviceId);
 
-    void RemoveProgressObserversFor(string peerId)
+    void RemoveProgressObserversFor(string deviceId)
     {
-        var prefix = ObserverKey(peerId, string.Empty);
+        var prefix = ObserverKey(deviceId, string.Empty);
 
         foreach (var (key, _) in _progressObservers)
         {
@@ -696,7 +696,7 @@ sealed partial class PlatformNearby
     {
         try
         {
-            var id = PeerLookup.PeerKey(fromPeer);
+            var id = PeerLookup.DeviceIdFor(fromPeer);
             var loc = localUrl?.ToString() ?? "null";
             var name = PeerLookup.SafeDisplayName(id, fromPeer);
 
@@ -748,7 +748,7 @@ sealed partial class PlatformNearby
         }
         catch (Exception ex)
         {
-            LogCallbackError(nameof(OnResourceFinished), PeerLookup.PeerKey(fromPeer), ex);
+            LogCallbackError(nameof(OnResourceFinished), PeerLookup.DeviceIdFor(fromPeer), ex);
         }
     }
 

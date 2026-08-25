@@ -60,10 +60,15 @@ open coveragereport/index.html   # macOS; use `start` on Windows, `xdg-open` on 
   `NotConnected`. Treating it as a required waypoint is a latent hang.
 - **A remote display name is untrusted input, and `PeerLookup.Record` is the only place it is
   cleaned.** Both platforms let the peer choose the string, and it reaches log sinks and consumer
-  UI. `Record` strips control characters and caps the length; every device the library publishes is
-  built there, on both platforms, so new code must route through it rather than passing a raw
-  `EndpointName`/`MCPeerID.DisplayName` onward. The iOS `PeerKey` fallback sanitizes too — there the
-  name becomes the device `Id`.
+  UI. `Record` rejects control, separator, format, private-use, and replacement characters and caps
+  the length in UTF-8 bytes; every device the library publishes is built there, on both platforms,
+  so new code must route through it rather than passing a raw
+  `EndpointName`/`MCPeerID.DisplayName` onward. On iOS, a callback that holds an `MCPeerID` but no
+  `NearbyDevice` uses `PeerLookup.SafeDisplayName` rather than reaching for the raw property.
+- **`NearbyDevice.Id` is minted by this library, never taken from a platform.** 8 random bytes as 16
+  hex characters, identical in shape on both platforms. Google's endpoint id and Apple's peer handle
+  stay inside `PeerLookup`, which translates at the SDK edge — `DeviceIdFor` inbound,
+  `TryGetEndpointId`/`TryGetHandle` outbound. Nothing above `Native/` sees a platform identifier.
 - **Every `catch` on a callback or error path must log.** Silent catches have already cost real
   debugging time here.
 - **Published identity is locked before 1.0** — `PackageId`, `AssemblyName`, `RootNamespace`, and
