@@ -4,7 +4,7 @@ namespace Plugin.Maui.NearbyConnections;
 // Trace = per-payload, Debug = per-device, Information = state changes the app cannot otherwise
 // observe, Warning = recovered, Error = an operation is degraded. Keep new messages consistent
 // with that table, and update the doc when adding a message a consumer would filter on.
-sealed partial class PlatformNearby
+sealed partial class PlatformBridge
 {
     // -------------------------------------------------------------------------
     // Shared failure shapes
@@ -121,7 +121,7 @@ sealed partial class PlatformNearby
 
 
     // 2052 (LogPeerStateChanged) and 2054 (LogControlMessageReceived) are declared in
-    // PlatformNearby.log.ios.cs — they take iOS-only/internal enum parameters. Ids stay reserved here.
+    // PlatformBridge.log.ios.cs — they take iOS-only/internal enum parameters. Ids stay reserved here.
 
     [LoggerMessage(EventId = 2053, Level = LogLevel.Trace, Message = "Data received from peer: Id={DeviceId}, DisplayName={DisplayName}, Length={Length} bytes")]
     internal partial void LogDataReceived(string deviceId, string? displayName, long length);

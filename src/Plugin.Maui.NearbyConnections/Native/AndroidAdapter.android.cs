@@ -10,10 +10,10 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 sealed partial class AndroidAdapter : IPlatformAdapter
 {
-    readonly PlatformNearby _bridge;
+    readonly PlatformBridge _bridge;
 
     /// <param name="bridge">The shared platform layer this adapter feeds.</param>
-    public AndroidAdapter(PlatformNearby bridge) => _bridge = bridge;
+    public AndroidAdapter(PlatformBridge bridge) => _bridge = bridge;
 
     readonly ConcurrentDictionary<long, (string DeviceId, Payload Payload)> _incomingPayloads = [];
     readonly ConcurrentDictionary<long, OutgoingTransfer> _outgoingTransfers = [];
@@ -306,7 +306,7 @@ sealed partial class AndroidAdapter : IPlatformAdapter
             : new CancellationToken(canceled: true);
 
         NearbyPayload? nearbyPayload = entry.Payload.PayloadType == Payload.Type.File
-            ? await CopyFilePayloadAsync(entry.Payload, PlatformNearby.StagingDirectory, copyToken).ConfigureAwait(false)
+            ? await CopyFilePayloadAsync(entry.Payload, StagingDirectory, copyToken).ConfigureAwait(false)
             : entry.Payload.AsBytes() is { } bytes
                 ? new NearbyBytesPayload(bytes)
                 : null;
@@ -363,7 +363,7 @@ sealed partial class AndroidAdapter : IPlatformAdapter
                 return null;
             }
 
-            var outputStream = PlatformNearby.ClaimUniqueDestinationPath(destinationDirectory, fileName);
+            var outputStream = PlatformBridge.ClaimUniqueDestinationPath(destinationDirectory, fileName);
             destinationPath = outputStream.Name;
 
             using (outputStream)
@@ -701,9 +701,9 @@ sealed partial class AndroidAdapter : IPlatformAdapter
     }
 
     /// <inheritdoc/>
-    public string StagingDirectory => PlatformNearby.StagingDirectory;
+    public string StagingDirectory => Path.Combine(FileSystem.CacheDirectory, PlatformBridge.StagingDirectoryName);
 
-    public void SweepStaging() => _bridge.SweepStagingDirectory(PlatformNearby.StagingDirectory);
+    public void SweepStaging() => _bridge.SweepStagingDirectory(StagingDirectory);
 
     public void Dispose()
     {

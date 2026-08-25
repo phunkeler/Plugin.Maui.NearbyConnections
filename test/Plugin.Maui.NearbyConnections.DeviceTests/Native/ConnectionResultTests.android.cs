@@ -11,12 +11,12 @@ public class ConnectionResultTests : DeviceTest
     public async Task Success_ResolvesConnectionTcsAndRegistersActiveConnection()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         var (tcs, deviceId) = Create.PendingHandshake(platform);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.AndroidAdapter.OnConnectionResult("endpoint-1", Create.Resolution());
+        platform.Android().OnConnectionResult("endpoint-1", Create.Resolution());
 
         // Assert
         var connection = await tcs.Task.WaitAsync(cts.Token);
@@ -28,12 +28,12 @@ public class ConnectionResultTests : DeviceTest
     public async Task Failure_FaultsConnectionTcs()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         var (tcs, deviceId) = Create.PendingHandshake(platform);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.AndroidAdapter.OnConnectionResult("endpoint-1", Create.Resolution(ConnectionsStatusCodes.StatusConnectionRejected));
+        platform.Android().OnConnectionResult("endpoint-1", Create.Resolution(ConnectionsStatusCodes.StatusConnectionRejected));
 
         // Assert
         await Assert.ThrowsAsync<NearbyException>(() => tcs.Task.WaitAsync(cts.Token));
@@ -47,14 +47,14 @@ public class ConnectionResultTests : DeviceTest
     public async Task Failure_PublishesLostEventAndReleasesPeer()
     {
         // Arrange — a discovered endpoint whose Found event is drained, then a failed handshake.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        platform.AndroidAdapter.OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
+        platform.Android().OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
         var (_, deviceId) = Create.PendingHandshake(platform);
 
         // Act
-        platform.AndroidAdapter.OnConnectionResult("endpoint-1", Create.Resolution(ConnectionsStatusCodes.StatusConnectionRejected));
+        platform.Android().OnConnectionResult("endpoint-1", Create.Resolution(ConnectionsStatusCodes.StatusConnectionRejected));
 
         // Assert
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);

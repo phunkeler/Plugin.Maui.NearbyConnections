@@ -13,10 +13,10 @@ public class UnknownPeerTests : DeviceTest
     public async Task Disconnected_ForUnknownEndpoint_LeavesNoState()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
 
         // Act
-        platform.AndroidAdapter.OnDisconnected(UnknownId);
+        platform.Android().OnDisconnected(UnknownId);
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(UnknownId));
@@ -27,10 +27,10 @@ public class UnknownPeerTests : DeviceTest
     public async Task EndpointLost_ForUnknownEndpoint_LeavesNoState()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
 
         // Act
-        platform.AndroidAdapter.OnEndpointLost(UnknownId);
+        platform.Android().OnEndpointLost(UnknownId);
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(UnknownId));
@@ -41,10 +41,10 @@ public class UnknownPeerTests : DeviceTest
     public async Task ConnectionResult_ForUnknownEndpoint_RegistersNoConnection()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
 
         // Act
-        platform.AndroidAdapter.OnConnectionResult(UnknownId, Create.Resolution());
+        platform.Android().OnConnectionResult(UnknownId, Create.Resolution());
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(UnknownId));
@@ -55,10 +55,10 @@ public class UnknownPeerTests : DeviceTest
     public async Task PayloadTransferUpdate_ForUnknownEndpoint_RegistersNoConnection()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
 
         // Act
-        await platform.AndroidAdapter.OnPayloadTransferUpdate(
+        await platform.Android().OnPayloadTransferUpdate(
             UnknownId, Create.TransferUpdate(payloadId: 42, PayloadTransferUpdate.Status.Success));
 
         // Assert

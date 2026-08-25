@@ -13,7 +13,7 @@ public class ControlMessageDataTests : DeviceTest
     public async Task DisconnectControlFrame_IsNotSurfacedAsPayload()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var alice = Create.PeerId("Alice");
         using var timeout = Timeout();
         var (connection, _) = await Create.ConnectedAsync(platform, alice, timeout.Token);
@@ -29,7 +29,7 @@ public class ControlMessageDataTests : DeviceTest
     public async Task UnknownControlType_IsSwallowedWithoutThrowing()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var alice = Create.PeerId("Alice");
         using var timeout = Timeout();
         var (connection, _) = await Create.ConnectedAsync(platform, alice, timeout.Token);
@@ -45,7 +45,7 @@ public class ControlMessageDataTests : DeviceTest
     public async Task DisconnectControlFrame_ReleasesTheConnectionButKeepsThePeer()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var alice = Create.PeerId("Alice");
         using var timeout = Timeout();
         var (_, aliceId) = await Create.ConnectedAsync(platform, alice, timeout.Token);
@@ -64,7 +64,7 @@ public class ControlMessageDataTests : DeviceTest
     {
         // Arrange — MCSession.Disconnect() is all-or-nothing, so a departing peer must not take
         // Bob's connection with it. This is the multi-peer case single-peer tests cannot see.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var alice = Create.PeerId("Alice");
         using var bob = Create.PeerId("Bob");
         using var timeout = Timeout();
@@ -83,7 +83,7 @@ public class ControlMessageDataTests : DeviceTest
     public async Task AfterAPeerDeparts_ARemainingPeerStillReceivesPayloads()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var alice = Create.PeerId("Alice");
         using var bob = Create.PeerId("Bob");
         using var timeout = Timeout();
@@ -104,7 +104,7 @@ public class ControlMessageDataTests : DeviceTest
     public async Task DisconnectControlFrame_FromTheLastPeer_KeepsThePeerVisible()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var alice = Create.PeerId("Alice");
         using var timeout = Timeout();
         await Create.ConnectedAsync(platform, alice, timeout.Token);

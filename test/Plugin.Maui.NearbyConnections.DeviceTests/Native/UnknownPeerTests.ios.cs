@@ -11,12 +11,12 @@ public class UnknownPeerTests : DeviceTest
     public async Task PeerStateChanged_ForUnknownPeer_LeavesNoState()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("never-seen");
         var id = platform.PeerLookup.DeviceIdFor(peerID);
 
         // Act
-        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
+        platform.Ios().OnPeerStateChanged(peerID, MCSessionState.NotConnected);
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(id));
@@ -27,12 +27,12 @@ public class UnknownPeerTests : DeviceTest
     public async Task LostPeer_ForUnknownPeer_PublishesNoEvent()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("never-seen");
         var id = platform.PeerLookup.DeviceIdFor(peerID);
 
         // Act
-        platform.IosAdapter.LostPeer(browser: null!, peerID: peerID);
+        platform.Ios().LostPeer(browser: null!, peerID: peerID);
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(id));
@@ -43,13 +43,13 @@ public class UnknownPeerTests : DeviceTest
     public async Task DataReceived_ForUnknownPeer_RoutesNothing()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("never-seen");
         var id = platform.PeerLookup.DeviceIdFor(peerID);
         using var data = NSData.FromArray([1, 2, 3]);
 
         // Act
-        platform.IosAdapter.OnDataReceived(data, peerID);
+        platform.Ios().OnDataReceived(data, peerID);
 
         // Assert
         Assert.False(platform._activeConnections.ContainsKey(id));

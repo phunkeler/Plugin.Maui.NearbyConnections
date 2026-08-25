@@ -12,15 +12,15 @@ public class PayloadRoutingTests : DeviceTest
     public async Task BytesPayload_RoutedToActiveConnectionReceiveStream()
     {
         // Arrange — a live connection, and a payload GMS hands over ownership of.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
         byte[] expected = [1, 2, 3];
         var payload = Payload.FromBytes(expected);
 
         // Act
-        platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
-        await platform.AndroidAdapter.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success));
+        platform.Android().OnPayloadReceived(endpointId, payload);
+        await platform.Android().OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success));
 
         // Assert
         var received = await Receive.FirstAsync(connection, cts.Token);
@@ -34,17 +34,17 @@ public class PayloadRoutingTests : DeviceTest
         // Arrange — a file whose copy suspends, then a bytes payload completing during that copy.
         // Not awaiting the file update is the point: it reproduces the async void callback
         // returning to GMS at the copy's first await, which is when GMS delivers the next update.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
         var file = Create.FilePayload(new byte[512 * 1024], $"ordering-{Guid.NewGuid():N}.bin");
         var bytes = Payload.FromBytes([1, 2, 3]);
 
         // Act
-        platform.AndroidAdapter.OnPayloadReceived(endpointId, file);
-        platform.AndroidAdapter.OnPayloadReceived(endpointId, bytes);
-        var fileUpdate = platform.AndroidAdapter.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(file.Id, PayloadTransferUpdate.Status.Success));
-        await platform.AndroidAdapter.OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(bytes.Id, PayloadTransferUpdate.Status.Success));
+        platform.Android().OnPayloadReceived(endpointId, file);
+        platform.Android().OnPayloadReceived(endpointId, bytes);
+        var fileUpdate = platform.Android().OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(file.Id, PayloadTransferUpdate.Status.Success));
+        await platform.Android().OnPayloadTransferUpdate(endpointId, Create.TransferUpdate(bytes.Id, PayloadTransferUpdate.Status.Success));
         await fileUpdate;
 
         // Assert

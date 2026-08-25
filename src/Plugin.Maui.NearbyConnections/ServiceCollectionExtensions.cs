@@ -100,7 +100,7 @@ public static partial class ServiceCollectionExtensions
             var timeProvider = sp.GetRequiredService<TimeProvider>();
             var logger = sp.GetRequiredService<ILogger<INearby>>();
 
-            var connections = CreatePlatformNearby(timeProvider, options, logger);
+            var connections = CreatePlatformBridge(timeProvider, options, logger);
 
             return new Nearby(connections, options, logger, timeProvider);
         });
@@ -109,14 +109,14 @@ public static partial class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Constructs the <see cref="PlatformNearby"/> for this platform.
+    /// Constructs the <see cref="PlatformBridge"/> for this platform.
     /// </summary>
     /// <remarks>
     /// A partial method rather than an inline <c>#if</c> in <see cref="AddNearby"/>, so the
     /// platform/shared boundary this codebase keeps checkable via file suffix
-    /// (<c>Native/PlatformNearby.*.cs</c>) extends to this registration code too.
+    /// (<c>Native/PlatformBridge.*.cs</c>) extends to this registration code too.
     /// </remarks>
-    private static partial PlatformNearby CreatePlatformNearby(
+    private static partial PlatformBridge CreatePlatformBridge(
         TimeProvider timeProvider,
         NearbyOptions options,
         ILogger logger);

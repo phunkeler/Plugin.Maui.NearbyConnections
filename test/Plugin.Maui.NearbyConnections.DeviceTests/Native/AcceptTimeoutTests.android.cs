@@ -45,10 +45,10 @@ public class AcceptTimeoutTests : DeviceTest
     {
         // Arrange
         var accept = TimeSpan.FromSeconds(1);
-        await using var platform = Create.PlatformNearby(Options(accept));
+        await using var platform = Create.PlatformBridge(Options(accept));
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        await platform.AndroidAdapter.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
+        await platform.Android().OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
         var request = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
 
         // Act — accept, then never deliver OnConnectionResult.
@@ -64,10 +64,10 @@ public class AcceptTimeoutTests : DeviceTest
     {
         // Arrange
         var accept = TimeSpan.FromSeconds(1);
-        await using var platform = Create.PlatformNearby(Options(accept));
+        await using var platform = Create.PlatformBridge(Options(accept));
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        await platform.AndroidAdapter.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
+        await platform.Android().OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
         var request = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
 
         // Act
@@ -84,15 +84,15 @@ public class AcceptTimeoutTests : DeviceTest
     public async Task AcceptedRequest_WhenResultArrivesFirst_ReturnsTheConnection()
     {
         // Arrange — the deadline must not fire on a handshake that completes normally.
-        await using var platform = Create.PlatformNearby(Options(TimeSpan.FromSeconds(30)));
+        await using var platform = Create.PlatformBridge(Options(TimeSpan.FromSeconds(30)));
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
-        await platform.AndroidAdapter.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
+        await platform.Android().OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
         var request = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
 
         // Act
         var pending = request.AcceptAsync(cts.Token);
-        platform.AndroidAdapter.OnConnectionResult("endpoint-1", Create.Resolution());
+        platform.Android().OnConnectionResult("endpoint-1", Create.Resolution());
 
         // Assert
         var connection = await pending;

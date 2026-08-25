@@ -11,14 +11,14 @@ public class SessionStateTests : DeviceTest
     public async Task Connecting_LeavesHandshakePending()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("Alice");
         var id = platform.PeerLookup.DeviceIdFor(peerID);
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
 
         // Act
-        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.Connecting);
+        platform.Ios().OnPeerStateChanged(peerID, MCSessionState.Connecting);
 
         // Assert — Connecting is informational; the handshake is neither resolved nor faulted.
         Assert.False(tcs.Task.IsCompleted);
@@ -28,7 +28,7 @@ public class SessionStateTests : DeviceTest
     public async Task ConnectingThenNotConnected_FaultsHandshake()
     {
         // Arrange — the invitation-declined shape: Connecting arrives, then NotConnected.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("Alice");
         var id = platform.PeerLookup.DeviceIdFor(peerID);
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -36,8 +36,8 @@ public class SessionStateTests : DeviceTest
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.Connecting);
-        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
+        platform.Ios().OnPeerStateChanged(peerID, MCSessionState.Connecting);
+        platform.Ios().OnPeerStateChanged(peerID, MCSessionState.NotConnected);
 
         // Assert
         await Assert.ThrowsAsync<NearbyException>(() => tcs.Task.WaitAsync(cts.Token));

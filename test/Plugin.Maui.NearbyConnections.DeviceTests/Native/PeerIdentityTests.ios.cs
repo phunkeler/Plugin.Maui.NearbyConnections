@@ -43,11 +43,11 @@ public class PeerIdentityTests : DeviceTest
     public async Task LocalPeerIdentity_MemoizedForPlatformLifetime()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby(Create.DefaultOptions("Alice"));
+        await using var platform = Create.PlatformBridge(Create.DefaultOptions("Alice"));
 
         // Act
-        var first = platform.IosAdapter.GetLocalPeerId();
-        var second = platform.IosAdapter.GetLocalPeerId();
+        var first = platform.Ios().GetLocalPeerId();
+        var second = platform.Ios().GetLocalPeerId();
 
         // Assert
         Assert.Same(first, second);
@@ -58,7 +58,7 @@ public class PeerIdentityTests : DeviceTest
     public async Task Registry_TracksAndReleasesNativeHandle()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("Alice");
 
         // Act

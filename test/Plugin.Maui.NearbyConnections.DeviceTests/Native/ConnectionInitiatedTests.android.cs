@@ -11,11 +11,11 @@ public class ConnectionInitiatedTests : DeviceTest
     public async Task IncomingConnection_YieldsRequestOnAdvertiseChannel()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        await platform.AndroidAdapter.OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
+        await platform.Android().OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
 
         // Assert
         var request = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);

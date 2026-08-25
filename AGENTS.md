@@ -195,10 +195,13 @@ One public interface, registered as a DI singleton (one radio, one native sessio
   (`Nearby.{cs,state.cs,log.cs}`, at the project root alongside the
   interface). Owns device state and the change stream. **It takes no dispatcher and has no UI
   thread affinity** — every member is callable from any thread.
-- **`IPlatformNearby`** — internal. The raw platform streams, implemented by a single
-  `sealed partial class` split across `Native/PlatformNearby.{shared,android,ios,net}.cs`.
-  The `net10.0` target throws `PlatformNotSupportedException`, which is why `Nearby` depends
-  on the interface rather than the concrete type — otherwise it is untestable off-device.
+- **`IPlatformNearby`** — internal. The raw platform streams, implemented by the sealed
+  `Native/PlatformBridge` over an `IPlatformAdapter` per backend: `AndroidAdapter` (GMS Nearby
+  Connections), `IosAdapter` (MultipeerConnectivity), the throwing `NetThrowingAdapter` on
+  `net10.0`, and the unit suite's `ScriptedAdapter`. Outbound (bridge → adapter) is the
+  compiler-checked interface; inbound (adapter → bridge) stays concrete `On*`/`Write*` methods —
+  the surface the device tests drive. `Nearby` depends on `IPlatformNearby` rather than the
+  concrete bridge, which is what keeps it testable off-device.
 
 ### State vs. streams — the split that matters
 
@@ -238,11 +241,11 @@ so navigating away ends the loop. Payload loops need no equivalent — they self
 connection drops.
 
 **Changes arrive on a thread-pool thread, not the platform's callback thread and never the UI
-thread.** The SDK callback writes into a `PlatformNearby` channel; the pumps in
+thread.** The SDK callback writes into a `PlatformBridge` channel; the pumps in
 `Nearby.state.cs` drain it with `await foreach … ConfigureAwait(false)`, and every
 registry write plus `Publish` happens on the reading side of that boundary. Every channel here is
 built without `AllowSynchronousContinuations` — the registry's in `DeviceRegistry.Subscribe`,
-the platform's in `PlatformNearby.NewChannel` — so a consumer's continuation is queued rather than
+the platform's in `PlatformBridge.NewChannel` — so a consumer's continuation is queued rather than
 run inline on the publisher. That is fixed, not configurable: it was briefly a `NearbyOptions` knob,
 and exposing it only offered consumers a way to stall the SDK's own callback dispatch with a slow
 loop body. Do not reintroduce it. Do not document or rely
@@ -296,7 +299,7 @@ follows. So every await on a TCS is also bounded by a deadline the plugin owns:
 
 | Operation | Bounded by |
 |---|---|
-| `ConnectAsync` | `ConnectTimeout` (30s), via `PlatformNearby.AwaitHandshakeAsync` |
+| `ConnectAsync` | `ConnectTimeout` (30s), via `PlatformBridge.AwaitHandshakeAsync` |
 | `NearbyConnectionRequest.AcceptAsync` | `AcceptTimeout` (15s), via the same helper — the window excludes the remote user's decision, so it is shorter by default |
 | `SendAsync` (file) | `TransferInactivityTimeout`, via `OutgoingTransfer.InactivityToken` |
 | `StartAdvertisingAsync` / `StartDiscoveryAsync` | `started` resolves on both branches; iOS adds `Apple.StartFailureGraceWindow` |
@@ -340,7 +343,7 @@ Every teardown path waits for the work that reads a handle before freeing the ha
 is not a join: `CompleteReceive` and `Cancel()` set a flag and return, so an inbound copy can still
 be mid-write when the next line disposes what it is writing to. The order is the guarantee — not a
 tidiness preference — and it applies at every scope:
-`ReleaseConnectionAsync` for one endpoint, `PlatformNearby.DisposeAsync` for the session,
+`ReleaseConnectionAsync` for one endpoint, `PlatformBridge.DisposeAsync` for the session,
 `AppLifecycleObserver.DisposeAsync` for the iOS backgrounding observer.
 
 Two consequences bind new code:
@@ -383,7 +386,8 @@ src/Plugin.Maui.NearbyConnections/
 ├── Payload/       NearbyPayload + NearbyBytesPayload/NearbyFilePayload — the data
 ├── Transfer/      progress, transfer timeout, outgoing transfer — the act of moving it
 ├── Options/       NearbyOptions + platform scopes + validator (iOS-only rules) + the enums
-├── Native/        IPlatformNearby, PlatformNearby.*, PeerLookup{,.ios} — this layer's own
+├── Native/        IPlatformNearby, PlatformBridge, IPlatformAdapter + the per-platform
+│                  adapters, PeerLookup{,.ios} — this layer's own
 │                  peer bookkeeping, NOT the session's device set (the .ios half adds the
 │                  MCPeerID handle plus peer-key derivation),
 │                  AppLifecycleObserver.ios
@@ -456,7 +460,7 @@ library expresses stream timing. `RecordingProgress` also stays hand-written; it
 says why.
 
 **Assert through the surface a consumer uses.** Public API first; internals widened by
-`InternalsVisibleTo` are fair game where the type is itself internal (`PlatformNearby`,
+`InternalsVisibleTo` are fair game where the type is itself internal (`PlatformBridge`,
 `PeerLookup`). Private field names are not — a test coupled to one passes when the behaviour
 breaks and fails when a safe rename happens. The two deliberate exceptions each carry a comment
 saying why, and both exist because `net10.0` cannot reach the behaviour any other way; do not add a
@@ -485,7 +489,7 @@ values, minimal input, helper methods over constructor/`IDisposable` setup).
 **When adding or changing tests, generate coverage** (Commands, above) and check the delta on the
 files the change actually touches — a new test that doesn't move coverage on its target method
 usually means it isn't exercising the path it claims to. There is currently no enforced coverage
-threshold; `Native/PlatformNearby.*` sits far below whatever a repo-wide number would require
+threshold; `Native/` platform code sits far below whatever a repo-wide number would require
 because platform partials need real SDKs (see below) and cannot be raised from `net10.0`, so a
 blanket percentage gate would either block on that permanently or have to be file-scoped. Coverage
 is visible in CI (`ci.yml` posts a per-PR summary via SonarQube) — read that before adding a second,
@@ -517,7 +521,7 @@ unit suite, deliberately:
   runtimes; the deliverable is TRX results (in `artifacts/`, surfaced as CI checks), not a
   coverage delta. Do not add a coverage step to the device jobs — it will not work.
 - **The device suite runs serially** — `AssemblyMarker.cs` carries
-  `[assembly: CollectionBehavior(DisableTestParallelization = true)]`. `PlatformNearby.StagingDirectory`
+  `[assembly: CollectionBehavior(DisableTestParallelization = true)]`. The adapters' `StagingDirectory`
   is static and process-wide, and every `DisposeAsync` sweeps it, so a test disposing its platform
   deletes whatever another test staged. Nearly every test disposes one via `await using var platform`.
   Do not re-enable parallelism to speed the suite up: it runs in a couple of seconds, and the failure

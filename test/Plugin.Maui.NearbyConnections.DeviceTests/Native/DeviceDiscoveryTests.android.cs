@@ -10,11 +10,11 @@ public class DeviceDiscoveryTests : DeviceTest
     public async Task EndpointFound_PublishesFoundEventAndTracksPeer()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.AndroidAdapter.OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
+        platform.Android().OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
 
         // Assert
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
@@ -27,13 +27,13 @@ public class DeviceDiscoveryTests : DeviceTest
     public async Task EndpointLost_PublishesLostEventForTheSameDeviceAndReleasesPeer()
     {
         // Arrange — a device already discovered, and its Found event drained off the channel.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        platform.AndroidAdapter.OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
+        platform.Android().OnEndpointFound("endpoint-1", Create.DiscoveredEndpointInfo());
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
 
         // Act
-        platform.AndroidAdapter.OnEndpointLost("endpoint-1");
+        platform.Android().OnEndpointLost("endpoint-1");
 
         // Assert
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
@@ -46,12 +46,12 @@ public class DeviceDiscoveryTests : DeviceTest
     public async Task EndpointLost_WhileConnected_DoesNotEmitLostEvent()
     {
         // Arrange — a connected peer that stops advertising is NOT lost; only its advertisement is.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (_, _, deviceId) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
         // Act
-        platform.AndroidAdapter.OnEndpointLost("endpoint-1");
+        platform.Android().OnEndpointLost("endpoint-1");
 
         // Assert
         Assert.True(platform.PeerLookup.TryGetDevice(deviceId, out _));

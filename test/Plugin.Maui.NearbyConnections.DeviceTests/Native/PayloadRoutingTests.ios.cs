@@ -11,7 +11,7 @@ public class PayloadRoutingTests : DeviceTest
     public async Task BytesPayload_RoutedToActiveConnectionReceiveStream()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, _) = await Create.ConnectedAsync(platform, peerID, cts.Token);
@@ -19,7 +19,7 @@ public class PayloadRoutingTests : DeviceTest
         using var data = NSData.FromArray(expected);
 
         // Act
-        platform.IosAdapter.OnDataReceived(data, peerID);
+        platform.Ios().OnDataReceived(data, peerID);
 
         // Assert
         var received = await Receive.FirstAsync(connection, cts.Token);

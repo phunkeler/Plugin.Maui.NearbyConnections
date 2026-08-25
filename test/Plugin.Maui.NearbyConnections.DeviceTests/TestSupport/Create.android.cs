@@ -5,8 +5,8 @@ partial class Create
     /// <summary>The real platform type on Android, wired with the default <see cref="PeerLookup"/>.</summary>
     /// <param name="options">Options to wire the platform with, or <see langword="null"/> for the suite defaults.</param>
     /// <returns>The platform under test.</returns>
-    internal PlatformNearby PlatformNearby(NearbyOptions? options = null)
-        => new(TimeProvider.System, options ?? DefaultOptions(), Logger, new PeerLookup());
+    internal PlatformBridge PlatformBridge(NearbyOptions? options = null)
+        => new(TimeProvider.System, options ?? DefaultOptions(), Logger, new PeerLookup(), static bridge => new AndroidAdapter(bridge));
 
     /// <summary>A transfer update built via the SDK's Builder, the only construction path GMS exposes.</summary>
     /// <param name="payloadId">The payload the update refers to.</param>
@@ -87,7 +87,7 @@ partial class Create
     /// <c>Native/</c>.
     /// </returns>
     internal static (TaskCompletionSource<NearbyConnection> Tcs, string DeviceId) PendingHandshake(
-        PlatformNearby platform, string endpointId = "endpoint-1", string displayName = "Alice")
+        PlatformBridge platform, string endpointId = "endpoint-1", string displayName = "Alice")
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
         var deviceId = platform.PeerLookup.DeviceIdFor(endpointId);
@@ -118,7 +118,7 @@ partial class Create
     /// </para>
     /// </returns>
     internal static async Task<(NearbyConnection Connection, string EndpointId, string DeviceId)> ConnectedAsync(
-        PlatformNearby platform,
+        PlatformBridge platform,
         string displayName,
         CancellationToken cancellationToken)
     {
@@ -131,7 +131,7 @@ partial class Create
 
         platform.PeerLookup.Record(deviceId, displayName);
         platform._connectionTcs[deviceId] = (tcs, CancellationToken.None);
-        platform.AndroidAdapter.OnConnectionResult(endpointId, Resolution());
+        platform.Android().OnConnectionResult(endpointId, Resolution());
 
         return (await tcs.Task.WaitAsync(cancellationToken), endpointId, deviceId);
     }

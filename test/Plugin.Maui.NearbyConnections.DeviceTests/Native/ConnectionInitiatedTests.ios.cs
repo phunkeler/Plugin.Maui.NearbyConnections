@@ -11,12 +11,12 @@ public class ConnectionInitiatedTests : DeviceTest
     public async Task IncomingInvitation_YieldsRequestOnAdvertiseChannel()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.IosAdapter.DidReceiveInvitationFromPeer(
+        platform.Ios().DidReceiveInvitationFromPeer(
             advertiser: null!,
             peerID: peerID,
             context: null,

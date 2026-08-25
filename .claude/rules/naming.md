@@ -169,7 +169,7 @@ grep -rE "\.Nearby[A-Za-z]+Async\(" src/Plugin.Maui.NearbyConnections/
 # No platform identifier vocabulary outside the partial that owns it (expect no output)
 grep -rn "peerId" src/Plugin.Maui.NearbyConnections/
 grep -rn "endpointId" src/Plugin.Maui.NearbyConnections/ --include="*.cs" \
-  | grep -v "PlatformNearby.android.cs" | grep -v "PeerLookup.android.cs"
+  | grep -v "AndroidAdapter.android.cs" | grep -v "AndroidAdapter.FileNames.android.cs" | grep -v "PeerLookup.android.cs"
 
 # All three baselines identical (expect no output)
 diff src/Plugin.Maui.NearbyConnections/PublicAPI/net10.0/PublicAPI.Unshipped.txt \

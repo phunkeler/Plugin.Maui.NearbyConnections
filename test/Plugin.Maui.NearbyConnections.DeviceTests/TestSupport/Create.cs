@@ -1,7 +1,7 @@
 namespace Plugin.Maui.NearbyConnections.DeviceTests;
 
 /// <summary>
-/// Constructs the real <see cref="PlatformNearby"/> under test, wired with real SDK-backed
+/// Constructs the real <see cref="PlatformBridge"/> under test, wired with real SDK-backed
 /// dependencies (no fakes — see <c>Plugin.Maui.NearbyConnections.UnitTests.TestSupport.Create</c>
 /// for why the unit suite uses <c>net10.0</c>'s stub instead).
 /// </summary>

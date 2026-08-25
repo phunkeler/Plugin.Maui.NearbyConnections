@@ -2,9 +2,9 @@ namespace Plugin.Maui.NearbyConnections;
 
 public static partial class ServiceCollectionExtensions
 {
-    private static partial PlatformNearby CreatePlatformNearby(
+    private static partial PlatformBridge CreatePlatformBridge(
         TimeProvider timeProvider,
         NearbyOptions options,
         ILogger logger)
-        => new(timeProvider, options, logger, new PeerLookup { Logger = logger });
+        => new(timeProvider, options, logger, new PeerLookup { Logger = logger }, static bridge => new IosAdapter(bridge));
 }

@@ -11,13 +11,13 @@ public class DisconnectTests : DeviceTest
     public async Task RemoteDisconnect_CompletesDisconnectedTaskAndReleasesPeer()
     {
         // Arrange — a live connection established through the real callback path.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, id) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         // Act
-        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.NotConnected);
+        platform.Ios().OnPeerStateChanged(peerID, MCSessionState.NotConnected);
 
         // Assert
         await connection.Disconnected.WaitAsync(cts.Token);
@@ -29,7 +29,7 @@ public class DisconnectTests : DeviceTest
     public async Task LocalDisconnect_ReleasesTheConnectionButKeepsThePeerReconnectable()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, id) = await Create.ConnectedAsync(platform, peerID, cts.Token);

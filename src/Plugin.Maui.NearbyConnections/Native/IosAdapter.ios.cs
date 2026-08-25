@@ -5,12 +5,17 @@ namespace Plugin.Maui.NearbyConnections;
 /// operations go through the interface; inbound delegate callbacks call the bridge's internal
 /// methods directly — the surface the device tests drive.
 /// </summary>
-sealed class IosAdapter : IPlatformAdapter
+sealed partial class IosAdapter : IPlatformAdapter
 {
-    readonly PlatformNearby _bridge;
+    readonly PlatformBridge _bridge;
+    readonly ILogger _logger;
 
     /// <param name="bridge">The shared platform layer this adapter feeds.</param>
-    public IosAdapter(PlatformNearby bridge) => _bridge = bridge;
+    public IosAdapter(PlatformBridge bridge)
+    {
+        _bridge = bridge;
+        _logger = bridge.Logger;
+    }
 
     static long s_nextPayloadId;
 
@@ -34,7 +39,7 @@ sealed class IosAdapter : IPlatformAdapter
         {
             if (_localPeerId is null)
             {
-                _bridge.LogCreatedLocalPeer(_bridge.Options.DisplayName);
+                LogCreatedLocalPeer(_bridge.Options.DisplayName);
             }
 
             return _localPeerId ??= new MCPeerID(_bridge.Options.DisplayName);
@@ -422,9 +427,9 @@ sealed class IosAdapter : IPlatformAdapter
     }
 
     /// <inheritdoc/>
-    public string StagingDirectory => PlatformNearby.StagingDirectory;
+    public string StagingDirectory => Path.Combine(FileSystem.CacheDirectory, PlatformBridge.StagingDirectoryName);
 
-    public void SweepStaging() => _bridge.SweepStagingDirectory(PlatformNearby.StagingDirectory);
+    public void SweepStaging() => _bridge.SweepStagingDirectory(StagingDirectory);
 
     public void Dispose()
     {
@@ -466,7 +471,7 @@ sealed class IosAdapter : IPlatformAdapter
             var id = _bridge.PeerLookup.DeviceIdFor(peerID);
             var name = _bridge.PeerLookup.SafeDisplayName(id, peerID);
 
-            _bridge.LogPeerStateChanged(id, name, state);
+            LogPeerStateChanged(id, name, state);
 
             switch (state)
             {
@@ -535,7 +540,7 @@ sealed class IosAdapter : IPlatformAdapter
 
             if (ControlMessage.TryDecode(bytes, out var controlType))
             {
-                _bridge.LogControlMessageReceived(id, name, controlType);
+                LogControlMessageReceived(id, name, controlType);
                 HandleControlMessage(id, controlType);
                 return;
             }
@@ -699,7 +704,7 @@ sealed class IosAdapter : IPlatformAdapter
             {
                 // The claim is held as a zero-byte file across the move: releasing it before the
                 // move would reopen the race it exists to close, so overwrite it in place.
-                using (var claim = PlatformNearby.ClaimUniqueDestinationPath(PlatformNearby.StagingDirectory, resourceName))
+                using (var claim = PlatformBridge.ClaimUniqueDestinationPath(StagingDirectory, resourceName))
                 {
                     destinationPath = claim.Name;
                 }
@@ -708,7 +713,7 @@ sealed class IosAdapter : IPlatformAdapter
             }
             catch (Exception ex)
             {
-                _bridge.LogFileCopyFailed(sourcePath, PlatformNearby.StagingDirectory, ex);
+                _bridge.LogFileCopyFailed(sourcePath, StagingDirectory, ex);
                 return;
             }
 

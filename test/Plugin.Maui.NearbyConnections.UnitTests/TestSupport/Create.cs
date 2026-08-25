@@ -52,17 +52,20 @@ static class Create
             : new(platform, options ?? new NearbyOptions(), NullLogger.Instance, timeProvider);
 
     /// <summary>
-    /// The real platform type. Its <c>Platform*</c> members throw on <c>net10.0</c>, so tests drive
-    /// the channel bridge and the members that do not reach the SDK.
+    /// The real bridge over a <see cref="ScriptedAdapter"/>. The adapter's defaults mirror the
+    /// shipping <c>net10.0</c> stub (starts throw), so tests that only drive the bridge's own
+    /// members behave as before — and a test that needs the platform side scripts it.
     /// </summary>
-    public static PlatformNearby PlatformNearby(
+    public static PlatformBridge PlatformBridge(
         FakeTimeProvider? timeProvider = null,
-        NearbyOptions? options = null)
+        NearbyOptions? options = null,
+        ScriptedAdapter? adapter = null)
         => new(
             timeProvider ?? new FakeTimeProvider(),
             options ?? new NearbyOptions(),
             NullLogger.Instance,
-            new PeerLookup());
+            new PeerLookup(),
+            _ => adapter ?? new ScriptedAdapter());
 
     /// <summary>
     /// A gate a test opens to release work it is holding. Continuations run asynchronously, so

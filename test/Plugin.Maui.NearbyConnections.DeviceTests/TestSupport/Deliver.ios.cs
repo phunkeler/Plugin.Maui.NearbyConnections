@@ -10,7 +10,7 @@ static class Deliver
     /// <param name="platform">The platform whose callback receives the frame.</param>
     /// <param name="peerID">The peer the frame arrives from.</param>
     /// <param name="type">The control type to encode.</param>
-    internal static void ControlFrame(PlatformNearby platform, MCPeerID peerID, ControlMessageType type)
+    internal static void ControlFrame(PlatformBridge platform, MCPeerID peerID, ControlMessageType type)
         => Bytes(platform, peerID, ControlMessage.Encode(type));
 
     /// <summary>
@@ -19,7 +19,7 @@ static class Deliver
     /// </summary>
     /// <param name="platform">The platform whose callback receives the frame.</param>
     /// <param name="peerID">The peer the frame arrives from.</param>
-    internal static void UnknownControlFrame(PlatformNearby platform, MCPeerID peerID)
+    internal static void UnknownControlFrame(PlatformBridge platform, MCPeerID peerID)
     {
         var frame = ControlMessage.Encode(ControlMessageType.Disconnect);
         frame[^1] = 0xFF;
@@ -31,10 +31,10 @@ static class Deliver
     /// <param name="platform">The platform whose callback receives the data.</param>
     /// <param name="peerID">The peer the data arrives from.</param>
     /// <param name="data">The bytes to deliver.</param>
-    internal static void Bytes(PlatformNearby platform, MCPeerID peerID, byte[] data)
+    internal static void Bytes(PlatformBridge platform, MCPeerID peerID, byte[] data)
     {
         using var native = NSData.FromArray(data);
 
-        platform.IosAdapter.OnDataReceived(native, peerID);
+        platform.Ios().OnDataReceived(native, peerID);
     }
 }

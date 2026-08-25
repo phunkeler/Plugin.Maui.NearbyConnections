@@ -22,7 +22,7 @@ public class ClaimUniqueDestinationPathTests
             var dir = Path.Combine(temp.Path, "nearby-received");
 
             // Act
-            using var result = PlatformNearby.ClaimUniqueDestinationPath(dir, "photo.jpg");
+            using var result = PlatformBridge.ClaimUniqueDestinationPath(dir, "photo.jpg");
 
             // Assert
             Assert.Equal(Path.Combine(dir, "photo.jpg"), result.Name);
@@ -39,7 +39,7 @@ public class ClaimUniqueDestinationPathTests
             var expected = Path.Combine(temp.Path, "photo.jpg");
 
             // Act
-            using var result = PlatformNearby.ClaimUniqueDestinationPath(temp.Path, "photo.jpg");
+            using var result = PlatformBridge.ClaimUniqueDestinationPath(temp.Path, "photo.jpg");
 
             // Assert
             Assert.Equal(expected, result.Name);
@@ -57,7 +57,7 @@ public class ClaimUniqueDestinationPathTests
             temp.Touch("photo.jpg");
 
             // Act
-            using var result = PlatformNearby.ClaimUniqueDestinationPath(temp.Path, "photo.jpg");
+            using var result = PlatformBridge.ClaimUniqueDestinationPath(temp.Path, "photo.jpg");
 
             // Assert
             Assert.Equal(Path.Combine(temp.Path, "photo (1).jpg"), result.Name);
@@ -74,11 +74,11 @@ public class ClaimUniqueDestinationPathTests
 
             // Arrange
             using var temp = new TempDirectory();
-            using var rival = PlatformNearby.ClaimUniqueDestinationPath(temp.Path, "photo.jpg");
+            using var rival = PlatformBridge.ClaimUniqueDestinationPath(temp.Path, "photo.jpg");
             var expected = Path.Combine(temp.Path, "photo (1).jpg");
 
             // Act
-            using var result = PlatformNearby.ClaimUniqueDestinationPath(temp.Path, "photo.jpg");
+            using var result = PlatformBridge.ClaimUniqueDestinationPath(temp.Path, "photo.jpg");
 
             // Assert
             Assert.Equal(expected, result.Name);
@@ -97,7 +97,7 @@ public class ClaimUniqueDestinationPathTests
             var expected = Path.Combine(temp.Path, "evil.jpg");
 
             // Act
-            using var result = PlatformNearby.ClaimUniqueDestinationPath(temp.Path, "../evil.jpg");
+            using var result = PlatformBridge.ClaimUniqueDestinationPath(temp.Path, "../evil.jpg");
 
             // Assert
             Assert.Equal(expected, result.Name);

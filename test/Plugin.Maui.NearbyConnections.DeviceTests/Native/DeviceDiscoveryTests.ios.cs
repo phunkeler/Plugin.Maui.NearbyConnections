@@ -10,13 +10,13 @@ public class DeviceDiscoveryTests : DeviceTest
     public async Task FoundPeer_PublishesFoundEventAndTracksPeer()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("Alice");
         var id = platform.PeerLookup.DeviceIdFor(peerID);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         // Act
-        platform.IosAdapter.FoundPeer(browser: null!, peerID: peerID, info: null);
+        platform.Ios().FoundPeer(browser: null!, peerID: peerID, info: null);
 
         // Assert
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
@@ -29,15 +29,15 @@ public class DeviceDiscoveryTests : DeviceTest
     public async Task LostPeer_PublishesLostEventForTheSameDeviceAndReleasesPeer()
     {
         // Arrange — a peer already discovered, and its Found event drained off the channel.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("Alice");
         var id = platform.PeerLookup.DeviceIdFor(peerID);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        platform.IosAdapter.FoundPeer(browser: null!, peerID: peerID, info: null);
+        platform.Ios().FoundPeer(browser: null!, peerID: peerID, info: null);
         var found = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
 
         // Act
-        platform.IosAdapter.LostPeer(browser: null!, peerID: peerID);
+        platform.Ios().LostPeer(browser: null!, peerID: peerID);
 
         // Assert
         var lost = await platform._discoverChannel.Reader.ReadAsync(cts.Token);
@@ -50,13 +50,13 @@ public class DeviceDiscoveryTests : DeviceTest
     public async Task LostPeer_WhileConnected_DoesNotEmitLostEvent()
     {
         // Arrange — a connected peer that stops advertising is NOT lost; only its advertisement is.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (_, id) = await Create.ConnectedAsync(platform, peerID, cts.Token);
 
         // Act
-        platform.IosAdapter.LostPeer(browser: null!, peerID: peerID);
+        platform.Ios().LostPeer(browser: null!, peerID: peerID);
 
         // Assert
         Assert.True(platform.PeerLookup.TryGetDevice(id, out _));

@@ -12,11 +12,11 @@ public class StartFailureTests : DeviceTest
     public async Task DidNotStartAdvertising_FaultsAdvertiseChannel()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var error = new NSError((NSString)"devtest", code: 42);
 
         // Act
-        platform.IosAdapter.DidNotStartAdvertisingPeer(advertiser: null!, error);
+        platform.Ios().DidNotStartAdvertisingPeer(advertiser: null!, error);
 
         // Assert
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -28,11 +28,11 @@ public class StartFailureTests : DeviceTest
     public async Task DidNotStartBrowsing_FaultsDiscoverChannel()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var error = new NSError((NSString)"devtest", code: 42);
 
         // Act
-        platform.IosAdapter.DidNotStartBrowsingForPeers(browser: null!, error);
+        platform.Ios().DidNotStartBrowsingForPeers(browser: null!, error);
 
         // Assert
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));

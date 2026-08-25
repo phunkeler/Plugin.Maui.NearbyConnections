@@ -13,10 +13,10 @@ public class DisposeTests : DeviceTest
     {
         // Arrange — a real inbound invitation accepted, so AcceptAsync is awaiting a handshake that
         // will never complete: it registers the TCS and constructs the real MCSession.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        platform.IosAdapter.DidReceiveInvitationFromPeer(
+        platform.Ios().DidReceiveInvitationFromPeer(
             advertiser: null!,
             peerID: peerID,
             context: null,

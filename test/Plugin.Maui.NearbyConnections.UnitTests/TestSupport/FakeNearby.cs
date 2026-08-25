@@ -87,7 +87,7 @@ sealed class FakeNearby : IPlatformNearby
             throw AdvertiseFault;
         }
 
-        // A fresh channel per call, mirroring PlatformNearby.shared.cs's Interlocked.Exchange: a
+        // A fresh channel per call, mirroring PlatformBridge.shared.cs's Interlocked.Exchange: a
         // restart after a prior FaultAdvertiseStream must reach a channel that isn't already faulted.
         var requests = Channel.CreateUnbounded<NearbyConnectionRequest>();
         _requests = requests;

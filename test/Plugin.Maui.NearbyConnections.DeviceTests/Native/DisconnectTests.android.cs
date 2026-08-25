@@ -11,12 +11,12 @@ public class DisconnectTests : DeviceTest
     public async Task RemoteDisconnect_CompletesDisconnectedTaskAndReleasesPeer()
     {
         // Arrange — a live connection established through the real callback path.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, endpointId, deviceId) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
         // Act
-        platform.AndroidAdapter.OnDisconnected(endpointId);
+        platform.Android().OnDisconnected(endpointId);
 
         // Assert
         await connection.Disconnected.WaitAsync(cts.Token);

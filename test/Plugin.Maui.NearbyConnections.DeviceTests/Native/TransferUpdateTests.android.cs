@@ -12,7 +12,7 @@ public class TransferUpdateTests : DeviceTest
     public async Task InProgressUpdate_ForInboundPayload_ReachesInboundProgress()
     {
         // Arrange — live connection with a pending inbound payload.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
@@ -20,10 +20,10 @@ public class TransferUpdateTests : DeviceTest
         connection.InboundProgress = new Progress<NearbyTransferProgress>(p => reported.TrySetResult(p));
 
         var payload = Payload.FromBytes([1, 2, 3]);
-        platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
+        platform.Android().OnPayloadReceived(endpointId, payload);
 
         // Act
-        await platform.AndroidAdapter.OnPayloadTransferUpdate(
+        await platform.Android().OnPayloadTransferUpdate(
             endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.InProgress, total: 3, transferred: 1));
 
         var update = await reported.Task.WaitAsync(cts.Token);
@@ -38,7 +38,7 @@ public class TransferUpdateTests : DeviceTest
     public async Task FilePayloadSuccess_CopiesFileAndRoutesFilePayload()
     {
         // Arrange — live connection and a real file behind a real Java file handle.
-        await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
+        await using var platform = Create.PlatformBridge(new NearbyOptions { ServiceId = "devtest" });
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
@@ -49,8 +49,8 @@ public class TransferUpdateTests : DeviceTest
         var payload = Payload.FromFile(javaFile);
 
         // Act — receipt then success, the order GMS delivers them; the platform owns the payload.
-        platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
-        await platform.AndroidAdapter.OnPayloadTransferUpdate(
+        platform.Android().OnPayloadReceived(endpointId, payload);
+        await platform.Android().OnPayloadTransferUpdate(
             endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
 
         var received = await Receive.FirstAsync(connection, cts.Token);
@@ -58,14 +58,14 @@ public class TransferUpdateTests : DeviceTest
         // Assert
         var filePayload = Assert.IsType<NearbyFilePayload>(received);
         Assert.Equal(expected, await File.ReadAllBytesAsync(filePayload.FileResult.FullPath, cts.Token));
-        Assert.StartsWith(PlatformNearby.StagingDirectory, filePayload.FileResult.FullPath, StringComparison.Ordinal);
+        Assert.StartsWith(platform.Android().StagingDirectory, filePayload.FileResult.FullPath, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task TwoFilesWithTheSameName_BothSurvive()
     {
         // Arrange — the collision the reservation exists for: one peer sends photo.bin twice.
-        await using var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
+        await using var platform = Create.PlatformBridge(new NearbyOptions { ServiceId = "devtest" });
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
@@ -80,8 +80,8 @@ public class TransferUpdateTests : DeviceTest
             using var javaFile = new Java.IO.File(sourcePath);
             var payload = Payload.FromFile(javaFile);
 
-            platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
-            await platform.AndroidAdapter.OnPayloadTransferUpdate(
+            platform.Android().OnPayloadReceived(endpointId, payload);
+            await platform.Android().OnPayloadTransferUpdate(
                 endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
         }
 
@@ -98,7 +98,7 @@ public class TransferUpdateTests : DeviceTest
     public async Task Dispose_RemovesAStagedFileNobodyMoved()
     {
         // Arrange — a delivered file the consumer never moved out of staging.
-        var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
+        var platform = Create.PlatformBridge(new NearbyOptions { ServiceId = "devtest" });
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var (connection, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
 
@@ -107,8 +107,8 @@ public class TransferUpdateTests : DeviceTest
         using var javaFile = new Java.IO.File(sourcePath);
         var payload = Payload.FromFile(javaFile);
 
-        platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
-        await platform.AndroidAdapter.OnPayloadTransferUpdate(
+        platform.Android().OnPayloadReceived(endpointId, payload);
+        await platform.Android().OnPayloadTransferUpdate(
             endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success, total: 3, transferred: 3));
 
         var received = await Receive.FirstAsync(connection, cts.Token);
@@ -132,13 +132,13 @@ public class TransferUpdateTests : DeviceTest
         // cancelled copy deletes its own partial file, and PlatformDispose clears its state either
         // way, so the directory ends up empty whether or not the sweep waited. What it does pin is
         // that disposing mid-copy stays clean — no orphan, no throw, no hang.
-        var platform = Create.PlatformNearby(new NearbyOptions { ServiceId = "devtest" });
+        var platform = Create.PlatformBridge(new NearbyOptions { ServiceId = "devtest" });
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var (_, endpointId, _) = await Create.ConnectedAsync(platform, "Alice", cts.Token);
         var payload = Create.FilePayload(new byte[4 * 1024 * 1024], $"drain-{Guid.NewGuid():N}.bin");
 
-        platform.AndroidAdapter.OnPayloadReceived(endpointId, payload);
-        var copy = platform.AndroidAdapter.OnPayloadTransferUpdate(
+        platform.Android().OnPayloadReceived(endpointId, payload);
+        var copy = platform.Android().OnPayloadTransferUpdate(
             endpointId, Create.TransferUpdate(payload.Id, PayloadTransferUpdate.Status.Success));
 
         // Act
@@ -146,8 +146,8 @@ public class TransferUpdateTests : DeviceTest
         await copy;
 
         // Assert
-        Assert.Empty(Directory.Exists(PlatformNearby.StagingDirectory)
-            ? Directory.GetFiles(PlatformNearby.StagingDirectory)
+        Assert.Empty(Directory.Exists(platform.Android().StagingDirectory)
+            ? Directory.GetFiles(platform.Android().StagingDirectory)
             : []);
     }
 }

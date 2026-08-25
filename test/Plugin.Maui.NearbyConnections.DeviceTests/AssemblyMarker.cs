@@ -1,4 +1,4 @@
-// The whole suite runs serially. `PlatformNearby.StagingDirectory` is static and process-wide, and
+// The whole suite runs serially. `PlatformBridge.StagingDirectory` is static and process-wide, and
 // every `DisposeAsync` sweeps it (`PlatformSweepStaging`) — so any test that disposes a platform can
 // delete a file another test staged. Nearly every test disposes one, via `await using var platform`,
 // which makes per-class opt-in the wrong shape: it is an allowlist that has already been missed
@@ -15,7 +15,7 @@ public sealed class AssemblyMarker;
 /// Marks the test classes that read or write the staging directory.
 /// </summary>
 /// <remarks>
-/// <c>PlatformNearby.StagingDirectory</c> is static and process-wide, and every disposal sweeps it
+/// <c>PlatformBridge.StagingDirectory</c> is static and process-wide, and every disposal sweeps it
 /// (<c>PlatformSweepStaging</c>), so a disposal in one class can delete another class's staged file
 /// mid-test. What prevents that is the assembly-level
 /// <see cref="CollectionBehaviorAttribute.DisableTestParallelization"/> at the top of this file, not

@@ -21,7 +21,7 @@ public class ResolveUniqueDestinationPathTests
             var dir = temp.Path;
 
             // Act
-            var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
+            var result = PlatformBridge.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
             // Assert
             Assert.Equal(Path.Combine(dir, "photo.jpg"), result);
@@ -42,7 +42,7 @@ public class ResolveUniqueDestinationPathTests
             temp.Touch("photo.jpg");
 
             // Act
-            var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
+            var result = PlatformBridge.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
             // Assert
             Assert.Equal(Path.Combine(dir, "photo (1).jpg"), result);
@@ -59,7 +59,7 @@ public class ResolveUniqueDestinationPathTests
             temp.Touch(Path.Combine(dir, "photo (2).jpg"));
 
             // Act
-            var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
+            var result = PlatformBridge.ResolveUniqueDestinationPath(dir, "photo.jpg");
 
             // Assert
             Assert.Equal(Path.Combine(dir, "photo (3).jpg"), result);
@@ -74,7 +74,7 @@ public class ResolveUniqueDestinationPathTests
             temp.Touch("README");
 
             // Act
-            var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "README");
+            var result = PlatformBridge.ResolveUniqueDestinationPath(dir, "README");
 
             // Assert
             Assert.Equal(Path.Combine(dir, "README (1)"), result);
@@ -92,7 +92,7 @@ public class ResolveUniqueDestinationPathTests
             temp.Touch("archive.tar.gz");
 
             // Act
-            var result = PlatformNearby.ResolveUniqueDestinationPath(dir, "archive.tar.gz");
+            var result = PlatformBridge.ResolveUniqueDestinationPath(dir, "archive.tar.gz");
 
             // Assert
             Assert.Equal(Path.Combine(dir, "archive.tar (1).gz"), result);
@@ -115,7 +115,7 @@ public class ResolveUniqueDestinationPathTests
             // call must pick a new name.
             for (var i = 0; i < TransferCount; i++)
             {
-                var next = PlatformNearby.ResolveUniqueDestinationPath(dir, "photo.jpg");
+                var next = PlatformBridge.ResolveUniqueDestinationPath(dir, "photo.jpg");
                 Assert.False(File.Exists(next), $"Iteration {i} returned an existing path: {next}");
                 temp.Touch(next);
             }

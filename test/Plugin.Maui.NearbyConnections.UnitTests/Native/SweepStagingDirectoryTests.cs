@@ -20,7 +20,7 @@ public class SweepStagingDirectoryTests
         {
             // Arrange
             using var temp = new TempDirectory();
-            var platform = Create.PlatformNearby();
+            var platform = Create.PlatformBridge();
             temp.Touch("photo.jpg");
             temp.Touch("clip.mp4");
 
@@ -42,7 +42,7 @@ public class SweepStagingDirectoryTests
 
             // Arrange
             using var temp = new TempDirectory();
-            var platform = Create.PlatformNearby();
+            var platform = Create.PlatformBridge();
             var missing = Path.Combine(temp.Path, "never-created");
 
             // Act
@@ -60,7 +60,7 @@ public class SweepStagingDirectoryTests
         {
             // Arrange
             using var temp = new TempDirectory();
-            var platform = Create.PlatformNearby();
+            var platform = Create.PlatformBridge();
             var locked = temp.Touch("locked.bin");
             temp.Touch("free.bin");
             using var hold = new FileStream(locked, FileMode.Open, FileAccess.Read, FileShare.None);

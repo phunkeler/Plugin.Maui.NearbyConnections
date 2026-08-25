@@ -21,11 +21,11 @@ public class AcceptTimeoutTests : DeviceTest
     public async Task AcceptedInvitation_WithNoTerminalCallback_TimesOutInsteadOfHanging()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby(Options(TimeSpan.FromSeconds(1)));
+        await using var platform = Create.PlatformBridge(Options(TimeSpan.FromSeconds(1)));
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        platform.IosAdapter.DidReceiveInvitationFromPeer(
+        platform.Ios().DidReceiveInvitationFromPeer(
             advertiser: null!,
             peerID: peerID,
             context: null,
@@ -44,11 +44,11 @@ public class AcceptTimeoutTests : DeviceTest
     public async Task AcceptTimeout_ClearsThePendingHandshakeEntry()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby(Options(TimeSpan.FromSeconds(1)));
+        await using var platform = Create.PlatformBridge(Options(TimeSpan.FromSeconds(1)));
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        platform.IosAdapter.DidReceiveInvitationFromPeer(
+        platform.Ios().DidReceiveInvitationFromPeer(
             advertiser: null!,
             peerID: peerID,
             context: null,
@@ -69,12 +69,12 @@ public class AcceptTimeoutTests : DeviceTest
     {
         // Arrange — MPC holds the invitation open until its handler is resolved. The timeout path
         // must release it, or the remote side is left waiting on a dead offer.
-        await using var platform = Create.PlatformNearby(Options(TimeSpan.FromSeconds(1)));
+        await using var platform = Create.PlatformBridge(Options(TimeSpan.FromSeconds(1)));
         using var peerID = Create.PeerId("Alice");
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var accepted = new List<bool>();
 
-        platform.IosAdapter.DidReceiveInvitationFromPeer(
+        platform.Ios().DidReceiveInvitationFromPeer(
             advertiser: null!,
             peerID: peerID,
             context: null,

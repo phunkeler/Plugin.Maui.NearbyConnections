@@ -13,7 +13,7 @@ public class AbandonConnectTests : DeviceTest
     public async Task CancelledHandshake_AbandonsThePlatformConnection()
     {
         // Arrange — a pending initiator handshake the platform tracks in PeerLookup.
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource();
         var (tcs, deviceId) = Create.PendingHandshake(platform);
         Assert.True(platform.PeerLookup.TryGetDevice(deviceId, out var device));

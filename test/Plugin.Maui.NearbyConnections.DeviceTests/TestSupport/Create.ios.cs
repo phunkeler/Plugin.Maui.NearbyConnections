@@ -8,12 +8,13 @@ partial class Create
     /// </summary>
     /// <param name="options">Options to wire the platform with, or <see langword="null"/> for the suite defaults.</param>
     /// <returns>The platform under test.</returns>
-    internal PlatformNearby PlatformNearby(NearbyOptions? options = null)
+    internal PlatformBridge PlatformBridge(NearbyOptions? options = null)
         => new(
             TimeProvider.System,
             options ?? DefaultOptions(),
             Logger,
-            PeerLookup());
+            PeerLookup(),
+            static bridge => new IosAdapter(bridge));
 
     /// <summary>A local <c>MCPeerID</c> standing in for a remote peer in a callback's arguments.</summary>
     /// <param name="displayName">The peer's display name, as MPC reports it.</param>
@@ -37,7 +38,7 @@ partial class Create
     /// <param name="platform">The platform to observe.</param>
     /// <param name="cancellationToken">Token to cancel the wait.</param>
     internal static async Task WaitForPendingHandshakeAsync(
-        PlatformNearby platform, CancellationToken cancellationToken)
+        PlatformBridge platform, CancellationToken cancellationToken)
     {
         while (platform._connectionTcs.IsEmpty)
         {
@@ -54,7 +55,7 @@ partial class Create
     /// <param name="peerID">The remote peer the handshake is keyed by.</param>
     /// <returns>The source the platform will resolve or fault, and the peer key it is stored under.</returns>
     internal static (TaskCompletionSource<NearbyConnection> Tcs, string Id) PendingHandshake(
-        PlatformNearby platform, MCPeerID peerID)
+        PlatformBridge platform, MCPeerID peerID)
     {
         var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
         var id = platform.PeerLookup.DeviceIdFor(peerID);
@@ -73,7 +74,7 @@ partial class Create
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <returns>The connection, and the platform-side peer id it is keyed by.</returns>
     internal static async Task<(NearbyConnection Connection, string Id)> ConnectedAsync(
-        PlatformNearby platform,
+        PlatformBridge platform,
         MCPeerID peerID,
         CancellationToken cancellationToken)
     {
@@ -81,7 +82,7 @@ partial class Create
         var id = platform.PeerLookup.DeviceIdFor(peerID);
 
         platform._connectionTcs[id] = (tcs, CancellationToken.None);
-        platform.IosAdapter.OnPeerStateChanged(peerID, MCSessionState.Connected);
+        platform.Ios().OnPeerStateChanged(peerID, MCSessionState.Connected);
 
         return (await tcs.Task.WaitAsync(cancellationToken), id);
     }

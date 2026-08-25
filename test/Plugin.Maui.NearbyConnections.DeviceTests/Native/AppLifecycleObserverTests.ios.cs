@@ -21,7 +21,7 @@ public class AppLifecycleObserverTests : DeviceTest
     public async Task BackgroundNotification_DeliveredToLiveObserver_NoThrow()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         var session = new Nearby(platform, new NearbyOptions { ServiceId = "devtest" }, NullLogger.Instance);
         var observer = new AppLifecycleObserver(session, NullLogger.Instance);
 
@@ -47,7 +47,7 @@ public class AppLifecycleObserverTests : DeviceTest
     public async Task Dispose_IsIdempotentAndUnregisters()
     {
         // Arrange
-        await using var platform = Create.PlatformNearby();
+        await using var platform = Create.PlatformBridge();
         var session = new Nearby(platform, new NearbyOptions { ServiceId = "devtest" }, NullLogger.Instance);
         var observer = new AppLifecycleObserver(session, NullLogger.Instance);
 

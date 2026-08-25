@@ -10,7 +10,7 @@ public sealed class HandshakeTimeoutTests
     {
         // Arrange
         var time = new FakeTimeProvider();
-        var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = TimeSpan.FromSeconds(5) });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = TimeSpan.FromSeconds(5) });
 
         // Assert
         await Assert.ThrowsAsync<PlatformNotSupportedException>(
@@ -22,7 +22,7 @@ public sealed class HandshakeTimeoutTests
     {
         // Arrange
         var time = new FakeTimeProvider();
-        var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service" });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service" });
         var device = Create.Device("peer-1", "Alice");
 
         // Act
@@ -37,7 +37,7 @@ public sealed class HandshakeTimeoutTests
     {
         // Arrange
         var time = new FakeTimeProvider();
-        var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service" });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service" });
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
@@ -59,7 +59,7 @@ public sealed class HandshakeTimeoutTests
         var time = new FakeTimeProvider();
         var connect = TimeSpan.FromSeconds(30);
         var accept = TimeSpan.FromSeconds(5);
-        var platform = Create.PlatformNearby(time, new NearbyOptions
+        var platform = Create.PlatformBridge(time, new NearbyOptions
         {
             ServiceId = "test-service",
             ConnectTimeout = connect,
@@ -96,7 +96,7 @@ public sealed class HandshakeTimeoutTests
         var time = new FakeTimeProvider();
         var connect = TimeSpan.FromSeconds(30);
         var accept = TimeSpan.FromSeconds(5);
-        var platform = Create.PlatformNearby(time, new NearbyOptions
+        var platform = Create.PlatformBridge(time, new NearbyOptions
         {
             ServiceId = "test-service",
             ConnectTimeout = connect,
@@ -125,7 +125,7 @@ public sealed class HandshakeTimeoutTests
         // Arrange
         var time = new FakeTimeProvider();
         var accept = TimeSpan.FromSeconds(5);
-        var platform = Create.PlatformNearby(time, new NearbyOptions
+        var platform = Create.PlatformBridge(time, new NearbyOptions
         {
             ServiceId = "test-service",
             ConnectTimeout = TimeSpan.FromSeconds(30),
@@ -156,7 +156,7 @@ public sealed class HandshakeTimeoutTests
         // Arrange — DisposeAsync settles a pending handshake by cancelling its TCS. That is neither
         // the caller's token nor the deadline, and it must not be reported as an elapsed deadline.
         var time = new FakeTimeProvider();
-        var platform = Create.PlatformNearby(time, new NearbyOptions
+        var platform = Create.PlatformBridge(time, new NearbyOptions
         {
             ServiceId = "test-service",
             ConnectTimeout = TimeSpan.FromSeconds(30),
@@ -190,7 +190,7 @@ public sealed class HandshakeTimeoutTests
         // Arrange
         var time = new FakeTimeProvider();
         var timeout = TimeSpan.FromSeconds(5);
-        var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = timeout });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = timeout });
         var device = Create.Device("peer-1", "Alice");
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
 
@@ -214,7 +214,7 @@ public sealed class HandshakeTimeoutTests
         // Arrange
         var time = new FakeTimeProvider();
         var timeout = TimeSpan.FromSeconds(5);
-        var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = timeout });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = timeout });
         var device = Create.Device("peer-1", "Alice");
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
 
@@ -238,7 +238,7 @@ public sealed class HandshakeTimeoutTests
     {
         // Arrange
         var time = new FakeTimeProvider();
-        var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = TimeSpan.FromSeconds(5) });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = TimeSpan.FromSeconds(5) });
         var device = Create.Device("peer-1", "Alice");
         var expected = Create.Connection(device);
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
@@ -262,7 +262,7 @@ public sealed class HandshakeTimeoutTests
     {
         // Arrange
         var time = new FakeTimeProvider();
-        var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = Timeout.InfiniteTimeSpan });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = Timeout.InfiniteTimeSpan });
         var device = Create.Device("peer-1", "Alice");
         var expected = Create.Connection(device);
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
@@ -287,7 +287,7 @@ public sealed class HandshakeTimeoutTests
     {
         // Arrange
         var time = new FakeTimeProvider();
-        var platform = Create.PlatformNearby(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = TimeSpan.FromSeconds(5) });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = TimeSpan.FromSeconds(5) });
         var device = Create.Device("peer-1", "Alice");
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
         using var cts = new CancellationTokenSource();
