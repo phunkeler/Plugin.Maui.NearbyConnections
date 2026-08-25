@@ -77,6 +77,8 @@ These IDs are worth wiring an alert to:
 | `2094` | `Warning` | Releasing one connection stopped waiting for that peer's queued work, so an inbound copy may fail when the payload handles are freed. Same expectation as `2093`. |
 | `1013` | `Warning` | An expired inbound request could not be rejected. The device returns to `Visible` either way, but the platform may still hold the request open. |
 | `1014` | `Error` | The expiry countdown for an inbound request failed. That request can stay outstanding until the session stops, so a stale row is the symptom. |
+| `1023` | `Warning` | Stopping the session gave up waiting for its own background tasks (auto-accept, disconnect watchers). A straggler may still run, and its state writes can land after the registry clear. Routine stops join well under the bound. |
+| `1024` | `Error` | A session-owned task failed without handling its own error. The session continues; the task's work did not finish. |
 
 One ID you will see routinely rather than alert on: `1012` (`Debug`) records an inbound request
 lapsing because the application did not answer it within

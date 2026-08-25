@@ -114,7 +114,7 @@ sealed partial class NearbyImplementation
 
         if (_options.AutoAcceptConnectionRequests)
         {
-            _ = AutoAcceptAsync(request, device);
+            _tasks.Add(AutoAcceptAsync(request, device, _stopCts.Token));
             return;
         }
 
@@ -159,14 +159,14 @@ sealed partial class NearbyImplementation
         }
     }
 
-    async Task AutoAcceptAsync(NearbyConnectionRequest request, NearbyDevice device)
+    async Task AutoAcceptAsync(NearbyConnectionRequest request, NearbyDevice device, CancellationToken stopToken)
     {
         _registry.AddIfAbsent(device);
         Transition(device, NearbyDeviceStatus.Connecting, ConnectionRole.Acceptor);
 
         try
         {
-            var connection = await request.AcceptAsync(_disposing.Token).ConfigureAwait(false);
+            var connection = await request.AcceptAsync(stopToken).ConfigureAwait(false);
             OnConnected(device, connection, ConnectionRole.Acceptor);
         }
         catch (Exception ex)
@@ -182,7 +182,7 @@ sealed partial class NearbyImplementation
     {
         _registry.AddIfAbsent(device);
         Transition(device, NearbyDeviceStatus.Connected, role);
-        _ = WatchDisconnectAsync(device, connection);
+        _tasks.Add(WatchDisconnectAsync(device, connection));
     }
 
     async Task WatchDisconnectAsync(NearbyDevice device, NearbyConnection connection)
@@ -213,6 +213,22 @@ sealed partial class NearbyImplementation
 
     void ResetToVisible(NearbyDevice device)
         => Transition(device, NearbyDeviceStatus.Visible, role: null);
+
+    /// <summary>
+    /// Re-arms the session stop token after a stop. Runs under the state gate in the start
+    /// operations, so a new session's tasks never observe the previous session's cancellation.
+    /// </summary>
+    void EnsureStopTokenArmed()
+    {
+        if (!_stopCts.IsCancellationRequested)
+        {
+            return;
+        }
+
+        var spent = _stopCts;
+        _stopCts = new CancellationTokenSource();
+        spent.Dispose();
+    }
 
     /// <summary>
     /// One gated discovery restart, run by <see cref="DiscoveryRefresher"/> each interval. Returns

@@ -2,6 +2,13 @@ namespace Plugin.Maui.NearbyConnections;
 
 sealed partial class NearbyImplementation : INearby, IAsyncDisposable
 {
+    /// <summary>
+    /// Bounds the teardown join on session-owned tasks. A constant rather than a
+    /// <see cref="NearbyOptions"/> value: cancellation runs first, so the bound is the backstop,
+    /// not the plan, and no consumer scenario wants a different value.
+    /// </summary>
+    static readonly TimeSpan s_sessionTaskJoinBound = TimeSpan.FromSeconds(5);
+
     readonly PumpState _advertise;
     readonly PumpState _discover;
     readonly CancellationTokenSource _disposing = new();
@@ -22,6 +29,11 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     readonly ChangeBroadcast<bool> _advertisingChanges = new();
     readonly ChangeBroadcast<bool> _discoveryChanges = new();
     readonly DiscoveryRefresher _refresher;
+    readonly SessionTaskSet _tasks;
+
+    // The session stop token: StopAsync cancels it (DisposeAsync stops through StopAsync), so no
+    // session-owned task survives a stop into the next session. Re-armed by the next start.
+    CancellationTokenSource _stopCts = new();
 
     int _disposeGuard;
 
@@ -40,6 +52,7 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         _logger = logger;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _requests = new RequestRegistry(options, _timeProvider, RunRequestExpiryAsync);
+        _tasks = new SessionTaskSet(_timeProvider, onError: ex => LogSessionTaskFailed(ex));
         _refresher = new DiscoveryRefresher(
             options.DiscoveryRefreshInterval,
             _timeProvider,
@@ -136,6 +149,8 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         {
             if (!IsAdvertising)
             {
+                EnsureStopTokenArmed();
+
                 var started = StartPump(_advertise);
 
                 try
@@ -182,6 +197,8 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
         {
             if (!IsDiscovering)
             {
+                EnsureStopTokenArmed();
+
                 var started = StartPump(_discover);
 
                 try
@@ -229,7 +246,12 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
     /// <inheritdoc/>
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
+        // The teardown order is the guarantee (section 4, decided item 4): cancel the session
+        // stop token, stop the pumps under the gate, dispose connections, reject pending
+        // requests, join the task set outside the gate, then clear the registry — so a joined
+        // straggler's last transition lands before the clear instead of resurrecting a row.
         await _refresher.CancelAsync().ConfigureAwait(false);
+        await _stopCts.CancelAsync().ConfigureAwait(false);
 
         await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -268,7 +290,23 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
                     LogStopRejectError(request.RemoteDevice.Id, ex);
                 }
             }
+        }
+        finally
+        {
+            _stateGate.Release();
+        }
 
+        // Outside the gate: a joined task may need facade state. Cancellation already ran, so
+        // the bound is the backstop, not the plan.
+        if (!await _tasks.JoinAsync(s_sessionTaskJoinBound).ConfigureAwait(false))
+        {
+            LogSessionTaskJoinTimedOut(s_sessionTaskJoinBound.TotalSeconds);
+        }
+
+        await _stateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
             _registry.Clear();
         }
         finally
@@ -404,8 +442,16 @@ sealed partial class NearbyImplementation : INearby, IAsyncDisposable
             LogDisposeError(ex);
         }
 
+        // Defensive second join: instant when StopAsync already emptied the set, and the only
+        // join at all when StopAsync failed part-way (contract C6 — disposal joins too).
+        if (!await _tasks.JoinAsync(s_sessionTaskJoinBound).ConfigureAwait(false))
+        {
+            LogSessionTaskJoinTimedOut(s_sessionTaskJoinBound.TotalSeconds);
+        }
+
         await _connections.DisposeAsync().ConfigureAwait(false);
         _stateGate.Dispose();
+        _stopCts.Dispose();
         _disposing.Dispose();
     }
 }

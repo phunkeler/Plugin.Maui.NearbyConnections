@@ -598,6 +598,31 @@ public class NearbyImplementationTests
         }
 
         [Fact]
+        public async Task StopAsync_CancelsAPendingAutoAccept_SoItCannotWriteIntoTheNextSession()
+        {
+            // Stop promises a return to the initial state. An auto-accept that survived a stop
+            // could resolve later and resurrect a registry row (section 3, decided item 1).
+
+            // Arrange
+            var connections = new FakeNearby();
+            var options = new NearbyOptions { AutoAcceptConnectionRequests = true };
+            var session = Create.Session(connections, options);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
+            var device = new NearbyDevice("peer-1", "Alice");
+            var accept = connections.CaptureNextAcceptToken();
+            await connections.EmitRequestThatOnlyCancellationEndsAsync(device);
+
+            // Act — stop, then try to complete the old accept as a straggler would.
+            await session.StopAsync(TestContext.Current.CancellationToken);
+            var resurrected = accept.TrySetResult(Create.Connection(device));
+            await Task.Yield();
+
+            // Assert — the stop token already settled the accept, so the straggler cannot land.
+            Assert.False(resurrected);
+            Assert.Empty(session.Devices);
+        }
+
+        [Fact]
         public async Task UnansweredRequest_WhenTimeoutElapses_RejectsAndReturnsDeviceToVisible()
         {
             // Arrange

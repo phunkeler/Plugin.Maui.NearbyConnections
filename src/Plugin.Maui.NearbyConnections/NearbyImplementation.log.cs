@@ -92,4 +92,10 @@ sealed partial class NearbyImplementation
 
     [LoggerMessage(EventId = 1022, Level = LogLevel.Error, Message = "Failed to stop the session cleanly during disposal.")]
     partial void LogDisposeError(Exception exception);
+
+    [LoggerMessage(EventId = 1023, Level = LogLevel.Warning, Message = "Session tasks did not finish within {Seconds}s of stopping. A straggler may still run; its state writes can land after the registry clear.")]
+    partial void LogSessionTaskJoinTimedOut(double seconds);
+
+    [LoggerMessage(EventId = 1024, Level = LogLevel.Error, Message = "A session-owned task failed without handling its own error.")]
+    partial void LogSessionTaskFailed(Exception exception);
 }

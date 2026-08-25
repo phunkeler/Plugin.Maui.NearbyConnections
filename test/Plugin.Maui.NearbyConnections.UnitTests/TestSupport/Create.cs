@@ -82,6 +82,16 @@ static class Create
             reject: _ => Task.CompletedTask);
 
     /// <summary>
+    /// The session task set on a fake clock, so a join's bound can be driven directly.
+    /// </summary>
+    /// <param name="time">The clock the join bound runs on.</param>
+    /// <param name="onError">Receives a member task's unobserved failure.</param>
+    public static SessionTaskSet TaskSet(
+        FakeTimeProvider time,
+        Action<Exception>? onError = null)
+        => new(time, onError ?? (static _ => { }));
+
+    /// <summary>
     /// The discovery refresher on a fake clock, over a real registry.
     /// </summary>
     /// <param name="time">The clock the interval and settle window run on.</param>
