@@ -127,4 +127,84 @@ public class ControlMessageTests
             Assert.Equal(default, type);
         }
     }
+
+    public sealed class StreamNameFrame : ControlMessageTests
+    {
+        [Fact]
+        public void RoundTrips_PayloadIdAndName()
+        {
+            // Arrange
+            var frame = ControlMessage.EncodeStreamName(payloadId: 42, "vitals.live");
+
+            // Act
+            var recognized = ControlMessage.TryDecode(frame, out var type);
+            var decoded = ControlMessage.TryDecodeStreamName(frame, out var payloadId, out var name);
+
+            // Assert
+            Assert.True(recognized);
+            Assert.Equal(ControlMessageType.StreamName, type);
+            Assert.True(decoded);
+            Assert.Equal(42, payloadId);
+            Assert.Equal("vitals.live", name);
+        }
+
+        [Fact]
+        public void RoundTrips_NonAsciiName()
+        {
+            // Arrange
+            var frame = ControlMessage.EncodeStreamName(payloadId: 7, "café-Δ");
+
+            // Act
+            ControlMessage.TryDecodeStreamName(frame, out _, out var name);
+
+            // Assert
+            Assert.Equal("café-Δ", name);
+        }
+
+        [Fact]
+        public void Encode_RejectsANameOverTheWireLimit()
+        {
+            // Arrange
+            var oversized = new string('x', ControlMessage.MaxStreamNameBytes + 1);
+
+            // Act
+            void Act() => ControlMessage.EncodeStreamName(payloadId: 1, oversized);
+
+            // Assert
+            Assert.Throws<ArgumentException>(Act);
+        }
+
+        [Fact]
+        public void TryDecodeStreamName_FailsSoftOnATruncatedBody()
+        {
+            // Arrange
+            var frame = ControlMessage.EncodeStreamName(payloadId: 42, "vitals.live");
+            var truncated = frame.AsSpan(0, frame.Length - 3);
+
+            // Act
+            var decoded = ControlMessage.TryDecodeStreamName(truncated, out _, out var name);
+
+            // Assert
+            Assert.False(decoded);
+            Assert.Null(name);
+        }
+
+        [Fact]
+        public void DisconnectFrame_KeepsItsFiveByteLayout()
+        {
+            // The header is the cross-version wire contract: the Disconnect frame an older peer
+            // sends must keep decoding, and its layout must never grow.
+
+            // Arrange
+            var frame = ControlMessage.Encode(ControlMessageType.Disconnect);
+
+            // Act
+            var recognized = ControlMessage.TryDecode(frame, out var type);
+
+            // Assert
+            Assert.Equal(5, frame.Length);
+            Assert.True(recognized);
+            Assert.Equal(ControlMessageType.Disconnect, type);
+        }
+    }
 }
