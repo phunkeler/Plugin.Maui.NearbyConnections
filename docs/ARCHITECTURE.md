@@ -996,7 +996,7 @@ The bridge owns the table, the facade queries it (D6, re-assessment fix 4). The 
 `ReleaseConnectionAsync`, before disposal returns, which closes the stale-`TryGetConnection`
 window. The disconnect watcher keeps only its registry transition.
 
-### M3 — Session components
+### M3 — Session components — done (2026-08-25, commits `a86c067`, `ee2da87`, `ff083ee`, `b7425fb`)
 
 The facade sheds everything that is not its one reason to change. *(Re-assessment fix 5 plus
 section 3's decided item.)*
