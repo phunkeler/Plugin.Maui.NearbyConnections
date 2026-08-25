@@ -1093,7 +1093,7 @@ stage, or held open on purpose. This table is their durable record.
 | D5 | Adopt the adapter seam? | **Settled** — section 4, decided item 1. Lands in M5. |
 | D6 | Which side owns the connection table? | **Settled** — section 4's C5 table: the bridge. Lands in M2. |
 | D7 | Snapshot the options at registration? | **Settled** — section 4's C5 table. Lands in M1. |
-| D8 | Migrate the unit suite to xUnit v3? | **Settled** (2026-08-25) — migrate to the latest xUnit v3 and adopt NSubstitute, before M1 starts, because every stage adds tests. The hand-written stream-timing doubles (`FakeNearby`, `FaultingDevices`) stay — no mocking library expresses stream timing. NSubstitute covers the simpler seams. |
+| D8 | Migrate the unit suite to xUnit v3? | **Done** (2026-08-25, commit `24ce6d8`) — migrated to xUnit v3 3.2.2 with NSubstitute 5.3.0, before M1, because every stage adds tests. The suite kept its 339-test count. The hand-written stream-timing doubles (`FakeNearby`, `FaultingDevices`) stay — no mocking library expresses stream timing. NSubstitute replaced `StubNearby`; `RecordingProgress` stays hand-written (its doc comment says why). |
 | D9 | Where does the work list live? | **Settled** — here. The floating review documents stay through implementation and are deleted in the post-gate trim. |
 | D10 | The `net10.0` stub's meaning | **Settled** — subsumed by D5: the scripted adapter closes the test gap, the shipping stub keeps throwing. Lands in M5. |
 | D11 | `StartFailureGraceWindow` | **Open, untouched** — stays an open question in `DESIGN-PRINCIPLES.md`. Nothing in this design moves it. |
