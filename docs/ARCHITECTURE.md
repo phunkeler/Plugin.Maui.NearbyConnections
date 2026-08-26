@@ -1049,7 +1049,7 @@ section 4). The internal sub-sequence, each step green on all three TFMs:
 `PeerLookup` keeps its name and its partial split. After this stage, the
 MultipeerConnectivity exit is one new adapter against a compiler-checked contract.
 
-### M6 — Stream payloads — done (2026-08-25, commits `7fbfb1a`, `PENDING`)
+### M6 — Stream payloads — done (2026-08-25, commits `7fbfb1a`, `ff1b000`)
 
 Story S8. `OpenStreamAsync(name)` on the connection and on `IPlatformConnection`,
 `NearbyStreamPayload` through `ReceiveAsync`, the name carried in-band on Android and
