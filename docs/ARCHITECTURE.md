@@ -1049,7 +1049,7 @@ section 4). The internal sub-sequence, each step green on all three TFMs:
 `PeerLookup` keeps its name and its partial split. After this stage, the
 MultipeerConnectivity exit is one new adapter against a compiler-checked contract.
 
-### M6 — Stream payloads
+### M6 — Stream payloads — done (2026-08-25, commits `7fbfb1a`, `PENDING`)
 
 Story S8. `OpenStreamAsync(name)` on the connection and on `IPlatformConnection`,
 `NearbyStreamPayload` through `ReceiveAsync`, the name carried in-band on Android and
@@ -1063,6 +1063,36 @@ anything. Two decisions settled 2026-08-25:
   library bounds only teardown's drain — `TransferInactivityTimeout` does not apply to S8
   streams. Richer stream lifecycle handling is deliberately deferred and revisited after M6
   ships.
+
+Three defects were found while building this stage, all on the Android side, and all fixed here:
+
+- **The two halves could both park and never deliver.** The name frame and the stream payload
+  enter through different callbacks — `OnPayloadReceived` for the stream,
+  `OnPayloadTransferUpdate` for the completed frame — and nothing serialises them. With one
+  concurrent map per half, both halves could miss each other and park. One lock now covers both
+  maps, so each half tests for its partner and parks itself as one atomic step. **This one has no
+  automated test**, and the reason is recorded on `StreamPayloadTests.android.cs`: the device
+  suite drives callbacks sequentially and runs serially, and forcing concurrency there wedged the
+  runner app instead of failing a test, while the unit suite targets `net10.0`, where
+  `AndroidAdapter` does not exist. The invariant rests on the lock and its comment.
+- **The decoded stream name was unsanitized peer input.** A name is attacker-chosen and reaches
+  log sinks and consumer UI, exactly like a display name. `PeerLookup.Sanitize` grew a byte-cap
+  parameter (defaulting to the display-name cap, so no existing call site changed) and both
+  platforms now route their stream name through it.
+- **A raw GMS stream claimed to be seekable and threw on `Position`.** `CopyToAsync` reads
+  `Position` through `GetCopyBufferSize`, so the most ordinary use of the delivered stream threw
+  `java.io.IOException: Illegal seek` — on Android only, which is precisely the divergence this
+  library exists to absorb. `NonSeekableStream` now wraps both directions, matching the shape iOS
+  already had through `NsInputStreamAdapter`. The device test caught it.
+
+**The Android device leg is unverified for this stage.** The emulator on the development host
+degraded run over run and never reached the stream tests: across six runs the app stopped
+reporting after 26, then 15, 9, 4, and 8 tests, each time on a test that predates M6. The saved
+logcat shows no fatal signal — the app is alive with its UI thread stalled — and cold-booting and
+wiping did not help, so this is an environment failure, not a code failure. The `Illegal seek`
+defect above was caught by that leg before it degraded, and its fix is therefore untested. iOS ran
+40/40 including its stream test. **Run the Android leg on healthy hardware or in CI before the 1.0
+gate**, and confirm `StreamPayloadTests.android.cs` passes both orders.
 
 ### The 1.0 gate
 

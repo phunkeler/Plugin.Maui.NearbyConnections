@@ -23,7 +23,7 @@ sealed partial class PlatformBridge : IPlatformNearby
     readonly KeyedSerialQueue _workQueue;
 
     internal readonly ConcurrentDictionary<string, (TaskCompletionSource<NearbyConnection> Tcs, CancellationToken Ct)> _connectionTcs;
-    internal readonly ConcurrentDictionary<string, NearbyConnection> _activeConnections;
+    internal readonly ConcurrentDictionary<string, ConnectionPair> _activeConnections;
 
     int _disposed;
 
@@ -78,7 +78,7 @@ sealed partial class PlatformBridge : IPlatformNearby
         _advertiseChannel = NewChannel<NearbyConnectionRequest>();
         _discoverChannel = NewChannel<NearbyDeviceEvent>();
         _connectionTcs = new ConcurrentDictionary<string, (TaskCompletionSource<NearbyConnection> Tcs, CancellationToken Ct)>(StringComparer.Ordinal);
-        _activeConnections = new ConcurrentDictionary<string, NearbyConnection>(StringComparer.Ordinal);
+        _activeConnections = new ConcurrentDictionary<string, ConnectionPair>(StringComparer.Ordinal);
         _workQueue = new KeyedSerialQueue(
             (key, ex) => LogCallbackError(nameof(KeyedSerialQueue), key, ex));
 
@@ -134,11 +134,19 @@ sealed partial class PlatformBridge : IPlatformNearby
     public bool TryGetConnection(string deviceId, [NotNullWhen(true)] out NearbyConnection? connection)
     {
         ArgumentNullException.ThrowIfNull(deviceId);
-        return _activeConnections.TryGetValue(deviceId, out connection);
+
+        if (_activeConnections.TryGetValue(deviceId, out var pair))
+        {
+            connection = pair.Connection;
+            return true;
+        }
+
+        connection = null;
+        return false;
     }
 
     /// <inheritdoc/>
-    public NearbyConnection[] SnapshotConnections() => [.. _activeConnections.Values];
+    public NearbyConnection[] SnapshotConnections() => [.. _activeConnections.Values.Select(static pair => pair.Connection)];
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
@@ -161,20 +169,20 @@ sealed partial class PlatformBridge : IPlatformNearby
 
         _connectionTcs.Clear();
 
-        var connections = _activeConnections.Values.ToArray();
+        var pairs = _activeConnections.Values.ToArray();
         _activeConnections.Clear();
         _unobservedWarned.Clear();
 
-        foreach (var connection in connections)
+        foreach (var pair in pairs)
         {
             try
             {
-                connection.DisposeReason = NearbyEndReason.SessionStopped;
-                await connection.DisposeAsync().ConfigureAwait(false);
+                pair.Connection.DisposeReason = NearbyEndReason.SessionStopped;
+                await pair.Connection.DisposeAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                LogDisposeConnectionError(connection.RemoteDevice.Id, ex);
+                LogDisposeConnectionError(pair.Connection.RemoteDevice.Id, ex);
             }
         }
 
@@ -542,33 +550,28 @@ sealed partial class PlatformBridge : IPlatformNearby
 
     /// <summary>
     /// The shared connection assembly, written once: builds the receive channel, wires the
-    /// adapter's platform half into a <see cref="NearbyConnection"/>, and resolves the pending
-    /// handshake. Both platforms' terminal success callbacks route through this.
+    /// adapter's per-link <see cref="IPlatformConnection"/> into a <see cref="NearbyConnection"/>,
+    /// and resolves the pending handshake. Both platforms' terminal success callbacks route
+    /// through this.
     /// </summary>
     /// <param name="device">The connected remote device.</param>
-    /// <param name="sendBytes">The adapter's byte-send for this link.</param>
-    /// <param name="sendFile">The adapter's file-send for this link.</param>
-    /// <param name="dispose">The adapter's disconnect-and-release for this link.</param>
-    internal void CompleteHandshake(
-        NearbyDevice device,
-        Func<byte[], CancellationToken, Task> sendBytes,
-        Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> sendFile,
-        Func<ValueTask> dispose)
+    /// <param name="platform">The adapter-produced platform half of the link.</param>
+    internal void CompleteHandshake(NearbyDevice device, IPlatformConnection platform)
     {
         var receiveChannel = NewChannel<NearbyPayload>(singleReader: true);
 
-        var connection = new NearbyConnection(device, receiveChannel, sendBytes, sendFile, dispose);
+        var connection = new NearbyConnection(device, receiveChannel, platform);
 
-        ResolveConnectionTcs(device.Id, connection);
+        ResolveConnectionTcs(device.Id, connection, platform);
     }
 
-    internal void ResolveConnectionTcs(string deviceId, NearbyConnection connection)
+    internal void ResolveConnectionTcs(string deviceId, NearbyConnection connection, IPlatformConnection platform)
     {
         try
         {
             if (_connectionTcs.TryRemove(deviceId, out var entry))
             {
-                _activeConnections[deviceId] = connection;
+                _activeConnections[deviceId] = new ConnectionPair(connection, platform);
                 entry.Tcs.TrySetResult(connection);
             }
         }
@@ -626,9 +629,9 @@ sealed partial class PlatformBridge : IPlatformNearby
     /// </remarks>
     internal async ValueTask ReleaseConnectionAsync(string deviceId)
     {
-        if (_activeConnections.TryRemove(deviceId, out var connection))
+        if (_activeConnections.TryRemove(deviceId, out var pair))
         {
-            connection.CompleteReceive();
+            pair.Connection.CompleteReceive();
         }
 
         _unobservedWarned.TryRemove(deviceId, out _);
@@ -645,18 +648,18 @@ sealed partial class PlatformBridge : IPlatformNearby
     {
         try
         {
-            if (!_activeConnections.TryGetValue(deviceId, out var connection))
+            if (!_activeConnections.TryGetValue(deviceId, out var pair))
             {
                 LogWritePayloadNoConnection(deviceId);
                 return;
             }
 
-            if (!connection.IsBeingConsumed && _unobservedWarned.TryAdd(deviceId, 0))
+            if (!pair.Connection.IsBeingConsumed && _unobservedWarned.TryAdd(deviceId, 0))
             {
                 LogPayloadArrivedUnobserved(deviceId);
             }
 
-            connection.TryWritePayload(payload);
+            pair.Connection.TryWritePayload(payload);
         }
         catch (Exception ex)
         {

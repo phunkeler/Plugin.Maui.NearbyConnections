@@ -98,7 +98,7 @@ public class PlatformBridgeTests
             var connection = Create.Connection(device: device);
 
             // Act — simulate platform callback resolving the TCS
-            platform.ResolveConnectionTcs("peer-1", connection);
+            platform.ResolveConnectionTcs("peer-1", connection, new StubPlatformConnection());
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             var result = await tcs.Task.WaitAsync(cts.Token);
@@ -120,7 +120,7 @@ public class PlatformBridgeTests
             var connection = Create.Connection(device: device);
 
             // Act
-            platform.ResolveConnectionTcs("peer-1", connection);
+            platform.ResolveConnectionTcs("peer-1", connection, new StubPlatformConnection());
             await tcs.Task; // wait for resolution
 
             // Assert — connection is now tracked in _activeConnections
@@ -143,7 +143,7 @@ public class PlatformBridgeTests
             var connection = Create.Connection(device: device);
 
             // Act
-            platform.ResolveConnectionTcs("peer-1", connection);
+            platform.ResolveConnectionTcs("peer-1", connection, new StubPlatformConnection());
             await tcs.Task;
 
             // Assert
@@ -184,7 +184,7 @@ public class PlatformBridgeTests
             var connection = Create.Connection(device: device);
 
             // Act
-            platform.ResolveConnectionTcs("peer-1", connection);
+            platform.ResolveConnectionTcs("peer-1", connection, new StubPlatformConnection());
 
             // Assert - no TCS was registered, so the resolution is dropped and the connection
             // is never tracked as active; nothing throws.
@@ -268,7 +268,7 @@ public class PlatformBridgeTests
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
             var connection = Create.Connection(device: device, receiveChannel: receiveChannel);
 
-            platform.ResolveConnectionTcs("peer-1", connection);
+            platform.ResolveConnectionTcs("peer-1", connection, new StubPlatformConnection());
             await tcs.Task;
 
             var payload = new NearbyBytesPayload([1, 2, 3]);

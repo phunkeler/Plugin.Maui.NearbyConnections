@@ -35,9 +35,7 @@ static class Create
             device ?? Device(),
             receiveChannel ?? Channel.CreateUnbounded<NearbyPayload>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = false }),
-            sendBytes: sendBytes ?? ((_, _) => Task.CompletedTask),
-            sendFile: sendFile ?? ((_, _, _) => Task.CompletedTask),
-            dispose: dispose ?? (() => ValueTask.CompletedTask));
+            new StubPlatformConnection(sendBytes, sendFile, dispose));
 
     /// <summary>
     /// The session under test, over a <see cref="FakeNearby"/> platform. Takes no dispatcher: every

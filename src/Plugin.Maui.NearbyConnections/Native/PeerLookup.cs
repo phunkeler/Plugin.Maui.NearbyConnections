@@ -157,14 +157,19 @@ sealed partial class PeerLookup
     /// and unverified, and must never be treated as identity.
     /// </para>
     /// </remarks>
-    internal static string? Sanitize(string? displayName)
+    /// <param name="maxBytes">
+    /// The UTF-8 byte cap. Defaults to <see cref="MaxDisplayNameBytes"/>. A stream name (story S8)
+    /// passes its own larger cap — it is the same class of attacker-chosen input reaching the same
+    /// log sinks and consumer UI, so it runs through the same filter.
+    /// </param>
+    internal static string? Sanitize(string? displayName, int maxBytes = MaxDisplayNameBytes)
     {
         if (string.IsNullOrEmpty(displayName))
         {
             return null;
         }
 
-        var builder = new StringBuilder(Math.Min(displayName.Length, MaxDisplayNameBytes));
+        var builder = new StringBuilder(Math.Min(displayName.Length, maxBytes));
         var bytes = 0;
 
         foreach (var rune in displayName.EnumerateRunes())
@@ -176,7 +181,7 @@ sealed partial class PeerLookup
 
             // Truncate on a rune boundary, so the cap can never split a surrogate pair or a
             // multi-byte sequence and leave an unrenderable fragment behind.
-            if (bytes + rune.Utf8SequenceLength > MaxDisplayNameBytes)
+            if (bytes + rune.Utf8SequenceLength > maxBytes)
             {
                 break;
             }

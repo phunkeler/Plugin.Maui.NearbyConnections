@@ -384,6 +384,19 @@ await connection.SendAsync(data, cancellationToken);
 await connection.SendAsync("file:///path/to/file.bin", cancellationToken: cancellationToken);
 ```
 
+### Open a stream
+
+Use a stream when the data has no known length, or when the peer must start reading before you
+finish writing — live audio, sensor telemetry, a log tail.
+
+```csharp
+await using var stream = await connection.OpenStreamAsync("vitals", cancellationToken);
+await stream.WriteAsync(chunk, cancellationToken);
+```
+
+The peer receives one `NearbyStreamPayload` carrying the same name. Disposing your end ends the
+peer's read.
+
 ### Track send progress
 
 ```csharp
@@ -411,6 +424,11 @@ await foreach (var payload in connection.ReceiveAsync())
         // Move it to keep it. The move consumes the staged copy, so nothing is left behind.
         var kept = file.MoveTo(Path.Combine(FileSystem.AppDataDirectory, file.FileResult.FileName));
         await GenerateThumbnailAsync(kept.FullPath);   // awaited in-loop
+    }
+    else if (payload is NearbyStreamPayload stream)
+    {
+        // Read it in the loop body. The stream ends when the peer closes its end.
+        await ConsumeAsync(stream.Name, stream.Stream);
     }
 }
 ```

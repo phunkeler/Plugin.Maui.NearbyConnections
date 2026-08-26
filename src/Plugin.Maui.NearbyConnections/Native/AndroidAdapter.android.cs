@@ -18,6 +18,17 @@ sealed partial class AndroidAdapter : IPlatformAdapter
     readonly ConcurrentDictionary<long, (string DeviceId, Payload Payload)> _incomingPayloads = [];
     readonly ConcurrentDictionary<long, OutgoingTransfer> _outgoingTransfers = [];
 
+    // Story S8 bookkeeping. The name frame and the stream payload race — GMS completes the bytes
+    // frame through the work queue while the stream payload arrives directly — so whichever half
+    // lands first waits for the other, keyed by the platform payload id.
+    //
+    // One lock guards both maps, and it is not an optimisation to split it. Each half must test for
+    // its partner and park itself as one atomic step: with independent concurrent maps, both halves
+    // can miss each other and park, and the payload is then never delivered.
+    readonly Lock _streamGate = new();
+    readonly Dictionary<long, string> _pendingStreamNames = [];
+    readonly Dictionary<long, (string DeviceId, Stream Stream)> _parkedStreams = [];
+
     IConnectionsClient? _advertiseClient;
     IConnectionsClient? _discoverClient;
 
@@ -123,11 +134,7 @@ sealed partial class AndroidAdapter : IPlatformAdapter
                     return;
                 }
 
-                _bridge.CompleteHandshake(
-                    device,
-                    sendBytes: (data, ct) => SendBytesAsync(deviceId, data, ct),
-                    sendFile: (fileUri, progress, ct) => SendFileAsync(deviceId, fileUri, progress, ct),
-                    dispose: () => DisconnectEndpointAsync(deviceId));
+                _bridge.CompleteHandshake(device, new AndroidConnection(this, deviceId));
             }
             else
             {
@@ -230,6 +237,14 @@ sealed partial class AndroidAdapter : IPlatformAdapter
             var deviceId = _bridge.PeerLookup.DeviceIdFor(endpointId);
 
             _bridge.LogPayloadReceived(deviceId, payload.Id, payload.PayloadType);
+
+            if (payload.PayloadType == Payload.Type.Stream)
+            {
+                // Streams deliver on receipt — live data must not wait for a terminal update.
+                HandleInboundStream(deviceId, payload);
+                return;
+            }
+
             _incomingPayloads.TryAdd(payload.Id, (deviceId, payload));
         }
         catch (Exception ex)
@@ -260,9 +275,9 @@ sealed partial class AndroidAdapter : IPlatformAdapter
 
             if (update.TransferStatus == PayloadTransferUpdate.Status.InProgress
                 && _incomingPayloads.TryGetValue(update.PayloadId, out var inboundEntry)
-                && _bridge._activeConnections.TryGetValue(inboundEntry.DeviceId, out var inboundConn))
+                && _bridge._activeConnections.TryGetValue(inboundEntry.DeviceId, out var inboundPair))
             {
-                inboundConn.InboundProgress?.Report(new NearbyTransferProgress(
+                inboundPair.Connection.InboundProgress?.Report(new NearbyTransferProgress(
                     payloadId: update.PayloadId,
                     bytesTransferred: update.BytesTransferred,
                     totalBytes: update.TotalBytes,
@@ -301,9 +316,18 @@ sealed partial class AndroidAdapter : IPlatformAdapter
         // CompleteReceive, and DisposeAsync disposes every active connection, so disposing the
         // session cancels an in-flight copy too. Without a live connection the copied file has
         // nowhere to go, so skip the work rather than copy a file WritePayload will drop.
-        var copyToken = _bridge._activeConnections.TryGetValue(deviceId, out var connection)
-            ? connection.DisconnectedToken
+        var copyToken = _bridge._activeConnections.TryGetValue(deviceId, out var pair)
+            ? pair.Connection.DisconnectedToken
             : new CancellationToken(canceled: true);
+
+        if (entry.Payload.PayloadType != Payload.Type.File
+            && entry.Payload.AsBytes() is { } maybeControl
+            && ControlMessage.TryDecode(maybeControl, out var controlType))
+        {
+            HandleControlFrame(deviceId, controlType, maybeControl);
+            DisposeIncomingPayload(entry.Payload);
+            return;
+        }
 
         NearbyPayload? nearbyPayload = entry.Payload.PayloadType == Payload.Type.File
             ? await CopyFilePayloadAsync(entry.Payload, StagingDirectory, copyToken).ConfigureAwait(false)
@@ -329,6 +353,116 @@ sealed partial class AndroidAdapter : IPlatformAdapter
     {
         payload.Close();
         payload.Dispose();
+    }
+
+    /// <summary>
+    /// Opens a named outbound stream (story S8): sends the name frame first, then the stream
+    /// payload, on the same ordered channel. The returned stream is the writable half of a
+    /// managed pipe whose reader GMS consumes; disposing it ends the stream for the remote peer.
+    /// </summary>
+    internal async Task<Stream> OpenStreamAsync(string deviceId, string name, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!_bridge._activeConnections.ContainsKey(deviceId) || !_bridge.PeerLookup.TryGetEndpointId(deviceId, out var endpointId))
+        {
+            throw new NearbyException(
+                $"Cannot open a stream: no active connection for device '{deviceId}'.");
+        }
+
+        var client = NearbyClass.GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext);
+        var pipe = Android.OS.ParcelFileDescriptor.CreatePipe()
+            ?? throw new NearbyTransferException("Cannot open a stream: the platform could not create a pipe.");
+        var payload = Payload.FromStream(pipe[0])
+            ?? throw new NearbyTransferException("Cannot open a stream: the platform rejected the stream payload.");
+
+        try
+        {
+            using (var frame = Payload.FromBytes(ControlMessage.EncodeStreamName(payload.Id, name))!)
+            {
+                await client.SendPayloadAsync(endpointId, frame).ConfigureAwait(false);
+            }
+
+            await client.SendPayloadAsync(endpointId, payload).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not NearbyException)
+        {
+            _bridge.LogWriteError(nameof(OpenStreamAsync), deviceId, ex);
+            throw new NearbyTransferException(
+                $"Failed to open a stream to device '{deviceId}'.", ex);
+        }
+
+        // Wrapped for the same reason the inbound half is: a pipe is not seekable, and the raw
+        // invoker claims otherwise.
+        return new NonSeekableStream(
+            new Android.Runtime.OutputStreamInvoker(new Android.OS.ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])));
+    }
+
+    void HandleInboundStream(string deviceId, Payload payload)
+    {
+        var raw = payload.AsStream()?.AsInputStream();
+
+        if (raw is null)
+        {
+            _bridge.LogIncomingPayloadProcessingFailed(deviceId, payload.Id);
+            return;
+        }
+
+        // Wrapped, not raw: the GMS stream is a pipe that claims to be seekable and then throws on
+        // Position, which is the first thing CopyToAsync reads. See NonSeekableStream.
+        var stream = new NonSeekableStream(raw);
+
+        string? name;
+
+        lock (_streamGate)
+        {
+            if (!_pendingStreamNames.Remove(payload.Id, out name))
+            {
+                _parkedStreams[payload.Id] = (deviceId, stream);
+            }
+        }
+
+        if (name is not null)
+        {
+            _bridge.WritePayload(deviceId, new NearbyStreamPayload(stream, name));
+        }
+    }
+
+    void HandleControlFrame(string deviceId, ControlMessageType type, byte[] frame)
+    {
+        switch (type)
+        {
+            case ControlMessageType.StreamName
+                when ControlMessage.TryDecodeStreamName(frame, out var payloadId, out var name):
+                bool paired;
+                (string DeviceId, Stream Stream) parked;
+
+                lock (_streamGate)
+                {
+                    paired = _parkedStreams.Remove(payloadId, out parked);
+
+                    if (!paired)
+                    {
+                        _pendingStreamNames[payloadId] = name!;
+                    }
+                }
+
+                if (paired)
+                {
+                    _bridge.WritePayload(parked.DeviceId, new NearbyStreamPayload(parked.Stream, name!));
+                }
+
+                break;
+
+            case ControlMessageType.Disconnect:
+                // Same handling as the iOS sibling: release, tracked rather than awaited.
+                _bridge.ReleaseConnectionFromCallback(deviceId);
+                break;
+
+            default:
+                _bridge.LogUnknownControlMessageType(type);
+                break;
+        }
     }
 
     async Task<NearbyFilePayload?> CopyFilePayloadAsync(
@@ -722,6 +856,18 @@ sealed partial class AndroidAdapter : IPlatformAdapter
             DisposeIncomingPayload(entry.Payload);
         }
         _incomingPayloads.Clear();
+
+        // Both maps are plain dictionaries under _streamGate, so a racing callback would otherwise
+        // fault this enumeration.
+        lock (_streamGate)
+        {
+            foreach (var (_, parked) in _parkedStreams)
+            {
+                parked.Stream.Dispose();
+            }
+            _parkedStreams.Clear();
+            _pendingStreamNames.Clear();
+        }
 
         foreach (var (_, transfer) in _outgoingTransfers)
         {

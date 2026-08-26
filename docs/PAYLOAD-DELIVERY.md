@@ -104,6 +104,27 @@ consumer from delivery: call `NearbyFilePayload.MoveTo` to keep it. Files nobody
 when the session is disposed — the one point where delivery is provably finished — and the operating
 system may reclaim them before that.
 
+### A stream payload is open when you receive it
+
+`NearbyStreamPayload` carries a readable `Stream` and the name the sender chose. Unlike bytes and
+files, the data is not complete on arrival: the stream ends when the sender closes its end.
+
+Read it inside the loop body. The next payload is not dequeued until you return, so a long read
+holds the loop — start a task and end the iteration if you need both.
+
+The name reaches you differently on each platform, and the difference is absorbed.
+
+| Platform | How the name travels |
+|---|---|
+| Android | An in-band `ControlMessage.StreamName` frame sent alongside the stream payload, keyed by payload id. The two halves arrive in either order and reconcile before delivery. |
+| iOS | MultipeerConnectivity carries the name natively on `StartStream`, so no frame is sent. |
+
+Either way you receive exactly one `NearbyStreamPayload` with `Name` set.
+
+`TransferInactivityTimeout` does not apply to streams. A stream that goes quiet is idle, not stalled
+— only the sender knows whether more data is coming. The stream ends when the sender closes it or
+the connection drops.
+
 ---
 
 ## Why payloads are a stream

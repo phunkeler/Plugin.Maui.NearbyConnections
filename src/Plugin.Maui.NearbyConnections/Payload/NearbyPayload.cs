@@ -5,8 +5,10 @@ namespace Plugin.Maui.NearbyConnections;
 /// </summary>
 /// <remarks>
 /// This is the abstract base for every payload shape the library produces or accepts:
-/// <see cref="NearbyBytesPayload"/> and <see cref="NearbyFilePayload"/>.
+/// <see cref="NearbyBytesPayload"/>, <see cref="NearbyFilePayload"/>, and
+/// <see cref="NearbyStreamPayload"/>.
 /// </remarks>
 /// <seealso cref="NearbyBytesPayload"/>
 /// <seealso cref="NearbyFilePayload"/>
+/// <seealso cref="NearbyStreamPayload"/>
 public abstract record NearbyPayload;

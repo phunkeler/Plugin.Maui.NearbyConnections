@@ -162,6 +162,22 @@ public class ControlMessageTests
         }
 
         [Fact]
+        public void Decode_StripsControlCharactersFromAPeerSuppliedName()
+        {
+            // The name is attacker-chosen and reaches log sinks and consumer UI, so it runs through
+            // the same filter a display name does.
+
+            // Arrange
+            var frame = ControlMessage.EncodeStreamName(payloadId: 3, "vitals‮live");
+
+            // Act
+            ControlMessage.TryDecodeStreamName(frame, out _, out var name);
+
+            // Assert
+            Assert.Equal("vitalslive", name);
+        }
+
+        [Fact]
         public void Encode_RejectsANameOverTheWireLimit()
         {
             // Arrange

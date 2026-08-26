@@ -27,4 +27,14 @@ interface IPlatformConnection : IAsyncDisposable
     /// <param name="progress">Receives transfer progress, or <see langword="null"/> for none.</param>
     /// <param name="cancellationToken">A token to abandon the transfer.</param>
     Task SendFileAsync(string uri, IProgress<NearbyTransferProgress>? progress, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Opens a named one-way byte stream to the remote device (story S8). The name travels
+    /// in-band on Android and on the native carrier on iOS; the remote side receives a
+    /// <see cref="NearbyStreamPayload"/>.
+    /// </summary>
+    /// <param name="name">The stream's name, at most 1024 UTF-8 bytes on the wire.</param>
+    /// <param name="cancellationToken">A token to abandon opening.</param>
+    /// <returns>The writable stream. Disposing it ends the stream for the remote reader.</returns>
+    Task<Stream> OpenStreamAsync(string name, CancellationToken cancellationToken);
 }

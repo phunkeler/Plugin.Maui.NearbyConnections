@@ -69,6 +69,19 @@ open coveragereport/index.html   # macOS; use `start` on Windows, `xdg-open` on 
   hex characters, identical in shape on both platforms. Google's endpoint id and Apple's peer handle
   stay inside `PeerLookup`, which translates at the SDK edge — `DeviceIdFor` inbound,
   `TryGetEndpointId`/`TryGetHandle` outbound. Nothing above `Native/` sees a platform identifier.
+- **A stream payload arrives as two GMS payloads on Android and one native stream on iOS.** Apple
+  carries the stream name itself, so `IosConnection` reads it off the delegate callback. Google
+  carries no name, so `AndroidConnection` sends a `ControlMessage.StreamName` frame alongside the
+  stream payload, keyed by payload id. The two halves can land in either order — the frame parks in
+  `_pendingStreamNames` or the stream parks in `_parkedStreams` — and exactly one
+  `NearbyStreamPayload` is delivered once both are present. Both orders are covered by
+  `StreamPayloadTests.android.cs`; do not assume the frame arrives first.
+- **A raw GMS stream lies about being seekable.** `InputStreamInvoker`/`OutputStreamInvoker` over a
+  pipe report `CanSeek == true` and then throw `java.io.IOException: Illegal seek` the moment
+  `Position` is read — and `Stream.CopyToAsync` reads it, through `GetCopyBufferSize`. So the most
+  ordinary thing a consumer does with a stream crashed, on Android only. Both directions are
+  wrapped in `NonSeekableStream`, the Android counterpart to iOS's `NsInputStreamAdapter`. Never
+  hand a raw invoker to a consumer.
 - **Every `catch` on a callback or error path must log.** Silent catches have already cost real
   debugging time here.
 - **Published identity is locked before 1.0** — `PackageId`, `AssemblyName`, `RootNamespace`, and
@@ -383,7 +396,8 @@ src/Plugin.Maui.NearbyConnections/
 │                  NearbyDeviceChange(+Action), NearbyDeviceCollection<TRow>, status,
 │                  EndReason (internal — log-only)
 ├── Discovery/     availability + advertising/discovery failures
-├── Payload/       NearbyPayload + NearbyBytesPayload/NearbyFilePayload — the data
+├── Payload/       NearbyPayload + NearbyBytesPayload/NearbyFilePayload/NearbyStreamPayload
+│                  — the data
 ├── Transfer/      progress, transfer timeout, outgoing transfer — the act of moving it
 ├── Options/       NearbyOptions + platform scopes + validator (iOS-only rules) + the enums
 ├── Native/        IPlatformNearby, PlatformBridge, IPlatformAdapter + the per-platform

@@ -23,9 +23,7 @@ namespace Plugin.Maui.NearbyConnections;
 public sealed class NearbyConnection : IAsyncDisposable
 {
     readonly Channel<NearbyPayload> _receiveChannel;
-    readonly Func<byte[], CancellationToken, Task> _sendBytes;
-    readonly Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> _sendFile;
-    readonly Func<ValueTask> _dispose;
+    readonly IPlatformConnection _platform;
     readonly TaskCompletionSource<NearbyEndReason> _disconnectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     readonly CancellationTokenSource _disconnectedCts = new();
 
@@ -115,15 +113,11 @@ public sealed class NearbyConnection : IAsyncDisposable
     internal NearbyConnection(
         NearbyDevice remoteDevice,
         Channel<NearbyPayload> receiveChannel,
-        Func<byte[], CancellationToken, Task> sendBytes,
-        Func<string, IProgress<NearbyTransferProgress>?, CancellationToken, Task> sendFile,
-        Func<ValueTask> dispose)
+        IPlatformConnection platform)
     {
         RemoteDevice = remoteDevice;
         _receiveChannel = receiveChannel;
-        _sendBytes = sendBytes;
-        _sendFile = sendFile;
-        _dispose = dispose;
+        _platform = platform;
     }
 
     /// <summary>
@@ -157,7 +151,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     public Task SendAsync(byte[] data, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
-        return _sendBytes(data, cancellationToken);
+        return _platform.SendBytesAsync(data, cancellationToken);
     }
 
     /// <summary>
@@ -202,7 +196,43 @@ public sealed class NearbyConnection : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(fileUri);
-        return _sendFile(fileUri, progress, cancellationToken);
+        return _platform.SendFileAsync(fileUri, progress, cancellationToken);
+    }
+
+    /// <summary>
+    /// Opens a named one-way byte stream to the remote device, for unknown-length or live data.
+    /// The remote side receives a <see cref="NearbyStreamPayload"/> — the readable half plus this
+    /// name — through its own <see cref="ReceiveAsync(CancellationToken)"/> loop.
+    /// </summary>
+    /// <param name="name">
+    /// The stream's name, shown to the remote application. At most 1024 UTF-8 bytes.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// A <see cref="CancellationToken"/> to observe while the stream opens.
+    /// </param>
+    /// <returns>
+    /// The writable stream. Dispose it to end the stream — the remote reader then observes the
+    /// end of its half. A dropped connection ends the stream from either side.
+    /// </returns>
+    /// <remarks>
+    /// Both platforms carry this natively — a stream payload on Android, a named
+    /// MultipeerConnectivity stream on iOS — and the name arrives with the stream on both.
+    /// Writes are not bounded by <see cref="NearbyOptions.TransferInactivityTimeout"/>: the
+    /// application owns the stream's lifetime and pacing.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name"/> exceeds 1024 UTF-8 bytes.</exception>
+    /// <exception cref="NearbyException">
+    /// The remote device disconnected before this call, so no active connection remains.
+    /// </exception>
+    /// <exception cref="NearbyTransferException">The platform rejected opening the stream.</exception>
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was canceled.
+    /// </exception>
+    public Task<Stream> OpenStreamAsync(string name, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return _platform.OpenStreamAsync(name, cancellationToken);
     }
 
     /// <summary>
@@ -262,7 +292,7 @@ public sealed class NearbyConnection : IAsyncDisposable
         // A file the library staged, or any result whose path is real, sends straight from disk.
         if (File.Exists(file.FullPath))
         {
-            return _sendFile(file.FullPath, progress, cancellationToken);
+            return _platform.SendFileAsync(file.FullPath, progress, cancellationToken);
         }
 
         return SendStagedAsync();
@@ -276,7 +306,7 @@ public sealed class NearbyConnection : IAsyncDisposable
 
             try
             {
-                await _sendFile(staged, progress, cancellationToken).ConfigureAwait(false);
+                await _platform.SendFileAsync(staged, progress, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -416,7 +446,7 @@ public sealed class NearbyConnection : IAsyncDisposable
         // the same source with Disconnected, and the first completion wins.
         _disconnectedTcs.TrySetResult(DisposeReason);
 
-        await _dispose().ConfigureAwait(false);
+        await _platform.DisposeAsync().ConfigureAwait(false);
         CompleteReceive();
 
         // _disconnectedCts is deliberately NOT disposed: the remarks on DisconnectedToken promise

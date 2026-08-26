@@ -251,7 +251,7 @@ public sealed class HandshakeTimeoutTests
             beforeAwait: _ => Task.CompletedTask,
             CancellationToken.None);
 
-        platform.ResolveConnectionTcs(device.Id, expected);
+        platform.ResolveConnectionTcs(device.Id, expected, new StubPlatformConnection());
 
         // Assert
         Assert.Same(expected, await handshake);
@@ -276,7 +276,7 @@ public sealed class HandshakeTimeoutTests
             CancellationToken.None);
 
         time.Advance(TimeSpan.FromHours(1));
-        platform.ResolveConnectionTcs(device.Id, expected);
+        platform.ResolveConnectionTcs(device.Id, expected, new StubPlatformConnection());
 
         // Assert
         Assert.Same(expected, await handshake);

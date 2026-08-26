@@ -129,7 +129,13 @@ static class ControlMessage
             return false;
         }
 
-        name = Encoding.UTF8.GetString(data[(HEADER_SIZE + sizeof(long) + sizeof(ushort))..]);
+        // The name is peer-chosen and reaches log sinks and consumer UI — same untrusted class as a
+        // display name, so it runs through the same filter. iOS sanitizes at its own callback,
+        // which is where its name arrives.
+        name = PeerLookup.Sanitize(
+            Encoding.UTF8.GetString(data[(HEADER_SIZE + sizeof(long) + sizeof(ushort))..]),
+            MaxStreamNameBytes) ?? string.Empty;
+
         return true;
     }
 }

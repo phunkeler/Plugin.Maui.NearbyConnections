@@ -487,28 +487,7 @@ sealed partial class IosAdapter : IPlatformAdapter
             {
                 case MCSessionState.Connected:
                     var connectedDevice = _bridge.PeerLookup.Track(peerID);
-                    _bridge.CompleteHandshake(
-                        connectedDevice,
-                        sendBytes: (data, ct) => SendBytesAsync(id, data, ct),
-                        sendFile: (fileUri, progress, ct) => SendFileAsync(id, fileUri, progress, ct),
-                        dispose: async () =>
-                        {
-                            MCSession? disposeSession;
-
-                            lock (_sessionLock)
-                            {
-                                disposeSession = _session;
-                            }
-
-                            if (disposeSession is not null && _bridge.PeerLookup.TryGetHandle(id, out var peer))
-                            {
-                                using var controlData = NSData.FromArray(ControlMessage.Encode(ControlMessageType.Disconnect));
-                                disposeSession.SendData(controlData, [peer], MCSessionSendDataMode.Reliable, out _);
-                            }
-
-                            await _bridge.ReleaseConnectionAsync(id).ConfigureAwait(false);
-                            DisposeSessionIfIdle();
-                        });
+                    _bridge.CompleteHandshake(connectedDevice, new IosConnection(this, id));
                     break;
 
                 case MCSessionState.NotConnected:
@@ -579,6 +558,88 @@ sealed partial class IosAdapter : IPlatformAdapter
         }
     }
 
+    /// <summary>
+    /// Opens a named outbound stream (story S8) through MultipeerConnectivity's own carrier —
+    /// the name travels natively, no in-band frame. The returned stream polls
+    /// <c>hasSpaceAvailable</c>; disposing it ends the stream for the remote reader.
+    /// </summary>
+    internal Task<Stream> OpenStreamAsync(string deviceId, string name, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        MCSession? session;
+        lock (_sessionLock)
+        {
+            session = _session;
+        }
+
+        if (session is null)
+        {
+            throw new NearbyException("No active session. Ensure a connection has been established before sending data.");
+        }
+
+        if (!_bridge.PeerLookup.TryGetHandle(deviceId, out var peerID))
+        {
+            throw new NearbyException($"No peer found for device: Id={deviceId}");
+        }
+
+        var stream = session.StartStream(name, peerID, out var error);
+
+        if (stream is null || error is not null)
+        {
+            Exception cause = error is null
+                ? new InvalidOperationException("StartStream returned no stream.")
+                : new NSErrorException(error);
+            _bridge.LogWriteError(nameof(OpenStreamAsync), deviceId, cause);
+
+            throw new NearbyTransferException(
+                $"Failed to open a stream to device '{deviceId}'.", cause);
+        }
+
+        return Task.FromResult<Stream>(new NsOutputStreamAdapter(stream));
+    }
+
+    internal void OnStreamReceived(string streamName, MCPeerID fromPeer, NSInputStream stream)
+    {
+        try
+        {
+            var id = _bridge.PeerLookup.DeviceIdFor(fromPeer);
+
+            // The name is peer-chosen and reaches log sinks and consumer UI — same untrusted class
+            // as a display name, so it runs through the same filter.
+            var safeName = PeerLookup.Sanitize(streamName, ControlMessage.MaxStreamNameBytes) ?? string.Empty;
+
+            _bridge.WritePayload(id, new NearbyStreamPayload(new NsInputStreamAdapter(stream), safeName));
+        }
+        catch (Exception ex)
+        {
+            _bridge.LogCallbackError(nameof(OnStreamReceived), _bridge.PeerLookup.DeviceIdFor(fromPeer), ex);
+        }
+    }
+
+    /// <summary>
+    /// The local-disconnect path for one peer: sends the in-band disconnect frame — MPC has no
+    /// per-peer disconnect — releases the peer's bookkeeping, and retires the session when idle.
+    /// </summary>
+    internal async ValueTask DisconnectPeerAsync(string deviceId)
+    {
+        MCSession? disposeSession;
+
+        lock (_sessionLock)
+        {
+            disposeSession = _session;
+        }
+
+        if (disposeSession is not null && _bridge.PeerLookup.TryGetHandle(deviceId, out var peer))
+        {
+            using var controlData = NSData.FromArray(ControlMessage.Encode(ControlMessageType.Disconnect));
+            disposeSession.SendData(controlData, [peer], MCSessionSendDataMode.Reliable, out _);
+        }
+
+        await _bridge.ReleaseConnectionAsync(deviceId).ConfigureAwait(false);
+        DisposeSessionIfIdle();
+    }
+
     void DisposeSessionIfIdle()
     {
         MCSession? sessionToDispose;
@@ -627,7 +688,7 @@ sealed partial class IosAdapter : IPlatformAdapter
 
                         _bridge.LogResourceTransferProgress(id, "Inbound", 0, total, transferred);
 
-                        if (_bridge._activeConnections.TryGetValue(id, out var conn) && conn.InboundProgress is { } inboundProgress)
+                        if (_bridge._activeConnections.TryGetValue(id, out var pair) && pair.Connection.InboundProgress is { } inboundProgress)
                         {
                             inboundProgress.Report(new NearbyTransferProgress(
                                 payloadId: 0,
@@ -775,6 +836,9 @@ sealed partial class IosAdapter : IPlatformAdapter
 
         public void DidReceiveData(MCSession session, NSData data, MCPeerID peerID)
             => adapter.OnDataReceived(data, peerID);
+
+        public void DidReceiveStream(MCSession session, NSInputStream stream, string streamName, MCPeerID peerID)
+            => adapter.OnStreamReceived(streamName, peerID, stream);
 
         public void DidStartReceivingResource(MCSession session, string resourceName, MCPeerID fromPeer, NSProgress progress)
             => adapter.OnResourceStarted(resourceName, fromPeer, progress);

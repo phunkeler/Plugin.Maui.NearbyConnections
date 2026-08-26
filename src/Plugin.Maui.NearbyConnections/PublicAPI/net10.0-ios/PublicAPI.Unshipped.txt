@@ -224,3 +224,19 @@ Plugin.Maui.NearbyConnections.NearbyConnectionRequest.RejectAsync(System.Threadi
 Plugin.Maui.NearbyConnections.NearbyConnectionRequest.RemoteDevice.get -> Plugin.Maui.NearbyConnections.NearbyDevice!
 Plugin.Maui.NearbyConnections.NearbyRequestExpiredException
 Plugin.Maui.NearbyConnections.NearbyRequestExpiredException.NearbyRequestExpiredException(string! message) -> void
+override Plugin.Maui.NearbyConnections.NearbyStreamPayload.<Clone>$() -> Plugin.Maui.NearbyConnections.NearbyStreamPayload!
+override Plugin.Maui.NearbyConnections.NearbyStreamPayload.Equals(object? obj) -> bool
+override Plugin.Maui.NearbyConnections.NearbyStreamPayload.GetHashCode() -> int
+override Plugin.Maui.NearbyConnections.NearbyStreamPayload.ToString() -> string!
+override sealed Plugin.Maui.NearbyConnections.NearbyStreamPayload.Equals(Plugin.Maui.NearbyConnections.NearbyPayload? other) -> bool
+Plugin.Maui.NearbyConnections.NearbyConnection.OpenStreamAsync(string! name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.IO.Stream!>!
+Plugin.Maui.NearbyConnections.NearbyStreamPayload
+Plugin.Maui.NearbyConnections.NearbyStreamPayload.Deconstruct(out System.IO.Stream! Stream, out string! Name) -> void
+Plugin.Maui.NearbyConnections.NearbyStreamPayload.Equals(Plugin.Maui.NearbyConnections.NearbyStreamPayload? other) -> bool
+Plugin.Maui.NearbyConnections.NearbyStreamPayload.Name.get -> string!
+Plugin.Maui.NearbyConnections.NearbyStreamPayload.Name.init -> void
+Plugin.Maui.NearbyConnections.NearbyStreamPayload.NearbyStreamPayload(System.IO.Stream! Stream, string! Name) -> void
+Plugin.Maui.NearbyConnections.NearbyStreamPayload.Stream.get -> System.IO.Stream!
+Plugin.Maui.NearbyConnections.NearbyStreamPayload.Stream.init -> void
+static Plugin.Maui.NearbyConnections.NearbyStreamPayload.operator !=(Plugin.Maui.NearbyConnections.NearbyStreamPayload? left, Plugin.Maui.NearbyConnections.NearbyStreamPayload? right) -> bool
+static Plugin.Maui.NearbyConnections.NearbyStreamPayload.operator ==(Plugin.Maui.NearbyConnections.NearbyStreamPayload? left, Plugin.Maui.NearbyConnections.NearbyStreamPayload? right) -> bool
