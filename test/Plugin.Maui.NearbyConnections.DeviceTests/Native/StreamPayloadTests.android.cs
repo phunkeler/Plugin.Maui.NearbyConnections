@@ -1,38 +1,12 @@
 namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 
-/// <summary>
-/// Story S8 on Android: a stream payload and its in-band name frame arrive as two GMS payloads,
-/// in either order, and exactly one <c>NearbyStreamPayload</c> reaches the connection with the
-/// name attached.
-/// </summary>
-/// <remarks>
-/// <para>
-/// Both orders are driven sequentially, which is this suite's contract — callbacks are invoked
-/// directly, one at a time.
-/// </para>
-/// <para>
-/// The genuinely <em>concurrent</em> case has no automated test, deliberately. Both halves enter
-/// through different callbacks, so nothing serialises them, and the adapter must
-/// test-for-partner-and-park under one lock or both halves can miss each other and park forever.
-/// Driving that from two thread-pool tasks wedged the runner app — it stopped reporting rather
-/// than failing a test — and the suite runs serially by design. The unit suite cannot cover it
-/// either: it targets <c>net10.0</c>, where <c>AndroidAdapter</c> does not exist. The invariant is
-/// held by the lock and its comment in <c>AndroidAdapter.android.cs</c>. Do not split that lock.
-/// </para>
-/// </remarks>
 public class StreamPayloadTests : DeviceTest
 {
-    /// <summary>
-    /// A GMS stream payload whose contents are already written and whose write end is closed, so a
-    /// reader sees exactly <paramref name="contents"/> and then end-of-stream.
-    /// </summary>
-    /// <param name="contents">The bytes a reader of the payload will see.</param>
     static Payload StreamPayloadFrom(byte[] contents)
     {
         var pipe = Android.OS.ParcelFileDescriptor.CreatePipe()!;
-
-        // AutoCloseOutputStream closes pipe[1] on dispose, which is what ends the reader's stream.
-        using (var writer = new Android.OS.ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]))
+        using (var writer = new Android.Runtime.OutputStreamInvoker(
+            new Android.OS.ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])))
         {
             writer.Write(contents, 0, contents.Length);
         }
