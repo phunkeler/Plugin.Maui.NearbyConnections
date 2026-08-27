@@ -24,6 +24,7 @@ public class AbandonConnectTests : DeviceTest
             device!,
             tcs,
             ConnectionRole.Initiator,
+            TimeSpan.FromSeconds(30),
             beforeAwait: static _ => Task.CompletedTask,
             cts.Token);
         cts.Cancel();

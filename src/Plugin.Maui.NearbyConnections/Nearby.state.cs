@@ -151,7 +151,7 @@ sealed partial class Nearby
         {
             request.MarkExpired();
             LogHandshakeEnded(device.Id, NearbyEndReason.RequestExpired);
-            LogInboundRequestExpired(device.Id, _options.InboundRequestTimeout.TotalSeconds);
+            LogInboundRequestExpired(device.Id);
 
             try
             {
@@ -177,12 +177,27 @@ sealed partial class Nearby
         _registry.AddIfAbsent(device);
         Transition(device, NearbyDeviceStatus.Connecting, ConnectionRole.Acceptor);
 
+        // An unconsented accept honors the remote-declared offer window only up to the assumed
+        // window: nobody chose this peer, so the local assumption caps the exposure. A consented
+        // accept (through the request gateway) honors the full remaining window.
+        var remaining = OfferWindow.Clamp(request.Deadline - _timeProvider.GetUtcNow());
+        var bound = remaining < OfferWindow.s_default ? remaining : OfferWindow.s_default;
+
+        using var boundCts = new CancellationTokenSource(bound, _timeProvider);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(stopToken, boundCts.Token);
+
         try
         {
             // The platform core directly: auto-accept never tracks the request, so there is no
             // claim to run and INearby.Requests never yields it.
-            var connection = await request.AcceptCore(stopToken).ConfigureAwait(false);
+            var connection = await request.AcceptCore(linkedCts.Token).ConfigureAwait(false);
             OnConnected(device, connection, ConnectionRole.Acceptor);
+        }
+        catch (OperationCanceledException) when (boundCts.IsCancellationRequested && !stopToken.IsCancellationRequested)
+        {
+            LogHandshakeEnded(device.Id, NearbyEndReason.TimedOut);
+            LogAutoAcceptTimedOut(device.Id, bound.TotalSeconds);
+            ResetToVisible(device, NearbyEndReason.TimedOut);
         }
         catch (Exception ex)
         {

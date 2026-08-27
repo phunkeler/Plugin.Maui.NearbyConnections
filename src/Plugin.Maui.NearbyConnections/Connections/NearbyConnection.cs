@@ -3,7 +3,7 @@ using System.Threading.Channels;
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// Represents an established connection to a remote device, over which payloads can be sent and
+/// Represents an established connection to a nearby device, over which payloads can be sent and
 /// received.
 /// </summary>
 /// <remarks>
@@ -22,10 +22,11 @@ namespace Plugin.Maui.NearbyConnections;
 /// <seealso cref="NearbyDevice"/>
 public sealed class NearbyConnection : IAsyncDisposable
 {
-    readonly Channel<NearbyPayload> _receiveChannel;
-    readonly IPlatformConnection _platform;
     readonly TaskCompletionSource<NearbyEndReason> _disconnectedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     readonly CancellationTokenSource _disconnectedCts = new();
+
+    readonly Channel<NearbyPayload> _receiveChannel;
+    readonly IPlatformConnection _platformConnection;
 
     int _disposeGuard;
     int _receiveGuard;
@@ -67,24 +68,8 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <remarks>
     /// <para>
     /// The token form of <see cref="Disconnected"/>. Use it to cancel your own per-connection work
-    /// when the remote device goes away — a retry loop, a periodic keep-alive, an upload started on
+    /// when the remote device goes away - a retry loop, a periodic keep-alive, an upload started on
     /// the connection's behalf.
-    /// </para>
-    /// <para>
-    /// <b>Do not pass this token to <see cref="ReceiveAsync(CancellationToken)"/>.</b> It is
-    /// unnecessary, since the receive stream already completes on disconnect — and harmful, since
-    /// cancellation is observed on every iteration, so a canceled token throws
-    /// <see cref="OperationCanceledException"/> and discards payloads buffered immediately before
-    /// the disconnect. Enumerate with no token, or one of your own, and let the stream complete on
-    /// its own.
-    /// </para>
-    /// <para>
-    /// <b>Registered callbacks run inline on the thread that observed the disconnect</b> — the
-    /// platform SDK's own callback thread, or the thread that called <see cref="DisposeAsync"/>.
-    /// This differs from awaiting <see cref="Disconnected"/>, whose continuations are queued to the
-    /// thread pool. Keep a registration short, and do not let it throw: a slow registration stalls
-    /// the platform's own callback dispatch, and a thrown exception surfaces on the thread that
-    /// ended the connection, not on yours.
     /// </para>
     /// <para>
     /// <b>Remains valid for the lifetime of this object, including after
@@ -113,11 +98,11 @@ public sealed class NearbyConnection : IAsyncDisposable
     internal NearbyConnection(
         NearbyDevice remoteDevice,
         Channel<NearbyPayload> receiveChannel,
-        IPlatformConnection platform)
+        IPlatformConnection platformConnection)
     {
         RemoteDevice = remoteDevice;
         _receiveChannel = receiveChannel;
-        _platform = platform;
+        _platformConnection = platformConnection;
     }
 
     /// <summary>
@@ -131,11 +116,6 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// A <see cref="Task"/> that represents the asynchronous operation. The task completes once the
     /// bytes are handed off to the platform.
     /// </returns>
-    /// <remarks>
-    /// Android limits byte payloads to 32 KB. Use
-    /// <see cref="SendAsync(string, IProgress{NearbyTransferProgress}?, CancellationToken)"/> for
-    /// larger data.
-    /// </remarks>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="data"/> is <see langword="null"/>.
     /// </exception>
@@ -151,7 +131,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     public Task SendAsync(byte[] data, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
-        return _platform.SendBytesAsync(data, cancellationToken);
+        return _platformConnection.SendBytesAsync(data, cancellationToken);
     }
 
     /// <summary>
@@ -161,8 +141,8 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <param name="progress">
     /// An optional provider that receives progress updates for the outgoing transfer, or
     /// <see langword="null"/> to ignore progress. <see cref="IProgress{T}.Report(T)"/> is invoked
-    /// directly on the platform SDK's callback thread — the same contract as
-    /// <see cref="InboundProgress"/> — so marshal to the UI thread inside the handler if it updates
+    /// directly on the platform SDK's callback thread - the same contract as
+    /// <see cref="InboundProgress"/>.- so marshal to the UI thread inside the handler if it updates
     /// the user interface, and keep the handler short. A <see cref="Progress{T}"/> instance
     /// marshals for you, because it captures the synchronization context it was constructed on.
     /// </param>
@@ -184,7 +164,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// <see cref="NearbyOptions.TransferInactivityTimeout"/>.
     /// </exception>
     /// <exception cref="NearbyTransferException">
-    /// The file could not be sent — for example, the URI does not identify a readable file, or the
+    /// The file could not be sent - for example, the URI does not identify a readable file, or the
     /// platform rejected the send.
     /// </exception>
     /// <exception cref="NearbyException">
@@ -196,7 +176,7 @@ public sealed class NearbyConnection : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(fileUri);
-        return _platform.SendFileAsync(fileUri, progress, cancellationToken);
+        return _platformConnection.SendFileAsync(fileUri, progress, cancellationToken);
     }
 
     /// <summary>
@@ -232,7 +212,7 @@ public sealed class NearbyConnection : IAsyncDisposable
     public Task<Stream> OpenStreamAsync(string name, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return _platform.OpenStreamAsync(name, cancellationToken);
+        return _platformConnection.OpenStreamAsync(name, cancellationToken);
     }
 
     /// <summary>
@@ -292,7 +272,7 @@ public sealed class NearbyConnection : IAsyncDisposable
         // A file the library staged, or any result whose path is real, sends straight from disk.
         if (File.Exists(file.FullPath))
         {
-            return _platform.SendFileAsync(file.FullPath, progress, cancellationToken);
+            return _platformConnection.SendFileAsync(file.FullPath, progress, cancellationToken);
         }
 
         return SendStagedAsync();
@@ -306,7 +286,7 @@ public sealed class NearbyConnection : IAsyncDisposable
 
             try
             {
-                await _platform.SendFileAsync(staged, progress, cancellationToken).ConfigureAwait(false);
+                await _platformConnection.SendFileAsync(staged, progress, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -416,25 +396,6 @@ public sealed class NearbyConnection : IAsyncDisposable
     /// completes once the disconnect is signaled to the platform and any in-flight inbound work for
     /// this connection has drained or timed out.
     /// </returns>
-    /// <remarks>
-    /// <para>
-    /// The stream from <see cref="ReceiveAsync(CancellationToken)"/> ends as soon as teardown
-    /// starts, before this task completes, and no further payloads can be sent. Idempotent - a
-    /// second call performs no additional work. A failure signaling the disconnect to the platform
-    /// propagates from this method unguarded, and teardown is not retried, so a caller that wants
-    /// disposal to always succeed should catch around the call.
-    /// </para>
-    /// <para>
-    /// <b>Android waits for in-flight inbound work; iOS does not need to.</b> On Android, an inbound
-    /// file payload copies asynchronously, so this call waits (bounded, a few seconds) for that copy
-    /// to finish before the platform handles it depends on are freed. If the wait times out, the
-    /// copy may fail and the platform logs a warning rather than throwing here — the file staged for
-    /// that payload may be left partly written. On iOS, the inbound path copies synchronously on the
-    /// delegate queue, so there is never work left to wait for. This wait covers inbound work only —
-    /// a pending outgoing <c>SendAsync</c> call observes the disconnect through its own transfer
-    /// completion, separately from this wait.
-    /// </para>
-    /// </remarks>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposeGuard, 1) != 0)
@@ -442,30 +403,11 @@ public sealed class NearbyConnection : IAsyncDisposable
             return;
         }
 
-        // Record the local reason before the platform release runs: the release path completes
-        // the same source with Disconnected, and the first completion wins.
         _disconnectedTcs.TrySetResult(DisposeReason);
-
-        await _platform.DisposeAsync().ConfigureAwait(false);
+        await _platformConnection.DisposeAsync().ConfigureAwait(false);
         CompleteReceive();
-
-        // _disconnectedCts is deliberately NOT disposed: the remarks on DisconnectedToken promise
-        // the token stays readable and registerable after teardown, and disposing the source makes
-        // both throw ObjectDisposedException. NearbyConnectionTests.DisconnectedToken
-        // .RemainsReadable_AfterDisposeAsync pins that contract.
-        //
-        // Nothing leaks. This source is constructed with no delay, so it never allocated a Timer,
-        // and Cancel() clears the registration list — what remains is a managed object with no
-        // finalizer, collected with this connection. The one caveat: reading Token.WaitHandle would
-        // lazily allocate a ManualResetEvent that only Dispose releases. Nothing here does, and a
-        // consumer would have to reach for WaitHandle deliberately.
     }
 
-    /// <summary>
-    /// The reason a local disposal reports through <see cref="Disconnected"/>. Defaults to
-    /// <see cref="NearbyEndReason.DisconnectedByLocal"/>; session teardown sets
-    /// <see cref="NearbyEndReason.SessionStopped"/> before it disposes the connection.
-    /// </summary>
     internal NearbyEndReason DisposeReason { get; set; } = NearbyEndReason.DisconnectedByLocal;
 
     internal void CompleteReceive() => CompleteReceive(NearbyEndReason.Disconnected);

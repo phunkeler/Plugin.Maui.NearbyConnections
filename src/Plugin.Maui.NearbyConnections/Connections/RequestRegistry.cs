@@ -19,11 +19,9 @@ namespace Plugin.Maui.NearbyConnections;
 /// outstanding set it watches (fail soft — a lost timer race is a no-op, never a double effect).
 /// </para>
 /// </remarks>
-/// <param name="options">The session's options snapshot, read for <see cref="NearbyOptions.InboundRequestTimeout"/>.</param>
 /// <param name="timeProvider">The clock the expiry timers run on.</param>
 /// <param name="onExpired">Runs the session-side expiry effects for a request whose timer won the claim.</param>
 sealed class RequestRegistry(
-    NearbyOptions options,
     TimeProvider timeProvider,
     Func<NearbyConnectionRequest, Task> onExpired)
 {
@@ -33,34 +31,28 @@ sealed class RequestRegistry(
         = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// Records <paramref name="request"/> as outstanding and arms its expiry timer.
+    /// Records <paramref name="request"/> as outstanding and arms its expiry timer at the
+    /// request's own deadline. Every tracked request has a finite deadline — the inbound window is
+    /// clamped at receipt, so there is no infinite case and always a timer.
     /// </summary>
     /// <param name="request">The inbound request to track.</param>
-    /// <returns>
-    /// When the request expires, or <see langword="null"/> when
-    /// <see cref="NearbyOptions.InboundRequestTimeout"/> is <see cref="Timeout.InfiniteTimeSpan"/>
-    /// and no timer is armed.
-    /// </returns>
-    public DateTimeOffset? Track(NearbyConnectionRequest request)
+    /// <returns>When the request expires. A deadline already in the past expires immediately.</returns>
+    public DateTimeOffset Track(NearbyConnectionRequest request)
     {
         var deviceId = request.RemoteDevice.Id;
-        var timeout = options.InboundRequestTimeout;
+        var now = timeProvider.GetUtcNow();
+        var timeout = OfferWindow.Clamp(request.Deadline - now);
 
         // A newer request replaces an older one for the same device, so the older timer must not
         // stay armed against the replacement.
         DisarmTimer(deviceId);
         _outstanding[deviceId] = request;
 
-        if (timeout == Timeout.InfiniteTimeSpan)
-        {
-            return null;
-        }
-
         var cts = new CancellationTokenSource();
         _timers[deviceId] = cts;
         _ = ExpireAfterAsync(request, timeout, cts.Token);
 
-        return timeProvider.GetUtcNow() + timeout;
+        return now + timeout;
     }
 
     /// <summary>

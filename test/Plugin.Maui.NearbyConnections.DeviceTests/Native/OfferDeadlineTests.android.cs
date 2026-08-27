@@ -1,14 +1,16 @@
 namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 
 /// <summary>
-/// The accept path's own deadline on Android. <c>AcceptAsync</c> awaits a
+/// The accept path's bound on Android is the offer's remaining window — the deadline the initiator
+/// declared in the connect-request frame. <c>AcceptAsync</c> awaits a
 /// <see cref="TaskCompletionSource{TResult}"/> that only a terminal GMS callback resolves, and a
-/// device that leaves range mid-handshake produces no such callback. Without
-/// <see cref="NearbyOptions.AcceptTimeout"/> the await never returns.
+/// device that leaves range mid-handshake produces no such callback. Without the offer's deadline
+/// the await never returns.
 /// </summary>
 /// <remarks>
-/// Real time, not a fake clock: these run against the real platform partial, so the timeouts are
-/// deliberately short rather than injected.
+/// Real time, not a fake clock: these run against the real platform partial, so the declared
+/// windows are deliberately short rather than injected. The 100 ms window is the shortest value
+/// whose frame bytes survive <see cref="Create.ConnectionInfoWithFrame"/>'s string round-trip.
 /// <para>
 /// <strong>Requires a real peer, so skipped in the unattended CI/local run.</strong>
 /// <c>AcceptAsync</c> calls the real GMS <c>AcceptConnectionAsync</c>, which validates against
@@ -20,11 +22,11 @@ namespace Plugin.Maui.NearbyConnections.DeviceTests.Native;
 /// and not just a channel write. Same "call the real GMS-backed API, tag what needs a live
 /// environment" pattern as dotnet/maui's own device tests
 /// (<c>Geolocation_Tests.cs</c>, <c>Traits.InteractionType</c>/<c>Human</c>), which is why these
-/// are excluded by trait rather than deleted or faked. The timeout mechanics themselves
+/// are excluded by trait rather than deleted or faked. The deadline mechanics themselves
 /// (<c>AwaitHandshakeAsync</c>) still have unit coverage that runs everywhere.
 /// </para>
 /// </remarks>
-public class AcceptTimeoutTests : DeviceTest
+public class OfferDeadlineTests : DeviceTest
 {
     /// <summary>
     /// Marks a test that needs a real second device or radio and so cannot run against a single,
@@ -33,22 +35,18 @@ public class AcceptTimeoutTests : DeviceTest
     /// </summary>
     const string RequiresRealPeerTrait = "RequiresRealPeer";
 
-    static NearbyOptions Options(TimeSpan accept) => new()
-    {
-        ServiceId = "devicetests",
-        AcceptTimeout = accept,
-    };
+    static readonly TimeSpan ShortWindow = TimeSpan.FromMilliseconds(100);
 
     [Fact]
     [Trait("Category", RequiresRealPeerTrait)]
-    public async Task AcceptedRequest_WithNoTerminalCallback_TimesOutInsteadOfHanging()
+    public async Task AcceptedRequest_WithNoTerminalCallback_TimesOutAtTheOfferDeadline()
     {
         // Arrange
-        var accept = TimeSpan.FromSeconds(1);
-        await using var platform = Create.PlatformBridge(Options(accept));
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        await platform.Android().OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
+        await platform.Android().OnConnectionInitiatedAsync(
+            "endpoint-1", Create.ConnectionInfoWithFrame(ShortWindow));
         var request = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
 
         // Act — accept, then never deliver OnConnectionResult.
@@ -60,14 +58,14 @@ public class AcceptTimeoutTests : DeviceTest
 
     [Fact]
     [Trait("Category", RequiresRealPeerTrait)]
-    public async Task AcceptTimeout_ClearsThePendingHandshakeEntry()
+    public async Task OfferDeadline_ClearsThePendingHandshakeEntry()
     {
         // Arrange
-        var accept = TimeSpan.FromSeconds(1);
-        await using var platform = Create.PlatformBridge(Options(accept));
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        await platform.Android().OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());
+        await platform.Android().OnConnectionInitiatedAsync(
+            "endpoint-1", Create.ConnectionInfoWithFrame(ShortWindow));
         var request = await platform._advertiseChannel.Reader.ReadAsync(cts.Token);
 
         // Act
@@ -83,8 +81,9 @@ public class AcceptTimeoutTests : DeviceTest
     [Trait("Category", RequiresRealPeerTrait)]
     public async Task AcceptedRequest_WhenResultArrivesFirst_ReturnsTheConnection()
     {
-        // Arrange — the deadline must not fire on a handshake that completes normally.
-        await using var platform = Create.PlatformBridge(Options(TimeSpan.FromSeconds(30)));
+        // Arrange — the default 30s window (no frame): the deadline must not fire on a handshake
+        // that completes normally.
+        await using var platform = Create.PlatformBridge();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
         await platform.Android().OnConnectionInitiatedAsync("endpoint-1", Create.ConnectionInfo());

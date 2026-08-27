@@ -76,9 +76,16 @@ static class Create
     /// An inbound connection request with inert accept and reject callbacks, for tests that track
     /// the request itself rather than what answering it produces.
     /// </summary>
-    public static NearbyConnectionRequest Request(NearbyDevice? device = null)
+    /// <param name="device">The requesting device.</param>
+    /// <param name="deadline">
+    /// The offer's deadline. Defaults to the far future, which the registry clamps to the trust
+    /// bound — effectively "does not expire during the test". A test that drives expiry passes a
+    /// deadline built from its own clock.
+    /// </param>
+    public static NearbyConnectionRequest Request(NearbyDevice? device = null, DateTimeOffset? deadline = null)
         => new(
             device ?? Device(),
+            deadline ?? DateTimeOffset.MaxValue,
             accept: _ => Task.FromResult(Connection()),
             reject: _ => Task.CompletedTask);
 
@@ -121,13 +128,10 @@ static class Create
     /// </summary>
     /// <param name="time">The clock the expiry timers run on.</param>
     /// <param name="onExpired">Receives each request whose timer wins the claim.</param>
-    /// <param name="options">Options carrying <see cref="NearbyOptions.InboundRequestTimeout"/>.</param>
     public static RequestRegistry RequestRegistry(
         FakeTimeProvider time,
-        Func<NearbyConnectionRequest, Task>? onExpired = null,
-        NearbyOptions? options = null)
+        Func<NearbyConnectionRequest, Task>? onExpired = null)
         => new(
-            options ?? new NearbyOptions(),
             time,
             onExpired ?? (static _ => Task.CompletedTask));
 

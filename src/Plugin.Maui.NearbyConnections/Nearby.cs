@@ -53,7 +53,7 @@ sealed partial class Nearby : INearby, IAsyncDisposable
         _options = options;
         _logger = logger;
         _timeProvider = timeProvider ?? TimeProvider.System;
-        _requests = new RequestRegistry(options, _timeProvider, RunRequestExpiryAsync);
+        _requests = new RequestRegistry(_timeProvider, RunRequestExpiryAsync);
         _tasks = new SessionTaskSet(_timeProvider, onError: ex => LogSessionTaskFailed(ex));
 
         // The delivery streams read their replay sets from the facts' owners (C3's handover rule):

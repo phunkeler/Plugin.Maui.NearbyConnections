@@ -3,137 +3,204 @@ namespace Plugin.Maui.NearbyConnections;
 enum ControlMessageType : byte
 {
     Disconnect = 0x01,
-
-    /// <summary>
-    /// Carries the name of a stream payload in-band, ahead of the stream itself — the Android
-    /// carrier for story S8, where GMS has no native name field. iOS never sends this: the
-    /// MultipeerConnectivity stream API carries the name natively.
-    /// </summary>
     StreamName = 0x02,
+    ConnectRequest = 0x03,
 }
 
-/// <summary>
-/// The in-band control frame: <c>[signature(4) | type(1) | body]</c>, little-endian.
-/// </summary>
-/// <remarks>
-/// <b>This layout is a wire contract between peers that may run different plugin versions</b>
-/// (settled in <c>docs/ARCHITECTURE.md</c> section 5, stage M6). The header never changes. A
-/// frame with an unknown type is logged and ignored, so a newer peer's frames degrade cleanly on
-/// this version. The known limitation, accepted there: a peer running a version older than the
-/// frame's introduction delivers the frame to the application as an ordinary bytes payload.
-/// </remarks>
+// The in-band control frame: [ signature(4) | type(1) | body ], little-endian.
 static class ControlMessage
 {
     const uint SIGNATURE = 0x504D4E43; // "PMNC" (Plugin.Maui.NearbyConnections)
-    const int HEADER_SIZE = sizeof(uint) + sizeof(byte);
 
-    /// <summary>The most UTF-8 bytes a stream name may occupy on the wire.</summary>
-    internal const int MaxStreamNameBytes = 1024;
-
-    internal static byte[] Encode(ControlMessageType type)
+    static class Offset
     {
-        var buffer = new byte[HEADER_SIZE];
-        BinaryPrimitives.WriteUInt32LittleEndian(buffer, SIGNATURE);
-        buffer[sizeof(uint)] = (byte)type;
-        return buffer;
+        internal const int Type = sizeof(uint);
+        internal const int Body = Type + sizeof(byte);
+
+        // StreamName body: [ payloadId(8) | nameByteCount(2) | name-utf8 ]
+        internal const int StreamPayloadId = Body;
+        internal const int StreamNameCount = StreamPayloadId + sizeof(long);
+        internal const int StreamNameText = StreamNameCount + sizeof(ushort);
+
+        // ConnectRequest body: [offerWindowMs(4) | name-utf8 (rest)]
+        internal const int OfferWindow = Body;
+        internal const int ConnectNameText = OfferWindow + sizeof(uint);
     }
 
-    /// <summary>
-    /// Encodes a <see cref="ControlMessageType.StreamName"/> frame:
-    /// <c>[header | payloadId(8) | nameByteCount(2) | name-utf8]</c>.
-    /// </summary>
-    /// <param name="payloadId">The platform payload id the stream will arrive under.</param>
-    /// <param name="name">The stream's name. At most <see cref="MaxStreamNameBytes"/> UTF-8 bytes.</param>
+    internal const int MaxStreamNameBytes = 1024;
+    internal const uint UnboundedOfferWindow = 0xFFFFFFFF;
+
+    static byte[] NewFrame(ControlMessageType type, int bodySize)
+    {
+        var frame = new byte[Offset.Body + bodySize];
+
+        BinaryPrimitives.WriteUInt32LittleEndian(frame, SIGNATURE);
+        frame[Offset.Type] = (byte)type;
+
+        return frame;
+    }
+
+    static bool TryReadHeader(ReadOnlySpan<byte> data, out ControlMessageType type)
+    {
+        if (data.Length < Offset.Body
+            || BinaryPrimitives.ReadUInt32LittleEndian(data) != SIGNATURE)
+        {
+            type = default;
+            return false;
+        }
+
+        type = (ControlMessageType)data[Offset.Type];
+
+        return true;
+    }
+
+    static void ThrowIfTooLong(
+        ReadOnlySpan<byte> utf8,
+        int maxBytes,
+        string what,
+        string parameterName)
+    {
+        if (utf8.Length > maxBytes)
+        {
+            throw new ArgumentException(
+                $"The {what} occupies {utf8.Length} UTF-8 bytes; the limit is {maxBytes}.",
+                parameterName);
+        }
+    }
+
+    internal static byte[] Encode(ControlMessageType type) => NewFrame(type, bodySize: 0);
+
     internal static byte[] EncodeStreamName(long payloadId, string name)
     {
         var nameBytes = Encoding.UTF8.GetBytes(name);
 
-        if (nameBytes.Length > MaxStreamNameBytes)
+        ThrowIfTooLong(
+            nameBytes,
+            MaxStreamNameBytes,
+            nameof(ControlMessageType.StreamName),
+            nameof(name));
+
+        var frame = NewFrame(
+            ControlMessageType.StreamName,
+            bodySize: sizeof(long) + sizeof(ushort) + nameBytes.Length);
+
+        BinaryPrimitives.WriteInt64LittleEndian(frame.AsSpan(Offset.StreamPayloadId), payloadId);
+        BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(Offset.StreamNameCount), (ushort)nameBytes.Length);
+        nameBytes.CopyTo(frame.AsSpan(Offset.StreamNameText));
+
+        return frame;
+    }
+
+    internal static byte[] EncodeConnectRequest(TimeSpan offerWindow, string displayName)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(displayName);
+
+        ThrowIfTooLong(
+            nameBytes,
+            DisplayNameRules.MaxBytes,
+            $"{nameof(NearbyOptions.DisplayName)}",
+            nameof(displayName));
+
+        var frame = NewFrame(
+            ControlMessageType.ConnectRequest,
+            bodySize: sizeof(uint) + nameBytes.Length);
+
+        BinaryPrimitives.WriteUInt32LittleEndian(frame.AsSpan(Offset.OfferWindow), ToWireWindow(offerWindow));
+        nameBytes.CopyTo(frame.AsSpan(Offset.ConnectNameText));
+
+        return frame;
+    }
+
+    static uint ToWireWindow(TimeSpan offerWindow)
+    {
+        if (offerWindow == Timeout.InfiniteTimeSpan)
         {
-            throw new ArgumentException(
-                $"The stream name occupies {nameBytes.Length} UTF-8 bytes; the limit is {MaxStreamNameBytes}.",
-                nameof(name));
+            return UnboundedOfferWindow;
         }
 
-        var buffer = new byte[HEADER_SIZE + sizeof(long) + sizeof(ushort) + nameBytes.Length];
-        BinaryPrimitives.WriteUInt32LittleEndian(buffer, SIGNATURE);
-        buffer[sizeof(uint)] = (byte)ControlMessageType.StreamName;
-        BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(HEADER_SIZE), payloadId);
-        BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(HEADER_SIZE + sizeof(long)), (ushort)nameBytes.Length);
-        nameBytes.CopyTo(buffer.AsSpan(HEADER_SIZE + sizeof(long) + sizeof(ushort)));
+        if (offerWindow <= TimeSpan.Zero)
+        {
+            return 0u;
+        }
 
-        return buffer;
+        return offerWindow.TotalMilliseconds >= UnboundedOfferWindow
+            ? UnboundedOfferWindow - 1
+            : (uint)offerWindow.TotalMilliseconds;
     }
 
     internal static bool TryDecode(ReadOnlySpan<byte> data, out ControlMessageType type)
     {
-        type = default;
-
-        if (data.Length < HEADER_SIZE
-            || BinaryPrimitives.ReadUInt32LittleEndian(data) != SIGNATURE)
+        if (!TryReadHeader(data, out type))
         {
             return false;
         }
 
-        type = (ControlMessageType)data[sizeof(uint)];
-
-        // Length validation is per type, and stays strict: an application payload that merely
-        // starts with the signature must fall through to payload delivery. An unknown type is
-        // accepted only at header length — a longer future frame degrades to an ordinary bytes
-        // payload on this version, the same accepted cross-version behavior as the remarks above.
         return type switch
         {
-            ControlMessageType.Disconnect => data.Length == HEADER_SIZE,
+            ControlMessageType.Disconnect => data.Length == Offset.Body,
             ControlMessageType.StreamName => HasValidStreamNameLength(data),
-            _ => data.Length == HEADER_SIZE,
+            ControlMessageType.ConnectRequest => data.Length >= Offset.ConnectNameText,
+            _ => data.Length == Offset.Body,
         };
     }
 
     static bool HasValidStreamNameLength(ReadOnlySpan<byte> data)
+        => TryReadStreamNameCount(data, out var nameByteCount)
+            && data.Length == Offset.StreamNameText + nameByteCount;
+
+    static bool TryReadStreamNameCount(ReadOnlySpan<byte> data, out int nameByteCount)
     {
-        if (data.Length < HEADER_SIZE + sizeof(long) + sizeof(ushort))
+        nameByteCount = 0;
+
+        if (data.Length < Offset.StreamNameText)
         {
             return false;
         }
 
-        int nameByteCount = BinaryPrimitives.ReadUInt16LittleEndian(data[(HEADER_SIZE + sizeof(long))..]);
+        nameByteCount = BinaryPrimitives.ReadUInt16LittleEndian(data[Offset.StreamNameCount..]);
 
-        return nameByteCount <= MaxStreamNameBytes
-            && data.Length == HEADER_SIZE + sizeof(long) + sizeof(ushort) + nameByteCount;
+        return nameByteCount <= MaxStreamNameBytes;
     }
 
-    /// <summary>
-    /// Decodes the body of a <see cref="ControlMessageType.StreamName"/> frame
-    /// <see cref="TryDecode"/> already recognized. A malformed body fails soft — the caller logs
-    /// and drops the frame.
-    /// </summary>
-    /// <param name="data">The whole frame, header included.</param>
-    /// <param name="payloadId">The platform payload id the stream will arrive under.</param>
-    /// <param name="name">The stream's name.</param>
+    internal static bool TryDecodeConnectRequest(
+        ReadOnlySpan<byte> data,
+        out TimeSpan offerWindow,
+        [NotNullWhen(true)] out string? displayName)
+    {
+        offerWindow = default;
+        displayName = null;
+
+        if (data.Length < Offset.ConnectNameText
+            || !TryReadHeader(data, out var type)
+            || type != ControlMessageType.ConnectRequest)
+        {
+            return false;
+        }
+
+        var windowMs = BinaryPrimitives.ReadUInt32LittleEndian(data[Offset.OfferWindow..]);
+
+        offerWindow = windowMs == UnboundedOfferWindow
+            ? Timeout.InfiniteTimeSpan
+            : TimeSpan.FromMilliseconds(windowMs);
+        displayName = Encoding.UTF8.GetString(data[Offset.ConnectNameText..]);
+
+        return true;
+    }
+
     internal static bool TryDecodeStreamName(ReadOnlySpan<byte> data, out long payloadId, out string? name)
     {
         payloadId = 0;
         name = null;
 
-        if (data.Length < HEADER_SIZE + sizeof(long) + sizeof(ushort))
+        if (!HasValidStreamNameLength(data))
         {
             return false;
         }
 
-        payloadId = BinaryPrimitives.ReadInt64LittleEndian(data[HEADER_SIZE..]);
-        int nameByteCount = BinaryPrimitives.ReadUInt16LittleEndian(data[(HEADER_SIZE + sizeof(long))..]);
+        payloadId = BinaryPrimitives.ReadInt64LittleEndian(data[Offset.StreamPayloadId..]);
 
-        if (nameByteCount > MaxStreamNameBytes
-            || data.Length != HEADER_SIZE + sizeof(long) + sizeof(ushort) + nameByteCount)
-        {
-            return false;
-        }
-
-        // The name is peer-chosen and reaches log sinks and consumer UI — same untrusted class as a
-        // display name, so it runs through the same filter. iOS sanitizes at its own callback,
-        // which is where its name arrives.
         name = PeerLookup.Sanitize(
-            Encoding.UTF8.GetString(data[(HEADER_SIZE + sizeof(long) + sizeof(ushort))..]),
+            Encoding.UTF8.GetString(data[Offset.StreamNameText..]),
             MaxStreamNameBytes) ?? string.Empty;
 
         return true;

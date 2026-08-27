@@ -340,7 +340,7 @@ flowchart TD
 | # | Contract | Promised to | Enforcement in the target |
 |---|---|---|---|
 | C1 | Every public async operation terminates within a bounded time, on both platforms, whatever the radio does. `Timeout.InfiniteTimeSpan` opts out by the consumer's own choice. | Consumer | One shared await helper owns every platform-callback deadline. The rule stays: a new await on a platform callback goes through that helper or documents its own deadline. Device tests exercise each deadline path. |
-| C2 | No device sits forever in a state it cannot leave. `RequestReceived` is bounded by `InboundRequestTimeout`. | Consumer | The request-expiry component (section 4) owns the timer. Device tests assert the transition. |
+| C2 | No device sits forever in a state it cannot leave. `RequestReceived` is bounded by the offer's declared window (the initiator's `ConnectTimeout`, declared on the wire and clamped locally; the assumed 30s when no window was declared). | Consumer | The request-expiry component (section 4) owns the timer. Device tests assert the transition. |
 | C3 | *(new, from section 2)* Enumerating `Requests` or `Connections` first yields everything still outstanding, exactly once per enumerator, then live arrivals. Starting late loses nothing that still matters. | Consumer | Unit tests over the delivery seam. The replay set is naturally bounded — a radio holds only a handful of open connections and pending requests — so no buffer policy is needed. |
 | C4 | Changes and deliverables arrive on thread-pool threads. Nothing in the library has UI thread affinity except `NearbyDeviceCollection<TRow>`. No channel allows synchronous continuations, so a slow consumer cannot stall SDK callback dispatch. | Consumer | Channel construction sites are the enforcement point, as today. Not configurable, deliberately. |
 | C5 | Every state fact has exactly one owning component. Every other holder is a reader or a derived view. | Contributors | Section 4 names the owner of each fact in its component table. A change that gives a fact a second writer fails review against that table. |
@@ -414,8 +414,9 @@ operations map onto platform
 streams. The pump machine and the eight-line auto-accept policy stay inline — extracting
 them would create components with no independent reason to change. Everything else moves
 out. Auto-accept's contract is explicit: the policy never calls `Track`, never publishes to
-`Requests`, and is bounded by `AcceptTimeout` (C1) rather than `InboundRequestTimeout` (C2) —
-there is no consumer decision window to bound. Each auto-accept task registers in
+`Requests`, and is bounded by `min(the offer's remaining window, the assumed 30s window)` (C1)
+rather than the request row's expiry (C2) — there is no consumer decision window to bound, and an
+unconsented accept honors a stranger's declared window only up to the local assumption. Each auto-accept task registers in
 `SessionTaskSet` and runs on the facade's session stop token, which `StopAsync` and
 `DisposeAsync` both cancel. All registry mutation and all delivery publication happen in the
 facade — the components below act through delegates the facade injects.
@@ -781,7 +782,7 @@ sequenceDiagram
     DB-->>VM: request (replayed or live)
     VM->>FAC: request.AcceptAsync() — the facade-wired continuation
     FAC->>RR: TryClaim(deviceId) — the arbiter
-    FAC->>BR: respond(accept): ledger TCS + AcceptTimeout deadline (C1)
+    FAC->>BR: respond(accept): ledger TCS + remaining-offer-window deadline (C1)
     BR->>AD: RespondAsync(deviceId, accept)
     AD->>SDK: accept
     SDK->>AD: connected callback
@@ -793,9 +794,9 @@ sequenceDiagram
     DB-->>VM: connection, and AcceptAsync returns it
 ```
 
-If the SDK never sends the connected callback, the `AcceptTimeout` deadline faults the
+If the SDK never sends the connected callback, the offer's remaining window faults the
 ledger TCS and `AcceptAsync` throws — contract C1. If the consumer never answers, the
-request registry's timer claims the fact at `InboundRequestTimeout`, and the facade's
+request registry's timer claims the fact at the offer's deadline, and the facade's
 `onExpired` delegate rejects the request, completes `Expired`, and reports `RequestExpired`
 on the change stream — contract C2. If accept and expiry race, `TryClaim` picks exactly one
 winner: a losing accept throws `NearbyRequestExpiredException`, and a losing timer does
@@ -1093,6 +1094,39 @@ wiping did not help, so this is an environment failure, not a code failure. The 
 defect above was caught by that leg before it degraded, and its fix is therefore untested. iOS ran
 40/40 including its stream test. **Run the Android leg on healthy hardware or in CI before the 1.0
 gate**, and confirm `StreamPayloadTests.android.cs` passes both orders.
+
+### M7 — One offer deadline — done (2026-08-26)
+
+Three pre-connection timeout options become one. The initiator's `ConnectTimeout` is declared on
+the wire with the connection request itself — a `ControlMessage` frame of type `0x03`
+(`ConnectRequest`), riding Android's `endpointInfo` bytes and iOS's invitation context — and
+becomes the offer's single deadline, honored on both sides. `NearbyOptions.InboundRequestTimeout`
+and `NearbyOptions.AcceptTimeout` are removed: the request row expires at the declared deadline,
+the consented accept's handshake bound is the deadline's remaining window, and the published
+`RequestExpiresAt` is the deadline itself. Decisions settled 2026-08-26:
+
+- **Two internal constants, no new knobs** (the drain-deadline precedent). `OfferWindow.Default`
+  (30s) is both the `ConnectTimeout` default and the no-frame fallback — the window to assume when
+  nothing was said. `OfferWindow.Max` (5min) is the trust bound clamping every declared value,
+  the infinite sentinel included, and is the single security parameter of the remote-declared
+  duration trust boundary.
+- **Auto-accept is bounded by `min(remaining window, OfferWindow.Default)`.** An unconsented
+  accept honors a stranger's declaration only up to the local assumption; consented accepts honor
+  the full declared window. Removing `AutoAcceptConnectionRequests` was considered and rejected —
+  removal relocates the exposure into unguarded consumer code and breaks story S3.
+- **The frame carries a duration, not a timestamp** — the devices share no clock. The advertiser's
+  deadline lags the initiator's by the transit time, so the dead tail (an accept that reaches a
+  peer that just gave up) shrinks from unbounded to that lag, and `TryClaim` already arbitrates it.
+- **Android re-carries the display name in the frame** (the `byte[]` replaces the name string);
+  iOS sends the 9-byte window-only frame — the name rides `MCPeerID` natively. The name cap
+  (`DisplayNameRules.MaxBytes`, 63 bytes) is hoisted from iOS-only to shared validation, which
+  both guarantees the frame's ~131-byte Android budget by arithmetic and fixes a latent
+  first-principle leak: the same configured name used to work on Android and throw on iOS.
+- **`RequestRegistry` loses its infinite-skip branch**: every inbound window is clamped at
+  receipt, so every tracked request has a finite deadline and always a timer.
+- **Cross-version behavior is accepted for the pre-1.0 preview.** An old advertiser UTF-8-decodes
+  a new initiator's frame as the endpoint name and shows a sanitized-garbage display name — no
+  crash, degraded display only. A new advertiser receiving no frame assumes the default window.
 
 ### The 1.0 gate
 

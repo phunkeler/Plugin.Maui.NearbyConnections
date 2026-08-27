@@ -107,9 +107,10 @@ public sealed record NearbyDevice
     /// </summary>
     /// <value>
     /// The expiry instant while <see cref="Status"/> is
-    /// <see cref="NearbyDeviceStatus.RequestReceived"/>; otherwise <see langword="null"/>. Also
-    /// <see langword="null"/> when <see cref="NearbyOptions.InboundRequestTimeout"/> is
-    /// <see cref="Timeout.InfiniteTimeSpan"/>, because the request does not expire.
+    /// <see cref="NearbyDeviceStatus.RequestReceived"/>; otherwise <see langword="null"/>. The
+    /// instant is the offer's one deadline — the window the initiating device declared via its own
+    /// <see cref="NearbyOptions.ConnectTimeout"/>, clamped by this library — so it is also when
+    /// that device stops waiting.
     /// </value>
     /// <remarks>
     /// <para>

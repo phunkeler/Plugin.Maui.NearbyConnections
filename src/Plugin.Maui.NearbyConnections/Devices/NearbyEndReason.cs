@@ -5,11 +5,6 @@ namespace Plugin.Maui.NearbyConnections;
 /// connection ended. Carried by <see cref="NearbyDeviceChange.Reason"/> and by
 /// <see cref="NearbyConnection.Disconnected"/>.
 /// </summary>
-/// <remarks>
-/// Every case is a fact this library observes locally. Neither platform reports <em>why</em> an
-/// established connection dropped, so a remote close and a link loss both surface as
-/// <see cref="Disconnected"/> — splitting them would promise a distinction no platform can keep.
-/// </remarks>
 public enum NearbyEndReason
 {
     /// <summary>
@@ -26,7 +21,7 @@ public enum NearbyEndReason
 
     /// <summary>
     /// The handshake did not complete within <see cref="NearbyOptions.ConnectTimeout"/> when this
-    /// device initiated it, or <see cref="NearbyOptions.AcceptTimeout"/> when it accepted.
+    /// device initiated it, or before the offer's remaining window when it accepted.
     /// </summary>
     /// <remarks>
     /// This is distinct from <see cref="Failed"/> because the platforms differ: iOS has a native
@@ -36,8 +31,7 @@ public enum NearbyEndReason
     TimedOut,
 
     /// <summary>
-    /// An inbound request was not answered within
-    /// <see cref="NearbyOptions.InboundRequestTimeout"/>, so the library rejected it.
+    /// An inbound request was not answered before its offer deadline, so the library rejected it.
     /// </summary>
     /// <remarks>
     /// Distinct from <see cref="TimedOut"/>, which is an operation the caller was awaiting. Nothing

@@ -34,8 +34,6 @@ public static class MauiProgram
         {
             opts.ServiceId = "nearbychat";
             opts.ConnectTimeout = TimeSpan.FromSeconds(10);
-            opts.AcceptTimeout = TimeSpan.FromSeconds(5);
-            opts.InboundRequestTimeout = TimeSpan.FromSeconds(30);
         });
 
 #if DEBUG

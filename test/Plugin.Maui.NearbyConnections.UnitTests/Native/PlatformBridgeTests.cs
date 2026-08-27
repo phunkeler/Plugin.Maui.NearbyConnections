@@ -40,6 +40,7 @@ public class PlatformBridgeTests
 
             var request = new NearbyConnectionRequest(
                 device,
+                DateTimeOffset.MaxValue,
                 accept: ct => tcs.Task.WaitAsync(ct),
                 reject: ct => Task.CompletedTask);
 
@@ -66,8 +67,8 @@ public class PlatformBridgeTests
 
             var tcs = new TaskCompletionSource<NearbyConnection>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            platform.WriteConnectionRequest(new NearbyConnectionRequest(device1, ct => tcs.Task.WaitAsync(ct), ct => Task.CompletedTask));
-            platform.WriteConnectionRequest(new NearbyConnectionRequest(device2, ct => tcs.Task.WaitAsync(ct), ct => Task.CompletedTask));
+            platform.WriteConnectionRequest(new NearbyConnectionRequest(device1, DateTimeOffset.MaxValue, ct => tcs.Task.WaitAsync(ct), ct => Task.CompletedTask));
+            platform.WriteConnectionRequest(new NearbyConnectionRequest(device2, DateTimeOffset.MaxValue, ct => tcs.Task.WaitAsync(ct), ct => Task.CompletedTask));
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             var reader = platform._advertiseChannel.Reader;
@@ -412,6 +413,7 @@ public class PlatformBridgeTests
                 device,
                 tcs,
                 ConnectionRole.Acceptor,
+                TimeSpan.FromSeconds(15),
                 beforeAwait: static _ => Task.CompletedTask,
                 CancellationToken.None);
 

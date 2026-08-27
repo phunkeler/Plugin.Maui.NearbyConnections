@@ -1,11 +1,10 @@
 namespace Plugin.Maui.NearbyConnections;
 
 /// <summary>
-/// The exception that is thrown when a connection is not established within its deadline —
+/// The exception that is thrown when a connection is not established within the offer's deadline —
 /// <see cref="NearbyOptions.ConnectTimeout"/> for
-/// <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/>, or
-/// <see cref="NearbyOptions.AcceptTimeout"/> for
-/// <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/>.
+/// <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/>, or the offer's remaining
+/// window for <see cref="NearbyConnectionRequest.AcceptAsync(CancellationToken)"/>.
 /// </summary>
 /// <remarks>
 /// The handshake started but never reached a terminal result — most often because the remote device

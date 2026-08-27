@@ -5,52 +5,70 @@ namespace Plugin.Maui.NearbyConnections.UnitTests;
 /// <summary>
 /// Covers <see cref="RequestRegistry"/> — the one owner of "an inbound request is outstanding for
 /// device X". The atomic claim is the arbiter between accept, reject, and expiry: exactly one wins.
+/// Expiry is driven by the request's own offer deadline, computed at receipt from the window the
+/// initiator declared.
 /// </summary>
 [Trait("Category", "Connections")]
 public class RequestRegistryTests
 {
-    static readonly TimeSpan Timeout30 = TimeSpan.FromSeconds(30);
-
-    static NearbyOptions Options(TimeSpan timeout) => new() { InboundRequestTimeout = timeout };
+    static readonly TimeSpan Window30 = TimeSpan.FromSeconds(30);
 
     public sealed class Tracking : RequestRegistryTests
     {
         [Fact]
-        public void Track_ReturnsTheExpiryDeadline()
+        public void Track_ReturnsTheRequestsOwnDeadline()
         {
             // Arrange
             var time = new FakeTimeProvider();
-            var registry = Create.RequestRegistry(time, options: Options(Timeout30));
-            var expected = time.GetUtcNow() + Timeout30;
+            var registry = Create.RequestRegistry(time);
+            var deadline = time.GetUtcNow() + Window30;
 
             // Act
-            var expiresAt = registry.Track(Create.Request());
+            var expiresAt = registry.Track(Create.Request(deadline: deadline));
 
             // Assert
-            Assert.Equal(expected, expiresAt);
+            Assert.Equal(deadline, expiresAt);
             Assert.True(registry.Contains("peer-1"));
         }
 
         [Fact]
-        public async Task Track_WithInfiniteTimeout_ArmsNoTimer()
+        public void Track_ClampsADistantDeadlineToTheTrustBound()
         {
+            // Every tracked request has a finite deadline: the registry re-clamps to OfferWindow.Max
+            // even when a caller hands it a deadline beyond the bound.
+
             // Arrange
-            var expired = 0;
+            var time = new FakeTimeProvider();
+            var registry = Create.RequestRegistry(time);
+            var expected = time.GetUtcNow() + OfferWindow.s_max;
+
+            // Act
+            var expiresAt = registry.Track(Create.Request(deadline: DateTimeOffset.MaxValue));
+
+            // Assert
+            Assert.Equal(expected, expiresAt);
+        }
+
+        [Fact]
+        public async Task Track_WithADeadlineAlreadyPast_ExpiresImmediately()
+        {
+            // A degenerate declared window is honored: a zero or elapsed window lands
+            // already-expired and auto-rejects. It only hurts the sender.
+
+            // Arrange
+            var expiredRequests = new List<NearbyConnectionRequest>();
             var time = new FakeTimeProvider();
             var registry = Create.RequestRegistry(
                 time,
-                onExpired: _ => { expired++; return Task.CompletedTask; },
-                options: Options(System.Threading.Timeout.InfiniteTimeSpan));
+                onExpired: r => { expiredRequests.Add(r); return Task.CompletedTask; });
+            var request = Create.Request(deadline: time.GetUtcNow() - TimeSpan.FromSeconds(1));
 
-            // Act
-            var expiresAt = registry.Track(Create.Request());
-            time.Advance(TimeSpan.FromDays(1));
-            await Task.Yield();
+            // Act — no clock movement: a zero remaining window arms an already-elapsed timer.
+            registry.Track(request);
+            await Wait.UntilAsync(() => expiredRequests.Count > 0);
 
             // Assert
-            Assert.Null(expiresAt);
-            Assert.Equal(0, expired);
-            Assert.True(registry.Contains("peer-1"));
+            Assert.Same(request, Assert.Single(expiredRequests));
         }
     }
 
@@ -61,8 +79,8 @@ public class RequestRegistryTests
         {
             // Arrange
             var time = new FakeTimeProvider();
-            var registry = Create.RequestRegistry(time, options: Options(Timeout30));
-            var request = Create.Request();
+            var registry = Create.RequestRegistry(time);
+            var request = Create.Request(deadline: time.GetUtcNow() + Window30);
             registry.Track(request);
 
             // Act
@@ -86,13 +104,12 @@ public class RequestRegistryTests
             var time = new FakeTimeProvider();
             var registry = Create.RequestRegistry(
                 time,
-                onExpired: _ => { expired++; return Task.CompletedTask; },
-                options: Options(Timeout30));
-            registry.Track(Create.Request());
+                onExpired: _ => { expired++; return Task.CompletedTask; });
+            registry.Track(Create.Request(deadline: time.GetUtcNow() + Window30));
 
             // Act
             registry.TryClaim("peer-1", out _);
-            time.Advance(Timeout30 + TimeSpan.FromSeconds(1));
+            time.Advance(Window30 + TimeSpan.FromSeconds(1));
             await Task.Yield();
 
             // Assert
@@ -102,20 +119,22 @@ public class RequestRegistryTests
         [Fact]
         public async Task ExpiredRequest_CannotBeClaimed()
         {
-            // The expiry side of the race: once the timer wins, a later accept must lose.
+            // The expiry side of the race, and the dead tail pinned as intended behavior: the
+            // advertiser's deadline lags the initiator's by the transit time, so an accept inside
+            // that tail loses the claim — the session gateway then throws
+            // NearbyRequestExpiredException, exactly as any late accept does.
 
             // Arrange
             var expiredRequests = new List<NearbyConnectionRequest>();
             var time = new FakeTimeProvider();
             var registry = Create.RequestRegistry(
                 time,
-                onExpired: r => { expiredRequests.Add(r); return Task.CompletedTask; },
-                options: Options(Timeout30));
-            var request = Create.Request();
+                onExpired: r => { expiredRequests.Add(r); return Task.CompletedTask; });
+            var request = Create.Request(deadline: time.GetUtcNow() + Window30);
             registry.Track(request);
 
             // Act
-            time.Advance(Timeout30 + TimeSpan.FromSeconds(1));
+            time.Advance(Window30 + TimeSpan.FromSeconds(1));
             await Wait.UntilAsync(() => expiredRequests.Count > 0);
             var claimedAfterExpiry = registry.TryClaim("peer-1", out _);
 
@@ -128,23 +147,23 @@ public class RequestRegistryTests
         [Fact]
         public async Task NewRequestForTheSameDevice_ReplacesTheOldTimer()
         {
-            // The old timer must not stay armed against the replacement request.
+            // The old timer must not stay armed against the replacement request. Each request
+            // carries its own deadline, so the replacement expires at its own instant.
 
             // Arrange
             var expiredRequests = new List<NearbyConnectionRequest>();
             var time = new FakeTimeProvider();
             var registry = Create.RequestRegistry(
                 time,
-                onExpired: r => { expiredRequests.Add(r); return Task.CompletedTask; },
-                options: Options(Timeout30));
-            var first = Create.Request();
-            var second = Create.Request();
+                onExpired: r => { expiredRequests.Add(r); return Task.CompletedTask; });
+            var first = Create.Request(deadline: time.GetUtcNow() + Window30);
 
-            // Act — the second Track replaces the first, re-arming from the later instant.
+            // Act — the second Track replaces the first; only the second's deadline fires.
             registry.Track(first);
             time.Advance(TimeSpan.FromSeconds(15));
+            var second = Create.Request(deadline: time.GetUtcNow() + Window30);
             registry.Track(second);
-            time.Advance(Timeout30 + TimeSpan.FromSeconds(1));
+            time.Advance(Window30 + TimeSpan.FromSeconds(1));
             await Wait.UntilAsync(() => expiredRequests.Count > 0);
 
             // Assert
@@ -162,14 +181,13 @@ public class RequestRegistryTests
             var time = new FakeTimeProvider();
             var registry = Create.RequestRegistry(
                 time,
-                onExpired: _ => { expired++; return Task.CompletedTask; },
-                options: Options(Timeout30));
-            registry.Track(Create.Request(Create.Device("peer-1")));
-            registry.Track(Create.Request(Create.Device("peer-2")));
+                onExpired: _ => { expired++; return Task.CompletedTask; });
+            registry.Track(Create.Request(Create.Device("peer-1"), time.GetUtcNow() + Window30));
+            registry.Track(Create.Request(Create.Device("peer-2"), time.GetUtcNow() + Window30));
 
             // Act
             var claimed = registry.ClaimAll();
-            time.Advance(Timeout30 + TimeSpan.FromSeconds(1));
+            time.Advance(Window30 + TimeSpan.FromSeconds(1));
             await Task.Yield();
 
             // Assert

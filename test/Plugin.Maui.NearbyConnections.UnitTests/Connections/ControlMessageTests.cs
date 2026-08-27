@@ -223,4 +223,162 @@ public class ControlMessageTests
             Assert.Equal(ControlMessageType.Disconnect, type);
         }
     }
+
+    public sealed class ConnectRequestFrame : ControlMessageTests
+    {
+        [Fact]
+        public void RoundTrips_WindowAndName()
+        {
+            // Arrange — the Android shape: the frame re-carries the display name.
+            var frame = ControlMessage.EncodeConnectRequest(TimeSpan.FromSeconds(30), "Alice");
+
+            // Act
+            var recognized = ControlMessage.TryDecode(frame, out var type);
+            var decoded = ControlMessage.TryDecodeConnectRequest(frame, out var window, out var name);
+
+            // Assert
+            Assert.True(recognized);
+            Assert.Equal(ControlMessageType.ConnectRequest, type);
+            Assert.True(decoded);
+            Assert.Equal(TimeSpan.FromSeconds(30), window);
+            Assert.Equal("Alice", name);
+        }
+
+        [Fact]
+        public void RoundTrips_TheEmptyName()
+        {
+            // The iOS shape: the name rides MCPeerID natively, so the context is the 9-byte
+            // window-only frame.
+
+            // Arrange
+            var frame = ControlMessage.EncodeConnectRequest(TimeSpan.FromSeconds(10), displayName: string.Empty);
+
+            // Act
+            var decoded = ControlMessage.TryDecodeConnectRequest(frame, out var window, out var name);
+
+            // Assert
+            Assert.Equal(9, frame.Length);
+            Assert.True(decoded);
+            Assert.Equal(TimeSpan.FromSeconds(10), window);
+            Assert.Equal(string.Empty, name);
+        }
+
+        [Fact]
+        public void InfiniteWindow_RoundTripsThroughTheSentinel()
+        {
+            // Arrange
+            var frame = ControlMessage.EncodeConnectRequest(Timeout.InfiniteTimeSpan, string.Empty);
+
+            // Act
+            var decoded = ControlMessage.TryDecodeConnectRequest(frame, out var window, out _);
+
+            // Assert
+            Assert.True(decoded);
+            Assert.Equal(Timeout.InfiniteTimeSpan, window);
+        }
+
+        [Fact]
+        public void FiniteWindowAboveTheFieldRange_SaturatesBelowTheSentinel()
+        {
+            // Only Timeout.InfiniteTimeSpan gets the sentinel: a huge finite duration must not be
+            // mistaken for an unbounded declaration.
+
+            // Arrange
+            var frame = ControlMessage.EncodeConnectRequest(TimeSpan.FromDays(365), string.Empty);
+
+            // Act
+            var decoded = ControlMessage.TryDecodeConnectRequest(frame, out var window, out _);
+
+            // Assert
+            Assert.True(decoded);
+            Assert.NotEqual(Timeout.InfiniteTimeSpan, window);
+            Assert.Equal(TimeSpan.FromMilliseconds(0xFFFFFFFE), window);
+        }
+
+        [Fact]
+        public void ZeroWindow_IsValidAndDecodesToZero()
+        {
+            // A degenerate declared window is honored — it lands already-expired on the receiver
+            // and only hurts the sender.
+
+            // Arrange
+            var frame = ControlMessage.EncodeConnectRequest(TimeSpan.Zero, string.Empty);
+
+            // Act
+            var decoded = ControlMessage.TryDecodeConnectRequest(frame, out var window, out _);
+
+            // Assert
+            Assert.True(decoded);
+            Assert.Equal(TimeSpan.Zero, window);
+        }
+
+        [Fact]
+        public void Encode_RejectsANameOverTheWireBudget()
+        {
+            // 9 bytes of frame overhead + a 63-byte name is what keeps the whole frame inside
+            // Google's ~131-byte pre-connection cap.
+
+            // Arrange
+            var oversized = new string('x', DisplayNameRules.MaxBytes + 1);
+
+            // Act
+            void Act() => ControlMessage.EncodeConnectRequest(TimeSpan.FromSeconds(30), oversized);
+
+            // Assert
+            Assert.Throws<ArgumentException>(Act);
+        }
+
+        [Fact]
+        public void TruncatedFrame_IsRejected()
+        {
+            // Arrange — cut into the window field.
+            var frame = ControlMessage.EncodeConnectRequest(TimeSpan.FromSeconds(30), string.Empty);
+            var truncated = frame.AsSpan(0, frame.Length - 2);
+
+            // Act
+            var recognized = ControlMessage.TryDecode(truncated, out _);
+            var decoded = ControlMessage.TryDecodeConnectRequest(truncated, out _, out var name);
+
+            // Assert
+            Assert.False(recognized);
+            Assert.False(decoded);
+            Assert.Null(name);
+        }
+
+        [Fact]
+        public void LegacyRawName_IsNotMistakenForAFrame()
+        {
+            // A legacy Android peer's endpointInfo is its raw UTF-8 display name. It must fail the
+            // decode so the receiver falls back to name-as-string plus the default window.
+
+            // Arrange
+            var legacy = System.Text.Encoding.UTF8.GetBytes("Alice's Phone");
+
+            // Act
+            var decoded = ControlMessage.TryDecodeConnectRequest(legacy, out _, out var name);
+
+            // Assert
+            Assert.False(decoded);
+            Assert.Null(name);
+        }
+
+        [Fact]
+        public void AppPayloadStartingWithTheSignature_IsSwallowedAsAControlFrame()
+        {
+            // The false-positive case, pinned: an application payload that starts with the
+            // signature, the 0x03 type byte, and at least four more bytes decodes as a control
+            // frame and is not delivered as an application payload. Same accepted cross-version
+            // behavior class as the other frame types.
+
+            // Arrange
+            byte[] payload = [.. SignatureBytes, 0x03, 0xDE, 0xAD, 0xBE, 0xEF];
+
+            // Act
+            var recognized = ControlMessage.TryDecode(payload, out var type);
+
+            // Assert
+            Assert.True(recognized);
+            Assert.Equal(ControlMessageType.ConnectRequest, type);
+        }
+    }
 }

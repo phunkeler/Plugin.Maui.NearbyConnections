@@ -20,8 +20,6 @@ public class NearbyOptionsSnapshotTests
                 ServiceId = "nearbychat",
                 DiscoveryRefreshInterval = TimeSpan.FromSeconds(5),
                 ConnectTimeout = TimeSpan.FromSeconds(1),
-                AcceptTimeout = TimeSpan.FromSeconds(2),
-                InboundRequestTimeout = TimeSpan.FromSeconds(3),
                 TransferInactivityTimeout = TimeSpan.FromSeconds(4),
                 AutoAcceptConnectionRequests = true,
             };
@@ -34,8 +32,6 @@ public class NearbyOptionsSnapshotTests
             Assert.Equal("nearbychat", snapshot.ServiceId);
             Assert.Equal(TimeSpan.FromSeconds(5), snapshot.DiscoveryRefreshInterval);
             Assert.Equal(TimeSpan.FromSeconds(1), snapshot.ConnectTimeout);
-            Assert.Equal(TimeSpan.FromSeconds(2), snapshot.AcceptTimeout);
-            Assert.Equal(TimeSpan.FromSeconds(3), snapshot.InboundRequestTimeout);
             Assert.Equal(TimeSpan.FromSeconds(4), snapshot.TransferInactivityTimeout);
             Assert.True(snapshot.AutoAcceptConnectionRequests);
         }

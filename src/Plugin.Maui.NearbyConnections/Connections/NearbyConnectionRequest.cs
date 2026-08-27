@@ -3,8 +3,9 @@ namespace Plugin.Maui.NearbyConnections;
 /// <summary>
 /// An inbound connection request from a nearby device, delivered through
 /// <see cref="INearby.Requests"/>. Answer it with <see cref="AcceptAsync(CancellationToken)"/> or
-/// <see cref="RejectAsync(CancellationToken)"/> before
-/// <see cref="NearbyOptions.InboundRequestTimeout"/> elapses.
+/// <see cref="RejectAsync(CancellationToken)"/> before the offer's deadline — the window the
+/// initiating device declared with the request, clamped by this library — elapses. Read
+/// <see cref="NearbyDevice.RequestExpiresAt"/> for the deadline.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -29,15 +30,24 @@ public sealed class NearbyConnectionRequest
 
     internal NearbyConnectionRequest(
         NearbyDevice remoteDevice,
+        DateTimeOffset deadline,
         Func<CancellationToken, Task<NearbyConnection>> accept,
         Func<CancellationToken, Task> reject)
     {
         RemoteDevice = remoteDevice;
+        Deadline = deadline;
         AcceptCore = accept;
         RejectCore = reject;
         _acceptGateway = accept;
         _rejectGateway = reject;
     }
+
+    /// <summary>
+    /// When this offer dies: computed once at receipt from the remote-declared window (clamped by
+    /// <see cref="OfferWindow.s_max"/>), and driving the request row's expiry, the accept's
+    /// handshake bound, and the published <see cref="NearbyDevice.RequestExpiresAt"/>.
+    /// </summary>
+    internal DateTimeOffset Deadline { get; }
 
     /// <summary>
     /// Gets the device asking to connect.
@@ -64,7 +74,8 @@ public sealed class NearbyConnectionRequest
     /// The request is no longer outstanding: it expired, or it was already answered.
     /// </exception>
     /// <exception cref="NearbyConnectionTimeoutException">
-    /// The handshake did not complete within <see cref="NearbyOptions.AcceptTimeout"/>.
+    /// The handshake did not complete before the offer's deadline — the moment the initiating
+    /// device gives up on its own <see cref="INearby.ConnectAsync(NearbyDevice, CancellationToken)"/>.
     /// </exception>
     /// <exception cref="OperationCanceledException">
     /// <paramref name="cancellationToken"/> was canceled.

@@ -122,6 +122,7 @@ sealed partial class PlatformBridge : IPlatformNearby
             device,
             tcs,
             ConnectionRole.Initiator,
+            _options.ConnectTimeout,
             beforeAwait: token => _adapter.InitiateConnectAsync(device, token),
             cancellationToken).ConfigureAwait(false);
     }
@@ -196,15 +197,22 @@ sealed partial class PlatformBridge : IPlatformNearby
         _adapter.SweepStaging();
     }
 
+    /// <summary>
+    /// Awaits a pending handshake under the one deadline the caller supplies: the initiator's
+    /// <see cref="NearbyOptions.ConnectTimeout"/>, or the acceptor's remaining offer window — the
+    /// offer's single deadline, honored on both sides. The duration is a parameter rather than a
+    /// role-based options lookup so an accept is bounded by the window the initiator actually
+    /// declared, not a local guess.
+    /// </summary>
     internal async Task<NearbyConnection> AwaitHandshakeAsync(
         NearbyDevice device,
         TaskCompletionSource<NearbyConnection> tcs,
         ConnectionRole role,
+        TimeSpan timeout,
         Func<CancellationToken, Task> beforeAwait,
         CancellationToken cancellationToken)
     {
         var isInitiator = role is ConnectionRole.Initiator;
-        var timeout = isInitiator ? _options.ConnectTimeout : _options.AcceptTimeout;
         var hasTimeout = timeout != Timeout.InfiniteTimeSpan;
 
         using var deadlineCts = new CancellationTokenSource(timeout, TimeProvider);
@@ -226,12 +234,13 @@ sealed partial class PlatformBridge : IPlatformNearby
             _connectionTcs.TryRemove(device.Id, out _);
             await _adapter.AbandonConnectAsync(device).ConfigureAwait(false);
 
-            var name = device.DisplayName ?? device.Id;
+            // The device id, never the display name: the name is remote-chosen identity data, and
+            // exception messages reach log sinks.
             var seconds = timeout.TotalSeconds;
 
             throw new NearbyConnectionTimeoutException(isInitiator
-                ? $"The connection request to '{name}' was not answered within {seconds:0.#}s."
-                : $"The connection with '{name}' was not established within {seconds:0.#}s of accepting the request.");
+                ? $"The connection request to device '{device.Id}' was not answered within {seconds:0.#}s."
+                : $"The connection with device '{device.Id}' was not established before the offer's deadline — {seconds:0.#}s remained when accepting the request.");
         }
         catch
         {
@@ -253,9 +262,29 @@ sealed partial class PlatformBridge : IPlatformNearby
         }
     }
 
+    /// <summary>
+    /// The offer's one deadline, computed once at request receipt: the remote-declared window,
+    /// clamped by <see cref="OfferWindow.Clamp"/> (with the clamp logged), from now. Shared so the
+    /// clamp-and-log step cannot drift between the platform partials.
+    /// </summary>
+    internal DateTimeOffset ComputeOfferDeadline(string deviceId, TimeSpan declaredWindow)
+    {
+        var window = OfferWindow.Clamp(declaredWindow);
+
+        if (window != declaredWindow)
+        {
+            LogOfferWindowClamped(
+                deviceId,
+                declaredWindow == Timeout.InfiniteTimeSpan ? double.PositiveInfinity : declaredWindow.TotalSeconds,
+                window.TotalSeconds);
+        }
+
+        return TimeProvider.GetUtcNow() + window;
+    }
+
     internal NearbyTransferTimeoutException TransferInactivityTimeoutException(string deviceId)
     {
-        LogSendFileTimeout(deviceId, null, _options.TransferInactivityTimeout.TotalSeconds);
+        LogSendFileTimeout(deviceId, _options.TransferInactivityTimeout.TotalSeconds);
 
         return new NearbyTransferTimeoutException(
             $"Transfer stalled: no progress received for {_options.TransferInactivityTimeout}.");
@@ -351,7 +380,7 @@ sealed partial class PlatformBridge : IPlatformNearby
     /// </summary>
     internal void OnDeviceFound(NearbyDevice device)
     {
-        LogDeviceFound(device.Id, device.DisplayName);
+        LogDeviceFound(device.Id);
         WriteDeviceFound(device);
     }
 
@@ -365,7 +394,7 @@ sealed partial class PlatformBridge : IPlatformNearby
         {
             if (PeerLookup.TryGetDevice(deviceId, out var existingDevice))
             {
-                LogConnectedDeviceStoppedAdvertising(existingDevice.Id, existingDevice.DisplayName);
+                LogConnectedDeviceStoppedAdvertising(existingDevice.Id);
             }
 
             return;
@@ -373,7 +402,7 @@ sealed partial class PlatformBridge : IPlatformNearby
 
         var device = PeerLookup.Remove(deviceId);
 
-        LogDeviceLost(deviceId, device?.DisplayName);
+        LogDeviceLost(deviceId);
 
         if (device is not null)
         {
@@ -445,7 +474,7 @@ sealed partial class PlatformBridge : IPlatformNearby
         catch (Exception ex) when (ex is not NearbyException)
         {
             report(NearbyTransferStatus.Failure);
-            LogSendFileFailed(deviceId, null, ex);
+            LogSendFileFailed(deviceId, ex);
 
             throw new NearbyTransferException(
                 $"Failed to send file to device '{deviceId}'.", ex);

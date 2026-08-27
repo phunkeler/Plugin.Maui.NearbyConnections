@@ -377,9 +377,10 @@ public interface INearby
     /// <para>
     /// Starting late loses nothing that still matters: enumeration replays the outstanding
     /// requests before following live arrivals. A replayed request can still lose its race with
-    /// <see cref="NearbyOptions.InboundRequestTimeout"/> — delivery is exactly-once, validity is
-    /// the request's own story, told by <see cref="NearbyConnectionRequest.Expired"/> and the
-    /// typed <see cref="NearbyRequestExpiredException"/>.
+    /// its own offer deadline (<see cref="NearbyDevice.RequestExpiresAt"/>) — delivery is
+    /// exactly-once, validity is the request's own story, told by
+    /// <see cref="NearbyConnectionRequest.Expired"/> and the typed
+    /// <see cref="NearbyRequestExpiredException"/>.
     /// </para>
     /// <para>
     /// With <see cref="NearbyOptions.AutoAcceptConnectionRequests"/> enabled this stream never

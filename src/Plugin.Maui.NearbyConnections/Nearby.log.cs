@@ -63,8 +63,8 @@ sealed partial class Nearby
     [LoggerMessage(
         EventId = 1012,
         Level = LogLevel.Debug,
-        Message = "The inbound connection request from device {DeviceId} was not answered within {TimeoutSeconds}s and was rejected.")]
-    partial void LogInboundRequestExpired(string deviceId, double timeoutSeconds);
+        Message = "The inbound connection request from device {DeviceId} was not answered before its offer deadline and was rejected.")]
+    partial void LogInboundRequestExpired(string deviceId);
 
     [LoggerMessage(
         EventId = 1013,
@@ -79,6 +79,15 @@ sealed partial class Nearby
         Message = "The expiry countdown for the connection request from device {DeviceId} failed. " +
             "The request may be left outstanding until the session stops.")]
     partial void LogInboundRequestExpiryFailed(string deviceId, Exception exception);
+
+    // Warning, not Error: unlike LogAutoAcceptFailed there is no fault to carry — the remote peer
+    // simply never completed the handshake it asked for, and the bound this session owns ended it.
+    [LoggerMessage(
+        EventId = 1015,
+        Level = LogLevel.Warning,
+        Message = "The automatically accepted connection request from device {DeviceId} did not " +
+            "complete its handshake within {BoundSeconds}s and was abandoned.")]
+    partial void LogAutoAcceptTimedOut(string deviceId, double boundSeconds);
 
     // -------------------------------------------------------------------------
     // Teardown

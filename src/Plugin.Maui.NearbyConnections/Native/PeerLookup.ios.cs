@@ -33,61 +33,13 @@ sealed partial class PeerLookup
         _handles[key] = peerID;
         var device = Record(key, peerID.DisplayName);
 
-        // The sanitized name from the device, never peerID.DisplayName: the raw value is
-        // remote-supplied and reaches a log sink here.
-        LogTrackingRemotePeer(Logger, key, device.DisplayName);
+        LogTrackingRemotePeer(Logger, key);
 
         return device;
     }
 
     public bool TryGetHandle(string deviceId, [NotNullWhen(true)] out MCPeerID? handle)
         => _handles.TryGetValue(deviceId, out handle);
-
-    /// <summary>
-    /// The display name for <paramref name="peerID"/>, safe to log and to render.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Never pass <c>peerID.DisplayName</c> to a log message, an exception message, or any other
-    /// sink.</b> That value is chosen by an unauthenticated remote peer and is not sanitized. Call
-    /// this instead. It returns the name already recorded for a tracked peer, and sanitizes on the
-    /// spot for one this lookup has not seen — every callback that reports a peer can therefore use
-    /// it, including the error paths that run before or after tracking.
-    /// </para>
-    /// <para>
-    /// This exists because the sanitization invariant is stated as "<see cref="Record"/> is the only
-    /// place a remote name is cleaned", and iOS has many delegate callbacks holding an
-    /// <c>MCPeerID</c> but no <see cref="NearbyDevice"/>. Without this helper each one reaches for
-    /// the raw property, which is how the invariant was broken across roughly fifteen sites.
-    /// </para>
-    /// </remarks>
-    public string? SafeDisplayName(MCPeerID? peerID)
-    {
-        if (peerID is null)
-        {
-            return null;
-        }
-
-        return SafeDisplayName(DeviceIdFor(peerID), peerID);
-    }
-
-    /// <summary>
-    /// The display name for a peer whose key the caller already holds, safe to log and to render.
-    /// </summary>
-    /// <remarks>
-    /// Prefer this overload inside a platform callback: those already hold the device id for the
-    /// <c>{DeviceId}</c> property. It also keeps the call cheap enough not to trip CA1873, which
-    /// flags work evaluated before the logger decides the level is enabled.
-    /// </remarks>
-    public string? SafeDisplayName(string deviceId, MCPeerID? peerID)
-    {
-        if (TryGetDevice(deviceId, out var device))
-        {
-            return device.DisplayName;
-        }
-
-        return peerID is null ? null : Sanitize(peerID.DisplayName);
-    }
 
     /// <summary>
     /// The device id for a Multipeer Connectivity peer, minted on first sight.
@@ -146,8 +98,8 @@ sealed partial class PeerLookup
     [LoggerMessage(
         EventId = 3030,
         Level = LogLevel.Trace,
-        Message = "Tracking remote peer: DeviceId={DeviceId}, DisplayName={DisplayName}")]
-    static partial void LogTrackingRemotePeer(ILogger logger, string deviceId, string? displayName);
+        Message = "Tracking remote peer: DeviceId={DeviceId}")]
+    static partial void LogTrackingRemotePeer(ILogger logger, string deviceId);
 
     [LoggerMessage(
         EventId = 3031,

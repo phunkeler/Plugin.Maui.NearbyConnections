@@ -49,21 +49,48 @@ public sealed class HandshakeTimeoutTests
         Assert.IsNotAssignableFrom<NearbyConnectionTimeoutException>(ex);
     }
 
-    // The two roles read different options. Every test below sets ConnectTimeout and AcceptTimeout
-    // to different values on purpose: with one shared value, a wire-up that read the wrong option
-    // would still pass.
+    // The duration is a caller-supplied parameter — the offer's one deadline, not a role-based
+    // options lookup. The tests below set ConnectTimeout to a different value on purpose: a
+    // wire-up that read the option instead of the parameter would still pass otherwise.
     [Fact]
-    public async Task AwaitHandshake_AsInitiator_UsesConnectTimeoutNotAcceptTimeout()
+    public async Task AwaitHandshake_IsBoundedByTheSuppliedDuration_NotAnOption()
     {
         // Arrange
         var time = new FakeTimeProvider();
-        var connect = TimeSpan.FromSeconds(30);
-        var accept = TimeSpan.FromSeconds(5);
+        var supplied = TimeSpan.FromSeconds(5);
         var platform = Create.PlatformBridge(time, new NearbyOptions
         {
             ServiceId = "test-service",
-            ConnectTimeout = connect,
-            AcceptTimeout = accept,
+            ConnectTimeout = TimeSpan.FromSeconds(30),
+        });
+        var device = Create.Device("peer-1", "Alice");
+        var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
+
+        // Act
+        var handshake = platform.AwaitHandshakeAsync(
+            device,
+            tcs,
+            ConnectionRole.Acceptor,
+            supplied,
+            beforeAwait: _ => Task.CompletedTask,
+            CancellationToken.None);
+
+        time.Advance(supplied);
+
+        // Assert — the supplied window governs, well before ConnectTimeout would fire.
+        await Assert.ThrowsAsync<NearbyConnectionTimeoutException>(() => handshake);
+    }
+
+    [Fact]
+    public async Task AwaitHandshake_DoesNotFireBeforeTheSuppliedDuration()
+    {
+        // Arrange
+        var time = new FakeTimeProvider();
+        var supplied = TimeSpan.FromSeconds(30);
+        var platform = Create.PlatformBridge(time, new NearbyOptions
+        {
+            ServiceId = "test-service",
+            ConnectTimeout = TimeSpan.FromSeconds(5),
         });
         var device = Create.Device("peer-1", "Alice");
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
@@ -73,35 +100,30 @@ public sealed class HandshakeTimeoutTests
             device,
             tcs,
             ConnectionRole.Initiator,
+            supplied,
             beforeAwait: _ => Task.CompletedTask,
             CancellationToken.None);
 
-        time.Advance(accept);
+        time.Advance(TimeSpan.FromSeconds(5));
 
-        // Assert — past the accept deadline, an initiator must still be waiting. Awaited with a real
-        // deadline so a regression that fires early fails here rather than hanging the suite.
+        // Assert — past the (smaller) option value, the supplied window must still be waiting.
+        // Awaited with a real deadline so a regression that fires early fails here rather than
+        // hanging the suite.
         var settled = await Task.WhenAny(
             handshake,
             Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken));
-        // The initiator must not time out on AcceptTimeout.
         Assert.NotSame(handshake, settled);
-        time.Advance(connect - accept);
+        time.Advance(supplied - TimeSpan.FromSeconds(5));
         await Assert.ThrowsAsync<NearbyConnectionTimeoutException>(() => handshake);
     }
 
     [Fact]
-    public async Task AwaitHandshake_AsAcceptor_UsesAcceptTimeoutNotConnectTimeout()
+    public async Task AwaitHandshake_AsAcceptor_ReportsTheOfferDeadlineInItsMessage()
     {
         // Arrange
         var time = new FakeTimeProvider();
-        var connect = TimeSpan.FromSeconds(30);
-        var accept = TimeSpan.FromSeconds(5);
-        var platform = Create.PlatformBridge(time, new NearbyOptions
-        {
-            ServiceId = "test-service",
-            ConnectTimeout = connect,
-            AcceptTimeout = accept,
-        });
+        var remaining = TimeSpan.FromSeconds(5);
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service" });
         var device = Create.Device("peer-1", "Alice");
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
 
@@ -110,43 +132,15 @@ public sealed class HandshakeTimeoutTests
             device,
             tcs,
             ConnectionRole.Acceptor,
+            remaining,
             beforeAwait: _ => Task.CompletedTask,
             CancellationToken.None);
 
-        time.Advance(accept);
-
-        // Assert — the acceptor's shorter deadline governs, well before ConnectTimeout would fire.
-        await Assert.ThrowsAsync<NearbyConnectionTimeoutException>(() => handshake);
-    }
-
-    [Fact]
-    public async Task AwaitHandshake_AsAcceptor_ReportsTheAcceptWindowInItsMessage()
-    {
-        // Arrange
-        var time = new FakeTimeProvider();
-        var accept = TimeSpan.FromSeconds(5);
-        var platform = Create.PlatformBridge(time, new NearbyOptions
-        {
-            ServiceId = "test-service",
-            ConnectTimeout = TimeSpan.FromSeconds(30),
-            AcceptTimeout = accept,
-        });
-        var device = Create.Device("peer-1", "Alice");
-        var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
-
-        // Act
-        var handshake = platform.AwaitHandshakeAsync(
-            device,
-            tcs,
-            ConnectionRole.Acceptor,
-            beforeAwait: _ => Task.CompletedTask,
-            CancellationToken.None);
-
-        time.Advance(accept);
+        time.Advance(remaining);
         var ex = await Assert.ThrowsAsync<NearbyConnectionTimeoutException>(() => handshake);
 
-        // Assert — the message must quote the deadline that actually fired, not the other one.
-        Assert.Contains("accepting the request", ex.Message);
+        // Assert — the message must quote the window that actually fired, and name the offer.
+        Assert.Contains("offer's deadline", ex.Message);
         Assert.Contains("5s", ex.Message);
     }
 
@@ -156,12 +150,7 @@ public sealed class HandshakeTimeoutTests
         // Arrange — DisposeAsync settles a pending handshake by cancelling its TCS. That is neither
         // the caller's token nor the deadline, and it must not be reported as an elapsed deadline.
         var time = new FakeTimeProvider();
-        var platform = Create.PlatformBridge(time, new NearbyOptions
-        {
-            ServiceId = "test-service",
-            ConnectTimeout = TimeSpan.FromSeconds(30),
-            AcceptTimeout = TimeSpan.FromSeconds(15),
-        });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service" });
         var device = Create.Device("peer-1", "Alice");
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
 
@@ -169,6 +158,7 @@ public sealed class HandshakeTimeoutTests
             device,
             tcs,
             ConnectionRole.Acceptor,
+            TimeSpan.FromSeconds(15),
             beforeAwait: _ => Task.CompletedTask,
             CancellationToken.None);
 
@@ -190,7 +180,7 @@ public sealed class HandshakeTimeoutTests
         // Arrange
         var time = new FakeTimeProvider();
         var timeout = TimeSpan.FromSeconds(5);
-        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = timeout });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service" });
         var device = Create.Device("peer-1", "Alice");
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
 
@@ -199,6 +189,7 @@ public sealed class HandshakeTimeoutTests
             device,
             tcs,
             ConnectionRole.Initiator,
+            timeout,
             beforeAwait: _ => Task.CompletedTask,
             CancellationToken.None);
 
@@ -214,7 +205,7 @@ public sealed class HandshakeTimeoutTests
         // Arrange
         var time = new FakeTimeProvider();
         var timeout = TimeSpan.FromSeconds(5);
-        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = timeout });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service" });
         var device = Create.Device("peer-1", "Alice");
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
 
@@ -223,6 +214,7 @@ public sealed class HandshakeTimeoutTests
             device,
             tcs,
             ConnectionRole.Initiator,
+            timeout,
             beforeAwait: _ => Task.CompletedTask,
             CancellationToken.None);
 
@@ -238,7 +230,7 @@ public sealed class HandshakeTimeoutTests
     {
         // Arrange
         var time = new FakeTimeProvider();
-        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = TimeSpan.FromSeconds(5) });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service" });
         var device = Create.Device("peer-1", "Alice");
         var expected = Create.Connection(device);
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
@@ -248,6 +240,7 @@ public sealed class HandshakeTimeoutTests
             device,
             tcs,
             ConnectionRole.Initiator,
+            TimeSpan.FromSeconds(5),
             beforeAwait: _ => Task.CompletedTask,
             CancellationToken.None);
 
@@ -260,9 +253,12 @@ public sealed class HandshakeTimeoutTests
     [Fact]
     public async Task AwaitHandshake_WhenTimeoutIsInfinite_DoesNotTimeOut()
     {
+        // The infinite opt-out survives on the initiator side by the caller's own choice. (The
+        // remote side clamps the declared window, but that is the other device's concern.)
+
         // Arrange
         var time = new FakeTimeProvider();
-        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = Timeout.InfiniteTimeSpan });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service" });
         var device = Create.Device("peer-1", "Alice");
         var expected = Create.Connection(device);
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
@@ -272,6 +268,7 @@ public sealed class HandshakeTimeoutTests
             device,
             tcs,
             ConnectionRole.Initiator,
+            Timeout.InfiniteTimeSpan,
             beforeAwait: _ => Task.CompletedTask,
             CancellationToken.None);
 
@@ -287,7 +284,7 @@ public sealed class HandshakeTimeoutTests
     {
         // Arrange
         var time = new FakeTimeProvider();
-        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service", ConnectTimeout = TimeSpan.FromSeconds(5) });
+        var platform = Create.PlatformBridge(time, new NearbyOptions { ServiceId = "test-service" });
         var device = Create.Device("peer-1", "Alice");
         var tcs = platform.RegisterConnectionTcs(device.Id, CancellationToken.None);
         using var cts = new CancellationTokenSource();
@@ -297,6 +294,7 @@ public sealed class HandshakeTimeoutTests
             device,
             tcs,
             ConnectionRole.Initiator,
+            TimeSpan.FromSeconds(5),
             beforeAwait: _ => Task.CompletedTask,
             cts.Token);
 

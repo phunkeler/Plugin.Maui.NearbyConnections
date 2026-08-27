@@ -59,12 +59,16 @@ open coveragereport/index.html   # macOS; use `start` on Windows, `xdg-open` on 
 - **`MCSessionState.Connecting` is not guaranteed to occur on iOS** — a peer can go straight to
   `NotConnected`. Treating it as a required waypoint is a latent hang.
 - **A remote display name is untrusted input, and `PeerLookup.Record` is the only place it is
-  cleaned.** Both platforms let the peer choose the string, and it reaches log sinks and consumer
-  UI. `Record` rejects control, separator, format, private-use, and replacement characters and caps
-  the length in UTF-8 bytes; every device the library publishes is built there, on both platforms,
-  so new code must route through it rather than passing a raw
-  `EndpointName`/`MCPeerID.DisplayName` onward. On iOS, a callback that holds an `MCPeerID` but no
-  `NearbyDevice` uses `PeerLookup.SafeDisplayName` rather than reaching for the raw property.
+  cleaned.** Both platforms let the peer choose the string, and it reaches consumer UI. `Record`
+  rejects control, separator, format, private-use, and replacement characters and caps the length
+  in UTF-8 bytes; every device the library publishes is built there, on both platforms, so new
+  code must route through it rather than passing a raw `EndpointName`/`MCPeerID.DisplayName`
+  onward.
+- **Display names never appear in a log message or an exception message — local or remote,
+  sanitized or not.** They are identity data ("Sam's iPhone"). Log the `DeviceId`; it is minted by
+  this library, opaque, and session-scoped. Exception messages count because every `Error`-level
+  log carries the exception. This retired `PeerLookup.SafeDisplayName`, whose only purpose was
+  making names log-safe.
 - **`NearbyDevice.Id` is minted by this library, never taken from a platform.** 8 random bytes as 16
   hex characters, identical in shape on both platforms. Google's endpoint id and Apple's peer handle
   stay inside `PeerLookup`, which translates at the SDK edge — `DeviceIdFor` inbound,
@@ -313,7 +317,7 @@ follows. So every await on a TCS is also bounded by a deadline the plugin owns:
 | Operation | Bounded by |
 |---|---|
 | `ConnectAsync` | `ConnectTimeout` (30s), via `PlatformBridge.AwaitHandshakeAsync` |
-| `NearbyConnectionRequest.AcceptAsync` | `AcceptTimeout` (15s), via the same helper — the window excludes the remote user's decision, so it is shorter by default |
+| `NearbyConnectionRequest.AcceptAsync` | the offer's remaining window, via the same helper — the initiator declares its `ConnectTimeout` on the wire (clamped locally to 5 min), and the accept gets what is left of it |
 | `SendAsync` (file) | `TransferInactivityTimeout`, via `OutgoingTransfer.InactivityToken` |
 | `StartAdvertisingAsync` / `StartDiscoveryAsync` | `started` resolves on both branches; iOS adds `Apple.StartFailureGraceWindow` |
 
@@ -339,8 +343,8 @@ never completes `Disconnected`.
 **2. Every device state is transient or terminal.** No device sits indefinitely in a state it cannot
 leave. This is the state-shaped counterpart, and it is not the same as guarantee 1 — no caller is
 awaiting anything, so nothing hangs. What breaks instead is the device set: a row stuck in a state
-whose underlying platform handle is already dead. `RequestReceived` is bounded by
-`InboundRequestTimeout` for exactly this reason.
+whose underlying platform handle is already dead. `RequestReceived` is bounded by the offer's
+declared window (clamped, or the assumed 30s when no window was declared) for exactly this reason.
 
 **Neither guarantee covers work the session starts on its own behalf** — auto-accept, request
 expiry, disconnect watchers, inbound file copies. Nothing awaits those, so disposal cannot tell
@@ -435,9 +439,9 @@ File-scoped namespaces are convention, not enforced.
   (`static partial void LogXxx(ILogger logger, ...)`) when the logger instead arrives via an
   injected property/parameter on a type that does not own it (e.g. `PeerLookup`) — both are
   correct, the choice follows who owns the logger.
-- Device display names and file paths appear in log messages at `Error`/`Debug` levels by default —
-  this is standard `ILogger` behaviour, not a defect; configure a minimum log level per category in
-  the host app if that identity data should not reach a sink.
+- Display names never appear in log or exception messages (see *The things people get wrong*).
+  File paths still do, at `Error`/`Debug` — configure a minimum log level per category in the host
+  app if that data should not reach a sink.
 - Errors surface as typed exceptions (`NearbyException` and subclasses) at the public
   boundary. Never return `null` to signal failure.
 - `ChannelWriter.TryComplete` returns `bool` — a `false` return means the fault was dropped and the

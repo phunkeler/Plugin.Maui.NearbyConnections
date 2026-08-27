@@ -38,30 +38,30 @@ sealed partial class PlatformBridge
     // Devices
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(EventId = 2000, Level = LogLevel.Debug, Message = "Device found: Id={DeviceId}, DisplayName={DisplayName}")]
-    internal partial void LogDeviceFound(string deviceId, string? displayName);
+    [LoggerMessage(EventId = 2000, Level = LogLevel.Debug, Message = "Device found: Id={DeviceId}")]
+    internal partial void LogDeviceFound(string deviceId);
 
-    [LoggerMessage(EventId = 2001, Level = LogLevel.Debug, Message = "Device lost: Id={DeviceId}, DisplayName={DisplayName}")]
-    internal partial void LogDeviceLost(string deviceId, string? displayName);
+    [LoggerMessage(EventId = 2001, Level = LogLevel.Debug, Message = "Device lost: Id={DeviceId}")]
+    internal partial void LogDeviceLost(string deviceId);
 
     [LoggerMessage(EventId = 2002, Level = LogLevel.Debug, Message = "Device disconnected: Id={DeviceId}")]
     internal partial void LogDeviceDisconnected(string deviceId);
 
-    [LoggerMessage(EventId = 2003, Level = LogLevel.Debug, Message = "Connected device stopped advertising, connection remains: Id={DeviceId}, DisplayName={DisplayName}")]
-    internal partial void LogConnectedDeviceStoppedAdvertising(string deviceId, string? displayName);
+    [LoggerMessage(EventId = 2003, Level = LogLevel.Debug, Message = "Connected device stopped advertising, connection remains: Id={DeviceId}")]
+    internal partial void LogConnectedDeviceStoppedAdvertising(string deviceId);
 
-    [LoggerMessage(EventId = 2004, Level = LogLevel.Warning, Message = "No peer found for device: Id={DeviceId}, DisplayName={DisplayName}")]
-    internal partial void LogNoPeerFoundForDevice(string deviceId, string? displayName);
+    [LoggerMessage(EventId = 2004, Level = LogLevel.Warning, Message = "No peer found for device: Id={DeviceId}")]
+    internal partial void LogNoPeerFoundForDevice(string deviceId);
 
     // -------------------------------------------------------------------------
     // Connections
     // -------------------------------------------------------------------------
 
-    [LoggerMessage(EventId = 2010, Level = LogLevel.Debug, Message = "Connection request received from: Id={DeviceId}, DisplayName={DisplayName}")]
-    internal partial void LogConnectionRequestReceived(string deviceId, string? displayName);
+    [LoggerMessage(EventId = 2010, Level = LogLevel.Debug, Message = "Connection request received from: Id={DeviceId}")]
+    internal partial void LogConnectionRequestReceived(string deviceId);
 
-    [LoggerMessage(EventId = 2011, Level = LogLevel.Debug, Message = "Disconnecting from device: Id={DeviceId}, DisplayName={DisplayName}")]
-    internal partial void LogDisconnecting(string deviceId, string? displayName);
+    [LoggerMessage(EventId = 2011, Level = LogLevel.Debug, Message = "Disconnecting from device: Id={DeviceId}")]
+    internal partial void LogDisconnecting(string deviceId);
 
     [LoggerMessage(EventId = 2012, Level = LogLevel.Warning, Message = "Failed to clear platform state for the timed-out connection attempt to device {DeviceId}. A retry may fail until the platform releases the endpoint.")]
     internal partial void LogAbandonConnectError(string deviceId, Exception exception);
@@ -95,6 +95,24 @@ sealed partial class PlatformBridge
     internal partial void LogFailedToClearStaleConnectionState(string deviceId, Exception ex);
 
     // -------------------------------------------------------------------------
+    // Offer deadline (the connect-request frame, both platforms)
+    // -------------------------------------------------------------------------
+
+    // Debug, not Warning: a peer on an older plugin version sends no frame on every request, so
+    // this is a routine cross-version condition, not a fault.
+    [LoggerMessage(
+        EventId = 2095,
+        Level = LogLevel.Debug,
+        Message = "The connection request from device {DeviceId} carried no valid connect-request frame; the default offer window applies.")]
+    internal partial void LogConnectRequestFrameMissing(string deviceId);
+
+    [LoggerMessage(
+        EventId = 2096,
+        Level = LogLevel.Debug,
+        Message = "Device {DeviceId} declared a {DeclaredSeconds}s offer window; it was clamped to {ClampedSeconds}s.")]
+    internal partial void LogOfferWindowClamped(string deviceId, double declaredSeconds, double clampedSeconds);
+
+    // -------------------------------------------------------------------------
     // iOS-specific
     // -------------------------------------------------------------------------
 
@@ -107,14 +125,14 @@ sealed partial class PlatformBridge
     [LoggerMessage(EventId = 2042, Level = LogLevel.Trace, Message = "Resource transfer progress: Id={DeviceId}, Direction={Direction}, PayloadId={PayloadId}, TotalBytes={TotalBytes}, BytesTransferred={BytesTransferred}")]
     internal partial void LogResourceTransferProgress(string deviceId, string direction, long payloadId, long totalBytes, long bytesTransferred);
 
-    [LoggerMessage(EventId = 2048, Level = LogLevel.Error, Message = "Failed to send bytes to peer: DisplayName={DisplayName}")]
-    internal partial void LogSendBytesFailed(string? displayName, Exception error);
+    [LoggerMessage(EventId = 2048, Level = LogLevel.Error, Message = "Failed to send bytes to peer: Id={DeviceId}")]
+    internal partial void LogSendBytesFailed(string deviceId, Exception error);
 
-    [LoggerMessage(EventId = 2049, Level = LogLevel.Warning, Message = "File transfer stalled: Id={DeviceId}, DisplayName={DisplayName}, Timeout={TimeoutSeconds}s")]
-    internal partial void LogSendFileTimeout(string deviceId, string? displayName, double timeoutSeconds);
+    [LoggerMessage(EventId = 2049, Level = LogLevel.Warning, Message = "File transfer stalled: Id={DeviceId}, Timeout={TimeoutSeconds}s")]
+    internal partial void LogSendFileTimeout(string deviceId, double timeoutSeconds);
 
-    [LoggerMessage(EventId = 2050, Level = LogLevel.Error, Message = "File transfer failed: Id={DeviceId}, DisplayName={DisplayName}")]
-    internal partial void LogSendFileFailed(string deviceId, string? displayName, Exception error);
+    [LoggerMessage(EventId = 2050, Level = LogLevel.Error, Message = "File transfer failed: Id={DeviceId}")]
+    internal partial void LogSendFileFailed(string deviceId, Exception error);
 
     [LoggerMessage(EventId = 2051, Level = LogLevel.Debug, Message = "Last peer disconnected, session disposed.")]
     internal partial void LogSessionDisposed();
@@ -123,8 +141,8 @@ sealed partial class PlatformBridge
     // 2052 (LogPeerStateChanged) and 2054 (LogControlMessageReceived) are declared in
     // PlatformBridge.log.ios.cs — they take iOS-only/internal enum parameters. Ids stay reserved here.
 
-    [LoggerMessage(EventId = 2053, Level = LogLevel.Trace, Message = "Data received from peer: Id={DeviceId}, DisplayName={DisplayName}, Length={Length} bytes")]
-    internal partial void LogDataReceived(string deviceId, string? displayName, long length);
+    [LoggerMessage(EventId = 2053, Level = LogLevel.Trace, Message = "Data received from peer: Id={DeviceId}, Length={Length} bytes")]
+    internal partial void LogDataReceived(string deviceId, long length);
 
     // 2055 (LogDisconnectingFromSession) is retired. It reported a session-wide teardown on an
     // inbound Disconnect frame, which was the bug: departure is now per-peer (EventId 2092).
@@ -148,11 +166,11 @@ sealed partial class PlatformBridge
     [LoggerMessage(EventId = 2056, Level = LogLevel.Warning, Message = "Unknown control message type: {Type}")]
     internal partial void LogUnknownControlMessageType(object type);
 
-    [LoggerMessage(EventId = 2057, Level = LogLevel.Debug, Message = "Started receiving resource from: Id={DeviceId}, DisplayName={DisplayName}, ResourceName={ResourceName}")]
-    internal partial void LogResourceReceiveStarted(string deviceId, string? displayName, string resourceName);
+    [LoggerMessage(EventId = 2057, Level = LogLevel.Debug, Message = "Started receiving resource from: Id={DeviceId}, ResourceName={ResourceName}")]
+    internal partial void LogResourceReceiveStarted(string deviceId, string resourceName);
 
-    [LoggerMessage(EventId = 2058, Level = LogLevel.Debug, Message = "Finished receiving resource from: Id={DeviceId}, DisplayName={DisplayName}, ResourceName={ResourceName}, Location={Location}, Error={Error}")]
-    internal partial void LogResourceReceiveFinished(string deviceId, string? displayName, string resourceName, string? location, string? error);
+    [LoggerMessage(EventId = 2058, Level = LogLevel.Debug, Message = "Finished receiving resource from: Id={DeviceId}, ResourceName={ResourceName}, Location={Location}, Error={Error}")]
+    internal partial void LogResourceReceiveFinished(string deviceId, string resourceName, string? location, string? error);
 
     [LoggerMessage(EventId = 2059, Level = LogLevel.Error, Message = "Failed to copy received file: Source={Source}, Destination={Destination}")]
     internal partial void LogFileCopyFailed(string source, string destination, Exception error);

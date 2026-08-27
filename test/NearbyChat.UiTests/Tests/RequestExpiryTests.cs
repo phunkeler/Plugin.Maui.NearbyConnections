@@ -5,7 +5,8 @@ namespace NearbyChat.UiTests.Tests;
 /// itself, and the advertiser's row must disappear without any tap.
 /// </summary>
 /// <remarks>
-/// The sample sets <c>InboundRequestTimeout</c> to 30 seconds in <c>MauiProgram</c>, so the waits
+/// The request row expires at the offer's one deadline: the discoverer's <c>ConnectTimeout</c>,
+/// declared on the wire. The sample sets it to 10 seconds in <c>MauiProgram</c>, so the waits
 /// below are sized against that value rather than the library default.
 /// </remarks>
 public class RequestExpiryTests
@@ -41,8 +42,8 @@ public class RequestExpiryTests
         advertiser.Screenshot(TestHelpers.EvidencePath("06-request-pending", advertiser.Label));
 
         // The row must go away on the library's own timer, with no interaction. Allowed well beyond
-        // the sample's 30s InboundRequestTimeout, because the discoverer's connect attempt has to
-        // fail first on real hardware.
+        // the sample's 10s ConnectTimeout (the declared offer window), because the discoverer's
+        // connect attempt has to fail first on real hardware.
         advertiser.WaitForNoElementsByPrefix("Accept_", TimeSpan.FromSeconds(75));
 
         advertiser.Screenshot(TestHelpers.EvidencePath("06-request-expired", advertiser.Label));

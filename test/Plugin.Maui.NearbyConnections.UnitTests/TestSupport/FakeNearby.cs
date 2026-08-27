@@ -172,13 +172,20 @@ sealed class FakeNearby : IPlatformNearby
     /// <param name="device">The requesting device.</param>
     /// <param name="onAccept">What accepting produces — return a connection or throw.</param>
     /// <param name="onReject">Optional callback invoked when the request is rejected.</param>
+    /// <param name="deadline">
+    /// The offer's deadline, as the platform would compute it at receipt. Defaults to the far
+    /// future, which the registry clamps to the trust bound — effectively "does not expire during
+    /// the test".
+    /// </param>
     public async Task EmitRequestAsync(
         NearbyDevice device,
         Func<NearbyConnection> onAccept,
-        Action? onReject = null)
+        Action? onReject = null,
+        DateTimeOffset? deadline = null)
     {
         _requests.Writer.TryWrite(new NearbyConnectionRequest(
             device,
+            deadline ?? DateTimeOffset.MaxValue,
             accept: _ =>
             {
                 try
@@ -221,10 +228,12 @@ sealed class FakeNearby : IPlatformNearby
     /// shape that hangs disposal when the session has no disposal token of its own to pass.
     /// </remarks>
     /// <param name="device">The requesting device.</param>
-    public async Task EmitRequestThatOnlyCancellationEndsAsync(NearbyDevice device)
+    /// <param name="deadline">The offer's deadline. See <see cref="EmitRequestAsync"/>.</param>
+    public async Task EmitRequestThatOnlyCancellationEndsAsync(NearbyDevice device, DateTimeOffset? deadline = null)
     {
         _requests.Writer.TryWrite(new NearbyConnectionRequest(
             device,
+            deadline ?? DateTimeOffset.MaxValue,
             accept: ct =>
             {
                 var tcs = _capturedAccept ?? new TaskCompletionSource<NearbyConnection>(

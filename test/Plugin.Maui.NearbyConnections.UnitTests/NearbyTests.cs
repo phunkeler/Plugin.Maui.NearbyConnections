@@ -526,9 +526,9 @@ public class NearbyTests
             // unreported.
             Assert.Equal(NearbyDeviceStatus.Connected, session.StatusOf("peer-1"));
             // RequestReceived must not be observable when requests are auto-accepted.
-                Assert.DoesNotContain(
-                    NearbyDeviceStatus.RequestReceived,
-                    recorder.StatusesFor("peer-1"));
+            Assert.DoesNotContain(
+                NearbyDeviceStatus.RequestReceived,
+                recorder.StatusesFor("peer-1"));
         }
 
         [Fact]
@@ -602,6 +602,38 @@ public class NearbyTests
             Assert.True(session.IsAdvertising);
         }
 
+        [Theory]
+        [InlineData(86400, 30, TestDisplayName = "a distant deadline is cut to the assumed 30s window")]
+        [InlineData(10, 10, TestDisplayName = "a nearer deadline tightens the bound further")]
+        public async Task AutoAccept_IsBoundedByMinOfRemainingWindowAndAssumedWindow(
+            int declaredWindowSeconds, int boundSeconds)
+        {
+            // An unconsented accept honors a stranger's declared window only up to the assumed
+            // window: the handshake wait ends at min(remaining window, 30s).
+
+            // Arrange
+            var time = new FakeTimeProvider();
+            var connections = new FakeNearby();
+            var options = new NearbyOptions { AutoAcceptConnectionRequests = true };
+            var session = Create.Session(connections, options, time);
+            await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
+
+            await using var recorder = new ChangeRecorder(session);
+            var device = new NearbyDevice("peer-1", "Alice");
+            connections.CaptureNextAcceptToken();
+            await connections.EmitRequestThatOnlyCancellationEndsAsync(
+                device,
+                deadline: time.GetUtcNow() + TimeSpan.FromSeconds(declaredWindowSeconds));
+            await recorder.WaitForAsync("peer-1", 2);
+
+            // Act
+            time.Advance(TimeSpan.FromSeconds(boundSeconds));
+            await recorder.WaitForAsync("peer-1", 3);
+
+            // Assert
+            Assert.Equal(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
+        }
+
         [Fact]
         public async Task RejectedRequest_ReportsItsReasonOnTheChangeStream()
         {
@@ -672,20 +704,24 @@ public class NearbyTests
         {
             // Arrange
             var time = new FakeTimeProvider();
-            var timeout = TimeSpan.FromSeconds(30);
+            var window = TimeSpan.FromSeconds(30);
             var connections = new FakeNearby();
-            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
+            var session = Create.Session(connections, new NearbyOptions(), time);
             await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
             var rejected = false;
 
-            await connections.EmitRequestAsync(device, () => Create.Connection(device), onReject: () => rejected = true);
+            await connections.EmitRequestAsync(
+                device,
+                () => Create.Connection(device),
+                onReject: () => rejected = true,
+                deadline: time.GetUtcNow() + window);
             await recorder.WaitForAsync("peer-1", 2);
 
             // Act
-            time.Advance(timeout);
+            time.Advance(window);
             await recorder.WaitForAsync("peer-1", 3);
 
             // Assert
@@ -698,20 +734,21 @@ public class NearbyTests
         {
             // Arrange
             var time = new FakeTimeProvider();
-            var timeout = TimeSpan.FromSeconds(30);
+            var window = TimeSpan.FromSeconds(30);
             var connections = new FakeNearby();
-            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
+            var session = Create.Session(connections, new NearbyOptions(), time);
             await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
-            await connections.EmitRequestAsync(device, () => Create.Connection(device));
+            await connections.EmitRequestAsync(device, () => Create.Connection(device), deadline: time.GetUtcNow() + window);
             await recorder.WaitForAsync("peer-1", 2);
 
             var request = await Take.FirstAsync(session.Requests, TestContext.Current.CancellationToken);
 
-            // Act
-            time.Advance(timeout);
+            // Act — past the offer's deadline: the dead tail. An accept that arrives now loses the
+            // claim race and throws, exactly as any late accept does.
+            time.Advance(window);
             await recorder.WaitForAsync("peer-1", 3);
 
             // Assert
@@ -725,20 +762,20 @@ public class NearbyTests
         {
             // Arrange
             var time = new FakeTimeProvider();
-            var timeout = TimeSpan.FromSeconds(30);
+            var window = TimeSpan.FromSeconds(30);
             var connections = new FakeNearby();
-            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
+            var session = Create.Session(connections, new NearbyOptions(), time);
             await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
-            var expected = time.GetUtcNow() + timeout;
+            var expected = time.GetUtcNow() + window;
 
             // Act
-            await connections.EmitRequestAsync(device, () => Create.Connection(device));
+            await connections.EmitRequestAsync(device, () => Create.Connection(device), deadline: expected);
             await recorder.WaitForAsync("peer-1", 2);
 
-            // Assert
+            // Assert — the published instant is the offer's own deadline, not a local guess.
             Assert.Equal(expected, session.Current("peer-1")?.RequestExpiresAt);
         }
 
@@ -748,12 +785,12 @@ public class NearbyTests
             // Arrange
             var time = new FakeTimeProvider();
             var connections = new FakeNearby();
-            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = TimeSpan.FromSeconds(30) }, time);
+            var session = Create.Session(connections, new NearbyOptions(), time);
             await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
-            await connections.EmitRequestAsync(device, () => Create.Connection(device));
+            await connections.EmitRequestAsync(device, () => Create.Connection(device), deadline: time.GetUtcNow() + TimeSpan.FromSeconds(30));
             await recorder.WaitForAsync("peer-1", 2);
             var request = await Take.FirstAsync(session.Requests, TestContext.Current.CancellationToken);
 
@@ -769,22 +806,26 @@ public class NearbyTests
         {
             // Arrange
             var time = new FakeTimeProvider();
-            var timeout = TimeSpan.FromSeconds(30);
+            var window = TimeSpan.FromSeconds(30);
             var connections = new FakeNearby();
-            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = timeout }, time);
+            var session = Create.Session(connections, new NearbyOptions(), time);
             await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
             var rejected = false;
 
-            await connections.EmitRequestAsync(device, () => Create.Connection(device), onReject: () => rejected = true);
+            await connections.EmitRequestAsync(
+                device,
+                () => Create.Connection(device),
+                onReject: () => rejected = true,
+                deadline: time.GetUtcNow() + window);
             await recorder.WaitForAsync("peer-1", 2);
             var request = await Take.FirstAsync(session.Requests, TestContext.Current.CancellationToken);
             await request.AcceptAsync(TestContext.Current.CancellationToken);
 
             // Act
-            time.Advance(timeout * 2);
+            time.Advance(window * 2);
 
             // Assert
             Assert.False(rejected, "A disarmed countdown must not reject an accepted request.");
@@ -792,29 +833,38 @@ public class NearbyTests
         }
 
         [Fact]
-        public async Task InfiniteTimeout_LeavesTheRequestOutstanding()
+        public async Task DistantDeadline_IsClampedToTheTrustBound()
         {
+            // The deadline is remote-declared, untrusted input: however large the declared window,
+            // the request expires at the local trust bound. (There is no infinite case — every
+            // tracked request has a finite deadline.)
+
             // Arrange
             var time = new FakeTimeProvider();
             var connections = new FakeNearby();
-            var session = Create.Session(connections, new NearbyOptions { InboundRequestTimeout = Timeout.InfiniteTimeSpan }, time);
+            var session = Create.Session(connections, new NearbyOptions(), time);
             await session.StartAdvertisingAsync(TestContext.Current.CancellationToken);
 
             await using var recorder = new ChangeRecorder(session);
             var device = new NearbyDevice("peer-1", "Alice");
             var rejected = false;
 
-            await connections.EmitRequestAsync(device, () => Create.Connection(device), onReject: () => rejected = true);
+            await connections.EmitRequestAsync(
+                device,
+                () => Create.Connection(device),
+                onReject: () => rejected = true,
+                deadline: DateTimeOffset.MaxValue);
             await recorder.WaitForAsync("peer-1", 2);
 
-            // Act
-            time.Advance(TimeSpan.FromHours(1));
+            // Act — just short of the bound the request is still outstanding; past it, it expires.
+            time.Advance(OfferWindow.s_max - TimeSpan.FromSeconds(1));
+            Assert.Equal(NearbyDeviceStatus.RequestReceived, session.StatusOf("peer-1"));
+            time.Advance(TimeSpan.FromSeconds(1));
+            await recorder.WaitForAsync("peer-1", 3);
 
             // Assert
-            Assert.False(rejected);
-            Assert.Equal(NearbyDeviceStatus.RequestReceived, session.StatusOf("peer-1"));
-            // A request that does not expire must not publish an expiry instant.
-            Assert.Null(session.Current("peer-1")?.RequestExpiresAt);
+            Assert.True(rejected);
+            Assert.Equal(NearbyDeviceStatus.Visible, session.StatusOf("peer-1"));
         }
 
         [Fact]
@@ -949,9 +999,9 @@ public class NearbyTests
                 () => recorder.StatusesFor("peer-1").Contains(NearbyDeviceStatus.Connected));
 
             // Reaching Connected must be reported as a change, not only reflected in Devices.
-                Assert.Contains(
-                    NearbyDeviceStatus.Connected,
-                    recorder.StatusesFor("peer-1"));
+            Assert.Contains(
+                NearbyDeviceStatus.Connected,
+                recorder.StatusesFor("peer-1"));
         }
 
         [Fact]

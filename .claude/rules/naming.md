@@ -90,8 +90,9 @@ the one in use. Do not widen the exemption to save characters.
 - Take a `CancellationToken` when the method does I/O.
 - Terminate: return, throw, or observe cancellation within a bounded time on both platforms. See
   `AGENTS.md` → *Two termination guarantees*.
-- Name a timeout option for what it bounds: `ConnectTimeout`, `AcceptTimeout`,
-  `InboundRequestTimeout`, `TransferInactivityTimeout`.
+- Name a timeout option for what it bounds: `ConnectTimeout` (the offer's lifetime on both ends),
+  `TransferInactivityTimeout`. (`AcceptTimeout` and `InboundRequestTimeout` were removed
+  2026-08-26: both derived from the offer's one declared deadline.)
 
 ## 6. Errors are typed exceptions
 

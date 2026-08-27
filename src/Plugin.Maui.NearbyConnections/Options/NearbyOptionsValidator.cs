@@ -8,14 +8,16 @@ sealed partial class NearbyOptionsValidator
 
         if (string.IsNullOrWhiteSpace(options.ServiceId))
         {
-            failures.Add("ServiceId must not be null or empty.");
+            failures.Add($"{nameof(options.ServiceId)} must not be null or empty.");
         }
+
+        DisplayNameRules.Validate(options.DisplayName, failures);
 
         PlatformValidate(options, failures);
 
         if (failures.Count > 0)
         {
-            throw new ArgumentException($"NearbyOptions is invalid. {string.Join(" ", failures)}");
+            throw new ArgumentException($"{nameof(NearbyOptions)} is invalid. {string.Join(" ", failures)}");
         }
     }
 

@@ -2,13 +2,8 @@ name: Device Tests
 
 on:
   push:
-    # TEMPORARY: this branch is listed so the workflow runs on push before it exists on main.
-    # A workflow is only registered with Actions once it lands on the default branch, so
-    # `gh workflow run` / workflow_dispatch 404 until then. Remove this branch before merging.
     branches: [main, merge/refactor-into-preview]
   pull_request:
-    # Only the code these tests actually cover. Docs/sample-only PRs skip the whole workflow
-    # rather than spending ~6 minutes of macOS runner time to re-prove an untouched suite.
     paths:
       - 'src/Plugin.Maui.NearbyConnections/**'
       - 'test/Plugin.Maui.NearbyConnections.DeviceTests/**'
@@ -24,18 +19,9 @@ concurrency:
   group: device-tests-${{ github.ref }}
   cancel-in-progress: true
 
-# Results are rendered into the run summary by scripts/trx-summary.ps1, so no check-run
-# write access is needed -- the workflow only reads the repository.
 permissions:
   contents: read
 
-# Pin the workload set for CI only -- NOT in global.json, which is checked in and would pin
-# every local `dotnet` invocation too. global.json pins the SDK; without a workload pin,
-# `dotnet workload install` on a fresh runner takes the SDK's baseline manifests, which resolved
-# the iOS 26.0 pack and failed: actool needs an iphonesimulator 26.0 runtime that the macos-26
-# image does not actually carry (its readme lists one, but actool reports only 26.2/26.4/26.5).
-# 10.0.400.1 is the serviced set for the 10.0.400 band and resolves the iOS 26.5 pack instead.
-# Bump this deliberately; local machines are free to run whatever manifests they already have.
 env:
   WORKLOAD_SET_VERSION: '10.0.400.1'
 

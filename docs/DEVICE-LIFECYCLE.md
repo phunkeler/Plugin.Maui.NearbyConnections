@@ -281,8 +281,8 @@ Legend: **N** = native on both · **N¹** = native on one, synthesized on the ot
 | Established connection | `OnConnectionResult(IsSuccess)` | `MCSessionState.Connected` | **N** | |
 | **Failure reason** | ✅ `StatusCode` + `StatusMessage` | ❌ bare `NotConnected` | **⚠** | **The key asymmetry.** Android can say *why*; iOS cannot. |
 | Distinguish "rejected" from "timed out" | ✅ via status code | ❌ indistinguishable | **⚠** | On iOS both collapse to `Unknown`. |
-| Connection timeout | ❌ no native timeout | ✅ `InvitePeer(timeout:)`, inviting side only | **N¹** | Plugin-owned deadline on both platforms: `ConnectTimeout` (30s) for `ConnectAsync`, `AcceptTimeout` (15s) for `AcceptAsync`. Neither platform bounds the accepting side at all. |
-| Inbound request expiry | ❌ | ❌ | **X** | Neither platform expires a *pending inbound* request. Plugin extension: `InboundRequestTimeout` (30s default) withdraws it, and `StopAsync` rejects whatever is still outstanding. |
+| Connection timeout | ❌ no native timeout | ✅ `InvitePeer(timeout:)`, inviting side only | **N¹** | Plugin-owned deadline on both platforms: `ConnectTimeout` (30s) is the offer's one deadline, declared on the wire, bounding `ConnectAsync` and the remote accept's remaining window alike. Neither platform bounds the accepting side at all. |
+| Inbound request expiry | ❌ | ❌ | **X** | Neither platform expires a *pending inbound* request. Plugin extension: the request expires at the offer's declared deadline (the initiator's `ConnectTimeout`, clamped; assumed 30s from an older peer), and `StopAsync` rejects whatever is still outstanding. |
 | Pending state survives navigation | ❌ | ❌ | **X** | Both platforms are callback-only. Observable collection is the plugin's contribution. |
 | Per-peer disconnect | ✅ `DisconnectFromEndpoint` | ❌ `MCSession.Disconnect()` tears down the whole session | **⚠** | Documented by expo-nearby-connections as a known divergence. |
 
@@ -450,8 +450,9 @@ to fix while here).
 Neither platform expires a pending inbound request. Because it is entirely plugin-owned, it is
 uniform for free: one timer, one `EndReason.RequestExpired`, identical on both platforms.
 
-**Implemented** in `Nearby.state.cs` (`ArmRequestExpiry`, `ExpireRequestAfterAsync`),
-bounded by `NearbyOptions.InboundRequestTimeout` (30s default, `Timeout.InfiniteTimeSpan` disables).
+**Implemented** in `RequestRegistry` with the session effects in `Nearby.state.cs`,
+bounded by the offer's declared deadline (since 2026-08-26 — the initiator's `ConnectTimeout`
+declared on the wire, clamped locally to five minutes; 30s assumed when no window was declared).
 Three decisions worth knowing:
 
 - **It expires by rejecting, not by faulting.** Nothing awaits an outstanding request, so there is no
@@ -468,9 +469,9 @@ Three decisions worth knowing:
 |---|---|---|---|---|
 | Failure reason | ⚠ Android only | uniform (~90%) | `ControlMessage.Reject` + owned timers | ⏳ **open** (gap 1) |
 | Connect timeout | ⚠ iOS only | ✅ uniform | `ConnectTimeout`, both platforms | ✅ **done** |
-| Accept timeout | ❌ neither | ✅ uniform | `AcceptTimeout`, both platforms | ✅ **done** |
+| Accept timeout | ❌ neither | ✅ uniform | the offer's remaining window, both platforms | ✅ **done** |
 | Per-peer disconnect | ⚠ Android only | ✅ uniform | `ControlMessage.Disconnect` | ✅ **done** |
-| Request expiry | ❌ neither | ✅ uniform | `InboundRequestTimeout`, both | ✅ **done** (gap 4) |
+| Request expiry | ❌ neither | ✅ uniform | the offer's declared deadline, both | ✅ **done** (gap 4) |
 | `Connecting` reliability | ⚠ iOS may skip | ✅ advisory + timeout-backed | Terminal-callback-driven | ✅ **done** |
 
 ### What this costs, honestly
@@ -505,10 +506,12 @@ Three decisions worth knowing:
      constant — untyped *and* vendor-specific.
    - `NearbyOptions.ServiceId` → neutral enough, but its iOS semantics are Bonjour's
      `serviceType`; keep the name, keep documenting the platform difference.
-   - ~~`InvitationTimeout`~~ → **done:** split into `ConnectTimeout`, `AcceptTimeout`, and
-     `InboundRequestTimeout`. "Invitation" was MPC vocabulary, and the option is cross-platform,
-     which made the leak more visible rather than less. One option could not stay honest once the
-     accept path needed its own, shorter window.
+   - ~~`InvitationTimeout`~~ → **done:** renamed to `ConnectTimeout`. "Invitation" was MPC
+     vocabulary, and the option is cross-platform, which made the leak more visible rather than
+     less. It was briefly three options (`AcceptTimeout`, `InboundRequestTimeout` alongside it)
+     while neither side could observe the other's deadline; since 2026-08-26 the initiator
+     declares the window on the wire and the other two derive from it — see
+     `docs/ARCHITECTURE.md` §5, stage M7.
 
 7. **`net10.0` cannot enumerate the advertise/discover streams — so `PlatformNearbyTests` reads
    internal channel fields.** `AdvertiseAsync`/`DiscoverAsync` call a `Platform*` start that throws

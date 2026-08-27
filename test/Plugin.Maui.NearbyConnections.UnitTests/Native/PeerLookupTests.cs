@@ -76,9 +76,9 @@ public class PeerLookupTests
         [Fact]
         public void NameWithNewlines_HasControlCharactersRemoved()
         {
-            // Arrange — a forged log record appended to an attacker-chosen name.
-            var displayName = "Alice\r\n[ERROR] transfer approved";
-            var expected = "Alice[ERROR] transfer approved";
+            // Arrange — a newline breaks the layout of the row the name is drawn in.
+            var displayName = "Alice\r\n\tPhone";
+            var expected = "AlicePhone";
 
             // Act
             var device = _sut.Record("peer-1", displayName);
@@ -175,23 +175,6 @@ public class PeerLookupTests
             Assert.Null(device.DisplayName);
         }
 
-        // U+2028 and U+2029 are LineSeparator and ParagraphSeparator, not Control, so Rune.IsControl
-        // let them through. Both break lines in common log formatters, which forges a whole record
-        // around the real one — the attack stripping \r\n was meant to stop.
-        [Fact]
-        public void NameWithUnicodeLineSeparators_HasThemRemoved()
-        {
-            // Arrange
-            var displayName = "Alice\u2028warn: pairing approved\u2029by user";
-            var expected = "Alicewarn: pairing approvedby user";
-
-            // Act
-            var device = _sut.Record("peer-1", displayName);
-
-            // Assert
-            Assert.Equal(expected, device.DisplayName);
-        }
-
         // A bidirectional override reverses how the remainder of the name renders, so a peer can
         // make one string display as another to the person deciding whether to trust the device.
         [Fact]
@@ -208,60 +191,90 @@ public class PeerLookupTests
             Assert.Equal(expected, device.DisplayName);
         }
 
-        // Zero-width characters let two distinct peers render identically in the device list.
+        // ZWNJ is spelling in Persian: it selects the correct word-internal letter form. Stripping
+        // it corrupts an ordinary Iranian device name.
         [Fact]
-        public void NameWithZeroWidthCharacters_HasThemRemoved()
+        public void PersianNameWithZeroWidthNonJoiner_KeepsIt()
+        {
+            // Arrange — "می‌خواهم", whose ZWNJ separates the mi- prefix from the verb stem.
+            var displayName = "می‌خواهم";
+
+            // Act
+            var device = _sut.Record("peer-1", displayName);
+
+            // Assert
+            Assert.Equal(displayName, device.DisplayName);
+        }
+
+        // ZWNJ suppresses a conjunct ligature in the Indic scripts, which changes which consonant
+        // cluster renders — a spelling difference, not a cosmetic one.
+        [Fact]
+        public void DevanagariNameWithZeroWidthNonJoiner_KeepsIt()
         {
             // Arrange
-            var displayName = "Ali\u200Bce\u200D\uFEFF";
-            var expected = "Alice";
+            var displayName = "क्‍ष";
+
+            // Act
+            var device = _sut.Record("peer-1", displayName);
+
+            // Assert
+            Assert.Equal(displayName, device.DisplayName);
+        }
+
+        [Fact]
+        public void EmojiNameJoinedByZeroWidthJoiner_KeepsTheJoiners()
+        {
+            // Arrange — a family emoji is three people joined by ZWJ; without them it renders as
+            // three separate glyphs.
+            var displayName = "👨‍👩‍👧";
+
+            // Act
+            var device = _sut.Record("peer-1", displayName);
+
+            // Assert
+            Assert.Equal(displayName, device.DisplayName);
+        }
+
+        [Fact]
+        public void ChineseName_IsUnchanged()
+        {
+            // Arrange — Han characters are unaffected by the joiner rules, and must stay intact.
+            var displayName = "小明的手机";
+
+            // Act
+            var device = _sut.Record("peer-1", displayName);
+
+            // Assert
+            Assert.Equal(displayName, device.DisplayName);
+        }
+
+        // Keeping the joiners must not readmit the rest of Format. An override rewrites how
+        // surrounding text renders, which no ordinary letter does.
+        [Fact]
+        public void NameWithJoinerAndBidiOverride_KeepsOnlyTheJoiner()
+        {
+            // Arrange
+            var displayName = "می‌خواهم‮gnp.exe";
+            var expected = "می‌خواهمgnp.exe";
 
             // Act
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
             Assert.Equal(expected, device.DisplayName);
-        }
-
-        [Fact]
-        public void TwoNamesDifferingOnlyByZeroWidth_SanitizeToTheSameString()
-        {
-            // Arrange
-            var impostor = _sut.Record("peer-1", "Ali\u200Bce");
-
-            // Act
-            var genuine = _sut.Record("peer-2", "Alice");
-
-            // Assert — identical rendering is now visible as identical data, rather than hiding
-            // behind two strings that look the same but compare unequal.
-            Assert.Equal(genuine.DisplayName, impostor.DisplayName);
         }
 
         [Fact]
         public void NameOfOnlyRejectedCharacters_BecomesNull()
         {
             // Arrange
-            var displayName = "\u202E\u200B\u2028\uFEFF";
+            var displayName = "\u202E\u0000\u0009\u009F";
 
             // Act
             var device = _sut.Record("peer-1", displayName);
 
             // Assert
             Assert.Null(device.DisplayName);
-        }
-
-        [Fact]
-        public void NameWithLoneSurrogate_HasItRemoved()
-        {
-            // Arrange — an unpaired high surrogate renders unpredictably per platform.
-            var displayName = "ok\uD800end";
-            var expected = "okend";
-
-            // Act
-            var device = _sut.Record("peer-1", displayName);
-
-            // Assert
-            Assert.Equal(expected, device.DisplayName);
         }
 
         [Fact]

@@ -79,36 +79,12 @@ public class NearbyConnectionsOptionsTests
             // Act
             var actual = new NearbyOptions().ConnectTimeout;
 
-            // Assert — load-bearing: Google's Nearby Connections has no native invitation timeout,
-            // so this default is what stops an un-configured app hanging forever on Android.
+            // Assert — load-bearing twice over: Google's Nearby Connections has no native
+            // invitation timeout, so this default is what stops an un-configured app hanging
+            // forever on Android — and it is the declared offer window, so it is also the remote
+            // side's assumed window (OfferWindow.Default). The two must stay one number.
             Assert.Equal(expected, actual);
-        }
-
-        [Fact]
-        public void AcceptTimeout_IsFifteenSeconds()
-        {
-            // Arrange
-            var expected = TimeSpan.FromSeconds(15);
-
-            // Act
-            var actual = new NearbyOptions().AcceptTimeout;
-
-            // Assert — deliberately shorter than ConnectTimeout: the accept window excludes the
-            // remote user's decision, so only the handshake remains.
-            Assert.Equal(expected, actual);
-        }
-
-        [Fact]
-        public void InboundRequestTimeout_IsThirtySeconds()
-        {
-            // Arrange
-            var expected = TimeSpan.FromSeconds(30);
-
-            // Act
-            var actual = new NearbyOptions().InboundRequestTimeout;
-
-            // Assert
-            Assert.Equal(expected, actual);
+            Assert.Equal(OfferWindow.s_default, actual);
         }
     }
 }

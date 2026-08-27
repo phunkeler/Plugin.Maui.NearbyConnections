@@ -276,8 +276,10 @@ await foreach (var request in nearby.Requests.WithCancellation(pageToken))
 }
 ```
 
-**Requests expire.** If nobody answers within `NearbyOptions.InboundRequestTimeout` (default 30
-seconds), the library rejects the request and the device returns to `Visible`. The request's
+**Requests expire.** Every request carries the offer's one deadline: the window the asking device
+declared via its own `ConnectTimeout` (default 30 seconds), clamped by the library to an internal
+five-minute bound. If nobody answers before it, the library rejects the request and the device
+returns to `Visible`. The request's
 `Expired` task completes — await it to dismiss a prompt — and a late `AcceptAsync` or
 `RejectAsync` throws `NearbyRequestExpiredException`, so handle that if your UI can be slow to
 respond.
@@ -468,11 +470,11 @@ All plugin-specific failures derive from `NearbyException`:
 
 - `NearbyAdvertisingException` / `NearbyDiscoveryException` — the platform failed to start
   advertising or discovery, most often because permissions were denied or the radio is off.
-- `NearbyConnectionTimeoutException` — thrown when no connection is established in time: from
-  `ConnectAsync` after `NearbyOptions.ConnectTimeout` (default 30 seconds), or from `AcceptAsync`
-  after `NearbyOptions.AcceptTimeout` (default 15 seconds). Usually the device moved out of range
-  mid-handshake, or nobody answered the prompt. The device returns to `Visible`, so retrying is
-  reasonable.
+- `NearbyConnectionTimeoutException` — thrown when no connection is established before the
+  offer's deadline: from `ConnectAsync` after `NearbyOptions.ConnectTimeout` (default 30
+  seconds), or from `AcceptAsync` when the offer's remaining window runs out — the same moment
+  the asking device stops waiting. Usually the device moved out of range mid-handshake, or nobody
+  answered the prompt. The device returns to `Visible`, so retrying is reasonable.
 - `NearbyTransferTimeoutException` — thrown from a file-transfer `SendAsync` call when no transfer
   progress is observed for `NearbyOptions.TransferInactivityTimeout` (default 10 seconds; see the
   [Configuration](#configuration) table).
@@ -533,9 +535,7 @@ startup has no effect.
 | `TransferInactivityTimeout` | Both | 10 seconds | Maximum time without a transfer progress update before an outgoing file send is aborted with `NearbyTransferTimeoutException`. Set to `Timeout.InfiniteTimeSpan` to disable. |
 | `DiscoveryRefreshInterval` | Both | 30 seconds | How often discovery restarts to re-check what is in range. Devices a new pass does not re-report are removed; a connected or mid-handshake device is never removed. Set to `null` to never restart, and drive `StopDiscoveryAsync`/`StartDiscoveryAsync` yourself. |
 | `AutoAcceptConnectionRequests` | Both | `false` | When `true`, every inbound request is accepted as it arrives and `RequestReceived` is never observed. **This accepts any device that knows the service identifier** — neither platform authenticates the remote device, so enable it only for a kiosk, paired appliance, or trusted network. |
-| `ConnectTimeout` | Both | 30 seconds | How long `ConnectAsync` waits before throwing `NearbyConnectionTimeoutException`. Covers the remote user deciding, so it is the more generous of the two. Set to `Timeout.InfiniteTimeSpan` to wait indefinitely. |
-| `AcceptTimeout` | Both | 15 seconds | How long `AcceptAsync` waits before throwing `NearbyConnectionTimeoutException`. Shorter by default because the decision is already made and only the handshake remains. Set to `Timeout.InfiniteTimeSpan` to wait indefinitely. |
-| `InboundRequestTimeout` | Both | 30 seconds | How long an unanswered inbound request stays outstanding before the library rejects it and the device returns to `Visible`. Read `NearbyDevice.RequestExpiresAt` to show a countdown. Set to `Timeout.InfiniteTimeSpan` to leave requests outstanding. |
+| `ConnectTimeout` | Both | 30 seconds | How long the connection offer lives — on both ends. `ConnectAsync` throws `NearbyConnectionTimeoutException` when it elapses, and the value is declared to the remote device with the request, so the remote prompt (`NearbyDevice.RequestExpiresAt`) and an accepted handshake expire at the same moment. The remote side clamps the declared window to an internal five-minute bound. Set to `Timeout.InfiniteTimeSpan` to wait indefinitely on this side. |
 | `Android.Topology` | Android | `NearbyTopology.Cluster` | How devices may connect: `Cluster` (many-to-many), `Star` (one-to-many), or `PointToPoint` (one-to-one, highest bandwidth). See [How connections work](#how-connections-work). Must match between the advertising and discovering devices. |
 | `Android.UseLowPower` | Android | `false` | When `true`, only low-power mediums such as BLE are used for advertising and discovery. |
 | `Android.ConnectionType` | Android | `NearbyConnectionType.Balanced` | How aggressively a connection may use the radio: `Balanced`, `HighBandwidth`, or `NonDisruptive`. Trades throughput against disruption to other connections. |

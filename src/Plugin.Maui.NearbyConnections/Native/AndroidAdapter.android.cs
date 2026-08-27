@@ -1,4 +1,5 @@
 using Android.Content;
+using Android.Gms.Extensions;
 using AndroidUri = Android.Net.Uri;
 
 namespace Plugin.Maui.NearbyConnections;
@@ -72,15 +73,37 @@ sealed partial class AndroidAdapter : IPlatformAdapter
         try
         {
             var deviceId = _bridge.PeerLookup.DeviceIdFor(endpointId);
-            var device = _bridge.PeerLookup.Record(deviceId, connectionInfo.EndpointName);
+
+            // The endpointInfo bytes replace the endpoint name string when the initiator sent the
+            // connect-request frame (a new peer); a legacy peer's bytes are its raw UTF-8 name and
+            // fail the decode. Either way the name routes through Record — the one sanitization
+            // point — and the declared window is clamped before anything is derived from it.
+            var declaredWindow = OfferWindow.s_default;
+            var rawName = connectionInfo.EndpointName;
+
+            if (connectionInfo.GetEndpointInfo() is { } endpointInfo
+                && ControlMessage.TryDecodeConnectRequest(endpointInfo, out var framedWindow, out var framedName))
+            {
+                declaredWindow = framedWindow;
+                rawName = framedName;
+            }
+            else if (connectionInfo.IsIncomingConnection)
+            {
+                _bridge.LogConnectRequestFrameMissing(deviceId);
+            }
+
+            var device = _bridge.PeerLookup.Record(deviceId, rawName);
 
             if (connectionInfo.IsIncomingConnection)
             {
-                _bridge.LogConnectionRequestReceived(device.Id, device.DisplayName);
+                _bridge.LogConnectionRequestReceived(device.Id);
+
+                var deadline = _bridge.ComputeOfferDeadline(deviceId, declaredWindow);
 
                 var tcs = _bridge.RegisterConnectionTcs(deviceId, CancellationToken.None);
                 var request = new NearbyConnectionRequest(
                     device,
+                    deadline,
                     accept: ct =>
                     {
                         _bridge.AttachConnectionTcsToken(deviceId, ct);
@@ -89,6 +112,7 @@ sealed partial class AndroidAdapter : IPlatformAdapter
                             device,
                             tcs,
                             ConnectionRole.Acceptor,
+                            OfferWindow.Clamp(deadline - _bridge.TimeProvider.GetUtcNow()),
                             beforeAwait: _ => RespondToConnectionAsync(device, accept: true),
                             ct);
                     },
@@ -544,23 +568,29 @@ sealed partial class AndroidAdapter : IPlatformAdapter
         if (!_bridge.PeerLookup.TryGetEndpointId(device.Id, out var endpointId))
         {
             _bridge.FaultConnectionTcs(device.Id, new NearbyException(
-                $"Cannot connect: device '{device.DisplayName}' (Id={device.Id}) is not currently visible. Ensure it is actively advertising and within range."));
+                $"Cannot connect: device '{device.Id}' is not currently visible. Ensure it is actively advertising and within range."));
             return;
         }
 
         try
         {
+            // The byte[] endpointInfo replaces the display-name string on the wire, so the frame
+            // re-carries the name alongside the declared offer window. The binding has no
+            // byte[] RequestConnectionAsync extension, so the GMS task converts via AsAsync —
+            // the same conversion the string extension performs.
+            //
             // Must be awaited HERE, not returned directly
             await NearbyClass
                 .GetConnectionsClient(Platform.CurrentActivity ?? Platform.AppContext)
-                .RequestConnectionAsync(
-                    _bridge.Options.DisplayName,
+                .RequestConnection(
+                    ControlMessage.EncodeConnectRequest(_bridge.Options.ConnectTimeout, _bridge.Options.DisplayName),
                     endpointId,
                     new AdvertiseCallback(
                         OnConnectionInitiatedAsync,
                         OnConnectionResult,
                         OnDisconnected,
-                        (endpointId, ex) => _bridge.LogCallbackError(nameof(ConnectionLifecycleCallback.OnConnectionInitiated), _bridge.PeerLookup.DeviceIdFor(endpointId), ex))).ConfigureAwait(false);
+                        (endpointId, ex) => _bridge.LogCallbackError(nameof(ConnectionLifecycleCallback.OnConnectionInitiated), _bridge.PeerLookup.DeviceIdFor(endpointId), ex)))
+                .AsAsync().ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -611,9 +641,7 @@ sealed partial class AndroidAdapter : IPlatformAdapter
 
     internal async ValueTask DisconnectEndpointAsync(string deviceId)
     {
-        _bridge.LogDisconnecting(deviceId, _bridge.PeerLookup.TryGetDevice(deviceId, out var d)
-            ? d.DisplayName
-            : null);
+        _bridge.LogDisconnecting(deviceId);
 
         if (_bridge.PeerLookup.TryGetEndpointId(deviceId, out var endpointId))
         {

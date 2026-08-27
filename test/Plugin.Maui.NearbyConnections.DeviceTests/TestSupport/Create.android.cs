@@ -64,6 +64,42 @@ partial class Create
 #pragma warning restore CS0618
 
     /// <summary>
+    /// Connection info whose <c>GetEndpointInfo()</c> bytes carry a connect-request frame, as a
+    /// new-version initiator sends. The only shipped ctor takes the endpoint name as a string, and
+    /// GMS derives the info bytes as that string's UTF-8 encoding — so the frame is smuggled
+    /// through as a string whose UTF-8 bytes are the frame.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every byte of the frame must be a valid one-byte UTF-8 code point (0x00–0x7F)</b> or the
+    /// string round-trip corrupts it. The signature ("CNMP") and type byte qualify; the caller
+    /// must pick a window whose four little-endian millisecond bytes also qualify — e.g. 100 ms
+    /// (0x64 00 00 00) or 0x7F7F7F7F ms — and an ASCII name. The helper throws when the frame
+    /// would not survive, so a bad choice fails at arrange rather than as a silent
+    /// default-window fallback.
+    /// </remarks>
+    /// <param name="offerWindow">The declared offer window. See the byte-safety rule above.</param>
+    /// <param name="displayName">The initiator's display name carried in the frame.</param>
+    /// <returns>The connection info.</returns>
+    internal static ConnectionInfo ConnectionInfoWithFrame(TimeSpan offerWindow, string displayName = "Alice")
+    {
+        var frame = ControlMessage.EncodeConnectRequest(offerWindow, displayName);
+
+        if (frame.Any(static b => b > 0x7F))
+        {
+            throw new ArgumentException(
+                "The frame contains bytes above 0x7F and would not survive the string round-trip. " +
+                "Pick a window whose little-endian millisecond bytes are all ≤ 0x7F.",
+                nameof(offerWindow));
+        }
+
+        var smuggled = System.Text.Encoding.UTF8.GetString(frame);
+
+#pragma warning disable CS0618
+        return new(smuggled, "auth-token", isIncomingConnection: true);
+#pragma warning restore CS0618
+    }
+
+    /// <summary>
     /// The discovery info GMS hands to <c>OnEndpointFound</c>. Same deprecated-but-shipped ctor
     /// situation as <see cref="Resolution"/>.
     /// </summary>

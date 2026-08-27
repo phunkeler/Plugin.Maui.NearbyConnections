@@ -39,7 +39,7 @@ sealed partial class IosAdapter : IPlatformAdapter
         {
             if (_localPeerId is null)
             {
-                LogCreatedLocalPeer(_bridge.Options.DisplayName);
+                LogCreatedLocalPeer();
             }
 
             return _localPeerId ??= new MCPeerID(_bridge.Options.DisplayName);
@@ -129,10 +129,29 @@ sealed partial class IosAdapter : IPlatformAdapter
             var device = _bridge.PeerLookup.Track(peerID);
             var id = device.Id;
 
-            _bridge.LogConnectionRequestReceived(device.Id, device.DisplayName);
+            _bridge.LogConnectionRequestReceived(device.Id);
+
+            // The context carries the connect-request frame's declared offer window (the name
+            // rides MCPeerID natively, so the frame's name is empty and ignored here). No context,
+            // or bytes that are not the frame — a legacy peer — falls back to the default window.
+            // The declared value is untrusted and clamps before anything is derived from it.
+            var declaredWindow = OfferWindow.s_default;
+
+            if (context?.ToArray() is { } contextBytes
+                && ControlMessage.TryDecodeConnectRequest(contextBytes, out var framedWindow, out _))
+            {
+                declaredWindow = framedWindow;
+            }
+            else
+            {
+                _bridge.LogConnectRequestFrameMissing(id);
+            }
+
+            var deadline = _bridge.ComputeOfferDeadline(id, declaredWindow);
 
             var request = new NearbyConnectionRequest(
                 device,
+                deadline,
                 accept: async ct =>
                 {
                     MCSession session;
@@ -156,6 +175,7 @@ sealed partial class IosAdapter : IPlatformAdapter
                             device,
                             tcs,
                             ConnectionRole.Acceptor,
+                            OfferWindow.Clamp(deadline - _bridge.TimeProvider.GetUtcNow()),
                             beforeAwait: _ =>
                             {
                                 invitationHandler(true, session);
@@ -247,9 +267,9 @@ sealed partial class IosAdapter : IPlatformAdapter
 
         if (!_bridge.PeerLookup.TryGetHandle(device.Id, out var peerID))
         {
-            _bridge.LogNoPeerFoundForDevice(device.Id, device.DisplayName);
+            _bridge.LogNoPeerFoundForDevice(device.Id);
             _bridge.FaultConnectionTcs(device.Id, new NearbyException(
-                $"Cannot connect: device '{device.DisplayName}' (Id={device.Id}) is not currently visible. Ensure it is actively advertising and within range."));
+                $"Cannot connect: device '{device.Id}' is not currently visible. Ensure it is actively advertising and within range."));
             return Task.CompletedTask;
         }
 
@@ -266,7 +286,13 @@ sealed partial class IosAdapter : IPlatformAdapter
             session = _session;
         }
 
-        _mcBrowser?.InvitePeer(peerID, session, context: null, ToInvitationTimeout(_bridge.Options.ConnectTimeout));
+        // The 9-byte window-only frame: the name rides MCPeerID natively, and staying tiny
+        // sidesteps the undocumented context size limit. The advertiser derives the offer's one
+        // deadline from it.
+        using var context = NSData.FromArray(
+            ControlMessage.EncodeConnectRequest(_bridge.Options.ConnectTimeout, displayName: string.Empty));
+
+        _mcBrowser?.InvitePeer(peerID, session, context, ToInvitationTimeout(_bridge.Options.ConnectTimeout));
 
         return Task.CompletedTask;
     }
@@ -309,10 +335,9 @@ sealed partial class IosAdapter : IPlatformAdapter
         if (error is not null)
         {
             var nsErrorException = new NSErrorException(error);
-            var name = _bridge.PeerLookup.SafeDisplayName(deviceId, peerID);
 
-            _bridge.LogSendBytesFailed(name, nsErrorException);
-            throw new NearbyTransferException($"Failed to send bytes to '{name}': {error.LocalizedDescription}", nsErrorException);
+            _bridge.LogSendBytesFailed(deviceId, nsErrorException);
+            throw new NearbyTransferException($"Failed to send bytes to device '{deviceId}': {error.LocalizedDescription}", nsErrorException);
         }
 
         return Task.CompletedTask;
@@ -407,6 +432,7 @@ sealed partial class IosAdapter : IPlatformAdapter
         finally
         {
             observer?.Dispose();
+            observer = null;
         }
     }
 
@@ -479,9 +505,8 @@ sealed partial class IosAdapter : IPlatformAdapter
         try
         {
             var id = _bridge.PeerLookup.DeviceIdFor(peerID);
-            var name = _bridge.PeerLookup.SafeDisplayName(id, peerID);
 
-            LogPeerStateChanged(id, name, state);
+            LogPeerStateChanged(id, state);
 
             switch (state)
             {
@@ -495,7 +520,7 @@ sealed partial class IosAdapter : IPlatformAdapter
                     // rather than awaited.
                     _bridge.ReleaseConnectionFromCallback(id);
                     _bridge.FaultConnectionTcs(id, new NearbyException(
-                        $"Connection to peer '{_bridge.PeerLookup.SafeDisplayName(peerID)}' failed: session state changed to NotConnected before the connection was established."));
+                        $"Connection to device '{id}' failed: session state changed to NotConnected before the connection was established."));
 
                     if (_bridge.PeerLookup.Remove(id) is { } lostDevice)
                     {
@@ -521,15 +546,14 @@ sealed partial class IosAdapter : IPlatformAdapter
         try
         {
             var id = _bridge.PeerLookup.DeviceIdFor(peerID);
-            var name = _bridge.PeerLookup.SafeDisplayName(id, peerID);
 
-            _bridge.LogDataReceived(id, name, (long)data.Length);
+            _bridge.LogDataReceived(id, (long)data.Length);
 
             var bytes = data.ToArray();
 
             if (ControlMessage.TryDecode(bytes, out var controlType))
             {
-                LogControlMessageReceived(id, name, controlType);
+                LogControlMessageReceived(id, controlType);
                 HandleControlMessage(id, controlType);
                 return;
             }
@@ -604,9 +628,6 @@ sealed partial class IosAdapter : IPlatformAdapter
         try
         {
             var id = _bridge.PeerLookup.DeviceIdFor(fromPeer);
-
-            // The name is peer-chosen and reaches log sinks and consumer UI — same untrusted class
-            // as a display name, so it runs through the same filter.
             var safeName = PeerLookup.Sanitize(streamName, ControlMessage.MaxStreamNameBytes) ?? string.Empty;
 
             _bridge.WritePayload(id, new NearbyStreamPayload(new NsInputStreamAdapter(stream), safeName));
@@ -669,9 +690,8 @@ sealed partial class IosAdapter : IPlatformAdapter
         try
         {
             var id = _bridge.PeerLookup.DeviceIdFor(fromPeer);
-            var name = _bridge.PeerLookup.SafeDisplayName(id, fromPeer);
 
-            _bridge.LogResourceReceiveStarted(id, name, resourceName);
+            _bridge.LogResourceReceiveStarted(id, resourceName);
 
             var observer = progress.AddObserver(
                 "fractionCompleted",
@@ -743,9 +763,8 @@ sealed partial class IosAdapter : IPlatformAdapter
         {
             var id = _bridge.PeerLookup.DeviceIdFor(fromPeer);
             var loc = localUrl?.ToString() ?? "null";
-            var name = _bridge.PeerLookup.SafeDisplayName(id, fromPeer);
 
-            _bridge.LogResourceReceiveFinished(id, name, resourceName, loc, error?.LocalizedDescription);
+            _bridge.LogResourceReceiveFinished(id, resourceName, loc, error?.LocalizedDescription);
 
             if (_progressObservers.TryRemove(ObserverKey(id, resourceName), out var observer))
             {

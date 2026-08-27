@@ -124,8 +124,6 @@ Plugin.Maui.NearbyConnections.NearbyFilePayload.FileResult.init -> void
 Plugin.Maui.NearbyConnections.NearbyFilePayload.MoveTo(string! destinationPath) -> Microsoft.Maui.Storage.FileResult!
 Plugin.Maui.NearbyConnections.NearbyFilePayload.NearbyFilePayload(Microsoft.Maui.Storage.FileResult! FileResult) -> void
 Plugin.Maui.NearbyConnections.NearbyOptions
-Plugin.Maui.NearbyConnections.NearbyOptions.AcceptTimeout.get -> System.TimeSpan
-Plugin.Maui.NearbyConnections.NearbyOptions.AcceptTimeout.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.Android.get -> Plugin.Maui.NearbyConnections.NearbyAndroidOptions!
 Plugin.Maui.NearbyConnections.NearbyOptions.Apple.get -> Plugin.Maui.NearbyConnections.NearbyAppleOptions!
 Plugin.Maui.NearbyConnections.NearbyOptions.AutoAcceptConnectionRequests.get -> bool
@@ -136,8 +134,6 @@ Plugin.Maui.NearbyConnections.NearbyOptions.DiscoveryRefreshInterval.get -> Syst
 Plugin.Maui.NearbyConnections.NearbyOptions.DiscoveryRefreshInterval.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.DisplayName.get -> string!
 Plugin.Maui.NearbyConnections.NearbyOptions.DisplayName.set -> void
-Plugin.Maui.NearbyConnections.NearbyOptions.InboundRequestTimeout.get -> System.TimeSpan
-Plugin.Maui.NearbyConnections.NearbyOptions.InboundRequestTimeout.set -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.NearbyOptions() -> void
 Plugin.Maui.NearbyConnections.NearbyOptions.ServiceId.get -> string!
 Plugin.Maui.NearbyConnections.NearbyOptions.ServiceId.set -> void
